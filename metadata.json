@@ -1,0 +1,9 @@
+{
+  "name": " Sanghavi Jewel Studio ver3",
+  "description": "A sophisticated, AI-powered PWA for jewelry inventory management and digital cataloging featuring AI image analysis and design generation. That is designed to deployed on hostinger node version 18 with images to be saved on server ",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
