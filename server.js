@@ -23,11 +23,18 @@ const dataDir = path.join(rootDir, 'data');
 const dbFile = path.join(dataDir, 'db.json');
 const distPath = path.join(rootDir, 'dist');
 
-console.log(`Server starting... Root: ${rootDir}, Dist: ${distPath}`);
+console.log(`[Server] Starting at ${new Date().toISOString()}`);
+console.log(`[Server] Root Dir: ${rootDir}`);
+console.log(`[Server] Node Version: ${process.version}`);
 
 // Ensure data persistence layer exists
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+try {
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        console.log(`[Server] Created data directory: ${dataDir}`);
+    }
+} catch (err) {
+    console.error(`[Server] Failed to create data directory: ${err.message}`);
 }
 
 const getDB = () => {
@@ -39,7 +46,7 @@ const getDB = () => {
         }
         return JSON.parse(fs.readFileSync(dbFile, 'utf8'));
     } catch (e) {
-        console.error("DB Read Error:", e);
+        console.error("[Server] DB Read Error:", e);
         return { products: [], analytics: [], config: null };
     }
 };
@@ -48,7 +55,7 @@ const saveDB = (data) => {
     try {
         fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
     } catch (e) {
-        console.error("DB Write Error:", e);
+        console.error("[Server] DB Write Error:", e);
     }
 };
 
@@ -114,6 +121,7 @@ app.post('/api/analytics', (req, res) => {
 
 // Serve static files from 'dist'
 if (fs.existsSync(distPath)) {
+    console.log(`[Server] Serving static files from: ${distPath}`);
     app.use(express.static(distPath));
     
     app.get('*', (req, res) => {
@@ -123,6 +131,7 @@ if (fs.existsSync(distPath)) {
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {
+    console.warn(`[Server] Warning: 'dist' directory not found at ${distPath}`);
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
              return res.status(404).json({ error: 'API route not found' });
@@ -131,6 +140,12 @@ if (fs.existsSync(distPath)) {
     });
 }
 
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('[Server] Internal Error:', err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server listening on port ${PORT}`);
+    console.log(`[Server] Listening on port ${PORT}`);
 });

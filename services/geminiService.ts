@@ -2,13 +2,18 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AspectRatio } from "../types";
 
 /**
- * Helper to get Gemini client with error handling
+ * Helper to get Gemini client with error handling.
+ * In production, process.env.API_KEY is injected by Vite during build.
  */
 const getAiClient = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("Gemini API Key is not configured. Please check your environment variables.");
+  
+  if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+    throw new Error(
+      "Gemini API Key is not configured. Please ensure the API_KEY environment variable is set in your deployment settings before building."
+    );
   }
+  
   return new GoogleGenAI({ apiKey });
 };
 
@@ -56,14 +61,22 @@ export const analyzeJewelryImage = async (base64Image: string) => {
 export const enhanceJewelryImage = async (base64Image: string) => {
   const ai = getAiClient();
   try {
+    const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
-      contents: [{
+      contents: {
         parts: [
-          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-          { text: "Enhance this jewelry photo for a luxury catalog. Apply soft-box studio lighting, remove harsh shadows, improve metal luster, and ensure a clean neutral background." }
-        ]
-      }]
+          {
+            inlineData: {
+              data: cleanBase64,
+              mimeType: 'image/jpeg',
+            },
+          },
+          {
+            text: "Enhance this jewelry photo for a luxury catalog. Apply soft-box studio lighting, remove harsh shadows, improve metal luster, and ensure a clean neutral background.",
+          },
+        ],
+      },
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
@@ -84,9 +97,16 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
-      contents: [{ parts: [{ text: `Professional 8k macro luxury jewelry photography of ${prompt}. Cinematic studio lighting, sharp focus on diamonds/gems, elegant metallic luster, soft depth of field.` }] }],
+      contents: {
+        parts: [
+          {
+            text: `Professional 8k macro luxury jewelry photography of ${prompt}. Cinematic studio lighting, sharp focus on diamonds/gems, elegant metallic luster, soft depth of field.`,
+          },
+        ],
+      },
       config: {
         imageConfig: {
+          // Fix: The AspectRatio type does not include 'original', removing the redundant check.
           aspectRatio: aspectRatio as any,
           imageSize: "1K"
         }
@@ -109,11 +129,12 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
 export const identifyJewelryFeatures = async (base64Image: string) => {
   const ai = getAiClient();
   try {
+    const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{
         parts: [
-          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+          { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
           { text: "Identify the primary category, main material, and key style features of this jewelry. Output MUST be JSON." }
         ]
       }],
@@ -144,14 +165,22 @@ export const identifyJewelryFeatures = async (base64Image: string) => {
 export const removeWatermark = async (base64Image: string) => {
   const ai = getAiClient();
   try {
+    const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
-      contents: [{
+      contents: {
         parts: [
-          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-          { text: "Remove all text, watermarks, and branding from this jewelry photo while maintaining original item quality." }
-        ]
-      }]
+          {
+            inlineData: {
+              data: cleanBase64,
+              mimeType: 'image/jpeg',
+            },
+          },
+          {
+            text: "Remove all text, watermarks, and branding from this jewelry photo while maintaining original item quality.",
+          },
+        ],
+      },
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
