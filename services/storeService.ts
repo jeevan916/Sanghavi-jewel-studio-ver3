@@ -26,17 +26,17 @@ export const storeService = {
         
         const data = await res.json();
         
-        if (data.status === 'online' && data.writable === true) {
-            return { healthy: true, path: data.uploadsDir };
+        if (data.status === 'online' && data.storage.writable === true) {
+            return { healthy: true, path: data.storage.uploads };
         }
         
         return { 
             healthy: false, 
-            reason: "Server storage is not writable.",
-            path: data.dataDir
+            reason: "Server storage is not writable. Check file permissions on Hostinger.",
+            path: data.storage.root
         };
     } catch (e: any) {
-        return { healthy: false, reason: "Check your internet or server status." };
+        return { healthy: false, reason: "Server is unreachable. Check network or server status." };
     }
   },
 
