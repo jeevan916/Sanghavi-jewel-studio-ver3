@@ -1,13 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AspectRatio } from "../types";
 
-// Standard instance for general analysis
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 /**
  * Analyzes a jewelry image to extract inventory metadata.
  */
 export const analyzeJewelryImage = async (base64Image: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -45,6 +43,7 @@ export const analyzeJewelryImage = async (base64Image: string) => {
  * Uses Gemini 2.5 Flash Image to enhance jewelry photos.
  */
 export const enhanceJewelryImage = async (base64Image: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
@@ -72,9 +71,9 @@ export const enhanceJewelryImage = async (base64Image: string) => {
  */
 export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
   // MUST create a new instance right before call to ensure the latest API key is used
-  const customAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
-    const response = await customAi.models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: [{ parts: [{ text: `Professional 8k macro luxury jewelry photography of ${prompt}. Cinematic studio lighting, sharp focus on diamonds/gems, elegant metallic luster, soft depth of field.` }] }],
       config: {
@@ -99,6 +98,7 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
  * Identifies jewelry features from an image for visual search.
  */
 export const identifyJewelryFeatures = async (base64Image: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -133,6 +133,7 @@ export const identifyJewelryFeatures = async (base64Image: string) => {
  * Removes branding from jewelry images using AI.
  */
 export const removeWatermark = async (base64Image: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
