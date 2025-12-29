@@ -2,19 +2,13 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AspectRatio } from "../types";
 
 /**
- * Helper to get Gemini client with error handling.
- * In production, process.env.API_KEY is injected by Vite during build.
+ * Helper to get Gemini client.
+ * Always initializes with process.env.API_KEY as per guidelines.
  */
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey || apiKey === 'undefined' || apiKey === '') {
-    throw new Error(
-      "Gemini API Key is not configured. Please ensure the API_KEY environment variable is set in your deployment settings before building."
-    );
-  }
-  
-  return new GoogleGenAI({ apiKey });
+  // Use process.env.API_KEY directly as specified in system instructions.
+  // We assume the variable is pre-configured and accessible.
+  return new GoogleGenAI({ apiKey: (process.env as any).API_KEY });
 };
 
 /**
@@ -48,6 +42,7 @@ export const analyzeJewelryImage = async (base64Image: string) => {
       }
     });
 
+    // response.text is a property, not a method.
     return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("AI Analysis failed:", error);
@@ -79,6 +74,7 @@ export const enhanceJewelryImage = async (base64Image: string) => {
       },
     });
 
+    // Iterate through all parts to find the image part as per guidelines.
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return part.inlineData.data;
     }
@@ -91,7 +87,6 @@ export const enhanceJewelryImage = async (base64Image: string) => {
 
 /**
  * Generates bespoke jewelry designs using Gemini 2.5 Flash Image.
- * Switched from Pro to Flash to remove explicit API key selection requirement.
  */
 export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
   const ai = getAiClient();
@@ -112,6 +107,7 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
       }
     });
 
+    // Iterate through candidates to find the generated image.
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
