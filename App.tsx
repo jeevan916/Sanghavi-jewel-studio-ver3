@@ -1,4 +1,3 @@
-
 import React, { useState, Suspense, lazy } from 'react';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
@@ -68,7 +67,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans">
-      <main className="pb-20 md:pb-0">
+      {/* Added md:pt-16 to clear the fixed desktop header */}
+      <main className="pt-0 md:pt-16 pb-20 md:pb-0">
         <Suspense fallback={<PageLoader />}>
           {renderPage()}
         </Suspense>

@@ -120,8 +120,8 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect }) => {
       </div>
 
       <aside className={`
-          fixed md:sticky md:top-0 h-[calc(100vh-64px)] md:h-screen w-64 bg-white border-r border-stone-200 z-20 transition-transform duration-300 overflow-y-auto
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 top-16 md:top-0
+          fixed md:sticky md:top-16 h-[calc(100vh-64px)] w-64 bg-white border-r border-stone-200 z-20 transition-transform duration-300 overflow-y-auto
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 top-16 md:top-16
       `}>
           <div className="p-6">
               <div className="hidden md:block mb-8">
@@ -227,7 +227,7 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect }) => {
           </div>
       </aside>
 
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto md:h-[calc(100vh-64px)] h-screen">
           <div className="mb-6 flex items-center gap-2 text-sm text-stone-500">
               <span className="cursor-pointer hover:text-gold-600" onClick={() => setActiveCategory('All')}>Home</span>
               <span>/</span>
