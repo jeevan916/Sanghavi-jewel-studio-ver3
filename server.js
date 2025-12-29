@@ -12,29 +12,31 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// --- ROBUST PATH RESOLUTION ---
-// Use process.cwd() as a fallback for some hosting environments
-const rootDir = path.resolve(__dirname);
+// --- PRODUCTION-READY PATH RESOLUTION ---
+// Use process.cwd() as it is more reliable in hosted environments like Hostinger
+const rootDir = process.cwd();
 const dataDir = path.join(rootDir, 'data');
 const dbFile = path.join(dataDir, 'db.json');
 const distPath = path.join(rootDir, 'dist');
 
-console.log(`[Server] Initializing Sanghavi Studio Backend...`);
-console.log(`[Server] Database target: ${dbFile}`);
+console.log(`[Server] Initialization started...`);
+console.log(`[Server] Working Directory: ${rootDir}`);
+console.log(`[Server] Database Path: ${dbFile}`);
 
-// Ensure data persistence layer exists
 const ensureDataDir = () => {
     if (!fs.existsSync(dataDir)) {
         try {
             fs.mkdirSync(dataDir, { recursive: true });
             console.log(`[Server] Created data directory: ${dataDir}`);
         } catch (err) {
-            console.error(`[Server] CRITICAL: Failed to create data directory!`, err);
+            console.error(`[Server] CRITICAL: Failed to create data directory at ${dataDir}`, err);
+            return err.message;
         }
     }
+    return null;
 };
 
 const getDB = () => {
@@ -48,19 +50,20 @@ const getDB = () => {
         const data = fs.readFileSync(dbFile, 'utf8');
         return JSON.parse(data);
     } catch (e) {
-        console.error("[Server] DB Read Error. Returning empty state.", e);
+        console.error("[Server] DB Read Error:", e);
         return { products: [], analytics: [], config: null };
     }
 };
 
 const saveDB = (data) => {
-    ensureDataDir();
+    const err = ensureDataDir();
+    if (err) throw new Error(`FileSystem Error: ${err}`);
     try {
         fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
-        console.log(`[Server] DB Saved. Total Products: ${data.products.length}`);
+        console.log(`[Server] DB saved. Total Products: ${data.products.length}`);
         return true;
     } catch (e) {
-        console.error("[Server] DB Write Error! Check filesystem permissions.", e);
+        console.error("[Server] DB Write Error:", e);
         throw e;
     }
 };
@@ -69,19 +72,25 @@ const saveDB = (data) => {
 
 app.get('/api/health', (req, res) => {
     let writeable = false;
+    let writeError = null;
     try {
         ensureDataDir();
-        const testFile = path.join(dataDir, '.write-test');
-        fs.writeFileSync(testFile, Date.now().toString());
+        const testFile = path.join(dataDir, `.write-test-${Date.now()}`);
+        fs.writeFileSync(testFile, 'test');
         fs.unlinkSync(testFile);
         writeable = true;
-    } catch (e) {}
+    } catch (e) {
+        writeError = e.message;
+        console.error(`[Health Check] Write test failed: ${writeError}`);
+    }
 
     res.json({ 
         status: 'online', 
         writeAccess: writeable,
+        writeError: writeError,
         dbExists: fs.existsSync(dbFile),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'production'
     });
 });
 
@@ -95,12 +104,11 @@ app.get('/api/products', (req, res) => {
 });
 
 app.post('/api/products', (req, res) => {
-    console.log(`[Server] POST /api/products - Incoming upload request`);
+    console.log(`[Server] POST /api/products - Payload Size: ${Math.round(JSON.stringify(req.body).length / 1024 / 1024)}MB`);
     try {
         const product = req.body;
         
         if (!product.title || !product.images || !product.images.length) {
-            console.warn(`[Server] Rejected: Missing required fields`);
             return res.status(400).json({ error: 'Title and images are required.' });
         }
 
@@ -109,11 +117,10 @@ app.post('/api/products', (req, res) => {
         db.products.push(newProduct);
         saveDB(db);
         
-        console.log(`[Server] Successfully saved: ${newProduct.title}`);
         res.status(201).json(newProduct);
     } catch (err) {
-        console.error("[Server] Internal Error during save:", err);
-        res.status(500).json({ error: 'Server failed to save the product. Check directory permissions.' });
+        console.error("[Server] Save Error:", err);
+        res.status(500).json({ error: `Server Save Failed: ${err.message}` });
     }
 });
 
@@ -164,7 +171,7 @@ if (fs.existsSync(distPath)) {
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {
-    app.get('*', (req, res) => res.status(200).send('Sanghavi Server is online. UI (dist folder) is missing - run npm build.'));
+    app.get('*', (req, res) => res.status(200).send('Sanghavi Server is online. UI (dist folder) is missing - ensure npm build ran successfully.'));
 }
 
 app.listen(PORT, '0.0.0.0', () => {

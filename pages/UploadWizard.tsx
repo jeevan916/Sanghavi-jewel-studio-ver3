@@ -143,11 +143,11 @@ export const UploadWizard: React.FC = () => {
     setIsSaving(true);
     setUploadError(null);
 
-    // 1. Health Pre-check
-    const isHealthy = await storeService.checkServerHealth();
-    if (!isHealthy) {
+    // 1. Health Pre-check with detailed diagnostics
+    const health = await storeService.checkServerHealth();
+    if (!health.healthy) {
         setIsSaving(false);
-        setUploadError("Server connection lost or database is read-only. Please contact administrator.");
+        setUploadError(`Server Error: ${health.reason}`);
         return;
     }
 
@@ -184,7 +184,7 @@ export const UploadWizard: React.FC = () => {
       setUploadError(null);
     } catch (err: any) {
       console.error("Save Error:", err);
-      setUploadError(`Failed to save: ${err.message}`);
+      setUploadError(`Upload failed: ${err.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -220,8 +220,8 @@ export const UploadWizard: React.FC = () => {
           <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 text-red-700 animate-in slide-in-from-top-2">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
               <div className="flex-1 text-sm">
-                  <p className="font-bold mb-1">Upload Issue Detected</p>
-                  <p>{uploadError}</p>
+                  <p className="font-bold mb-1">System Notice</p>
+                  <p className="opacity-90">{uploadError}</p>
               </div>
               <button onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-600"><X size={16}/></button>
           </div>

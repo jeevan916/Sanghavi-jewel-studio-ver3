@@ -6,17 +6,35 @@ const KEYS = {
   SESSION: 'sanghavi_user_session',
 };
 
+export interface HealthStatus {
+    healthy: boolean;
+    reason?: string;
+}
+
 export const storeService = {
   // --- Connection Status ---
   getIsOnline: () => navigator.onLine,
   
-  checkServerHealth: async (): Promise<boolean> => {
+  checkServerHealth: async (): Promise<HealthStatus> => {
     try {
-        const res = await fetch(`${API_BASE}/health`, { method: 'GET' });
+        const res = await fetch(`${API_BASE}/health`, { 
+            method: 'GET',
+            headers: { 'Cache-Control': 'no-cache' } 
+        });
+        
+        if (!res.ok) return { healthy: false, reason: `Server responded with ${res.status}` };
+        
         const data = await res.json();
-        return data.status === 'online' && data.writeAccess === true;
-    } catch (e) {
-        return false;
+        if (data.status === 'online' && data.writeAccess === true) {
+            return { healthy: true };
+        }
+        
+        return { 
+            healthy: false, 
+            reason: data.writeError || "Database is in read-only mode." 
+        };
+    } catch (e: any) {
+        return { healthy: false, reason: "Server is unreachable. Check internet connection." };
     }
   },
 
@@ -30,7 +48,7 @@ export const storeService = {
     };
   },
 
-  // --- Inventory Management (API Based) ---
+  // --- Inventory Management ---
   getProducts: async (): Promise<Product[]> => {
     try {
       const res = await fetch(`${API_BASE}/products`);
@@ -59,7 +77,7 @@ export const storeService = {
         
         if (!res.ok) {
             const errorText = await res.text();
-            throw new Error(`Upload failed: ${res.status} ${res.statusText}. ${errorText}`);
+            throw new Error(`Upload failed (${res.status}): ${errorText || res.statusText}`);
         }
         
         return await res.json();
@@ -117,7 +135,7 @@ export const storeService = {
     return await res.json();
   },
 
-  // --- AI Generated Designs (Client-side history) ---
+  // --- AI Generated Designs ---
   getDesigns: async (): Promise<GeneratedDesign[]> => {
     const data = localStorage.getItem('sanghavi_designs');
     return data ? JSON.parse(data) : [];
@@ -125,7 +143,7 @@ export const storeService = {
 
   addDesign: async (design: GeneratedDesign) => {
     const existing = await storeService.getDesigns();
-    const updated = [design, ...existing].slice(0, 50); // Keep last 50
+    const updated = [design, ...existing].slice(0, 50);
     localStorage.setItem('sanghavi_designs', JSON.stringify(updated));
     return design;
   },
@@ -187,7 +205,7 @@ export const storeService = {
     window.location.reload();
   },
 
-  // --- Analytics & Insights ---
+  // --- Analytics ---
   logEvent: async (type: 'inquiry' | 'screenshot' | 'view', product: Product, user: User | null, imageIndex?: number) => {
     const event: AnalyticsEvent = {
         id: Date.now().toString() + Math.random().toString().slice(2, 6),
