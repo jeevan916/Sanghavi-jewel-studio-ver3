@@ -1,7 +1,9 @@
+
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
 
@@ -16,11 +18,12 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 /**
- * PERSISTENT STORAGE STRATEGY
- * To prevent data loss when the 'public_html' or app folder is updated/overwritten,
- * we store the database and uploads in a directory ONE LEVEL UP.
+ * PERSISTENT STORAGE STRATEGY (HOSTINGER)
+ * To prevent data loss when the app folder is overwritten during updates,
+ * we store data in a hidden folder in the USER'S HOME DIRECTORY.
+ * Path example: /home/u106408367/sanghavi_persistence
  */
-const persistenceDir = path.resolve(__dirname, '..', 'sanghavi_persistence');
+const persistenceDir = path.join(os.homedir(), 'sanghavi_persistence');
 const uploadsDir = path.join(persistenceDir, 'uploads');
 const dbFile = path.join(persistenceDir, 'db.json');
 
@@ -31,6 +34,7 @@ const initStorage = () => {
             fs.mkdirSync(persistenceDir, { recursive: true });
         }
         if (!fs.existsSync(uploadsDir)) {
+            console.log(`[Storage] Creating uploads folder`);
             fs.mkdirSync(uploadsDir, { recursive: true });
         }
         if (!fs.existsSync(dbFile)) {
@@ -45,6 +49,7 @@ const initStorage = () => {
 
 initStorage();
 
+// Serve the 'uploads' folder as a static endpoint
 app.use('/api/uploads', express.static(uploadsDir));
 
 const getDB = () => {
@@ -79,31 +84,45 @@ const extractAndSaveImage = (imgData, productId, index) => {
         const filename = `prod_${productId}_${index}_${Date.now()}.${extension}`;
         const filePath = path.join(uploadsDir, filename);
         fs.writeFileSync(filePath, buffer);
+        // This URL matches the app.use('/api/uploads', ...) route
         return `/api/uploads/${filename}`;
     } catch (err) {
+        console.error(`[ImageEngine] Save failed:`, err);
         return imgData;
     }
 };
+
+// --- API ROUTES ---
 
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'online', 
         storagePath: persistenceDir,
-        dbExists: fs.existsSync(dbFile)
+        dbExists: fs.existsSync(dbFile),
+        writable: fs.existsSync(uploadsDir)
     });
 });
 
-app.get('/api/products', (req, res) => res.json(getDB().products));
+app.get('/api/products', (req, res) => {
+    const db = getDB();
+    res.json(db.products || []);
+});
 
 app.post('/api/products', (req, res) => {
     try {
         const product = req.body;
         const productId = product.id || Date.now().toString();
-        const processedImages = (product.images || []).map((img, idx) => extractAndSaveImage(img, productId, idx));
+        
+        // Save base64 images to physical storage
+        const processedImages = (product.images || []).map((img, idx) => 
+            extractAndSaveImage(img, productId, idx)
+        );
+
         const db = getDB();
         const finalProduct = { ...product, id: productId, images: processedImages };
         db.products.push(finalProduct);
         saveDB(db);
+        
         res.status(201).json(finalProduct);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -115,11 +134,17 @@ app.put('/api/products/:id', (req, res) => {
         const { id } = req.params;
         const updatedData = req.body;
         const db = getDB();
+        
         const index = db.products.findIndex(p => p.id === id);
         if (index === -1) return res.status(404).json({ error: 'Not found' });
-        const processedImages = (updatedData.images || []).map((img, idx) => extractAndSaveImage(img, id, idx));
+
+        const processedImages = (updatedData.images || []).map((img, idx) => 
+            extractAndSaveImage(img, id, idx)
+        );
+
         db.products[index] = { ...updatedData, images: processedImages };
         saveDB(db);
+        
         res.json(db.products[index]);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -156,6 +181,7 @@ app.post('/api/analytics', (req, res) => {
 
 app.post('/api/links', (req, res) => {
     const db = getDB();
+    if (!db.links) db.links = [];
     db.links.push(req.body);
     saveDB(db);
     res.status(201).json({ success: true });
@@ -168,6 +194,18 @@ app.get('/api/links/:token', (req, res) => {
     res.json(link);
 });
 
+// Serve frontend dist if it exists
+const distPath = path.join(__dirname, 'dist');
+if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.sendFile(path.join(distPath, 'index.html'));
+        }
+    });
+}
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Server] Persistent API Engine running on port ${PORT}`);
+    console.log(`[Server] Data Directory: ${persistenceDir}`);
 });
