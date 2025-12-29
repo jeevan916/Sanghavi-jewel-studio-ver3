@@ -72,24 +72,38 @@ const saveDB = (data) => {
     }
 };
 
+/**
+ * PHYSICALLY REMOVE FILE FROM DISK
+ */
 const deletePhysicalFile = (imageUrl) => {
     if (!imageUrl || typeof imageUrl !== 'string') return;
-    if (!imageUrl.startsWith('/api/uploads/')) return;
+    
+    // Ensure we are only dealing with our own upload API paths
+    if (!imageUrl.includes('/api/uploads/')) return;
 
     try {
-        const filename = path.basename(imageUrl);
-        const filePath = path.join(uploadsDir, filename);
+        // Extract filename after /api/uploads/ and strip any query params/hashes
+        const parts = imageUrl.split('/api/uploads/');
+        const filenameWithParams = parts[parts.length - 1];
+        const filename = filenameWithParams.split('?')[0].split('#')[0];
+        
+        const filePath = path.resolve(uploadsDir, filename);
+        
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
-            console.log(`[Storage] Deleted physical file: ${filename}`);
+            console.log(`[Cleanup] PHYSICALLY DELETED: ${filename}`);
+        } else {
+            console.warn(`[Cleanup] File not found on disk: ${filename}`);
         }
     } catch (err) {
-        console.error(`[Storage] Failed to delete file ${imageUrl}:`, err);
+        console.error(`[Cleanup] ERROR deleting file ${imageUrl}:`, err);
     }
 };
 
 const extractAndSaveImage = (imgData, productId, index) => {
+    // If it's already a URL, don't re-save it
     if (!imgData || !imgData.startsWith('data:image')) return imgData;
+    
     try {
         const mimeType = imgData.match(/data:([^;]+);/)[1];
         const extension = mimeType.split('/')[1] || 'jpg';
@@ -97,7 +111,9 @@ const extractAndSaveImage = (imgData, productId, index) => {
         const buffer = Buffer.from(base64Content, 'base64');
         const filename = `prod_${productId}_${index}_${Date.now()}.${extension}`;
         const filePath = path.join(uploadsDir, filename);
+        
         fs.writeFileSync(filePath, buffer);
+        console.log(`[Upload] Saved image: ${filename}`);
         return `/api/uploads/${filename}`;
     } catch (err) {
         console.error(`[ImageEngine] Save failed:`, err);
@@ -147,7 +163,7 @@ app.put('/api/products/:id', (req, res) => {
         const updatedData = req.body;
         const db = getDB();
         
-        const index = db.products.findIndex(p => p.id === id);
+        const index = db.products.findIndex(p => String(p.id) === String(id));
         if (index === -1) return res.status(404).json({ error: 'Not found' });
 
         const oldImages = db.products[index].images || [];
@@ -156,7 +172,7 @@ app.put('/api/products/:id', (req, res) => {
             extractAndSaveImage(img, id, idx)
         );
 
-        // Cleanup old images that are no longer in the product set
+        // Cleanup old images that were removed in this update
         oldImages.forEach(oldImg => {
             if (!processedImages.includes(oldImg)) {
                 deletePhysicalFile(oldImg);
@@ -177,18 +193,29 @@ app.delete('/api/products/:id', (req, res) => {
         const { id } = req.params;
         const db = getDB();
         
-        const productToDelete = db.products.find(p => p.id === id);
-        if (productToDelete) {
-            // Delete all associated physical image files
-            (productToDelete.images || []).forEach(imgUrl => {
-                deletePhysicalFile(imgUrl);
-            });
-        }
+        const prodIndex = db.products.findIndex(p => String(p.id) === String(id));
+        
+        if (prodIndex !== -1) {
+            const productToDelete = db.products[prodIndex];
+            console.log(`[Delete] Removing product: ${productToDelete.title} (${id})`);
+            
+            // 1. Delete all associated physical image files
+            if (Array.isArray(productToDelete.images)) {
+                productToDelete.images.forEach(imgUrl => {
+                    deletePhysicalFile(imgUrl);
+                });
+            }
 
-        db.products = db.products.filter(p => p.id !== id);
-        saveDB(db);
-        res.json({ success: true });
+            // 2. Remove from database
+            db.products.splice(prodIndex, 1);
+            saveDB(db);
+            
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: 'Product not found' });
+        }
     } catch (err) {
+        console.error(`[Delete] Error:`, err);
         res.status(500).json({ error: err.message });
     }
 });
