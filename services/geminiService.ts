@@ -90,13 +90,14 @@ export const enhanceJewelryImage = async (base64Image: string) => {
 };
 
 /**
- * Generates bespoke jewelry designs using Gemini 3 Pro Image.
+ * Generates bespoke jewelry designs using Gemini 2.5 Flash Image.
+ * Switched from Pro to Flash to remove explicit API key selection requirement.
  */
 export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
   const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
           {
@@ -106,9 +107,7 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
       },
       config: {
         imageConfig: {
-          // Fix: The AspectRatio type does not include 'original', removing the redundant check.
-          aspectRatio: aspectRatio as any,
-          imageSize: "1K"
+          aspectRatio: aspectRatio as any
         }
       }
     });
