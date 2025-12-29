@@ -1,6 +1,7 @@
 import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent } from "../types";
 
-const API_BASE = '/api';
+// Base API Path - Hostinger usually handles this via a proxy or same-origin mapping
+const API_BASE = window.location.origin.includes('localhost') ? '/api' : '/api';
 
 const KEYS = {
   SESSION: 'sanghavi_user_session',
@@ -26,17 +27,16 @@ export const storeService = {
         
         const data = await res.json();
         
-        if (data.status === 'online' && data.storage.writable === true) {
-            return { healthy: true, path: data.storage.uploads };
+        if (data.status === 'online' && data.uploadsWritable === true) {
+            return { healthy: true };
         }
         
         return { 
             healthy: false, 
-            reason: "Server storage is not writable. Check file permissions on Hostinger.",
-            path: data.storage.root
+            reason: "Server storage check failed."
         };
     } catch (e: any) {
-        return { healthy: false, reason: "Server is unreachable. Check network or server status." };
+        return { healthy: false, reason: "API server is unreachable." };
     }
   },
 
@@ -50,7 +50,6 @@ export const storeService = {
     };
   },
 
-  // --- Inventory Management ---
   getProducts: async (): Promise<Product[]> => {
     try {
       const res = await fetch(`${API_BASE}/products`);
@@ -111,7 +110,6 @@ export const storeService = {
     await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' });
   },
 
-  // --- Settings ---
   getConfig: async (): Promise<AppConfig> => {
     try {
       const res = await fetch(`${API_BASE}/config`);
@@ -138,7 +136,6 @@ export const storeService = {
     return await res.json();
   },
 
-  // --- Designs ---
   getDesigns: async (): Promise<GeneratedDesign[]> => {
     const data = localStorage.getItem('sanghavi_designs');
     return data ? JSON.parse(data) : [];
@@ -151,7 +148,6 @@ export const storeService = {
     return design;
   },
 
-  // --- Links ---
   createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
     const config = await storeService.getConfig();
     const token = Math.random().toString(36).substring(2, 15);
@@ -178,7 +174,6 @@ export const storeService = {
     }
   },
 
-  // --- Auth ---
   getCurrentUser: (): User | null => {
     const data = localStorage.getItem(KEYS.SESSION);
     return data ? JSON.parse(data) : null;
@@ -200,7 +195,6 @@ export const storeService = {
     window.location.reload();
   },
 
-  // --- Analytics ---
   logEvent: async (type: 'inquiry' | 'screenshot' | 'view', product: Product, user: User | null, imageIndex?: number) => {
     const event: AnalyticsEvent = {
         id: Date.now().toString(),
