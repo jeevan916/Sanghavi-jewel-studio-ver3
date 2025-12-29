@@ -1,33 +1,22 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AspectRatio } from "../types";
 
+// Standard instance for general analysis
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// --- Image Analysis ---
-
+/**
+ * Analyzes a jewelry image to extract inventory metadata.
+ */
 export const analyzeJewelryImage = async (base64Image: string) => {
   try {
-    // Switched to gemini-2.5-flash for speed
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", 
-      contents: {
+      model: "gemini-3-flash-preview",
+      contents: [{
         parts: [
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image,
-            },
-          },
-          {
-            text: `Analyze this jewelry image for inventory management. 
-            Extract the likely title, category (Necklace, Ring, Earrings, Bracelet, Bangle, Set, Other), 
-            and a specific sub-category (e.g., Choker, Solitaire, Jhumka).
-            Estimate gold weight in grams (if visible on tag, otherwise estimate based on visual size), 
-            a luxurious marketing description, and 5 relevant search tags.
-            Also, determine if the image contains any visible price tags or clutter that should be removed.`,
-          },
-        ],
-      },
+          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+          { text: "Analyze this jewelry for a luxury inventory system. Provide a title, category, sub-category, estimated weight (grams), detailed marketing description, and 5 search tags. Output MUST be JSON." }
+        ]
+      }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -36,114 +25,131 @@ export const analyzeJewelryImage = async (base64Image: string) => {
             title: { type: Type.STRING },
             category: { type: Type.STRING },
             subCategory: { type: Type.STRING },
-            weight: { type: Type.NUMBER, description: "Estimated weight in grams" },
+            weight: { type: Type.NUMBER },
             description: { type: Type.STRING },
-            tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-            needsEditing: { type: Type.BOOLEAN, description: "True if price tags or clutter detected" }
+            tags: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
-          required: ["title", "category", "weight", "description", "tags"],
-        },
-      },
+          required: ["title", "category", "weight", "description", "tags"]
+        }
+      }
     });
 
     return JSON.parse(response.text || "{}");
   } catch (error) {
-    console.error("Analysis failed:", error);
-    // Return basic fallback if AI fails, to allow upload to proceed
-    return {
-      title: "Unprocessed Jewelry Item",
-      category: "Other",
-      description: "AI Analysis failed, please edit details manually.",
-      tags: ["upload"],
-      weight: 0
-    };
+    console.error("AI Analysis failed:", error);
+    throw error;
   }
 };
 
-// --- Remove Watermark / Cleanup ---
+/**
+ * Uses Gemini 2.5 Flash Image to enhance jewelry photos.
+ */
+export const enhanceJewelryImage = async (base64Image: string) => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: [{
+        parts: [
+          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+          { text: "Enhance this jewelry photo for a luxury catalog. Apply soft-box studio lighting, remove harsh shadows, improve metal luster, and ensure a clean neutral background." }
+        ]
+      }]
+    });
 
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) return part.inlineData.data;
+    }
+    throw new Error("No image data returned from enhancement");
+  } catch (error) {
+    console.error("Enhancement failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Generates bespoke jewelry designs using Gemini 3 Pro Image.
+ * High-quality model requires mandatory API key selection.
+ */
+export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
+  // MUST create a new instance right before call to ensure the latest API key is used
+  const customAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  try {
+    const response = await customAi.models.generateContent({
+      model: 'gemini-3-pro-image-preview',
+      contents: [{ parts: [{ text: `Professional 8k macro luxury jewelry photography of ${prompt}. Cinematic studio lighting, sharp focus on diamonds/gems, elegant metallic luster, soft depth of field.` }] }],
+      config: {
+        imageConfig: {
+          aspectRatio: aspectRatio as any,
+          imageSize: "1K"
+        }
+      }
+    });
+
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+    }
+    throw new Error("No image generated by model.");
+  } catch (error) {
+    console.error("AI Generation failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Identifies jewelry features from an image for visual search.
+ */
+export const identifyJewelryFeatures = async (base64Image: string) => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{
+        parts: [
+          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+          { text: "Identify the primary category, main material, and key style features of this jewelry. Output MUST be JSON." }
+        ]
+      }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            category: { type: Type.STRING },
+            material: { type: Type.STRING },
+            styles: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["category", "material", "styles"]
+        }
+      }
+    });
+
+    return JSON.parse(response.text || "{}");
+  } catch (error) {
+    console.error("Feature identification failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Removes branding from jewelry images using AI.
+ */
 export const removeWatermark = async (base64Image: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
+      model: "gemini-2.5-flash-image",
+      contents: [{
         parts: [
-          {
-            inlineData: {
-              mimeType: 'image/jpeg',
-              data: base64Image,
-            },
-          },
-          {
-            text: 'Remove any watermarks, text overlays, or price tags from this image. Keep the jewelry exactly as is, just clean up the background and overlays.',
-          },
-        ],
-      },
+          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+          { text: "Remove all text, watermarks, and branding from this jewelry photo while maintaining original item quality." }
+        ]
+      }]
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return part.inlineData.data; // Return cleaned image base64
-      }
+      if (part.inlineData) return part.inlineData.data;
     }
-    return base64Image; // Fallback to original if no image returned
+    throw new Error("No image data returned from watermark removal");
   } catch (error) {
     console.error("Watermark removal failed:", error);
-    throw error;
-  }
-};
-
-// --- Market Trends (Grounding) ---
-
-export const getJewelryMarketTrends = async () => {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: "What are the current trending gold and diamond jewelry styles in India and globally for this season? Focus on design motifs, gold tones, and gemstone popularity.",
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    
-    // Process response for frontend display
-    return {
-      text: response.text,
-      sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
-    };
-  } catch (error) {
-    console.error("Trends fetch failed:", error);
-    throw error;
-  }
-};
-
-// --- Image Generation ---
-
-export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
-  try {
-    // Determine image size based on quality requirements, defaulting to 1K for speed/preview
-    const imageSize = "1K"; 
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
-      contents: {
-        parts: [{ text: `Professional jewelry design photography, 8k resolution, cinematic lighting, photorealistic. ${prompt}` }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: aspectRatio,
-          imageSize: imageSize,
-        }
-      },
-    });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-    throw new Error("No image data returned");
-  } catch (error) {
-    console.error("Generation failed:", error);
     throw error;
   }
 };

@@ -1,8 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser } from 'lucide-react';
-import { analyzeJewelryImage } from '../services/geminiService';
+import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2 } from 'lucide-react';
+import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
-import { Product } from '../types';
+import { Product, AppConfig, CategoryConfig } from '../types';
 import { useUpload } from '../contexts/UploadContext';
 
 type UploadMode = 'single' | 'batch';
@@ -13,17 +14,27 @@ export const UploadWizard: React.FC = () => {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const currentUser = storeService.getCurrentUser();
   
+  // Configuration State
+  const [config, setConfig] = useState<AppConfig | null>(null);
+
   // Consuming Global Context for Batch
-  const { queue, addToQueue, removeFromQueue, clearCompleted, isProcessing, useAI, setUseAI, cleanImage } = useUpload();
+  const { queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, cleanImage, studioEnhance } = useUpload();
   
-  // Local state for Batch Inputs
-  const [batchSupplier, setBatchSupplier] = useState('');
+  // Local state for Selections (Used in both Single and Batch)
+  const [selectedSupplier, setSelectedSupplier] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('');
   
   // --- SINGLE MODE STATE ---
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const [analysisData, setAnalysisData] = useState<Partial<Product>>({});
+
+  useEffect(() => {
+    storeService.getConfig().then(setConfig);
+  }, []);
 
   // --- COMMON HELPERS ---
   const getDeviceName = () => {
@@ -45,9 +56,13 @@ export const UploadWizard: React.FC = () => {
            dateTaken: getTodayDate(),
            meta: { ...prev.meta, cameraModel: getDeviceName() },
            uploadedBy: currentUser?.name || 'Unknown',
+           // If user pre-selected in Step 1, ensure they persist if AI didn't overwrite or if we want to enforce
+           category: selectedCategory || prev.category,
+           subCategory: selectedSubCategory || prev.subCategory,
+           supplier: selectedSupplier || prev.supplier
        }));
     }
-  }, [step, currentUser, analysisData.dateTaken]);
+  }, [step, currentUser, analysisData.dateTaken, selectedCategory, selectedSubCategory, selectedSupplier]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -77,7 +92,7 @@ export const UploadWizard: React.FC = () => {
       });
     } else {
       // Batch Mode: Add to global queue
-      addToQueue(Array.from(files) as File[], batchSupplier, getDeviceName());
+      addToQueue(Array.from(files) as File[], selectedSupplier, selectedCategory, selectedSubCategory, getDeviceName());
       if (e.target) e.target.value = ''; // Reset input
     }
   };
@@ -90,13 +105,35 @@ export const UploadWizard: React.FC = () => {
       const result = await analyzeJewelryImage(base64);
       setAnalysisData(prev => ({
         ...prev,
-        ...result
+        ...result,
+        // If user explicitly selected category, override AI
+        category: selectedCategory || result.category,
+        subCategory: selectedSubCategory || result.subCategory,
       }));
       setStep(3);
     } catch (error) {
       alert("Analysis failed. Please try again.");
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleSingleEnhance = async () => {
+    if (images.length === 0) return;
+    setIsEnhancing(true);
+    try {
+        const base64 = images[0].split(',')[1];
+        const enhancedBase64 = await enhanceJewelryImage(base64);
+        const enhancedUrl = `data:image/jpeg;base64,${enhancedBase64}`;
+        setImages(prev => {
+            const next = [...prev];
+            next[0] = enhancedUrl;
+            return next;
+        });
+    } catch (error) {
+        alert("Studio enhancement failed.");
+    } finally {
+        setIsEnhancing(false);
     }
   };
 
@@ -126,7 +163,13 @@ export const UploadWizard: React.FC = () => {
     setStep(1);
     setImages([]);
     setAnalysisData({});
+    // Reset selections
+    setSelectedCategory('');
+    setSelectedSubCategory('');
   };
+
+  // Helper to get subcategories for selected category
+  const activeSubCategories = config?.categories.find(c => c.name === selectedCategory)?.subCategories || [];
 
   // --- RENDER ---
 
@@ -144,30 +187,66 @@ export const UploadWizard: React.FC = () => {
                 onClick={() => setMode('single')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'single' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
             >
-                Detailed Wizard
+                Wizard
             </button>
             <button 
                 onClick={() => setMode('batch')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${mode === 'batch' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
             >
-                <Layers size={14} /> Batch Upload
+                <Layers size={14} /> Batch
             </button>
         </div>
       </div>
 
+      {/* --- PRE-SELECTION AREA (Shared logic for visual consistency, but functional per mode) --- */}
+      {step === 1 && (
+          <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm mb-6">
+              <h4 className="text-xs font-bold text-stone-500 uppercase mb-3 flex items-center gap-2">
+                  <Briefcase size={14} /> Organization Settings
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                      <label className="block text-xs font-medium text-stone-400 mb-1">Supplier</label>
+                      <select 
+                          value={selectedSupplier} 
+                          onChange={e => setSelectedSupplier(e.target.value)}
+                          className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white transition-colors"
+                      >
+                          <option value="">Select Supplier...</option>
+                          {config?.suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      </select>
+                  </div>
+                  <div>
+                      <label className="block text-xs font-medium text-stone-400 mb-1">Category</label>
+                      <select 
+                          value={selectedCategory} 
+                          onChange={e => { setSelectedCategory(e.target.value); setSelectedSubCategory(''); }}
+                          className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white transition-colors"
+                      >
+                          <option value="">Select Category...</option>
+                          {config?.categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </select>
+                  </div>
+                  <div>
+                      <label className="block text-xs font-medium text-stone-400 mb-1">Sub-Category</label>
+                      <select 
+                          value={selectedSubCategory} 
+                          onChange={e => setSelectedSubCategory(e.target.value)}
+                          disabled={!selectedCategory}
+                          className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white transition-colors disabled:opacity-50"
+                      >
+                          <option value="">Select Sub-Category...</option>
+                          {activeSubCategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                      </select>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* --- BATCH MODE UI --- */}
       {mode === 'batch' && (
         <div className="space-y-6">
-            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
-                <Briefcase className="text-blue-600 shrink-0 mt-0.5" size={20} />
-                <div>
-                    <h4 className="text-blue-900 font-bold text-sm">Background Processing Active</h4>
-                    <p className="text-blue-700 text-sm mt-1">
-                        Images are processed in the background. Use the toggle below to control AI usage.
-                    </p>
-                </div>
-            </div>
-
+            
             {/* AI Toggle */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-stone-200 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -177,7 +256,7 @@ export const UploadWizard: React.FC = () => {
                     <div>
                         <p className="font-bold text-stone-800 text-sm">Smart Analysis</p>
                         <p className="text-xs text-stone-500">
-                            {useAI ? 'AI will tag and categorize images (Slower).' : 'Fast upload. No tagging (Immediate).'}
+                            {useAI ? 'AI will tag images (Slower).' : 'Fast upload. Manual inputs prioritized.'}
                         </p>
                     </div>
                 </div>
@@ -189,42 +268,20 @@ export const UploadWizard: React.FC = () => {
                 </button>
             </div>
 
-            {/* Batch Config & Inputs */}
-            <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm flex flex-col gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="w-full">
-                        <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Default Supplier</label>
-                        <input 
-                            value={batchSupplier}
-                            onChange={(e) => setBatchSupplier(e.target.value)}
-                            placeholder="e.g. Default Supplier"
-                            className="w-full p-2 border border-stone-200 rounded-lg text-sm"
-                        />
-                    </div>
-                     <div className="w-full">
-                        <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Device Info</label>
-                        <input 
-                            value={getDeviceName()}
-                            disabled
-                            className="w-full p-2 border border-stone-200 bg-stone-50 rounded-lg text-sm text-stone-400"
-                        />
-                    </div>
-                </div>
-                
-                <div className="flex gap-2">
-                    <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex-1 px-4 py-3 bg-stone-900 text-white rounded-lg font-medium shadow hover:bg-stone-800 transition flex items-center justify-center gap-2"
-                    >
-                        <Plus size={18} /> Select Photos
-                    </button>
-                    <button 
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="flex-1 px-4 py-3 bg-gold-600 text-white rounded-lg font-medium shadow hover:bg-gold-700 transition flex items-center justify-center gap-2"
-                    >
-                        <Camera size={18} /> Camera
-                    </button>
-                </div>
+            {/* Upload Buttons */}
+            <div className="flex gap-2">
+                <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 px-4 py-4 bg-stone-900 text-white rounded-xl font-medium shadow hover:bg-stone-800 transition flex items-center justify-center gap-2"
+                >
+                    <Plus size={20} /> Select Photos
+                </button>
+                <button 
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex-1 px-4 py-4 bg-gold-600 text-white rounded-xl font-medium shadow hover:bg-gold-700 transition flex items-center justify-center gap-2"
+                >
+                    <Camera size={20} /> Camera
+                </button>
             </div>
 
             {/* Global Queue List */}
@@ -247,13 +304,25 @@ export const UploadWizard: React.FC = () => {
                                 <img src={item.previewUrl} className="w-12 h-12 object-cover rounded-lg bg-stone-200" alt="Preview" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-stone-800 truncate">{item.productTitle || item.file.name}</p>
-                                    <p className="text-xs text-stone-400 flex items-center gap-2">
-                                        <span>{(item.file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <div className="bg-stone-100 rounded flex items-center px-2 py-0.5">
+                                            <span className="text-xs text-stone-500 mr-1">Wt:</span>
+                                            <input 
+                                                type="number" 
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                className="w-12 bg-transparent text-xs font-bold text-stone-700 focus:outline-none"
+                                                value={item.weight || ''}
+                                                onChange={(e) => updateQueueItem(item.id, { weight: parseFloat(e.target.value) })}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                            <span className="text-[10px] text-stone-400">g</span>
+                                        </div>
                                         <span className={`uppercase font-bold text-[10px] ${
                                             item.status === 'complete' ? 'text-green-600' : 
                                             item.status === 'error' ? 'text-red-600' : 'text-blue-600'
                                         }`}>{item.status}</span>
-                                    </p>
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {/* Action: Remove Watermark (Only if pending) */}
@@ -264,6 +333,17 @@ export const UploadWizard: React.FC = () => {
                                             className="p-1.5 bg-stone-100 text-stone-500 rounded hover:bg-purple-100 hover:text-purple-600 transition"
                                         >
                                             <Eraser size={14} />
+                                        </button>
+                                    )}
+
+                                    {/* Action: Studio Enhance */}
+                                    {item.status === 'pending' && (
+                                        <button 
+                                            onClick={() => studioEnhance(item.id)}
+                                            title="AI Studio Enhance"
+                                            className="p-1.5 bg-stone-100 text-stone-500 rounded hover:bg-gold-100 hover:text-gold-600 transition"
+                                        >
+                                            <Sparkles size={14} />
                                         </button>
                                     )}
 
@@ -301,7 +381,7 @@ export const UploadWizard: React.FC = () => {
             {step === 1 && (
                 <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gold-300 rounded-2xl p-12 flex flex-col items-center justify-center bg-gold-50 cursor-pointer hover:bg-gold-100 transition h-96 group"
+                className="border-2 border-dashed border-gold-300 rounded-2xl p-12 flex flex-col items-center justify-center bg-gold-50 cursor-pointer hover:bg-gold-100 transition h-80 group"
                 >
                 <div className="p-4 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform mb-4">
                     <Camera size={48} className="text-gold-500" />
@@ -340,16 +420,28 @@ export const UploadWizard: React.FC = () => {
                     </div>
                 </div>
                 
-                <div className="flex gap-4">
-                    <button onClick={() => { setImages([]); setStep(1); }} className="flex-1 py-3 border border-stone-300 rounded-xl text-stone-600 font-medium hover:bg-stone-50">Reset</button>
-                    <button 
-                        onClick={handleSingleAnalyze}
-                        disabled={isAnalyzing}
-                        className="flex-[2] py-3 bg-gold-600 text-white rounded-xl font-medium shadow-lg shadow-gold-200 flex items-center justify-center gap-2 hover:bg-gold-700 transition"
-                    >
-                        {isAnalyzing ? <Loader2 className="animate-spin" /> : <Layers />}
-                        {isAnalyzing ? 'Analyzing Details...' : 'Analyze & Edit'}
-                    </button>
+                <div className="flex flex-col gap-4">
+                    <div className="flex gap-4">
+                        <button 
+                            onClick={handleSingleEnhance}
+                            disabled={isEnhancing || images.length === 0}
+                            className={`flex-1 py-3 rounded-xl font-medium border border-gold-400 text-gold-700 flex items-center justify-center gap-2 transition-all ${isEnhancing ? 'bg-gold-50 opacity-70' : 'hover:bg-gold-50'}`}
+                        >
+                            {isEnhancing ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18} className="text-gold-500" />}
+                            {isEnhancing ? 'Processing...' : 'AI Studio Enhance'}
+                        </button>
+                    </div>
+                    <div className="flex gap-4">
+                        <button onClick={() => { setImages([]); setStep(1); }} className="flex-1 py-3 border border-stone-300 rounded-xl text-stone-600 font-medium hover:bg-stone-50">Reset</button>
+                        <button 
+                            onClick={handleSingleAnalyze}
+                            disabled={isAnalyzing}
+                            className="flex-[2] py-3 bg-gold-600 text-white rounded-xl font-medium shadow-lg shadow-gold-200 flex items-center justify-center gap-2 hover:bg-gold-700 transition"
+                        >
+                            {isAnalyzing ? <Loader2 className="animate-spin" /> : <Layers />}
+                            {isAnalyzing ? 'Analyzing Details...' : 'Analyze & Edit'}
+                        </button>
+                    </div>
                 </div>
                 </div>
             )}
@@ -379,14 +471,38 @@ export const UploadWizard: React.FC = () => {
                                 onChange={e => setAnalysisData({...analysisData, category: e.target.value})}
                                 className="w-full p-3 border border-stone-200 rounded-lg bg-white"
                             >
-                                {['Necklace', 'Ring', 'Earrings', 'Bracelet', 'Bangle', 'Set', 'Other'].map(c => <option key={c} value={c}>{c}</option>)}
+                                <option value="Other">Other</option>
+                                {config?.categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                             </select>
                             <input 
                                 value={analysisData.subCategory || ''}
                                 onChange={e => setAnalysisData({...analysisData, subCategory: e.target.value})}
-                                placeholder="Sub-Category (e.g. Choker)"
+                                placeholder="Sub-Category"
                                 className="w-full p-3 border border-stone-200 rounded-lg"
                             />
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <div className="w-1/3">
+                                 <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Weight (g)</label>
+                                 <input 
+                                     type="number" 
+                                     step="0.01"
+                                     value={analysisData.weight || ''}
+                                     onChange={e => setAnalysisData({...analysisData, weight: parseFloat(e.target.value)})}
+                                     className="w-full p-3 border border-stone-200 rounded-lg"
+                                 />
+                             </div>
+                             <div className="flex-1">
+                                 {/* AI Studio Enhance again if needed */}
+                                 <button 
+                                    onClick={handleSingleEnhance}
+                                    disabled={isEnhancing}
+                                    className="mt-6 w-full py-3 bg-stone-100 text-stone-600 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-gold-50 hover:text-gold-700 transition"
+                                >
+                                    {isEnhancing ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14}/>}
+                                    Studio Lighting Fix
+                                </button>
+                             </div>
                         </div>
                         <textarea 
                             value={analysisData.description} 

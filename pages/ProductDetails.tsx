@@ -1,8 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, AppConfig } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Maximize2, Camera, Edit2, Lock, Link, Check, Plus, Upload, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Maximize2, Camera, Edit2, Lock, Link, Check, Plus, Upload, Eye, EyeOff, Sparkles, Eraser, Wand2, StickyNote, Loader2, MoveHorizontal, CheckCircle2, XCircle, SlidersHorizontal, Download } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
+import { ImageEditor } from '../components/ImageEditor';
 import { storeService } from '../services/storeService';
+import { removeWatermark, enhanceJewelryImage } from '../services/geminiService';
 
 interface ProductDetailsProps {
   initialProduct: Product;
@@ -22,13 +25,25 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  
+  // AI Processing State
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [showAiMenu, setShowAiMenu] = useState(false);
+  const [pendingEnhancedImage, setPendingEnhancedImage] = useState<string | null>(null);
+  const [compareSliderPos, setCompareSliderPos] = useState(50);
+  
+  // Manual Edit State
+  const [isManualEditing, setIsManualEditing] = useState(false);
 
-  // File Input for Adding Images
+  const imageContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setProduct(initialProduct);
     setGeneratedLink(null);
+    setPendingEnhancedImage(null);
+    setCurrentImageIndex(0); // Reset image index on product change
+    setIsManualEditing(false);
   }, [initialProduct]);
 
   useEffect(() => {
@@ -66,10 +81,66 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
     }
   };
 
+  const handleManualSave = (newBase64: string) => {
+      const updatedImages = [...product.images];
+      updatedImages[currentImageIndex] = newBase64;
+      handleUpdateProduct({ images: updatedImages });
+      setIsManualEditing(false);
+  };
+
+  const handleAiAction = async (action: 'clean' | 'enhance') => {
+      setIsProcessingImage(true);
+      setShowAiMenu(false);
+      try {
+          const currentImg = product.images[currentImageIndex];
+          // Ensure we have base64 pure data
+          const base64Data = currentImg.split(',')[1] || currentImg;
+          
+          let newBase64 = '';
+          if (action === 'clean') {
+              newBase64 = await removeWatermark(base64Data);
+          } else {
+              newBase64 = await enhanceJewelryImage(base64Data);
+          }
+
+          if (newBase64) {
+              const fullUrl = `data:image/jpeg;base64,${newBase64}`;
+              setPendingEnhancedImage(fullUrl); // Store pending state for comparison
+          }
+      } catch (error) {
+          console.error("AI Action Failed", error);
+          alert("AI Processing Failed. Please try again.");
+      } finally {
+          setIsProcessingImage(false);
+      }
+  };
+
+  const handleSliderMove = (clientX: number) => {
+    if (imageContainerRef.current) {
+        const rect = imageContainerRef.current.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+        setCompareSliderPos(percentage);
+    }
+  };
+
   const generateSecretLink = async () => {
       const link = await storeService.createSharedLink(product.id, 'product');
       setGeneratedLink(link);
       navigator.clipboard.writeText(link);
+  };
+
+  const handleDownload = () => {
+      // 1. Log Event
+      storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
+      
+      // 2. Trigger Download
+      const link = document.createElement('a');
+      link.href = product.images[currentImageIndex];
+      link.download = `sanghavi-${product.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
   };
 
   // --- Navigation Logic ---
@@ -80,8 +151,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
         setIsAnimating(true);
         setTimeout(() => {
             setProduct(productList[currentIndex + 1]);
-            setCurrentImageIndex(0);
             setGeneratedLink(null);
+            setPendingEnhancedImage(null);
             setIsAnimating(false);
             setSlideDirection(null);
         }, 300);
@@ -95,32 +166,81 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
         setIsAnimating(true);
         setTimeout(() => {
             setProduct(productList[currentIndex - 1]);
-            setCurrentImageIndex(0);
             setGeneratedLink(null);
+            setPendingEnhancedImage(null);
             setIsAnimating(false);
             setSlideDirection(null);
         }, 300);
     }
   };
 
-  // Swipe Gestures
+  // --- Product Swipe Logic (Global) ---
   const touchStart = useRef<number | null>(null);
   const touchEnd = useRef<number | null>(null);
 
   const onTouchStart = (e: React.TouchEvent) => {
+    if (pendingEnhancedImage || isManualEditing) return; // Disable swipe nav when editing
     touchEnd.current = null;
     touchStart.current = e.targetTouches[0].clientX;
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
+    if (pendingEnhancedImage || isManualEditing) return;
     touchEnd.current = e.targetTouches[0].clientX;
   };
 
   const onTouchEnd = () => {
+    if (pendingEnhancedImage || isManualEditing) return;
     if (!touchStart.current || !touchEnd.current) return;
     const distance = touchStart.current - touchEnd.current;
     if (distance > 50) goToNext();
     if (distance < -50) goToPrev();
+  };
+
+  // --- Image Swipe Logic (Carousel) ---
+  const imgTouchStart = useRef<number | null>(null);
+  const imgTouchEnd = useRef<number | null>(null);
+
+  const onImageTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation(); // Stop bubbling to product navigation
+    if (pendingEnhancedImage || isManualEditing) return;
+    imgTouchStart.current = e.touches[0].clientX;
+    imgTouchEnd.current = null;
+  };
+
+  const onImageTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation(); // Stop bubbling
+    if (pendingEnhancedImage) {
+        handleSliderMove(e.touches[0].clientX);
+        return;
+    }
+    if (isManualEditing) return;
+    imgTouchEnd.current = e.touches[0].clientX;
+  };
+
+  const onImageTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation(); // Stop bubbling
+    if (pendingEnhancedImage || isManualEditing) return;
+
+    if (!imgTouchStart.current || !imgTouchEnd.current) return;
+    const distance = imgTouchStart.current - imgTouchEnd.current;
+    
+    // Swipe Threshold
+    if (Math.abs(distance) > 50) {
+        if (distance > 0) {
+            // Swipe Left -> Next Image
+            if (currentImageIndex < product.images.length - 1) {
+                setCurrentImageIndex(prev => prev + 1);
+            }
+        } else {
+            // Swipe Right -> Prev Image
+            if (currentImageIndex > 0) {
+                 setCurrentImageIndex(prev => prev - 1);
+            }
+        }
+    }
+    imgTouchStart.current = null;
+    imgTouchEnd.current = null;
   };
 
   const handleShare = async () => {
@@ -136,6 +256,9 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   };
 
   const handleInquiry = () => {
+    // 1. Log Event
+    storeService.logEvent('inquiry', product, currentUser);
+
     const phone = config?.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
     const msg = `Hi, I am interested in ${product.title} (ID: ${product.id}).`;
     const url = phone 
@@ -166,8 +289,17 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
           />
       )}
 
+      {/* Manual Studio Editor Overlay */}
+      {isManualEditing && (
+          <ImageEditor 
+              imageSrc={product.images[currentImageIndex]}
+              onSave={handleManualSave}
+              onCancel={() => setIsManualEditing(false)}
+          />
+      )}
+
       {/* --- Header --- */}
-      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between">
+      <div className="relative z-20 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between">
         <button onClick={onClose} className="p-2 -ml-2 text-stone-600 hover:text-stone-900 rounded-full hover:bg-stone-100">
             <ArrowLeft size={24} />
         </button>
@@ -175,51 +307,162 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
              {product.isHidden && <Lock size={14} className="text-red-500" />}
              <span className="font-serif font-bold text-stone-800 text-lg truncate">{product.title}</span>
         </div>
-        <button onClick={handleShare} className="p-2 -mr-2 text-stone-600 hover:text-gold-600 rounded-full hover:bg-stone-100">
-            <Share2 size={24} />
-        </button>
+        <div className="flex gap-2 -mr-2">
+            <button onClick={handleDownload} className="p-2 text-stone-600 hover:text-gold-600 rounded-full hover:bg-stone-100" title="Save / Screenshot">
+                <Download size={22} />
+            </button>
+            <button onClick={handleShare} className="p-2 text-stone-600 hover:text-gold-600 rounded-full hover:bg-stone-100">
+                <Share2 size={22} />
+            </button>
+        </div>
       </div>
 
       <div className={`transition-all duration-300 ease-out ${animationClass}`}>
           {/* --- Main Image --- */}
-          <div className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group">
+          <div 
+            ref={imageContainerRef}
+            className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none"
+            onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}
+            onTouchStart={onImageTouchStart}
+            onTouchMove={onImageTouchMove}
+            onTouchEnd={onImageTouchEnd}
+          >
+            {/* Base Image (Original) */}
             <img 
                 src={product.images[currentImageIndex]} 
                 alt={product.title}
-                className="w-full h-full object-cover"
-                onClick={() => setShowFullScreen(true)}
+                className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`}
+                onClick={() => !pendingEnhancedImage && setShowFullScreen(true)}
             />
             
-            {/* Image Dots */}
-            {product.images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 p-2 bg-black/20 rounded-full backdrop-blur">
-                    {product.images.map((_, idx) => (
+            {/* Comparison Overlay (Enhanced) */}
+            {pendingEnhancedImage && (
+                <>
+                    <img 
+                        src={pendingEnhancedImage} 
+                        className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none"
+                        style={{ clipPath: `inset(0 ${100 - compareSliderPos}% 0 0)` }}
+                    />
+                    
+                    {/* Slider Handle */}
+                    <div 
+                        className="absolute inset-y-0 w-1 bg-white z-20 cursor-col-resize shadow-lg flex items-center justify-center pointer-events-none"
+                        style={{ left: `${compareSliderPos}%` }}
+                    >
+                        <div className="bg-white rounded-full p-1 shadow text-stone-900">
+                            <MoveHorizontal size={16} />
+                        </div>
+                    </div>
+                    
+                    {/* Labels */}
+                    <div className="absolute top-4 left-4 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur z-20 pointer-events-none">✨ Enhanced</div>
+                    <div className="absolute top-4 right-4 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur z-20 pointer-events-none">Original</div>
+
+                    {/* Confirmation Buttons */}
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4 justify-center pointer-events-auto">
                         <button 
-                            key={idx}
-                            onClick={() => setCurrentImageIndex(idx)}
-                            className={`w-2 h-2 rounded-full transition-all ${idx === currentImageIndex ? 'bg-white scale-125' : 'bg-white/50'}`}
-                        />
-                    ))}
+                            onClick={() => { setPendingEnhancedImage(null); setCompareSliderPos(50); }}
+                            className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl shadow-xl flex items-center justify-center gap-2 hover:bg-black font-medium border border-stone-700"
+                        >
+                            <XCircle size={18}/> Discard
+                        </button>
+                        <button 
+                            onClick={() => {
+                                const updatedImages = [...product.images];
+                                updatedImages[currentImageIndex] = pendingEnhancedImage;
+                                handleUpdateProduct({ images: updatedImages });
+                                setPendingEnhancedImage(null);
+                                setCompareSliderPos(50);
+                            }}
+                            className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl shadow-xl flex items-center justify-center gap-2 hover:bg-gold-700 font-medium border border-gold-500"
+                        >
+                            <CheckCircle2 size={18}/> Save & Use
+                        </button>
+                    </div>
+                </>
+            )}
+            
+            {/* Loading Overlay */}
+            {isProcessingImage && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-20 pointer-events-none">
+                    <Loader2 className="animate-spin mb-2" size={32} />
+                    <span className="text-sm font-medium text-center px-4 bg-black/40 rounded-full backdrop-blur py-1">AI Studio Enhancing...</span>
                 </div>
             )}
 
-            <button onClick={() => setShowFullScreen(true)} className="absolute top-4 right-4 p-2 bg-white/20 backdrop-blur rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                <Maximize2 size={20} />
-            </button>
+            {/* Image Dots & Nav */}
+            {!pendingEnhancedImage && (
+                <>
+                    {product.images.length > 1 && (
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 p-2 bg-black/20 rounded-full backdrop-blur z-10 pointer-events-none">
+                            {product.images.map((_, idx) => (
+                                <button 
+                                    key={idx}
+                                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
+                                    className={`w-2 h-2 rounded-full transition-all pointer-events-auto ${idx === currentImageIndex ? 'bg-white scale-125' : 'bg-white/50'}`}
+                                />
+                            ))}
+                        </div>
+                    )}
 
-            {/* Admin Add Image Button */}
-            {isAuthorized && (
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute top-4 left-4 p-2 bg-gold-600 text-white rounded-full shadow-lg hover:bg-gold-700 z-10"
-                >
-                    <Camera size={20} />
-                </button>
+                    <button onClick={() => setShowFullScreen(true)} className="absolute top-4 right-4 p-2 bg-white/20 backdrop-blur rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        <Maximize2 size={20} />
+                    </button>
+                    
+                    {hasPrev && <button onClick={(e) => { e.stopPropagation(); goToPrev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white z-10"><ChevronLeft size={24} className="text-stone-800"/></button>}
+                    {hasNext && <button onClick={(e) => { e.stopPropagation(); goToNext(); }} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white z-10"><ChevronRight size={24} className="text-stone-800"/></button>}
+                </>
+            )}
+
+            {/* Authorized Image Controls */}
+            {isAuthorized && !pendingEnhancedImage && (
+                <>
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute top-4 left-4 p-2 bg-gold-600 text-white rounded-full shadow-lg hover:bg-gold-700 z-10"
+                    >
+                        <Camera size={20} />
+                    </button>
+                    
+                    {/* AI Tools Toggle */}
+                    <div className="absolute top-4 left-16 flex gap-2 z-10">
+                        <button 
+                            onClick={() => setShowAiMenu(!showAiMenu)}
+                            className="p-2 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 flex items-center justify-center"
+                        >
+                            <Sparkles size={20} />
+                        </button>
+
+                        <button 
+                            onClick={() => setIsManualEditing(true)}
+                            className="p-2 bg-stone-800 text-white rounded-full shadow-lg hover:bg-stone-900 flex items-center justify-center"
+                        >
+                            <SlidersHorizontal size={20} />
+                        </button>
+                        
+                        {/* AI Menu Dropdown */}
+                        {showAiMenu && (
+                            <div className="absolute top-12 left-0 bg-white rounded-xl shadow-xl border border-stone-100 p-2 w-52 animate-in slide-in-from-top-2">
+                                <button 
+                                    onClick={() => handleAiAction('clean')}
+                                    className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 rounded-lg flex items-center gap-2"
+                                >
+                                    <Eraser size={16} className="text-red-400" />
+                                    <span>Remove Branding</span>
+                                </button>
+                                <button 
+                                    onClick={() => handleAiAction('enhance')}
+                                    className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 rounded-lg flex items-center gap-2"
+                                >
+                                    <Wand2 size={16} className="text-gold-500" />
+                                    <span>AI Studio Enhancement</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </>
             )}
             <input type="file" ref={fileInputRef} onChange={handleAddImage} className="hidden" accept="image/*" />
-            
-            {hasPrev && <button onClick={(e) => { e.stopPropagation(); goToPrev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white"><ChevronLeft size={24} className="text-stone-800"/></button>}
-            {hasNext && <button onClick={(e) => { e.stopPropagation(); goToNext(); }} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white"><ChevronRight size={24} className="text-stone-800"/></button>}
           </div>
 
           {/* --- Product Info --- */}
@@ -231,7 +474,22 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
                      <div className="flex items-center gap-4 text-stone-500 text-sm">
                          <span className="flex items-center gap-1"><Tag size={14}/> {product.subCategory || product.category}</span>
                          <span>•</span>
-                         <span>{product.weight} grams</span>
+                         {/* Editable Weight for Authorized Users */}
+                         {isAuthorized ? (
+                             <div className="flex items-center gap-1">
+                                 <input 
+                                     type="number" 
+                                     step="0.01"
+                                     value={product.weight}
+                                     onChange={(e) => handleUpdateProduct({weight: parseFloat(e.target.value)})}
+                                     className="w-16 bg-transparent border-b border-stone-300 focus:border-gold-500 outline-none text-right font-medium text-stone-900 p-0"
+                                 />
+                                 <span>g</span>
+                                 <Edit2 size={10} className="text-stone-300 mb-2"/>
+                             </div>
+                         ) : (
+                             <span>{product.weight} grams</span>
+                         )}
                      </div>
                  </div>
                  <div className="bg-stone-100 px-3 py-1 rounded text-xs font-mono text-stone-500">#{product.id.slice(-6)}</div>
@@ -280,6 +538,17 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
                              <div className="mt-1 text-gold-400">Valid for {config?.linkExpiryHours || 24} hours.</div>
                          </div>
                      )}
+
+                     {/* Private Notes */}
+                     <div className="border-t border-stone-700 pt-3 mt-2">
+                        <label className="text-xs text-stone-400 mb-1 flex items-center gap-2"><StickyNote size={12}/> Hidden Notes (Internal Only)</label>
+                        <textarea 
+                            value={product.privateNotes || ''}
+                            onChange={(e) => handleUpdateProduct({privateNotes: e.target.value})}
+                            placeholder="Add private details, cost price, or specific customer requests..."
+                            className="w-full bg-stone-700 border-none rounded p-2 text-sm text-white focus:ring-1 focus:ring-gold-500 h-20 resize-none"
+                        />
+                     </div>
                  </div>
              )}
 
@@ -305,6 +574,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
                      <span className="block text-stone-400 text-xs uppercase font-bold mb-1">Supplier</span>
                      <div className="text-stone-700 font-medium">{product.supplier || 'N/A'}</div>
                  </div>
+                 {/* Visible Camera Meta for All */}
                  {product.meta?.cameraModel && (
                      <div>
                          <span className="block text-stone-400 text-xs uppercase font-bold mb-1">Device / Camera</span>

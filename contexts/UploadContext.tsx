@@ -1,17 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, QueueItem } from '../types';
-import { analyzeJewelryImage, removeWatermark } from '../services/geminiService';
+import { analyzeJewelryImage, removeWatermark, enhanceJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
 
 interface UploadContextType {
   queue: QueueItem[];
-  addToQueue: (files: File[], supplier: string, device: string) => void;
+  addToQueue: (files: File[], supplier: string, category: string, subCategory: string, device: string) => void;
   removeFromQueue: (id: string) => void;
+  updateQueueItem: (id: string, updates: Partial<QueueItem>) => void;
   clearCompleted: () => void;
   isProcessing: boolean;
   useAI: boolean;
   setUseAI: (value: boolean) => void;
   cleanImage: (id: string) => void;
+  studioEnhance: (id: string) => void;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
@@ -27,16 +29,19 @@ export const useUpload = () => {
 export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [useAI, setUseAI] = useState(false); // Default OFF for speed
+  const [useAI, setUseAI] = useState(false); 
   const currentUser = storeService.getCurrentUser();
 
-  const addToQueue = (files: File[], supplier: string, device: string) => {
+  const addToQueue = (files: File[], supplier: string, category: string, subCategory: string, device: string) => {
     const newItems: QueueItem[] = files.map(file => ({
       id: Math.random().toString(36).substr(2, 9),
       file,
       previewUrl: URL.createObjectURL(file),
       status: 'pending',
       supplier,
+      category,
+      subCategory,
+      weight: 0,
       device
     }));
     setQueue(prev => [...prev, ...newItems]);
@@ -58,28 +63,17 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const item = queue.find(i => i.id === id);
     if (!item) return;
 
-    updateQueueItem(id, { status: 'analyzing' }); // Reuse analyzing status for cleaning
+    updateQueueItem(id, { status: 'analyzing' }); 
     try {
-        const base64 = await fileToBase64(item.file, true); // Compress first
+        // Optimized 1200px for storage efficiency
+        const base64 = await fileToBase64(item.file, true, 1200, 'image/jpeg'); 
         const cleanedBase64 = await removeWatermark(base64.split(',')[1]);
-        
-        // We need to update the file in the queue effectively, but File is immutable.
-        // We will store the cleaned base64 as the image source for the product later.
-        // For now, let's update previewUrl to show the cleaned version and store it.
         const cleanedUrl = `data:image/jpeg;base64,${cleanedBase64}`;
         
-        // Convert back to file if we needed to, but we mainly need the base64 for saving.
-        // Let's attach the cleaned base64 to the item to be used during 'process'
         updateQueueItem(id, { 
             status: 'pending', 
             previewUrl: cleanedUrl,
-            // hack: store cleaned data on the item so we don't re-compress original file later
-            // In a real app we'd extend QueueItem type
         });
-        
-        // We'll leverage a custom property on the item in the process loop, 
-        // but for now, since we haven't changed the Type, let's assume the process loop re-reads the file.
-        // To make this work properly, we should really update the process loop to prefer existing base64.
         
     } catch (e) {
         console.error("Clean failed", e);
@@ -87,8 +81,29 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  // Image Compression Helper
-  const fileToBase64 = (file: File, compress = true): Promise<string> => {
+  const studioEnhance = async (id: string) => {
+    const item = queue.find(i => i.id === id);
+    if (!item) return;
+
+    updateQueueItem(id, { status: 'analyzing' }); 
+    try {
+        // Optimized 1200px for storage efficiency
+        const base64 = await fileToBase64(item.file, true, 1200, 'image/jpeg');
+        const enhancedBase64 = await enhanceJewelryImage(base64.split(',')[1]);
+        const enhancedUrl = `data:image/jpeg;base64,${enhancedBase64}`;
+        
+        updateQueueItem(id, { 
+            status: 'pending', 
+            previewUrl: enhancedUrl,
+        });
+        
+    } catch (e) {
+        console.error("Studio Enhancement failed", e);
+        updateQueueItem(id, { status: 'error', error: 'Enhancement failed' });
+    }
+  };
+
+  const fileToBase64 = (file: File, compress = true, maxWidth = 1200, mimeType = 'image/jpeg'): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -100,7 +115,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200; // Optimize for speed/quality balance
+            const MAX_WIDTH = maxWidth; 
             let width = img.width;
             let height = img.height;
 
@@ -112,10 +127,14 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, width, height);
+            if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, width, height);
+            }
             
-            // Compress to JPEG 0.7 quality
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            // Reduced quality slightly to 0.8 to save space significantly
+            const dataUrl = canvas.toDataURL(mimeType, 0.8); 
             resolve(dataUrl);
         };
         img.onerror = reject;
@@ -140,7 +159,6 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         updateQueueItem(nextItem.id, { status: 'analyzing' });
 
-        // Check if we have a "cleaned" version already (from Remove Watermark action)
         let base64 = "";
         if (nextItem.previewUrl.startsWith('data:image')) {
             base64 = nextItem.previewUrl;
@@ -151,19 +169,20 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         let analysis: Partial<Product> = {};
 
         if (useAI) {
-            // AI Analysis ON
             const aiResult = await analyzeJewelryImage(base64.split(',')[1]);
             analysis = aiResult;
         } else {
-            // AI Analysis OFF - Fast Path
             analysis = {
                 title: nextItem.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
-                category: "Uncategorized",
                 description: "Direct upload.",
                 tags: ["direct-upload"],
                 weight: 0,
             };
         }
+
+        const finalCategory = nextItem.category || analysis.category || 'Other';
+        const finalSubCategory = nextItem.subCategory || analysis.subCategory;
+        const finalWeight = (nextItem.weight && nextItem.weight > 0) ? nextItem.weight : (analysis.weight || 0);
 
         updateQueueItem(nextItem.id, { 
             status: 'saving', 
@@ -173,9 +192,9 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const newProduct: Product = {
           id: Date.now().toString() + Math.random().toString().slice(2, 6),
           title: analysis.title || 'Untitled Item',
-          category: analysis.category || 'Other',
-          subCategory: analysis.subCategory,
-          weight: analysis.weight || 0,
+          category: finalCategory,
+          subCategory: finalSubCategory,
+          weight: finalWeight,
           description: analysis.description || '',
           tags: analysis.tags || [],
           images: [base64],
@@ -189,7 +208,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           }
         };
 
-        storeService.addProduct(newProduct);
+        await storeService.addProduct(newProduct);
         updateQueueItem(nextItem.id, { status: 'complete' });
 
       } catch (err) {
@@ -206,7 +225,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [queue, isProcessing, currentUser, useAI]);
 
   return (
-    <UploadContext.Provider value={{ queue, addToQueue, removeFromQueue, clearCompleted, isProcessing, useAI, setUseAI, cleanImage }}>
+    <UploadContext.Provider value={{ queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, cleanImage, studioEnhance }}>
       {children}
     </UploadContext.Provider>
   );

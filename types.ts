@@ -1,3 +1,4 @@
+
 export type Product = {
   id: string;
   title: string;
@@ -7,10 +8,10 @@ export type Product = {
   description: string;
   tags: string[];
   images: string[];
-  price?: number;
   supplier?: string;
   uploadedBy?: string;
-  isHidden: boolean; // Acts as "Private"
+  isHidden: boolean;
+  privateNotes?: string;
   createdAt: string;
   dateTaken?: string;
   meta: {
@@ -18,8 +19,6 @@ export type Product = {
     location?: string;
   };
 };
-
-export type Category = 'Necklace' | 'Ring' | 'Earrings' | 'Bracelet' | 'Bangle' | 'Set' | 'Other' | string;
 
 export type UserRole = 'customer' | 'contributor' | 'admin';
 
@@ -38,19 +37,6 @@ export interface GeneratedDesign {
   aspectRatio: AspectRatio;
   createdAt: string;
 }
-
-export interface QueueItem {
-  id: string;
-  file: File;
-  previewUrl: string;
-  status: 'pending' | 'analyzing' | 'saving' | 'complete' | 'error';
-  error?: string;
-  productTitle?: string;
-  supplier?: string;
-  device?: string;
-}
-
-// --- New Configuration Types ---
 
 export interface Supplier {
   id: string;
@@ -72,10 +58,35 @@ export interface AppConfig {
   whatsappNumber?: string;
 }
 
+export interface AnalyticsEvent {
+  id: string;
+  type: 'inquiry' | 'screenshot' | 'view';
+  productId: string;
+  productTitle: string;
+  userName: string;
+  deviceName: string;
+  timestamp: string;
+  imageIndex?: number;
+}
+
 export interface SharedLink {
   id: string;
-  targetId: string; // Product ID or Category Name
+  targetId: string;
   type: 'product' | 'category';
   token: string;
   expiresAt: string;
+}
+
+export interface QueueItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: 'pending' | 'analyzing' | 'saving' | 'complete' | 'error';
+  supplier: string;
+  category: string;
+  subCategory: string;
+  weight: number;
+  device: string;
+  productTitle?: string;
+  error?: string;
 }

@@ -1,59 +1,111 @@
-import { Product, User, GeneratedDesign, AppConfig, SharedLink } from "../types";
+import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent } from "../types";
 
-const STORAGE_KEYS = { USER_SESSION: 'sanghavi_user_session' };
+const API_BASE = '/api';
 
-// Helpers
-const api = async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
-    const res = await fetch(`/api${endpoint}`, {
-        headers: { 'Content-Type': 'application/json' },
-        ...options
-    });
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
-    return await res.json();
+const KEYS = {
+  SESSION: 'sanghavi_user_session',
 };
 
 export const storeService = {
-  // Products
+  // --- Connection Status ---
+  getIsOnline: () => navigator.onLine,
+  subscribeStatus: (cb: (status: boolean) => void) => {
+    const handler = () => cb(navigator.onLine);
+    window.addEventListener('online', handler);
+    window.addEventListener('offline', handler);
+    return () => {
+      window.removeEventListener('online', handler);
+      window.removeEventListener('offline', handler);
+    };
+  },
+
+  // --- Inventory Management (API Based) ---
   getProducts: async (): Promise<Product[]> => {
-    try { return await api<Product[]>('/products'); } 
-    catch (e) { console.error(e); return []; }
-  },
-
-  addProduct: async (product: Product) => {
-    return await api('/products', { method: 'POST', body: JSON.stringify(product) });
-  },
-
-  updateProduct: async (updatedProduct: Product) => {
-    await api(`/products/${updatedProduct.id}`, { method: 'PUT', body: JSON.stringify(updatedProduct) });
-  },
-
-  // Config
-  getConfig: async (): Promise<AppConfig> => {
-    try { return await api<AppConfig>('/config'); } 
-    catch (e) { 
-        // Fallback default
-        return { suppliers: [], categories: [], linkExpiryHours: 24 }; 
+    try {
+      const res = await fetch(`${API_BASE}/products`);
+      if (!res.ok) throw new Error('Failed to fetch products');
+      const data = await res.json();
+      return data.sort((a: Product, b: Product) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    } catch (err) {
+      console.error("Store Error:", err);
+      return [];
     }
   },
 
-  saveConfig: async (config: AppConfig) => {
-    await api('/config', { method: 'POST', body: JSON.stringify(config) });
+  addProduct: async (product: Product) => {
+    const res = await fetch(`${API_BASE}/products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(product)
+    });
+    return await res.json();
   },
 
-  // Designs
+  updateProduct: async (updatedProduct: Product) => {
+    const res = await fetch(`${API_BASE}/products/${updatedProduct.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedProduct)
+    });
+    return await res.json();
+  },
+
+  deleteProduct: async (id: string) => {
+    await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' });
+  },
+
+  // --- Settings & Configuration ---
+  getConfig: async (): Promise<AppConfig> => {
+    try {
+      const res = await fetch(`${API_BASE}/config`);
+      const data = await res.json();
+      if (data) return data;
+    } catch (e) {
+      console.warn("Config fetch failed, using defaults");
+    }
+
+    return {
+        suppliers: [
+            { id: '1', name: 'Ratna Jewels', isPrivate: false },
+            { id: '2', name: 'Sanghavi In-House', isPrivate: true }
+        ],
+        categories: [
+            { id: 'c1', name: 'Necklace', subCategories: ['Choker', 'Rani Haar'], isPrivate: false },
+            { id: 'c2', name: 'Ring', subCategories: ['Solitaire', 'Band'], isPrivate: false }
+        ],
+        linkExpiryHours: 24,
+        whatsappNumber: ''
+    };
+  },
+
+  saveConfig: async (config: AppConfig) => {
+    const res = await fetch(`${API_BASE}/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    return await res.json();
+  },
+
+  // --- AI Generated Designs (Client-side history) ---
   getDesigns: async (): Promise<GeneratedDesign[]> => {
-    try { return await api<GeneratedDesign[]>('/designs'); } 
-    catch (e) { return []; }
+    const data = localStorage.getItem('sanghavi_designs');
+    return data ? JSON.parse(data) : [];
   },
 
   addDesign: async (design: GeneratedDesign) => {
-    await api('/designs', { method: 'POST', body: JSON.stringify(design) });
+    const existing = await storeService.getDesigns();
+    const updated = [design, ...existing].slice(0, 50); // Keep last 50
+    localStorage.setItem('sanghavi_designs', JSON.stringify(updated));
+    return design;
   },
 
-  // Links
+  // --- Secret Sharing Links ---
   createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
     const config = await storeService.getConfig();
-    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const token = Math.random().toString(36).substring(2, 15);
     const expiresAt = new Date(Date.now() + config.linkExpiryHours * 60 * 60 * 1000).toISOString();
     
     const newLink: SharedLink = {
@@ -64,36 +116,79 @@ export const storeService = {
       expiresAt
     };
 
-    await api('/links', { method: 'POST', body: JSON.stringify(newLink) });
+    const existingLinksStr = localStorage.getItem('sanghavi_links');
+    const links: SharedLink[] = existingLinksStr ? JSON.parse(existingLinksStr) : [];
+    links.push(newLink);
+    localStorage.setItem('sanghavi_links', JSON.stringify(links));
+
     return `${window.location.origin}?shareToken=${token}`;
   },
 
   validateSharedLink: async (token: string): Promise<SharedLink | null> => {
-    try { return await api<SharedLink>(`/links/${token}`); } 
-    catch { return null; }
+    const existingLinksStr = localStorage.getItem('sanghavi_links');
+    const links: SharedLink[] = existingLinksStr ? JSON.parse(existingLinksStr) : [];
+    const link = links.find(l => l.token === token);
+    if (!link) return null;
+    if (new Date(link.expiresAt) < new Date()) throw new Error('Link Expired');
+    return link;
   },
 
-  // Auth (Hybrid: Server check + Local Storage persistence)
+  // --- Auth Session ---
   getCurrentUser: (): User | null => {
-    const data = localStorage.getItem(STORAGE_KEYS.USER_SESSION);
+    const data = localStorage.getItem(KEYS.SESSION);
     return data ? JSON.parse(data) : null;
   },
 
   login: async (username: string, password: string): Promise<User | null> => {
-    try {
-        const user = await api<User>('/login', {
-            method: 'POST',
-            body: JSON.stringify({ username, password })
-        });
-        localStorage.setItem(STORAGE_KEYS.USER_SESSION, JSON.stringify(user));
-        return user;
-    } catch (e) {
-        return null;
+    const user = String(username).trim().toLowerCase();
+    const pass = String(password).trim();
+
+    let userData: User | null = null;
+    if (user === 'admin' && pass === 'admin') {
+        userData = { id: 'admin1', name: 'Sanghavi Admin', role: 'admin' };
+    } else if (user === 'staff' && pass === 'staff') {
+        userData = { id: 'staff1', name: 'Staff', role: 'contributor' };
     }
+
+    if (userData) localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
+    return userData;
   },
 
   logout: () => {
-    localStorage.removeItem(STORAGE_KEYS.USER_SESSION);
+    localStorage.removeItem(KEYS.SESSION);
     window.location.reload();
+  },
+
+  // --- Analytics & Insights (Server-side) ---
+  logEvent: async (type: 'inquiry' | 'screenshot', product: Product, user: User | null, imageIndex?: number) => {
+    const event: AnalyticsEvent = {
+        id: Date.now().toString() + Math.random().toString().slice(2, 6),
+        type,
+        productId: product.id,
+        productTitle: product.title,
+        userName: user ? user.name : 'Guest',
+        deviceName: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+        imageIndex
+    };
+    
+    try {
+        await fetch(`${API_BASE}/analytics`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(event)
+        });
+    } catch (e) {
+        console.warn("Analytics logging failed offline.");
+    }
+  },
+
+  getAnalytics: async (): Promise<AnalyticsEvent[]> => {
+    try {
+        const res = await fetch(`${API_BASE}/analytics`);
+        return await res.json();
+    } catch (e) {
+        return [];
+    }
   }
 };

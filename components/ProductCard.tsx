@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { Share2, MessageCircle, ChevronLeft, ChevronRight, Camera, User, Calendar, Box, Maximize2 } from 'lucide-react';
@@ -95,8 +96,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
           </>
         )}
 
-        {/* Admin Badge: Camera Model */}
-        {isAdmin && product.meta.cameraModel && (
+        {/* Camera Model - Visible to All */}
+        {product.meta.cameraModel && (
              <span className="absolute top-2 right-2 bg-black/50 backdrop-blur text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1 z-10">
                <Camera size={10} />
                {product.meta.cameraModel}
