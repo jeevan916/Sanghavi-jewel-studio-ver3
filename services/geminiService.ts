@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { AspectRatio } from "../types";
 
@@ -7,17 +8,19 @@ import { AspectRatio } from "../types";
  * which is replaced with the value of VITE_GEMINI_API_KEY at build-time.
  */
 
+// Fix: Use single object for contents instead of an array, and propertyOrdering for schema
 export const analyzeJewelryImage = async (base64Image: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
+    const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{
+      contents: {
         parts: [
-          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+          { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
           { text: "Analyze this jewelry for a luxury inventory system. Provide a title, category, sub-category, estimated weight (grams), detailed marketing description, and 5 search tags. Output MUST be JSON." }
         ]
-      }],
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -30,7 +33,7 @@ export const analyzeJewelryImage = async (base64Image: string) => {
             description: { type: Type.STRING },
             tags: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
-          required: ["title", "category", "weight", "description", "tags"]
+          propertyOrdering: ["title", "category", "subCategory", "weight", "description", "tags"]
         }
       }
     });
@@ -42,6 +45,7 @@ export const analyzeJewelryImage = async (base64Image: string) => {
   }
 };
 
+// Fix: Ensure contents follows the object structure for image editing models
 export const enhanceJewelryImage = async (base64Image: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
@@ -73,6 +77,7 @@ export const enhanceJewelryImage = async (base64Image: string) => {
   }
 };
 
+// Fix: Use contents object structure for consistency
 export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
@@ -102,18 +107,19 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
   }
 };
 
+// Fix: Use single object for contents and propertyOrdering for identification
 export const identifyJewelryFeatures = async (base64Image: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{
+      contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
           { text: "Identify the primary category, main material, and key style features of this jewelry. Output MUST be JSON." }
         ]
-      }],
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -123,7 +129,7 @@ export const identifyJewelryFeatures = async (base64Image: string) => {
             material: { type: Type.STRING },
             styles: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
-          required: ["category", "material", "styles"]
+          propertyOrdering: ["category", "material", "styles"]
         }
       }
     });
@@ -135,6 +141,7 @@ export const identifyJewelryFeatures = async (base64Image: string) => {
   }
 };
 
+// Fix: Follow standard content structure for nano-banana image editing
 export const removeWatermark = async (base64Image: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {

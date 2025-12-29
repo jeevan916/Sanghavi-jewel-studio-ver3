@@ -1,4 +1,3 @@
-
 export type Product = {
   id: string;
   title: string;
@@ -16,6 +15,7 @@ export type Product = {
   dateTaken?: string;
   meta: {
     cameraModel?: string;
+    deviceManufacturer?: string;
     location?: string;
   };
 };
@@ -87,6 +87,7 @@ export interface QueueItem {
   subCategory: string;
   weight: number;
   device: string;
+  manufacturer?: string;
   productTitle?: string;
   error?: string;
 }

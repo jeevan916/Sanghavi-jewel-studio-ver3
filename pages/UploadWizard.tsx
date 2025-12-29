@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2 } from 'lucide-react';
+import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2, Cpu } from 'lucide-react';
 import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
 import { Product, AppConfig, CategoryConfig } from '../types';
@@ -38,13 +38,24 @@ export const UploadWizard: React.FC = () => {
   }, []);
 
   // --- COMMON HELPERS ---
-  const getDeviceName = () => {
+  const getDeviceInfo = () => {
     const ua = navigator.userAgent;
-    if (/android/i.test(ua)) return "Android Mobile";
-    if (/iPad|iPhone|iPod/.test(ua)) return "iOS Device";
-    if (/Mac/i.test(ua)) return "Macintosh";
-    if (/Win/i.test(ua)) return "Windows PC";
-    return "Unknown Camera/Device";
+    let device = "Desktop PC";
+    let manufacturer = "Generic";
+
+    if (/android/i.test(ua)) {
+      device = "Android Phone";
+      const match = ua.match(/Android\s([^\s;]+);?\s?([^;)]*)/);
+      if (match && match[2]) manufacturer = match[2].trim();
+    } else if (/iPad|iPhone|iPod/.test(ua)) {
+      device = "iOS Device";
+      manufacturer = "Apple";
+    } else if (/Mac/i.test(ua)) {
+      device = "Macintosh";
+      manufacturer = "Apple";
+    }
+
+    return { device, manufacturer };
   };
 
   const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -52,10 +63,15 @@ export const UploadWizard: React.FC = () => {
   // --- EFFECT: Single Mode Defaults ---
   useEffect(() => {
     if (step === 3 && !analysisData.dateTaken) {
+       const info = getDeviceInfo();
        setAnalysisData(prev => ({
            ...prev,
            dateTaken: getTodayDate(),
-           meta: { ...prev.meta, cameraModel: getDeviceName() },
+           meta: { 
+             ...prev.meta, 
+             cameraModel: info.device,
+             deviceManufacturer: info.manufacturer
+           },
            uploadedBy: currentUser?.name || 'Unknown',
            category: selectedCategory || prev.category,
            subCategory: selectedSubCategory || prev.subCategory,
@@ -91,7 +107,8 @@ export const UploadWizard: React.FC = () => {
         });
       });
     } else {
-      addToQueue(Array.from(files) as File[], selectedSupplier, selectedCategory, selectedSubCategory, getDeviceName());
+      const info = getDeviceInfo();
+      addToQueue(Array.from(files) as File[], selectedSupplier, selectedCategory, selectedSubCategory, info.device);
       if (e.target) e.target.value = ''; 
     }
   };
@@ -143,11 +160,10 @@ export const UploadWizard: React.FC = () => {
     setIsSaving(true);
     setUploadError(null);
 
-    // 1. Health Pre-check with detailed diagnostics
     const health = await storeService.checkServerHealth();
     if (!health.healthy) {
         setIsSaving(false);
-        setUploadError(`Server Error: ${health.reason} (Path: ${health.path || 'Unknown'})`);
+        setUploadError(`Server Error: ${health.reason}`);
         return;
     }
 
@@ -168,6 +184,7 @@ export const UploadWizard: React.FC = () => {
         dateTaken: analysisData.dateTaken,
         meta: { 
             cameraModel: analysisData.meta?.cameraModel || 'Unknown', 
+            deviceManufacturer: analysisData.meta?.deviceManufacturer || 'Unknown',
             location: analysisData.meta?.location 
         }
       };
@@ -175,7 +192,6 @@ export const UploadWizard: React.FC = () => {
       await storeService.addProduct(newProduct);
       alert("Product saved successfully!");
       
-      // Reset State
       setStep(1);
       setImages([]);
       setAnalysisData({});
@@ -183,7 +199,6 @@ export const UploadWizard: React.FC = () => {
       setSelectedSubCategory('');
       setUploadError(null);
     } catch (err: any) {
-      console.error("Save Error:", err);
       setUploadError(`Upload failed: ${err.message}`);
     } finally {
       setIsSaving(false);
@@ -217,7 +232,7 @@ export const UploadWizard: React.FC = () => {
       </div>
 
       {uploadError && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 text-red-700 animate-in slide-in-from-top-2">
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 text-red-700">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
               <div className="flex-1 text-sm">
                   <p className="font-bold mb-1">System Notice</p>
@@ -337,7 +352,6 @@ export const UploadWizard: React.FC = () => {
                                                 className="w-12 bg-transparent text-xs font-bold text-stone-700 focus:outline-none"
                                                 value={item.weight || ''}
                                                 onChange={(e) => updateQueueItem(item.id, { weight: parseFloat(e.target.value) })}
-                                                onClick={(e) => e.stopPropagation()}
                                             />
                                             <span className="text-[10px] text-stone-400">g</span>
                                         </div>
@@ -348,16 +362,6 @@ export const UploadWizard: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {item.status === 'pending' && (
-                                        <button 
-                                            onClick={() => cleanImage(item.id)}
-                                            title="Clean Watermark/Text"
-                                            className="p-1.5 bg-stone-100 text-stone-500 rounded hover:bg-purple-100 hover:text-purple-600 transition"
-                                        >
-                                            <Eraser size={14} />
-                                        </button>
-                                    )}
-
                                     {item.status === 'pending' && (
                                         <button 
                                             onClick={() => studioEnhance(item.id)}
@@ -377,9 +381,10 @@ export const UploadWizard: React.FC = () => {
                                     {(item.status === 'pending' || item.status === 'complete' || item.status === 'error') && (
                                         <button 
                                             onClick={() => removeFromQueue(item.id)}
-                                            className="p-1 hover:bg-red-50 rounded text-stone-300 hover:text-red-500 transition"
+                                            className="p-1.5 bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition"
+                                            title="Remove from Queue"
                                         >
-                                            <X size={14} />
+                                            <Trash2 size={16} />
                                         </button>
                                     )}
                                 </div>
@@ -421,9 +426,9 @@ export const UploadWizard: React.FC = () => {
                                     setImages(prev => prev.filter((_, i) => i !== idx));
                                     if(images.length <= 1) setStep(1);
                                 }}
-                                className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                                className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-100 transition shadow-md hover:bg-red-600"
                             >
-                                <X size={14} />
+                                <Trash2 size={14} />
                             </button>
                             {idx === 0 && <span className="absolute bottom-2 left-2 bg-gold-500 text-white text-[10px] px-2 py-0.5 rounded shadow-sm">Main</span>}
                         </div>
@@ -438,16 +443,14 @@ export const UploadWizard: React.FC = () => {
                 </div>
                 
                 <div className="flex flex-col gap-4">
-                    <div className="flex gap-4">
-                        <button 
-                            onClick={handleSingleEnhance}
-                            disabled={isEnhancing || images.length === 0}
-                            className={`flex-1 py-3 rounded-xl font-medium border border-gold-400 text-gold-700 flex items-center justify-center gap-2 transition-all ${isEnhancing ? 'bg-gold-50 opacity-70' : 'hover:bg-gold-50'}`}
-                        >
-                            {isEnhancing ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18} className="text-gold-500" />}
-                            {isEnhancing ? 'Processing...' : 'AI Studio Enhance'}
-                        </button>
-                    </div>
+                    <button 
+                        onClick={handleSingleEnhance}
+                        disabled={isEnhancing || images.length === 0}
+                        className={`w-full py-3 rounded-xl font-medium border border-gold-400 text-gold-700 flex items-center justify-center gap-2 transition-all ${isEnhancing ? 'bg-gold-50 opacity-70' : 'hover:bg-gold-50'}`}
+                    >
+                        {isEnhancing ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18} className="text-gold-500" />}
+                        {isEnhancing ? 'Processing...' : 'AI Studio Enhance'}
+                    </button>
                     <div className="flex gap-4">
                         <button onClick={() => { setImages([]); setStep(1); }} className="flex-1 py-3 border border-stone-300 rounded-xl text-stone-600 font-medium hover:bg-stone-50">Reset</button>
                         <button 
@@ -465,14 +468,6 @@ export const UploadWizard: React.FC = () => {
 
             {step === 3 && (
                 <div className="space-y-6">
-                    <div className="flex items-start gap-4 p-4 bg-green-50 border border-green-100 rounded-lg">
-                        <CheckCircle className="text-green-600 mt-1 shrink-0" size={20} />
-                        <div>
-                            <p className="text-green-800 font-medium">Analysis Complete</p>
-                            <p className="text-green-700 text-sm">Review extracted details.</p>
-                        </div>
-                    </div>
-
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 space-y-6">
                         <h3 className="font-bold text-stone-400 text-xs uppercase tracking-wider border-b border-stone-100 pb-2">Product Details</h3>
                         <input 
@@ -497,7 +492,7 @@ export const UploadWizard: React.FC = () => {
                                 className="w-full p-3 border border-stone-200 rounded-lg"
                             />
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-4">
                              <div className="w-1/3">
                                  <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Weight (g)</label>
                                  <input 
@@ -507,16 +502,6 @@ export const UploadWizard: React.FC = () => {
                                      onChange={e => setAnalysisData({...analysisData, weight: parseFloat(e.target.value)})}
                                      className="w-full p-3 border border-stone-200 rounded-lg"
                                  />
-                             </div>
-                             <div className="flex-1">
-                                 <button 
-                                    onClick={handleSingleEnhance}
-                                    disabled={isEnhancing}
-                                    className="mt-6 w-full py-3 bg-stone-100 text-stone-600 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-gold-50 hover:text-gold-700 transition"
-                                >
-                                    {isEnhancing ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14}/>}
-                                    Studio Lighting Fix
-                                </button>
                              </div>
                         </div>
                         <textarea 
@@ -553,6 +538,17 @@ export const UploadWizard: React.FC = () => {
                                 </div>
                             </div>
                             <div>
+                                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Device Manufacturer</label>
+                                <div className="relative">
+                                    <Cpu className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
+                                    <input 
+                                        value={analysisData.meta?.deviceManufacturer || ''}
+                                        onChange={e => setAnalysisData({...analysisData, meta: {...analysisData.meta, deviceManufacturer: e.target.value}})}
+                                        className="w-full pl-10 pr-3 py-3 border border-stone-200 rounded-lg bg-white"
+                                    />
+                                </div>
+                            </div>
+                            <div>
                                 <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Date Taken</label>
                                 <div className="relative">
                                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
@@ -561,17 +557,6 @@ export const UploadWizard: React.FC = () => {
                                         value={analysisData.dateTaken || ''}
                                         onChange={e => setAnalysisData({...analysisData, dateTaken: e.target.value})}
                                         className="w-full pl-10 pr-3 py-3 border border-stone-200 rounded-lg bg-white"
-                                    />
-                                </div>
-                            </div>
-                             <div>
-                                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Uploaded By</label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
-                                    <input 
-                                        value={analysisData.uploadedBy || ''}
-                                        readOnly
-                                        className="w-full pl-10 pr-3 py-3 border border-stone-200 rounded-lg bg-stone-100 text-stone-500"
                                     />
                                 </div>
                             </div>

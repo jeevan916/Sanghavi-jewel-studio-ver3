@@ -10,6 +10,7 @@ const Gallery = lazy(() => import('./pages/Gallery').then(m => ({ default: m.Gal
 const UploadWizard = lazy(() => import('./pages/UploadWizard').then(m => ({ default: m.UploadWizard })));
 const DesignStudio = lazy(() => import('./pages/DesignStudio').then(m => ({ default: m.DesignStudio })));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
 const ProductDetails = lazy(() => import('./pages/ProductDetails').then(m => ({ default: m.ProductDetails })));
 
@@ -97,6 +98,7 @@ function AppContent() {
       case 'upload': return user ? <UploadWizard /> : <Login onLoginSuccess={handleLoginSuccess} />;
       case 'studio': return user ? <DesignStudio /> : <Login onLoginSuccess={handleLoginSuccess} />;
       case 'dashboard': return user?.role === 'admin' ? <AdminDashboard onNavigate={setCurrentTab} /> : <Gallery />;
+      case 'settings': return user?.role === 'admin' ? <Settings onBack={() => setCurrentTab('dashboard')} /> : <Gallery />;
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
       default: return <Gallery onProductSelect={handleProductSelect} />;
     }
