@@ -23,6 +23,8 @@ const dataDir = path.join(rootDir, 'data');
 const dbFile = path.join(dataDir, 'db.json');
 const distPath = path.join(rootDir, 'dist');
 
+console.log(`Server starting... Root: ${rootDir}, Dist: ${distPath}`);
+
 // Ensure data persistence layer exists
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -56,6 +58,7 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'online', 
         timestamp: new Date().toISOString(),
+        node_version: process.version,
         env: process.env.NODE_ENV || 'production'
     });
 });

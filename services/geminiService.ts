@@ -2,10 +2,21 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AspectRatio } from "../types";
 
 /**
+ * Helper to get Gemini client with error handling
+ */
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API Key is not configured. Please check your environment variables.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+/**
  * Analyzes a jewelry image to extract inventory metadata.
  */
 export const analyzeJewelryImage = async (base64Image: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -43,7 +54,7 @@ export const analyzeJewelryImage = async (base64Image: string) => {
  * Uses Gemini 2.5 Flash Image to enhance jewelry photos.
  */
 export const enhanceJewelryImage = async (base64Image: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
@@ -67,11 +78,9 @@ export const enhanceJewelryImage = async (base64Image: string) => {
 
 /**
  * Generates bespoke jewelry designs using Gemini 3 Pro Image.
- * High-quality model requires mandatory API key selection.
  */
 export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
-  // MUST create a new instance right before call to ensure the latest API key is used
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
@@ -98,7 +107,7 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
  * Identifies jewelry features from an image for visual search.
  */
 export const identifyJewelryFeatures = async (base64Image: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -133,7 +142,7 @@ export const identifyJewelryFeatures = async (base64Image: string) => {
  * Removes branding from jewelry images using AI.
  */
 export const removeWatermark = async (base64Image: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
