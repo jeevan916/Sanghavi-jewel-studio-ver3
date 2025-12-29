@@ -19,9 +19,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 /**
  * PERSISTENT STORAGE STRATEGY (HOSTINGER)
- * To prevent data loss when the app folder is overwritten during updates,
- * we store data in a hidden folder in the USER'S HOME DIRECTORY.
- * Path example: /home/u106408367/sanghavi_persistence
+ * Storing data in a folder in the USER'S HOME DIRECTORY to survive app updates.
  */
 const persistenceDir = path.join(os.homedir(), 'sanghavi_persistence');
 const uploadsDir = path.join(persistenceDir, 'uploads');
@@ -74,6 +72,22 @@ const saveDB = (data) => {
     }
 };
 
+const deletePhysicalFile = (imageUrl) => {
+    if (!imageUrl || typeof imageUrl !== 'string') return;
+    if (!imageUrl.startsWith('/api/uploads/')) return;
+
+    try {
+        const filename = path.basename(imageUrl);
+        const filePath = path.join(uploadsDir, filename);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`[Storage] Deleted physical file: ${filename}`);
+        }
+    } catch (err) {
+        console.error(`[Storage] Failed to delete file ${imageUrl}:`, err);
+    }
+};
+
 const extractAndSaveImage = (imgData, productId, index) => {
     if (!imgData || !imgData.startsWith('data:image')) return imgData;
     try {
@@ -84,7 +98,6 @@ const extractAndSaveImage = (imgData, productId, index) => {
         const filename = `prod_${productId}_${index}_${Date.now()}.${extension}`;
         const filePath = path.join(uploadsDir, filename);
         fs.writeFileSync(filePath, buffer);
-        // This URL matches the app.use('/api/uploads', ...) route
         return `/api/uploads/${filename}`;
     } catch (err) {
         console.error(`[ImageEngine] Save failed:`, err);
@@ -113,7 +126,6 @@ app.post('/api/products', (req, res) => {
         const product = req.body;
         const productId = product.id || Date.now().toString();
         
-        // Save base64 images to physical storage
         const processedImages = (product.images || []).map((img, idx) => 
             extractAndSaveImage(img, productId, idx)
         );
@@ -138,9 +150,18 @@ app.put('/api/products/:id', (req, res) => {
         const index = db.products.findIndex(p => p.id === id);
         if (index === -1) return res.status(404).json({ error: 'Not found' });
 
+        const oldImages = db.products[index].images || [];
+
         const processedImages = (updatedData.images || []).map((img, idx) => 
             extractAndSaveImage(img, id, idx)
         );
+
+        // Cleanup old images that are no longer in the product set
+        oldImages.forEach(oldImg => {
+            if (!processedImages.includes(oldImg)) {
+                deletePhysicalFile(oldImg);
+            }
+        });
 
         db.products[index] = { ...updatedData, images: processedImages };
         saveDB(db);
@@ -153,8 +174,18 @@ app.put('/api/products/:id', (req, res) => {
 
 app.delete('/api/products/:id', (req, res) => {
     try {
+        const { id } = req.params;
         const db = getDB();
-        db.products = db.products.filter(p => p.id !== req.params.id);
+        
+        const productToDelete = db.products.find(p => p.id === id);
+        if (productToDelete) {
+            // Delete all associated physical image files
+            (productToDelete.images || []).forEach(imgUrl => {
+                deletePhysicalFile(imgUrl);
+            });
+        }
+
+        db.products = db.products.filter(p => p.id !== id);
         saveDB(db);
         res.json({ success: true });
     } catch (err) {
