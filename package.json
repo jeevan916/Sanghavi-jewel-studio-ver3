@@ -1,8 +1,9 @@
+
 {
   "name": "sanghavi-jewel-studio",
   "private": true,
   "version": "2.4.4",
-  "type": "commonjs",
+  "type": "module",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -10,7 +11,7 @@
     "dev": "vite",
     "build": "vite build",
     "postinstall": "npm run build",
-    "start": "node server.js"
+    "start": "node server.cjs"
   },
   "dependencies": {
     "@google/genai": "^1.33.0",
