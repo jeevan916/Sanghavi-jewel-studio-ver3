@@ -1,13 +1,16 @@
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const cors = require('cors');
-require('dotenv').config();
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import cors from 'cors';
+import { fileURLToPath } from 'url';
+import 'dotenv/config';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Hostinger's Passenger environment usually handles the port, 
-// but we define 3000 as a standard fallback.
+// Hostinger's Passenger environment usually handles the port
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -34,18 +37,27 @@ const getDB = () => {
         }
         return JSON.parse(fs.readFileSync(dbFile, 'utf8'));
     } catch (e) {
+        console.error("DB Read Error:", e);
         return { products: [], analytics: [], config: null };
     }
 };
 
 const saveDB = (data) => {
-    fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
+    try {
+        fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
+    } catch (e) {
+        console.error("DB Write Error:", e);
+    }
 };
 
 // --- API ROUTES ---
 
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'online', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'online', 
+        timestamp: new Date().toISOString(),
+        env: process.env.NODE_ENV || 'production'
+    });
 });
 
 app.get('/api/products', (req, res) => res.json(getDB().products));
@@ -97,12 +109,10 @@ app.post('/api/analytics', (req, res) => {
 
 // --- FRONTEND SERVING ---
 
-// 1. Serve static files from 'dist' first
+// Serve static files from 'dist'
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
     
-    // 2. SPA Fallback: All routes not caught by API or static files
-    // will serve index.html to allow React Router to take over.
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: 'API route not found' });
@@ -110,12 +120,14 @@ if (fs.existsSync(distPath)) {
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {
-    // If build folder is missing, show diagnostic info
     app.get('*', (req, res) => {
-        res.status(200).send('Sanghavi Backend Online. Waiting for frontend deployment.');
+        if (req.path.startsWith('/api')) {
+             return res.status(404).json({ error: 'API route not found' });
+        }
+        res.status(200).send('Sanghavi Backend Online. Waiting for frontend build/deployment.');
     });
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[PASSENGER] Server listening on port ${PORT}`);
+    console.log(`Server listening on port ${PORT}`);
 });
