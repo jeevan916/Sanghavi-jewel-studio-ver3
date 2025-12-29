@@ -147,7 +147,7 @@ export const UploadWizard: React.FC = () => {
     const health = await storeService.checkServerHealth();
     if (!health.healthy) {
         setIsSaving(false);
-        setUploadError(`Server Error: ${health.reason}`);
+        setUploadError(`Server Error: ${health.reason} (Path: ${health.path || 'Unknown'})`);
         return;
     }
 

@@ -25,7 +25,7 @@ export const storeService = {
         if (!res.ok) return { healthy: false, reason: `HTTP ${res.status}: ${res.statusText}` };
         
         const data = await res.json();
-        console.log("[StoreService] Health Check Response:", data);
+        console.log("[StoreService] Health Diagnostics:", data);
         
         if (data.status === 'online' && data.writeAccess === true) {
             return { healthy: true, path: data.activePath };
@@ -33,12 +33,12 @@ export const storeService = {
         
         return { 
             healthy: false, 
-            reason: data.writeError || "Filesystem is read-only. Permission denied.",
+            reason: data.writeError || "Server folder is read-only.",
             path: data.activePath
         };
     } catch (e: any) {
-        console.error("[StoreService] Health check failed to connect:", e);
-        return { healthy: false, reason: "Unable to connect to backend server." };
+        console.error("[StoreService] Server unreachable:", e);
+        return { healthy: false, reason: "Check your internet or server status." };
     }
   },
 
@@ -79,13 +79,13 @@ export const storeService = {
         
         if (!res.ok) {
             const errorText = await res.text();
-            throw new Error(`Upload failed (${res.status}): ${errorText}`);
+            throw new Error(`Server Error: ${errorText}`);
         }
         
         return await res.json();
     } catch (err: any) {
         console.error("Store Save Error:", err);
-        throw new Error(err.message || "Network error while saving.");
+        throw new Error(err.message || "Upload encountered a network error.");
     }
   },
 
