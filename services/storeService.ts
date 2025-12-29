@@ -9,10 +9,10 @@ const KEYS = {
 export interface HealthStatus {
     healthy: boolean;
     reason?: string;
+    path?: string;
 }
 
 export const storeService = {
-  // --- Connection Status ---
   getIsOnline: () => navigator.onLine,
   
   checkServerHealth: async (): Promise<HealthStatus> => {
@@ -22,19 +22,23 @@ export const storeService = {
             headers: { 'Cache-Control': 'no-cache' } 
         });
         
-        if (!res.ok) return { healthy: false, reason: `Server responded with ${res.status}` };
+        if (!res.ok) return { healthy: false, reason: `HTTP ${res.status}: ${res.statusText}` };
         
         const data = await res.json();
+        console.log("[StoreService] Health Check Response:", data);
+        
         if (data.status === 'online' && data.writeAccess === true) {
-            return { healthy: true };
+            return { healthy: true, path: data.activePath };
         }
         
         return { 
             healthy: false, 
-            reason: data.writeError || "Database is in read-only mode." 
+            reason: data.writeError || "Filesystem is read-only. Permission denied.",
+            path: data.activePath
         };
     } catch (e: any) {
-        return { healthy: false, reason: "Server is unreachable. Check internet connection." };
+        console.error("[StoreService] Health check failed to connect:", e);
+        return { healthy: false, reason: "Unable to connect to backend server." };
     }
   },
 
@@ -52,7 +56,7 @@ export const storeService = {
   getProducts: async (): Promise<Product[]> => {
     try {
       const res = await fetch(`${API_BASE}/products`);
-      if (!res.ok) throw new Error('Server returned error while fetching products');
+      if (!res.ok) throw new Error('Failed to fetch products');
       const data = await res.json();
       return (data || []).sort((a: Product, b: Product) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -64,9 +68,7 @@ export const storeService = {
   },
 
   addProduct: async (product: Product) => {
-    if (!product || !product.images || product.images.length === 0) {
-        throw new Error("No image data found to upload.");
-    }
+    if (!product || !product.images?.length) throw new Error("No image data provided.");
 
     try {
         const res = await fetch(`${API_BASE}/products`, {
@@ -77,13 +79,13 @@ export const storeService = {
         
         if (!res.ok) {
             const errorText = await res.text();
-            throw new Error(`Upload failed (${res.status}): ${errorText || res.statusText}`);
+            throw new Error(`Upload failed (${res.status}): ${errorText}`);
         }
         
         return await res.json();
     } catch (err: any) {
-        console.error("API POST Error:", err);
-        throw new Error(err.message || "Network error while saving product.");
+        console.error("Store Save Error:", err);
+        throw new Error(err.message || "Network error while saving.");
     }
   },
 
@@ -100,7 +102,7 @@ export const storeService = {
     await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' });
   },
 
-  // --- Settings & Configuration ---
+  // --- Settings ---
   getConfig: async (): Promise<AppConfig> => {
     try {
       const res = await fetch(`${API_BASE}/config`);
@@ -108,19 +110,11 @@ export const storeService = {
           const data = await res.json();
           if (data) return data;
       }
-    } catch (e) {
-      console.warn("Config fetch failed, using defaults");
-    }
+    } catch (e) {}
 
     return {
-        suppliers: [
-            { id: '1', name: 'Ratna Jewels', isPrivate: false },
-            { id: '2', name: 'Sanghavi In-House', isPrivate: true }
-        ],
-        categories: [
-            { id: 'c1', name: 'Necklace', subCategories: ['Choker', 'Rani Haar'], isPrivate: false },
-            { id: 'c2', name: 'Ring', subCategories: ['Solitaire', 'Band'], isPrivate: false }
-        ],
+        suppliers: [{ id: '1', name: 'Sanghavi In-House', isPrivate: false }],
+        categories: [{ id: 'c1', name: 'Necklace', subCategories: ['Choker'], isPrivate: false }],
         linkExpiryHours: 24,
         whatsappNumber: ''
     };
@@ -135,7 +129,7 @@ export const storeService = {
     return await res.json();
   },
 
-  // --- AI Generated Designs ---
+  // --- Designs ---
   getDesigns: async (): Promise<GeneratedDesign[]> => {
     const data = localStorage.getItem('sanghavi_designs');
     return data ? JSON.parse(data) : [];
@@ -148,22 +142,14 @@ export const storeService = {
     return design;
   },
 
-  // --- Secret Sharing Links ---
+  // --- Links ---
   createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
     const config = await storeService.getConfig();
     const token = Math.random().toString(36).substring(2, 15);
     const expiresAt = new Date(Date.now() + config.linkExpiryHours * 60 * 60 * 1000).toISOString();
     
-    const newLink: SharedLink = {
-      id: Date.now().toString(),
-      targetId,
-      type,
-      token,
-      expiresAt
-    };
-
-    const existingLinksStr = localStorage.getItem('sanghavi_links');
-    const links: SharedLink[] = existingLinksStr ? JSON.parse(existingLinksStr) : [];
+    const newLink: SharedLink = { id: Date.now().toString(), targetId, type, token, expiresAt };
+    const links: SharedLink[] = JSON.parse(localStorage.getItem('sanghavi_links') || '[]');
     links.push(newLink);
     localStorage.setItem('sanghavi_links', JSON.stringify(links));
 
@@ -171,31 +157,26 @@ export const storeService = {
   },
 
   validateSharedLink: async (token: string): Promise<SharedLink | null> => {
-    const existingLinksStr = localStorage.getItem('sanghavi_links');
-    const links: SharedLink[] = existingLinksStr ? JSON.parse(existingLinksStr) : [];
+    const links: SharedLink[] = JSON.parse(localStorage.getItem('sanghavi_links') || '[]');
     const link = links.find(l => l.token === token);
     if (!link) return null;
     if (new Date(link.expiresAt) < new Date()) throw new Error('Link Expired');
     return link;
   },
 
-  // --- Auth Session ---
+  // --- Auth ---
   getCurrentUser: (): User | null => {
     const data = localStorage.getItem(KEYS.SESSION);
     return data ? JSON.parse(data) : null;
   },
 
   login: async (username: string, password: string): Promise<User | null> => {
-    const user = String(username).trim().toLowerCase();
-    const pass = String(password).trim();
-
+    const u = username.toLowerCase().trim();
+    const p = password.trim();
     let userData: User | null = null;
-    if (user === 'admin' && pass === 'admin') {
-        userData = { id: 'admin1', name: 'Sanghavi Admin', role: 'admin' };
-    } else if (user === 'staff' && pass === 'staff') {
-        userData = { id: 'staff1', name: 'Staff', role: 'contributor' };
-    }
-
+    if (u === 'admin' && p === 'admin') userData = { id: 'admin1', name: 'Admin', role: 'admin' };
+    else if (u === 'staff' && p === 'staff') userData = { id: 'staff1', name: 'Staff', role: 'contributor' };
+    
     if (userData) localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
     return userData;
   },
@@ -208,7 +189,7 @@ export const storeService = {
   // --- Analytics ---
   logEvent: async (type: 'inquiry' | 'screenshot' | 'view', product: Product, user: User | null, imageIndex?: number) => {
     const event: AnalyticsEvent = {
-        id: Date.now().toString() + Math.random().toString().slice(2, 6),
+        id: Date.now().toString(),
         type,
         productId: product.id,
         productTitle: product.title,
@@ -217,24 +198,19 @@ export const storeService = {
         timestamp: new Date().toISOString(),
         imageIndex
     };
-    
     try {
         await fetch(`${API_BASE}/analytics`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(event)
         });
-    } catch (e) {
-        console.warn("Analytics logging failed offline.");
-    }
+    } catch (e) {}
   },
 
   getAnalytics: async (): Promise<AnalyticsEvent[]> => {
     try {
         const res = await fetch(`${API_BASE}/analytics`);
         return await res.json();
-    } catch (e) {
-        return [];
-    }
+    } catch (e) { return []; }
   }
 };
