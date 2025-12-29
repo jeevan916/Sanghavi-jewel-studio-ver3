@@ -26,18 +26,14 @@ export const storeService = {
         
         const data = await res.json();
         
-        if (data.status === 'online' && data.writeAccess === true && data.uploadsWriteAccess === true) {
-            return { healthy: true, path: data.activePath };
-        }
-        
-        if (data.writeAccess === true && data.uploadsWriteAccess === false) {
-            return { healthy: false, reason: "Database is writable, but 'uploads' folder is restricted.", path: data.activePath };
+        if (data.status === 'online' && data.writable === true) {
+            return { healthy: true, path: data.uploadsDir };
         }
         
         return { 
             healthy: false, 
-            reason: data.writeError || "Server folder is restricted.",
-            path: data.activePath
+            reason: "Server storage is not writable.",
+            path: data.dataDir
         };
     } catch (e: any) {
         return { healthy: false, reason: "Check your internet or server status." };
@@ -96,12 +92,19 @@ export const storeService = {
   },
 
   updateProduct: async (updatedProduct: Product) => {
-    const res = await fetch(`${API_BASE}/products/${updatedProduct.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedProduct)
-    });
-    return await res.json();
+    try {
+        const res = await fetch(`${API_BASE}/products/${updatedProduct.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedProduct)
+        });
+        
+        if (!res.ok) throw new Error('Update failed');
+        return await res.json();
+    } catch (err) {
+        console.error("Update error:", err);
+        throw err;
+    }
   },
 
   deleteProduct: async (id: string) => {
@@ -156,7 +159,6 @@ export const storeService = {
     
     const newLink: SharedLink = { id: Date.now().toString(), targetId, type, token, expiresAt };
     
-    // Save to Server instead of LocalStorage
     await fetch(`${API_BASE}/links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -2,7 +2,6 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
-import os from 'os';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
 
@@ -16,74 +15,51 @@ app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// --- ENHANCED WRITABLE PATH DETECTION ---
-const findWritableDir = () => {
-    const root = process.cwd();
-    const potentialPaths = [
-        path.join(root, 'data'),
-        path.join(__dirname, 'data'),
-        root,
-        __dirname,
-        path.join(os.homedir(), '.sanghavi_data'),
-        os.tmpdir()
-    ];
+// --- DIRECTORY SETUP ---
+// We prioritize a 'data' folder in the root directory
+const rootDir = process.cwd();
+const dataDir = path.join(rootDir, 'data');
+const uploadsDir = path.join(dataDir, 'uploads');
+const dbFile = path.join(dataDir, 'db.json');
 
-    for (const p of potentialPaths) {
-        try {
-            if (!fs.existsSync(p)) {
-                fs.mkdirSync(p, { recursive: true });
-            }
-            // Test write permission
-            const testFile = path.join(p, `.write-check-${Date.now()}`);
-            fs.writeFileSync(testFile, 'test');
-            fs.unlinkSync(testFile);
-            
-            // Ensure uploads folder exists in the writable dir
-            const uploadsDir = path.join(p, 'uploads');
-            if (!fs.existsSync(uploadsDir)) {
-                fs.mkdirSync(uploadsDir, { recursive: true });
-            }
-
-            console.log(`[Server] STORAGE ACTIVE: ${p}`);
-            return p;
-        } catch (err) {
-            console.warn(`[Server] Skip restricted path: ${p} (${err.code})`);
+// Ensure directories exist
+const initStorage = () => {
+    try {
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+            console.log(`[Storage] Created data directory: ${dataDir}`);
         }
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+            console.log(`[Storage] Created uploads directory: ${uploadsDir}`);
+        }
+        if (!fs.existsSync(dbFile)) {
+            fs.writeFileSync(dbFile, JSON.stringify({ products: [], analytics: [], config: null, links: [] }, null, 2));
+            console.log(`[Storage] Initialized empty db.json`);
+        }
+    } catch (err) {
+        console.error(`[Storage] CRITICAL: Failed to initialize folders:`, err);
     }
-    return null;
 };
 
-const activeDataDir = findWritableDir();
-const uploadsDir = activeDataDir ? path.join(activeDataDir, 'uploads') : null;
-const dbFile = activeDataDir ? path.join(activeDataDir, 'db.json') : null;
-const distPath = path.join(process.cwd(), 'dist');
+initStorage();
 
 // Serve uploaded images statically
-if (uploadsDir) {
-    console.log(`[Server] Serving static uploads from: ${uploadsDir}`);
-    app.use('/api/uploads', express.static(uploadsDir));
-}
+app.use('/api/uploads', express.static(uploadsDir));
 
 const getDB = () => {
-    if (!dbFile) return { products: [], analytics: [], config: null, links: [] };
     try {
-        if (!fs.existsSync(dbFile)) {
-            const initial = { products: [], analytics: [], config: null, links: [] };
-            fs.writeFileSync(dbFile, JSON.stringify(initial, null, 2));
-            return initial;
-        }
         const data = fs.readFileSync(dbFile, 'utf8');
         const db = JSON.parse(data);
-        if (!db.links) db.links = []; // Migration for older DB versions
+        if (!db.products) db.products = [];
+        if (!db.links) db.links = [];
         return db;
     } catch (e) {
-        console.error("[Server] DB Load Error:", e);
         return { products: [], analytics: [], config: null, links: [] };
     }
 };
 
 const saveDB = (data) => {
-    if (!dbFile) throw new Error("FileSystem locked. No writable directory found.");
     try {
         fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
         return true;
@@ -95,92 +71,86 @@ const saveDB = (data) => {
 
 // Helper to save base64 image to disk
 const saveImageToDisk = (base64String, productId, index) => {
-    if (!uploadsDir) throw new Error("Upload directory not available.");
-    
-    // Remove header if present
+    // Check if it's actually base64
+    if (!base64String.startsWith('data:image')) {
+        return base64String; // Return as-is if it's already a URL
+    }
+
     const base64Data = base64String.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Data, 'base64');
     
-    // Generate unique filename
-    const filename = `img_${productId}_${index}_${Date.now()}.jpg`;
+    const extension = base64String.split(';')[0].split('/')[1] || 'jpg';
+    const filename = `img_${productId}_${index}_${Date.now()}.${extension}`;
     const filepath = path.join(uploadsDir, filename);
     
     fs.writeFileSync(filepath, buffer);
+    console.log(`[Storage] Saved file: ${filename}`);
     
-    // Return the URL that will be stored in the DB
     return `/api/uploads/${filename}`;
 };
 
 // --- API ROUTES ---
 
 app.get('/api/health', (req, res) => {
-    let writeable = false;
-    let uploadsWriteable = false;
-    let writeError = null;
-    
-    if (activeDataDir) {
-        try {
-            const testFile = path.join(activeDataDir, `.health-check-${Date.now()}`);
-            fs.writeFileSync(testFile, 'ok');
-            fs.unlinkSync(testFile);
-            writeable = true;
-
-            const uploadTest = path.join(uploadsDir, `.upload-test-${Date.now()}`);
-            fs.writeFileSync(uploadTest, 'ok');
-            fs.unlinkSync(uploadTest);
-            uploadsWriteable = true;
-        } catch (e) {
-            writeError = e.message;
-        }
-    } else {
-        writeError = "No writable folders discovered.";
-    }
-
     res.json({ 
         status: 'online', 
-        writeAccess: writeable,
-        uploadsWriteAccess: uploadsWriteable,
-        activePath: activeDataDir,
-        writeError: writeError,
-        dbExists: dbFile ? fs.existsSync(dbFile) : false,
-        uptime: Math.round(process.uptime())
+        dataDir: dataDir,
+        uploadsDir: uploadsDir,
+        writable: fs.existsSync(uploadsDir)
     });
 });
 
 app.get('/api/products', (req, res) => {
-    try {
-        const db = getDB();
-        res.json(db.products || []);
-    } catch (err) {
-        res.status(500).json({ error: 'Read failed' });
-    }
+    res.json(getDB().products);
 });
 
+// Create Product
 app.post('/api/products', (req, res) => {
     try {
         const product = req.body;
-        if (!product.title || !product.images?.length) {
-            return res.status(400).json({ error: 'Required fields missing' });
-        }
-
         const productId = product.id || Date.now().toString();
-        const imageUrls = [];
-
-        product.images.forEach((imgBase64, index) => {
-            if (imgBase64.startsWith('data:image')) {
-                const url = saveImageToDisk(imgBase64, productId, index);
-                imageUrls.push(url);
-            } else {
-                imageUrls.push(imgBase64);
-            }
-        });
+        const imageUrls = (product.images || []).map((img, idx) => saveImageToDisk(img, productId, idx));
 
         const db = getDB();
         const newProduct = { ...product, id: productId, images: imageUrls };
-        db.products = db.products || [];
         db.products.push(newProduct);
         saveDB(db);
+        
         res.status(201).json(newProduct);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update Product
+app.put('/api/products/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedData = req.body;
+        const db = getDB();
+        
+        const index = db.products.findIndex(p => p.id === id);
+        if (index === -1) return res.status(404).json({ error: 'Not found' });
+
+        // Process images (extract base64 if newly added/edited)
+        const processedImages = (updatedData.images || []).map((img, idx) => saveImageToDisk(img, id, idx));
+
+        db.products[index] = { ...updatedData, images: processedImages };
+        saveDB(db);
+        
+        res.json(db.products[index]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/products/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const db = getDB();
+        db.products = db.products.filter(p => p.id !== id);
+        saveDB(db);
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -188,82 +158,50 @@ app.post('/api/products', (req, res) => {
 
 // --- SHARING ROUTES ---
 app.post('/api/links', (req, res) => {
-    try {
-        const link = req.body;
-        if (!link.token || !link.targetId) return res.status(400).json({ error: 'Invalid link data' });
-        const db = getDB();
-        db.links = db.links || [];
-        db.links.push(link);
-        saveDB(db);
-        res.status(201).json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: 'Failed to save link' });
-    }
+    const db = getDB();
+    db.links.push(req.body);
+    saveDB(db);
+    res.status(201).json({ success: true });
 });
 
 app.get('/api/links/:token', (req, res) => {
-    try {
-        const { token } = req.params;
-        const db = getDB();
-        const link = (db.links || []).find(l => l.token === token);
-        
-        if (!link) return res.status(404).json({ error: 'Link not found' });
-        
-        // Expiration check
-        if (new Date(link.expiresAt) < new Date()) {
-            return res.status(410).json({ error: 'Link expired' });
-        }
-
-        res.json(link);
-    } catch (err) {
-        res.status(500).json({ error: 'Internal error' });
-    }
-});
-
-app.get('/api/analytics', (req, res) => {
-    try {
-        const db = getDB();
-        res.json(db.analytics || []);
-    } catch (err) {
-        res.status(500).json({ error: 'Analytics read failed' });
-    }
-});
-
-app.post('/api/analytics', (req, res) => {
-    try {
-        const db = getDB();
-        db.analytics = db.analytics || [];
-        db.analytics.push(req.body);
-        saveDB(db);
-        res.status(201).json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: 'Analytics save failed' });
-    }
+    const { token } = req.params;
+    const db = getDB();
+    const link = db.links.find(l => l.token === token);
+    if (!link) return res.status(404).json({ error: 'Not found' });
+    if (new Date(link.expiresAt) < new Date()) return res.status(410).json({ error: 'Expired' });
+    res.json(link);
 });
 
 app.get('/api/config', (req, res) => res.json(getDB().config));
 app.post('/api/config', (req, res) => {
-    try {
-        const db = getDB();
-        db.config = req.body;
-        saveDB(db);
-        res.json(db.config);
-    } catch (err) {
-        res.status(500).json({ error: 'Config update failed' });
-    }
+    const db = getDB();
+    db.config = req.body;
+    saveDB(db);
+    res.json(db.config);
 });
 
-// Front-end delivery
+app.get('/api/analytics', (req, res) => res.json(getDB().analytics || []));
+app.post('/api/analytics', (req, res) => {
+    const db = getDB();
+    if (!db.analytics) db.analytics = [];
+    db.analytics.push(req.body);
+    saveDB(db);
+    res.json({ success: true });
+});
+
+// Static frontend
+const distPath = path.join(rootDir, 'dist');
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-        if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API missing' });
+        if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API not found' });
         res.sendFile(path.join(distPath, 'index.html'));
     });
-} else {
-    app.get('*', (req, res) => res.status(200).send('Studio Server Live. Dist folder missing - run build.'));
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Server] Ready on port ${PORT}`);
+    console.log(`[Server] Studio Engine Live on port ${PORT}`);
+    console.log(`[Server] Database: ${dbFile}`);
+    console.log(`[Server] Uploads: ${uploadsDir}`);
 });
