@@ -108,7 +108,7 @@ export const UploadWizard: React.FC = () => {
       });
     } else {
       const info = getDeviceInfo();
-      addToQueue(Array.from(files) as File[], selectedSupplier, selectedCategory, selectedSubCategory, info.device);
+      addToQueue(Array.from(files) as File[], selectedSupplier, selectedCategory, selectedSubCategory, info.device, info.manufacturer);
       if (e.target) e.target.value = ''; 
     }
   };

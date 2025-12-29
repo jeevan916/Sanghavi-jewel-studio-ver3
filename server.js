@@ -17,19 +17,26 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // --- PERMANENT STORAGE SETUP ---
-const rootDir = process.cwd();
-const dataDir = path.resolve(rootDir, 'data');
-const uploadsDir = path.resolve(dataDir, 'uploads');
-const dbFile = path.resolve(dataDir, 'db.json');
+// Use __dirname to ensure paths are always relative to the script location
+const dataDir = path.join(__dirname, 'data');
+const uploadsDir = path.join(dataDir, 'uploads');
+const dbFile = path.join(dataDir, 'db.json');
 
 const initStorage = () => {
     try {
-        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        if (!fs.existsSync(dataDir)) {
+            console.log(`[Storage] Creating data directory: ${dataDir}`);
+            fs.mkdirSync(dataDir, { recursive: true });
+        }
+        if (!fs.existsSync(uploadsDir)) {
+            console.log(`[Storage] Creating uploads directory: ${uploadsDir}`);
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
         if (!fs.existsSync(dbFile)) {
+            console.log(`[Storage] Creating initial database file: ${dbFile}`);
             fs.writeFileSync(dbFile, JSON.stringify({ products: [], analytics: [], config: null, links: [] }, null, 2));
         }
-        console.log(`[Storage] System Initialized at: ${dataDir}`);
+        console.log(`[Storage] System Verified at: ${dataDir}`);
     } catch (err) {
         console.error(`[Storage] Initialization Failed:`, err);
     }
@@ -43,15 +50,21 @@ app.use('/api/uploads', express.static(uploadsDir));
 // --- DATABASE UTILS ---
 const getDB = () => {
     try {
+        if (!fs.existsSync(dbFile)) {
+            initStorage();
+        }
         const data = fs.readFileSync(dbFile, 'utf8');
         return JSON.parse(data);
     } catch (e) {
+        console.error("[Server] DB Read Error, returning default state:", e);
         return { products: [], analytics: [], config: null, links: [] };
     }
 };
 
 const saveDB = (data) => {
     try {
+        // Double check directory exists before writing
+        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
         fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
         return true;
     } catch (e) {
@@ -62,7 +75,6 @@ const saveDB = (data) => {
 
 // --- IMAGE ENGINE: Base64 -> Physical File ---
 const extractAndSaveImage = (imgData, productId, index) => {
-    // If it's already a URL, skip processing
     if (!imgData || !imgData.startsWith('data:image')) return imgData;
 
     try {
@@ -75,55 +87,31 @@ const extractAndSaveImage = (imgData, productId, index) => {
         const filePath = path.join(uploadsDir, filename);
         
         fs.writeFileSync(filePath, buffer);
-        console.log(`[ImageEngine] Physical file created: ${filename}`);
-        
-        // Return the clean URL path for the database
         return `/api/uploads/${filename}`;
     } catch (err) {
         console.error(`[ImageEngine] Failed to save image ${index} for ${productId}:`, err);
-        return imgData; // Fallback to original if failed
+        return imgData;
     }
 };
-
-// Migration: Extract any existing base64 strings in the DB to files
-const runMigration = () => {
-    const db = getDB();
-    let migrated = false;
-
-    db.products = (db.products || []).map(product => {
-        const updatedImages = product.images.map((img, idx) => {
-            if (img.startsWith('data:image')) {
-                migrated = true;
-                return extractAndSaveImage(img, product.id, idx);
-            }
-            return img;
-        });
-
-        if (migrated) return { ...product, images: updatedImages };
-        return product;
-    });
-
-    if (migrated) {
-        saveDB(db);
-        console.log(`[Migration] Database sanitized. All Base64 images moved to /uploads/`);
-    }
-};
-
-runMigration();
 
 // --- API ROUTES ---
 
 app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'online', 
-        storage: {
-            root: dataDir,
-            uploads: uploadsDir,
-            db: dbFile,
-            writable: fs.existsSync(uploadsDir)
-        },
-        productCount: getDB().products.length
-    });
+    try {
+        const db = getDB();
+        res.json({ 
+            status: 'online', 
+            storage: {
+                root: dataDir,
+                uploads: uploadsDir,
+                db: dbFile,
+                writable: fs.existsSync(uploadsDir)
+            },
+            productCount: db.products ? db.products.length : 0
+        });
+    } catch (e) {
+        res.status(500).json({ status: 'error', message: e.message });
+    }
 });
 
 app.get('/api/products', (req, res) => {
@@ -135,7 +123,6 @@ app.post('/api/products', (req, res) => {
         const product = req.body;
         const productId = product.id || Date.now().toString();
         
-        // Process images BEFORE saving to DB
         const processedImages = (product.images || []).map((img, idx) => 
             extractAndSaveImage(img, productId, idx)
         );
@@ -160,7 +147,6 @@ app.put('/api/products/:id', (req, res) => {
         const index = db.products.findIndex(p => p.id === id);
         if (index === -1) return res.status(404).json({ error: 'Not found' });
 
-        // Process images (handle newly added base64 or keep existing URLs)
         const processedImages = (updatedData.images || []).map((img, idx) => 
             extractAndSaveImage(img, id, idx)
         );
@@ -186,7 +172,6 @@ app.delete('/api/products/:id', (req, res) => {
     }
 });
 
-// Settings & Analytics
 app.get('/api/config', (req, res) => res.json(getDB().config));
 app.post('/api/config', (req, res) => {
     const db = getDB();
@@ -204,7 +189,6 @@ app.post('/api/analytics', (req, res) => {
     res.json({ success: true });
 });
 
-// Sharing
 app.post('/api/links', (req, res) => {
     const db = getDB();
     db.links.push(req.body);
@@ -221,8 +205,7 @@ app.get('/api/links/:token', (req, res) => {
     res.json(link);
 });
 
-// Front-end delivery
-const distPath = path.join(rootDir, 'dist');
+const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
     app.get('*', (req, res) => {

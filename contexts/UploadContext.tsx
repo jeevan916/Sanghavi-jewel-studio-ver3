@@ -5,7 +5,7 @@ import { storeService } from '../services/storeService';
 
 interface UploadContextType {
   queue: QueueItem[];
-  addToQueue: (files: File[], supplier: string, category: string, subCategory: string, device: string) => void;
+  addToQueue: (files: File[], supplier: string, category: string, subCategory: string, device: string, manufacturer: string) => void;
   removeFromQueue: (id: string) => void;
   updateQueueItem: (id: string, updates: Partial<QueueItem>) => void;
   clearCompleted: () => void;
@@ -32,7 +32,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [useAI, setUseAI] = useState(false); 
   const currentUser = storeService.getCurrentUser();
 
-  const addToQueue = (files: File[], supplier: string, category: string, subCategory: string, device: string) => {
+  const addToQueue = (files: File[], supplier: string, category: string, subCategory: string, device: string, manufacturer: string) => {
     const newItems: QueueItem[] = files.map(file => ({
       id: Math.random().toString(36).substr(2, 9),
       file,
@@ -42,7 +42,8 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       category,
       subCategory,
       weight: 0,
-      device
+      device,
+      manufacturer
     }));
     setQueue(prev => [...prev, ...newItems]);
   };
@@ -65,7 +66,6 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     updateQueueItem(id, { status: 'analyzing' }); 
     try {
-        // Optimized 1200px for storage efficiency
         const base64 = await fileToBase64(item.file, true, 1200, 'image/jpeg'); 
         const cleanedBase64 = await removeWatermark(base64.split(',')[1]);
         const cleanedUrl = `data:image/jpeg;base64,${cleanedBase64}`;
@@ -87,7 +87,6 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     updateQueueItem(id, { status: 'analyzing' }); 
     try {
-        // Optimized 1200px for storage efficiency
         const base64 = await fileToBase64(item.file, true, 1200, 'image/jpeg');
         const enhancedBase64 = await enhanceJewelryImage(base64.split(',')[1]);
         const enhancedUrl = `data:image/jpeg;base64,${enhancedBase64}`;
@@ -132,8 +131,6 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
             }
-            
-            // Reduced quality slightly to 0.8 to save space significantly
             const dataUrl = canvas.toDataURL(mimeType, 0.8); 
             resolve(dataUrl);
         };
@@ -205,6 +202,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           dateTaken: getTodayDate(),
           meta: { 
               cameraModel: nextItem.device || 'Unknown',
+              deviceManufacturer: nextItem.manufacturer || 'Unknown'
           }
         };
 
