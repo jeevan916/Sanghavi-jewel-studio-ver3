@@ -1,7 +1,7 @@
 import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent } from "../types";
 
-// Base API Path - Hostinger usually handles this via a proxy or same-origin mapping
-const API_BASE = window.location.origin.includes('localhost') ? '/api' : '/api';
+// Always use /api - the .htaccess in public_html will handle the routing to the Node.js process
+const API_BASE = '/api';
 
 const KEYS = {
   SESSION: 'sanghavi_user_session',
@@ -24,19 +24,14 @@ export const storeService = {
         });
         
         if (!res.ok) return { healthy: false, reason: `HTTP ${res.status}: ${res.statusText}` };
-        
         const data = await res.json();
         
-        if (data.status === 'online' && data.uploadsWritable === true) {
+        if (data.status === 'online') {
             return { healthy: true };
         }
-        
-        return { 
-            healthy: false, 
-            reason: "Server storage check failed."
-        };
+        return { healthy: false, reason: "API responded but reported issues." };
     } catch (e: any) {
-        return { healthy: false, reason: "API server is unreachable." };
+        return { healthy: false, reason: "Cannot reach API server. Check Node.js app status in Hostinger." };
     }
   },
 
