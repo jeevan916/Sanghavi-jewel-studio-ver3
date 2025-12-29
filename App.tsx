@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
 import { User, Product } from './types';
@@ -25,6 +25,41 @@ function AppContent() {
   const [currentTab, setCurrentTab] = useState('gallery');
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [productContext, setProductContext] = useState<Product[]>([]);
+  const [isResolvingLink, setIsResolvingLink] = useState(false);
+
+  // --- Deep Link Resolution ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shareToken = params.get('shareToken');
+
+    if (shareToken) {
+      const resolveToken = async () => {
+        setIsResolvingLink(true);
+        try {
+          const link = await storeService.validateSharedLink(shareToken);
+          if (link && link.type === 'product') {
+            const product = await storeService.getProductById(link.targetId);
+            if (product) {
+              setActiveProduct(product);
+              setProductContext([product]);
+            } else {
+              alert("Shared product no longer exists.");
+            }
+          } else {
+            alert("This shared link is invalid or has expired.");
+          }
+        } catch (e) {
+          console.error("Link resolution error:", e);
+        } finally {
+          setIsResolvingLink(false);
+          // Clean up URL without refreshing
+          const newUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      };
+      resolveToken();
+    }
+  }, []);
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
@@ -41,6 +76,8 @@ function AppContent() {
     setProductContext(list);
     setActiveProduct(product);
   };
+
+  if (isResolvingLink) return <PageLoader />;
 
   if (activeProduct) {
     return (
@@ -67,7 +104,6 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans">
-      {/* Added md:pt-16 to clear the fixed desktop header */}
       <main className="pt-0 md:pt-16 pb-20 md:pb-0">
         <Suspense fallback={<PageLoader />}>
           {renderPage()}

@@ -25,19 +25,21 @@ export const storeService = {
         if (!res.ok) return { healthy: false, reason: `HTTP ${res.status}: ${res.statusText}` };
         
         const data = await res.json();
-        console.log("[StoreService] Health Diagnostics:", data);
         
-        if (data.status === 'online' && data.writeAccess === true) {
+        if (data.status === 'online' && data.writeAccess === true && data.uploadsWriteAccess === true) {
             return { healthy: true, path: data.activePath };
+        }
+        
+        if (data.writeAccess === true && data.uploadsWriteAccess === false) {
+            return { healthy: false, reason: "Database is writable, but 'uploads' folder is restricted.", path: data.activePath };
         }
         
         return { 
             healthy: false, 
-            reason: data.writeError || "Server folder is read-only.",
+            reason: data.writeError || "Server folder is restricted.",
             path: data.activePath
         };
     } catch (e: any) {
-        console.error("[StoreService] Server unreachable:", e);
         return { healthy: false, reason: "Check your internet or server status." };
     }
   },
@@ -67,6 +69,11 @@ export const storeService = {
     }
   },
 
+  getProductById: async (id: string): Promise<Product | null> => {
+    const products = await storeService.getProducts();
+    return products.find(p => p.id === id) || null;
+  },
+
   addProduct: async (product: Product) => {
     if (!product || !product.images?.length) throw new Error("No image data provided.");
 
@@ -84,7 +91,6 @@ export const storeService = {
         
         return await res.json();
     } catch (err: any) {
-        console.error("Store Save Error:", err);
         throw new Error(err.message || "Upload encountered a network error.");
     }
   },
@@ -149,19 +155,25 @@ export const storeService = {
     const expiresAt = new Date(Date.now() + config.linkExpiryHours * 60 * 60 * 1000).toISOString();
     
     const newLink: SharedLink = { id: Date.now().toString(), targetId, type, token, expiresAt };
-    const links: SharedLink[] = JSON.parse(localStorage.getItem('sanghavi_links') || '[]');
-    links.push(newLink);
-    localStorage.setItem('sanghavi_links', JSON.stringify(links));
+    
+    // Save to Server instead of LocalStorage
+    await fetch(`${API_BASE}/links`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newLink)
+    });
 
-    return `${window.location.origin}?shareToken=${token}`;
+    return `${window.location.origin}${window.location.pathname}?shareToken=${token}`;
   },
 
   validateSharedLink: async (token: string): Promise<SharedLink | null> => {
-    const links: SharedLink[] = JSON.parse(localStorage.getItem('sanghavi_links') || '[]');
-    const link = links.find(l => l.token === token);
-    if (!link) return null;
-    if (new Date(link.expiresAt) < new Date()) throw new Error('Link Expired');
-    return link;
+    try {
+        const res = await fetch(`${API_BASE}/links/${token}`);
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (e) {
+        return null;
+    }
   },
 
   // --- Auth ---

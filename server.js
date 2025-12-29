@@ -33,10 +33,17 @@ const findWritableDir = () => {
             if (!fs.existsSync(p)) {
                 fs.mkdirSync(p, { recursive: true });
             }
-            // Real-world write check
+            // Test write permission
             const testFile = path.join(p, `.write-check-${Date.now()}`);
             fs.writeFileSync(testFile, 'test');
             fs.unlinkSync(testFile);
+            
+            // Ensure uploads folder exists in the writable dir
+            const uploadsDir = path.join(p, 'uploads');
+            if (!fs.existsSync(uploadsDir)) {
+                fs.mkdirSync(uploadsDir, { recursive: true });
+            }
+
             console.log(`[Server] STORAGE ACTIVE: ${p}`);
             return p;
         } catch (err) {
@@ -47,22 +54,31 @@ const findWritableDir = () => {
 };
 
 const activeDataDir = findWritableDir();
+const uploadsDir = activeDataDir ? path.join(activeDataDir, 'uploads') : null;
 const dbFile = activeDataDir ? path.join(activeDataDir, 'db.json') : null;
 const distPath = path.join(process.cwd(), 'dist');
 
+// Serve uploaded images statically
+if (uploadsDir) {
+    console.log(`[Server] Serving static uploads from: ${uploadsDir}`);
+    app.use('/api/uploads', express.static(uploadsDir));
+}
+
 const getDB = () => {
-    if (!dbFile) return { products: [], analytics: [], config: null };
+    if (!dbFile) return { products: [], analytics: [], config: null, links: [] };
     try {
         if (!fs.existsSync(dbFile)) {
-            const initial = { products: [], analytics: [], config: null };
+            const initial = { products: [], analytics: [], config: null, links: [] };
             fs.writeFileSync(dbFile, JSON.stringify(initial, null, 2));
             return initial;
         }
         const data = fs.readFileSync(dbFile, 'utf8');
-        return JSON.parse(data);
+        const db = JSON.parse(data);
+        if (!db.links) db.links = []; // Migration for older DB versions
+        return db;
     } catch (e) {
         console.error("[Server] DB Load Error:", e);
-        return { products: [], analytics: [], config: null };
+        return { products: [], analytics: [], config: null, links: [] };
     }
 };
 
@@ -77,10 +93,29 @@ const saveDB = (data) => {
     }
 };
 
+// Helper to save base64 image to disk
+const saveImageToDisk = (base64String, productId, index) => {
+    if (!uploadsDir) throw new Error("Upload directory not available.");
+    
+    // Remove header if present
+    const base64Data = base64String.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    // Generate unique filename
+    const filename = `img_${productId}_${index}_${Date.now()}.jpg`;
+    const filepath = path.join(uploadsDir, filename);
+    
+    fs.writeFileSync(filepath, buffer);
+    
+    // Return the URL that will be stored in the DB
+    return `/api/uploads/${filename}`;
+};
+
 // --- API ROUTES ---
 
 app.get('/api/health', (req, res) => {
     let writeable = false;
+    let uploadsWriteable = false;
     let writeError = null;
     
     if (activeDataDir) {
@@ -89,6 +124,11 @@ app.get('/api/health', (req, res) => {
             fs.writeFileSync(testFile, 'ok');
             fs.unlinkSync(testFile);
             writeable = true;
+
+            const uploadTest = path.join(uploadsDir, `.upload-test-${Date.now()}`);
+            fs.writeFileSync(uploadTest, 'ok');
+            fs.unlinkSync(uploadTest);
+            uploadsWriteable = true;
         } catch (e) {
             writeError = e.message;
         }
@@ -99,6 +139,7 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'online', 
         writeAccess: writeable,
+        uploadsWriteAccess: uploadsWriteable,
         activePath: activeDataDir,
         writeError: writeError,
         dbExists: dbFile ? fs.existsSync(dbFile) : false,
@@ -116,22 +157,66 @@ app.get('/api/products', (req, res) => {
 });
 
 app.post('/api/products', (req, res) => {
-    console.log(`[Server] POST /api/products - Size: ${Math.round(JSON.stringify(req.body).length / 1024)}KB`);
     try {
         const product = req.body;
         if (!product.title || !product.images?.length) {
             return res.status(400).json({ error: 'Required fields missing' });
         }
 
+        const productId = product.id || Date.now().toString();
+        const imageUrls = [];
+
+        product.images.forEach((imgBase64, index) => {
+            if (imgBase64.startsWith('data:image')) {
+                const url = saveImageToDisk(imgBase64, productId, index);
+                imageUrls.push(url);
+            } else {
+                imageUrls.push(imgBase64);
+            }
+        });
+
         const db = getDB();
-        const newProduct = { ...product, id: product.id || Date.now().toString() };
+        const newProduct = { ...product, id: productId, images: imageUrls };
         db.products = db.products || [];
         db.products.push(newProduct);
         saveDB(db);
-        
         res.status(201).json(newProduct);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// --- SHARING ROUTES ---
+app.post('/api/links', (req, res) => {
+    try {
+        const link = req.body;
+        if (!link.token || !link.targetId) return res.status(400).json({ error: 'Invalid link data' });
+        const db = getDB();
+        db.links = db.links || [];
+        db.links.push(link);
+        saveDB(db);
+        res.status(201).json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to save link' });
+    }
+});
+
+app.get('/api/links/:token', (req, res) => {
+    try {
+        const { token } = req.params;
+        const db = getDB();
+        const link = (db.links || []).find(l => l.token === token);
+        
+        if (!link) return res.status(404).json({ error: 'Link not found' });
+        
+        // Expiration check
+        if (new Date(link.expiresAt) < new Date()) {
+            return res.status(410).json({ error: 'Link expired' });
+        }
+
+        res.json(link);
+    } catch (err) {
+        res.status(500).json({ error: 'Internal error' });
     }
 });
 
@@ -181,5 +266,4 @@ if (fs.existsSync(distPath)) {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Server] Ready on port ${PORT}`);
-    console.log(`[Server] Active Path: ${activeDataDir}`);
 });
