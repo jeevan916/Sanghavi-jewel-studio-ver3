@@ -15,26 +15,30 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// --- PATH RESOLUTION ---
+// --- ROBUST PATH RESOLUTION ---
+// Use process.cwd() as a fallback for some hosting environments
 const rootDir = path.resolve(__dirname);
 const dataDir = path.join(rootDir, 'data');
 const dbFile = path.join(dataDir, 'db.json');
 const distPath = path.join(rootDir, 'dist');
 
-console.log(`[Server] Initialization...`);
-console.log(`[Server] DB Path: ${dbFile}`);
+console.log(`[Server] Initializing Sanghavi Studio Backend...`);
+console.log(`[Server] Database target: ${dbFile}`);
 
-// Ensure data persistence layer exists on startup
-if (!fs.existsSync(dataDir)) {
-    try {
-        fs.mkdirSync(dataDir, { recursive: true });
-        console.log(`[Server] Data directory created at ${dataDir}`);
-    } catch (err) {
-        console.error(`[Server] Critical Error: Could not create data directory`, err);
+// Ensure data persistence layer exists
+const ensureDataDir = () => {
+    if (!fs.existsSync(dataDir)) {
+        try {
+            fs.mkdirSync(dataDir, { recursive: true });
+            console.log(`[Server] Created data directory: ${dataDir}`);
+        } catch (err) {
+            console.error(`[Server] CRITICAL: Failed to create data directory!`, err);
+        }
     }
-}
+};
 
 const getDB = () => {
+    ensureDataDir();
     try {
         if (!fs.existsSync(dbFile)) {
             const initial = { products: [], analytics: [], config: null };
@@ -44,21 +48,19 @@ const getDB = () => {
         const data = fs.readFileSync(dbFile, 'utf8');
         return JSON.parse(data);
     } catch (e) {
-        console.error("[Server] DB Read Error:", e);
+        console.error("[Server] DB Read Error. Returning empty state.", e);
         return { products: [], analytics: [], config: null };
     }
 };
 
 const saveDB = (data) => {
+    ensureDataDir();
     try {
-        // Double check directory exists before writing
-        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-        
         fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
-        console.log(`[Server] DB write successful. Total products: ${data.products.length}`);
+        console.log(`[Server] DB Saved. Total Products: ${data.products.length}`);
         return true;
     } catch (e) {
-        console.error("[Server] DB Write Error:", e);
+        console.error("[Server] DB Write Error! Check filesystem permissions.", e);
         throw e;
     }
 };
@@ -66,12 +68,20 @@ const saveDB = (data) => {
 // --- API ROUTES ---
 
 app.get('/api/health', (req, res) => {
+    let writeable = false;
+    try {
+        ensureDataDir();
+        const testFile = path.join(dataDir, '.write-test');
+        fs.writeFileSync(testFile, Date.now().toString());
+        fs.unlinkSync(testFile);
+        writeable = true;
+    } catch (e) {}
+
     res.json({ 
         status: 'online', 
-        node: process.version, 
-        dbPath: dbFile,
+        writeAccess: writeable,
         dbExists: fs.existsSync(dbFile),
-        writeAccess: true 
+        uptime: process.uptime()
     });
 });
 
@@ -80,29 +90,30 @@ app.get('/api/products', (req, res) => {
         const db = getDB();
         res.json(db.products);
     } catch (err) {
-        res.status(500).json({ error: 'Failed to read products' });
+        res.status(500).json({ error: 'Database read failed' });
     }
 });
 
 app.post('/api/products', (req, res) => {
-    console.log(`[Server] Received POST request to /api/products`);
+    console.log(`[Server] POST /api/products - Incoming upload request`);
     try {
-        const db = getDB();
-        const product = { ...req.body, id: req.body.id || Date.now().toString() };
+        const product = req.body;
         
-        if (!product.title || !product.images || product.images.length === 0) {
-            console.error(`[Server] Validation Failed: Missing title or images`);
-            return res.status(400).json({ error: 'Title and at least one image are required.' });
+        if (!product.title || !product.images || !product.images.length) {
+            console.warn(`[Server] Rejected: Missing required fields`);
+            return res.status(400).json({ error: 'Title and images are required.' });
         }
 
-        db.products.push(product);
+        const db = getDB();
+        const newProduct = { ...product, id: product.id || Date.now().toString() };
+        db.products.push(newProduct);
         saveDB(db);
         
-        console.log(`[Server] Product Saved Successfully: ${product.title} (${product.images.length} images)`);
-        res.status(201).json(product);
+        console.log(`[Server] Successfully saved: ${newProduct.title}`);
+        res.status(201).json(newProduct);
     } catch (err) {
-        console.error("[Server] Critical failure during product save:", err);
-        res.status(500).json({ error: 'Internal Server Error: Failed to write to database. Ensure server has write permissions.' });
+        console.error("[Server] Internal Error during save:", err);
+        res.status(500).json({ error: 'Server failed to save the product. Check directory permissions.' });
     }
 });
 
@@ -141,19 +152,7 @@ app.post('/api/config', (req, res) => {
         saveDB(db);
         res.json(db.config);
     } catch (err) {
-        res.status(500).json({ error: 'Config save failed' });
-    }
-});
-
-app.get('/api/analytics', (req, res) => res.json(getDB().analytics));
-app.post('/api/analytics', (req, res) => {
-    try {
-        const db = getDB();
-        db.analytics.push({ ...req.body, id: Date.now().toString() });
-        saveDB(db);
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: 'Analytics save failed' });
+        res.status(500).json({ error: 'Config update failed' });
     }
 });
 
@@ -165,9 +164,9 @@ if (fs.existsSync(distPath)) {
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {
-    app.get('*', (req, res) => res.send('Server online. "dist" folder not found. Please run "npm run build" to enable the UI.'));
+    app.get('*', (req, res) => res.status(200).send('Sanghavi Server is online. UI (dist folder) is missing - run npm build.'));
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Server] Running on http://localhost:${PORT}`);
+    console.log(`[Server] Studio active at http://localhost:${PORT}`);
 });

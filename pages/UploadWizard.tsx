@@ -30,6 +30,7 @@ export const UploadWizard: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [analysisData, setAnalysisData] = useState<Partial<Product>>({});
 
   useEffect(() => {
@@ -98,6 +99,7 @@ export const UploadWizard: React.FC = () => {
   const handleSingleAnalyze = async () => {
     if (images.length === 0) return;
     setIsAnalyzing(true);
+    setUploadError(null);
     try {
       const base64 = images[0].split(',')[1];
       const result = await analyzeJewelryImage(base64);
@@ -108,8 +110,8 @@ export const UploadWizard: React.FC = () => {
         subCategory: selectedSubCategory || result.subCategory,
       }));
       setStep(3);
-    } catch (error) {
-      alert("Analysis failed. Please try again.");
+    } catch (error: any) {
+      setUploadError(`AI analysis failed. ${error.message}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -118,6 +120,7 @@ export const UploadWizard: React.FC = () => {
   const handleSingleEnhance = async () => {
     if (images.length === 0) return;
     setIsEnhancing(true);
+    setUploadError(null);
     try {
         const base64 = images[0].split(',')[1];
         const enhancedBase64 = await enhanceJewelryImage(base64);
@@ -127,8 +130,8 @@ export const UploadWizard: React.FC = () => {
             next[0] = enhancedUrl;
             return next;
         });
-    } catch (error) {
-        alert("Studio enhancement failed.");
+    } catch (error: any) {
+        setUploadError(`Enhancement failed. ${error.message}`);
     } finally {
         setIsEnhancing(false);
     }
@@ -138,6 +141,16 @@ export const UploadWizard: React.FC = () => {
     if (!analysisData.title || isSaving) return;
     
     setIsSaving(true);
+    setUploadError(null);
+
+    // 1. Health Pre-check
+    const isHealthy = await storeService.checkServerHealth();
+    if (!isHealthy) {
+        setIsSaving(false);
+        setUploadError("Server connection lost or database is read-only. Please contact administrator.");
+        return;
+    }
+
     try {
       const newProduct: Product = {
         id: Date.now().toString(),
@@ -168,9 +181,10 @@ export const UploadWizard: React.FC = () => {
       setAnalysisData({});
       setSelectedCategory('');
       setSelectedSubCategory('');
+      setUploadError(null);
     } catch (err: any) {
       console.error("Save Error:", err);
-      alert(`Failed to save product: ${err.message}`);
+      setUploadError(`Failed to save: ${err.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -201,6 +215,17 @@ export const UploadWizard: React.FC = () => {
             </button>
         </div>
       </div>
+
+      {uploadError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 text-red-700 animate-in slide-in-from-top-2">
+              <AlertCircle size={20} className="shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm">
+                  <p className="font-bold mb-1">Upload Issue Detected</p>
+                  <p>{uploadError}</p>
+              </div>
+              <button onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-600"><X size={16}/></button>
+          </div>
+      )}
 
       {step === 1 && (
           <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm mb-6">
@@ -451,14 +476,14 @@ export const UploadWizard: React.FC = () => {
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 space-y-6">
                         <h3 className="font-bold text-stone-400 text-xs uppercase tracking-wider border-b border-stone-100 pb-2">Product Details</h3>
                         <input 
-                            value={analysisData.title} 
+                            value={analysisData.title || ''} 
                             onChange={e => setAnalysisData({...analysisData, title: e.target.value})}
                             className="w-full p-3 border border-stone-200 rounded-lg font-serif text-lg focus:outline-none focus:border-gold-500"
                             placeholder="Product Title"
                         />
                          <div className="grid grid-cols-2 gap-4">
                             <select 
-                                value={analysisData.category} 
+                                value={analysisData.category || ''} 
                                 onChange={e => setAnalysisData({...analysisData, category: e.target.value})}
                                 className="w-full p-3 border border-stone-200 rounded-lg bg-white"
                             >
@@ -495,7 +520,7 @@ export const UploadWizard: React.FC = () => {
                              </div>
                         </div>
                         <textarea 
-                            value={analysisData.description} 
+                            value={analysisData.description || ''} 
                             onChange={e => setAnalysisData({...analysisData, description: e.target.value})}
                             className="w-full p-3 border border-stone-200 rounded-lg h-24 text-sm"
                             placeholder="Description"

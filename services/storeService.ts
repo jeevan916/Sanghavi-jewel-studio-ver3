@@ -9,6 +9,17 @@ const KEYS = {
 export const storeService = {
   // --- Connection Status ---
   getIsOnline: () => navigator.onLine,
+  
+  checkServerHealth: async (): Promise<boolean> => {
+    try {
+        const res = await fetch(`${API_BASE}/health`, { method: 'GET' });
+        const data = await res.json();
+        return data.status === 'online' && data.writeAccess === true;
+    } catch (e) {
+        return false;
+    }
+  },
+
   subscribeStatus: (cb: (status: boolean) => void) => {
     const handler = () => cb(navigator.onLine);
     window.addEventListener('online', handler);
@@ -23,30 +34,39 @@ export const storeService = {
   getProducts: async (): Promise<Product[]> => {
     try {
       const res = await fetch(`${API_BASE}/products`);
-      if (!res.ok) throw new Error('Failed to fetch products');
+      if (!res.ok) throw new Error('Server returned error while fetching products');
       const data = await res.json();
-      return data.sort((a: Product, b: Product) => 
+      return (data || []).sort((a: Product, b: Product) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     } catch (err) {
-      console.error("Store Error:", err);
+      console.error("Store Fetch Error:", err);
       return [];
     }
   },
 
   addProduct: async (product: Product) => {
-    const res = await fetch(`${API_BASE}/products`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(product)
-    });
-    
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || `Upload failed with status: ${res.status}`);
+    if (!product || !product.images || product.images.length === 0) {
+        throw new Error("No image data found to upload.");
     }
-    
-    return await res.json();
+
+    try {
+        const res = await fetch(`${API_BASE}/products`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(product)
+        });
+        
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`Upload failed: ${res.status} ${res.statusText}. ${errorText}`);
+        }
+        
+        return await res.json();
+    } catch (err: any) {
+        console.error("API POST Error:", err);
+        throw new Error(err.message || "Network error while saving product.");
+    }
   },
 
   updateProduct: async (updatedProduct: Product) => {
@@ -66,8 +86,10 @@ export const storeService = {
   getConfig: async (): Promise<AppConfig> => {
     try {
       const res = await fetch(`${API_BASE}/config`);
-      const data = await res.json();
-      if (data) return data;
+      if (res.ok) {
+          const data = await res.json();
+          if (data) return data;
+      }
     } catch (e) {
       console.warn("Config fetch failed, using defaults");
     }
@@ -165,8 +187,8 @@ export const storeService = {
     window.location.reload();
   },
 
-  // --- Analytics & Insights (Server-side) ---
-  logEvent: async (type: 'inquiry' | 'screenshot', product: Product, user: User | null, imageIndex?: number) => {
+  // --- Analytics & Insights ---
+  logEvent: async (type: 'inquiry' | 'screenshot' | 'view', product: Product, user: User | null, imageIndex?: number) => {
     const event: AnalyticsEvent = {
         id: Date.now().toString() + Math.random().toString().slice(2, 6),
         type,
