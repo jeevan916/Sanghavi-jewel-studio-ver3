@@ -40,6 +40,12 @@ export const storeService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(product)
     });
+    
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `Upload failed with status: ${res.status}`);
+    }
+    
     return await res.json();
   },
 

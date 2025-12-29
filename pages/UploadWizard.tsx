@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2 } from 'lucide-react';
 import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
@@ -30,6 +29,7 @@ export const UploadWizard: React.FC = () => {
   const [images, setImages] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [analysisData, setAnalysisData] = useState<Partial<Product>>({});
 
   useEffect(() => {
@@ -56,7 +56,6 @@ export const UploadWizard: React.FC = () => {
            dateTaken: getTodayDate(),
            meta: { ...prev.meta, cameraModel: getDeviceName() },
            uploadedBy: currentUser?.name || 'Unknown',
-           // If user pre-selected in Step 1, ensure they persist if AI didn't overwrite or if we want to enforce
            category: selectedCategory || prev.category,
            subCategory: selectedSubCategory || prev.subCategory,
            supplier: selectedSupplier || prev.supplier
@@ -91,9 +90,8 @@ export const UploadWizard: React.FC = () => {
         });
       });
     } else {
-      // Batch Mode: Add to global queue
       addToQueue(Array.from(files) as File[], selectedSupplier, selectedCategory, selectedSubCategory, getDeviceName());
-      if (e.target) e.target.value = ''; // Reset input
+      if (e.target) e.target.value = ''; 
     }
   };
 
@@ -106,7 +104,6 @@ export const UploadWizard: React.FC = () => {
       setAnalysisData(prev => ({
         ...prev,
         ...result,
-        // If user explicitly selected category, override AI
         category: selectedCategory || result.category,
         subCategory: selectedSubCategory || result.subCategory,
       }));
@@ -137,46 +134,53 @@ export const UploadWizard: React.FC = () => {
     }
   };
 
-  const handleSingleSave = () => {
-    if (!analysisData.title) return;
-    const newProduct: Product = {
-      id: Date.now().toString(),
-      title: analysisData.title || 'Untitled',
-      category: analysisData.category || 'Other',
-      subCategory: analysisData.subCategory,
-      weight: analysisData.weight || 0,
-      description: analysisData.description || '',
-      tags: analysisData.tags || [],
-      images: images,
-      supplier: analysisData.supplier,
-      uploadedBy: analysisData.uploadedBy,
-      isHidden: false,
-      createdAt: new Date().toISOString(),
-      dateTaken: analysisData.dateTaken,
-      meta: { 
-          cameraModel: analysisData.meta?.cameraModel || 'Unknown', 
-          location: analysisData.meta?.location 
-      }
-    };
-    storeService.addProduct(newProduct);
-    alert("Product saved!");
-    setStep(1);
-    setImages([]);
-    setAnalysisData({});
-    // Reset selections
-    setSelectedCategory('');
-    setSelectedSubCategory('');
+  const handleSingleSave = async () => {
+    if (!analysisData.title || isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      const newProduct: Product = {
+        id: Date.now().toString(),
+        title: analysisData.title || 'Untitled',
+        category: analysisData.category || 'Other',
+        subCategory: analysisData.subCategory,
+        weight: analysisData.weight || 0,
+        description: analysisData.description || '',
+        tags: analysisData.tags || [],
+        images: images,
+        supplier: analysisData.supplier,
+        uploadedBy: analysisData.uploadedBy,
+        isHidden: false,
+        createdAt: new Date().toISOString(),
+        dateTaken: analysisData.dateTaken,
+        meta: { 
+            cameraModel: analysisData.meta?.cameraModel || 'Unknown', 
+            location: analysisData.meta?.location 
+        }
+      };
+      
+      await storeService.addProduct(newProduct);
+      alert("Product saved successfully!");
+      
+      // Reset State
+      setStep(1);
+      setImages([]);
+      setAnalysisData({});
+      setSelectedCategory('');
+      setSelectedSubCategory('');
+    } catch (err: any) {
+      console.error("Save Error:", err);
+      alert(`Failed to save product: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // Helper to get subcategories for selected category
   const activeSubCategories = config?.categories.find(c => c.name === selectedCategory)?.subCategories || [];
-
-  // --- RENDER ---
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 pb-24 animate-fade-in">
       
-      {/* Header & Mode Switcher */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
            <h2 className="font-serif text-3xl text-gold-700">Studio Upload</h2>
@@ -198,7 +202,6 @@ export const UploadWizard: React.FC = () => {
         </div>
       </div>
 
-      {/* --- PRE-SELECTION AREA (Shared logic for visual consistency, but functional per mode) --- */}
       {step === 1 && (
           <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm mb-6">
               <h4 className="text-xs font-bold text-stone-500 uppercase mb-3 flex items-center gap-2">
@@ -243,11 +246,8 @@ export const UploadWizard: React.FC = () => {
           </div>
       )}
 
-      {/* --- BATCH MODE UI --- */}
       {mode === 'batch' && (
         <div className="space-y-6">
-            
-            {/* AI Toggle */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-stone-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${useAI ? 'bg-gold-100 text-gold-600' : 'bg-stone-100 text-stone-400'}`}>
@@ -268,7 +268,6 @@ export const UploadWizard: React.FC = () => {
                 </button>
             </div>
 
-            {/* Upload Buttons */}
             <div className="flex gap-2">
                 <button 
                     onClick={() => fileInputRef.current?.click()}
@@ -284,7 +283,6 @@ export const UploadWizard: React.FC = () => {
                 </button>
             </div>
 
-            {/* Global Queue List */}
             {queue.length > 0 && (
                 <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
                     <div className="p-3 bg-stone-50 border-b border-stone-200 text-xs font-bold text-stone-500 uppercase flex justify-between items-center">
@@ -325,7 +323,6 @@ export const UploadWizard: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {/* Action: Remove Watermark (Only if pending) */}
                                     {item.status === 'pending' && (
                                         <button 
                                             onClick={() => cleanImage(item.id)}
@@ -336,7 +333,6 @@ export const UploadWizard: React.FC = () => {
                                         </button>
                                     )}
 
-                                    {/* Action: Studio Enhance */}
                                     {item.status === 'pending' && (
                                         <button 
                                             onClick={() => studioEnhance(item.id)}
@@ -368,16 +364,13 @@ export const UploadWizard: React.FC = () => {
                 </div>
             )}
              
-             {/* Hidden Inputs */}
              <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" multiple />
              <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" capture="environment" />
         </div>
       )}
 
-      {/* --- SINGLE MODE UI --- */}
       {mode === 'single' && (
         <>
-            {/* STEP 1: UPLOAD */}
             {step === 1 && (
                 <div 
                 onClick={() => fileInputRef.current?.click()}
@@ -392,7 +385,6 @@ export const UploadWizard: React.FC = () => {
                 </div>
             )}
 
-            {/* STEP 2: PREVIEW */}
             {step === 2 && (
                 <div className="space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -446,7 +438,6 @@ export const UploadWizard: React.FC = () => {
                 </div>
             )}
 
-            {/* STEP 3: DETAILS */}
             {step === 3 && (
                 <div className="space-y-6">
                     <div className="flex items-start gap-4 p-4 bg-green-50 border border-green-100 rounded-lg">
@@ -493,7 +484,6 @@ export const UploadWizard: React.FC = () => {
                                  />
                              </div>
                              <div className="flex-1">
-                                 {/* AI Studio Enhance again if needed */}
                                  <button 
                                     onClick={handleSingleEnhance}
                                     disabled={isEnhancing}
@@ -565,8 +555,13 @@ export const UploadWizard: React.FC = () => {
 
                     <div className="flex gap-4">
                         <button onClick={() => setStep(2)} className="p-3 rounded-lg text-stone-400 hover:bg-stone-50"><RefreshCw size={20} /></button>
-                        <button onClick={handleSingleSave} className="flex-1 py-4 bg-stone-900 text-white rounded-xl font-medium shadow-lg hover:bg-stone-800 transition flex items-center justify-center gap-2">
-                            <Save size={18} /> Save Product
+                        <button 
+                          onClick={handleSingleSave} 
+                          disabled={isSaving}
+                          className={`flex-1 py-4 text-white rounded-xl font-medium shadow-lg transition flex items-center justify-center gap-2 ${isSaving ? 'bg-stone-600 cursor-not-allowed' : 'bg-stone-900 hover:bg-stone-800'}`}
+                        >
+                            {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                            {isSaving ? 'Uploading to Server...' : 'Save Product'}
                         </button>
                     </div>
                 </div>
