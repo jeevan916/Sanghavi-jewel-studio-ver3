@@ -3,12 +3,11 @@ import { AspectRatio } from "../types";
 
 /**
  * Helper to get Gemini client.
- * Always initializes with process.env.API_KEY as per guidelines.
+ * In production/Vite, process.env.API_KEY is replaced with the actual string value.
  */
 const getAiClient = () => {
-  // Use process.env.API_KEY directly as specified in system instructions.
-  // We assume the variable is pre-configured and accessible.
-  return new GoogleGenAI({ apiKey: (process.env as any).API_KEY });
+  // Always use this specific form for system compliance and build-time replacement
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 /**
@@ -42,7 +41,6 @@ export const analyzeJewelryImage = async (base64Image: string) => {
       }
     });
 
-    // response.text is a property, not a method.
     return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("AI Analysis failed:", error);
@@ -74,7 +72,6 @@ export const enhanceJewelryImage = async (base64Image: string) => {
       },
     });
 
-    // Iterate through all parts to find the image part as per guidelines.
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return part.inlineData.data;
     }
@@ -107,7 +104,6 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
       }
     });
 
-    // Iterate through candidates to find the generated image.
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }

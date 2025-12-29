@@ -3,16 +3,20 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   // Load all environment variables from .env files
-  // Using casting to any for process to avoid missing property error in dev environments
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  const env = loadEnv(mode, process.cwd(), '');
   
   return {
     base: './',
     plugins: [react()],
     define: {
-      // Robustly inject the API key into the client bundle
-      // Using casting for process.env to ensure robustness in various build environments
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_API_KEY || (process.env as any).API_KEY || ''),
+      // Specifically map VITE_GEMINI_API_KEY and others to process.env.API_KEY
+      'process.env.API_KEY': JSON.stringify(
+        env.API_KEY || 
+        env.VITE_GEMINI_API_KEY || 
+        env.VITE_API_KEY || 
+        process.env.API_KEY || 
+        ''
+      ),
     },
     server: {
       host: true,
