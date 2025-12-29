@@ -2,18 +2,14 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
-  // Load environment variables based on the current mode (e.g., production, development).
-  // The empty string as the third parameter allows loading all variables regardless of prefix.
-  // Fix: Cast process to any to resolve 'cwd' property check error.
+  // Use casting to any to handle environments where the process type definition might be incomplete
   const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
-    // Relative base for cross-platform deployment
     base: './',
     plugins: [react()],
     define: {
-      // Force injection of the API_KEY into the client-side bundle.
-      // We stringify the value so it appears as a valid JS string in the output code.
+      // Force stringification to ensure it's a valid literal in the bundled JS
       'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY || ''),
     },
     server: {
@@ -23,8 +19,6 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      assetsInlineLimit: 4096,
-      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
           manualChunks(id) {

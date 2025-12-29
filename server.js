@@ -9,32 +9,30 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
-// Hostinger's Passenger environment usually handles the port
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// --- PATH RESOLUTION ---
+// --- PATH RESOLUTION (Absolute for Stability) ---
 const rootDir = path.resolve(__dirname);
 const dataDir = path.join(rootDir, 'data');
 const dbFile = path.join(dataDir, 'db.json');
 const distPath = path.join(rootDir, 'dist');
 
-console.log(`[Server] Starting at ${new Date().toISOString()}`);
-console.log(`[Server] Root Dir: ${rootDir}`);
-console.log(`[Server] Node Version: ${process.version}`);
+console.log(`[Server] Initialization...`);
+console.log(`[Server] Root: ${rootDir}`);
+console.log(`[Server] DB Path: ${dbFile}`);
 
 // Ensure data persistence layer exists
-try {
-    if (!fs.existsSync(dataDir)) {
+if (!fs.existsSync(dataDir)) {
+    try {
         fs.mkdirSync(dataDir, { recursive: true });
-        console.log(`[Server] Created data directory: ${dataDir}`);
+        console.log(`[Server] Data directory created.`);
+    } catch (err) {
+        console.error(`[Server] Critical Error: Could not create data directory`, err);
     }
-} catch (err) {
-    console.error(`[Server] Failed to create data directory: ${err.message}`);
 }
 
 const getDB = () => {
@@ -44,7 +42,8 @@ const getDB = () => {
             fs.writeFileSync(dbFile, JSON.stringify(initial, null, 2));
             return initial;
         }
-        return JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+        const data = fs.readFileSync(dbFile, 'utf8');
+        return JSON.parse(data);
     } catch (e) {
         console.error("[Server] DB Read Error:", e);
         return { products: [], analytics: [], config: null };
@@ -54,6 +53,7 @@ const getDB = () => {
 const saveDB = (data) => {
     try {
         fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
+        console.log(`[Server] DB Saved Successfully. Total Products: ${data.products.length}`);
     } catch (e) {
         console.error("[Server] DB Write Error:", e);
     }
@@ -62,22 +62,26 @@ const saveDB = (data) => {
 // --- API ROUTES ---
 
 app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'online', 
-        timestamp: new Date().toISOString(),
-        node_version: process.version,
-        env: process.env.NODE_ENV || 'production'
-    });
+    res.json({ status: 'online', node: process.version, dbPath: dbFile });
 });
 
-app.get('/api/products', (req, res) => res.json(getDB().products));
+app.get('/api/products', (req, res) => {
+    const db = getDB();
+    res.json(db.products);
+});
 
 app.post('/api/products', (req, res) => {
-    const db = getDB();
-    const product = { ...req.body, id: req.body.id || Date.now().toString() };
-    db.products.push(product);
-    saveDB(db);
-    res.status(201).json(product);
+    try {
+        const db = getDB();
+        const product = { ...req.body, id: req.body.id || Date.now().toString() };
+        db.products.push(product);
+        saveDB(db);
+        console.log(`[Server] Product Added: ${product.title}`);
+        res.status(201).json(product);
+    } catch (err) {
+        console.error("[Server] Failed to add product", err);
+        res.status(500).json({ error: 'Failed to save product' });
+    }
 });
 
 app.put('/api/products/:id', (req, res) => {
@@ -100,7 +104,6 @@ app.delete('/api/products/:id', (req, res) => {
 });
 
 app.get('/api/config', (req, res) => res.json(getDB().config));
-
 app.post('/api/config', (req, res) => {
     const db = getDB();
     db.config = req.body;
@@ -109,7 +112,6 @@ app.post('/api/config', (req, res) => {
 });
 
 app.get('/api/analytics', (req, res) => res.json(getDB().analytics));
-
 app.post('/api/analytics', (req, res) => {
     const db = getDB();
     db.analytics.push({ ...req.body, id: Date.now().toString() });
@@ -118,33 +120,15 @@ app.post('/api/analytics', (req, res) => {
 });
 
 // --- FRONTEND SERVING ---
-
-// Serve static files from 'dist'
 if (fs.existsSync(distPath)) {
-    console.log(`[Server] Serving static files from: ${distPath}`);
     app.use(express.static(distPath));
-    
     app.get('*', (req, res) => {
-        if (req.path.startsWith('/api')) {
-            return res.status(404).json({ error: 'API route not found' });
-        }
+        if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API not found' });
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {
-    console.warn(`[Server] Warning: 'dist' directory not found at ${distPath}`);
-    app.get('*', (req, res) => {
-        if (req.path.startsWith('/api')) {
-             return res.status(404).json({ error: 'API route not found' });
-        }
-        res.status(200).send('Sanghavi Backend Online. Waiting for frontend build/deployment.');
-    });
+    app.get('*', (req, res) => res.send('Server online. "dist" folder not found. Please run "npm run build".'));
 }
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('[Server] Internal Error:', err.stack);
-  res.status(500).json({ error: 'Internal Server Error' });
-});
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Server] Listening on port ${PORT}`);
