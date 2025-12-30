@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, AppConfig } from '../types';
 // Fixed: Remove MoveHorizontal from lucide-react import to avoid conflict with local definition at the bottom of the file
@@ -125,6 +126,10 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
       document.body.removeChild(link);
   };
 
+  const handleInquiry = async () => {
+      await storeService.shareToWhatsApp(product, currentImageIndex);
+  };
+
   const goToNext = () => { if (hasNext && !isAnimating) { setIsAnimating(true); setSlideDirection('left'); setTimeout(() => { setProduct(productList[currentIndex+1]); setSlideDirection(null); setIsAnimating(false); }, 300); } };
   const goToPrev = () => { if (hasPrev && !isAnimating) { setIsAnimating(true); setSlideDirection('right'); setTimeout(() => { setProduct(productList[currentIndex-1]); setSlideDirection(null); setIsAnimating(false); }, 300); } };
 
@@ -195,8 +200,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
                  </div>
              )}
 
-             {/* Fixed: Use async/await and await storeService.getConfig() to fix Promise error */}
-             <div className="flex gap-4 border-b border-stone-100 pb-6"><button onClick={async () => { storeService.logEvent('inquiry', product, currentUser); const configData = await storeService.getConfig(); const url = `https://wa.me/${configData.whatsappNumber}?text=Inquiry: ${product.title}`; window.open(url, '_blank'); }} className="flex-1 bg-gold-600 text-white py-3.5 rounded-xl font-medium shadow-lg flex items-center justify-center gap-2"><MessageCircle size={20} /> Inquire via WhatsApp</button></div>
+             <div className="flex gap-4 border-b border-stone-100 pb-6"><button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white py-3.5 rounded-xl font-medium shadow-lg flex items-center justify-center gap-2"><MessageCircle size={20} /> Inquire via WhatsApp</button></div>
 
              <div className="prose prose-stone">
                  <h3 className="text-sm font-bold text-stone-400 uppercase tracking-wider flex items-center justify-between gap-2 mb-2"><span className="flex items-center gap-2"><Info size={16} /> Description</span>{isAuthorized && <button onClick={() => { if(isEditingDescription) handleSaveDescription(); else setIsEditingDescription(true); }} className="p-1 hover:bg-stone-100 rounded text-gold-600 transition">{isEditingDescription ? <Check size={16} /> : <Edit2 size={16} />}</button>}</h3>

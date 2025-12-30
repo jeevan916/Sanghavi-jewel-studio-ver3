@@ -43,14 +43,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
 
   const handleInquiry = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    storeService.logEvent('inquiry', product, null, currentImageIndex);
-    const config = await storeService.getConfig();
-    const phone = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
-    const msg = `Hi, I am interested in ${product.title} (ID: ${product.id}).`;
-    const url = phone 
-      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}` 
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    window.open(url, '_blank');
+    await storeService.shareToWhatsApp(product, currentImageIndex);
   };
 
   const nextImage = (e: React.MouseEvent) => {

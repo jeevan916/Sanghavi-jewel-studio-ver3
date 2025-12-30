@@ -1,5 +1,5 @@
 
-import React, { useState, Suspense, lazy, useEffect, ErrorInfo } from 'react';
+import React, { useState, Suspense, lazy, useEffect, ErrorInfo, Component, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
@@ -8,25 +8,35 @@ import { UploadProvider } from './contexts/UploadContext';
 import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
 // Error Boundary Implementation
-// Fix: Explicitly define prop and state interfaces to resolve "Property 'state/props' does not exist" errors
+// Fix: Use ReactNode for children and make it optional to satisfy JSX prop checks
 interface ErrorBoundaryProps {
-  children: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+/**
+ * Robust Error Boundary for Sanghavi Jewel Studio.
+ * Explicitly typed state and Component extension to fix property access errors.
+ */
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicit state property initialization for strict type checking
+  state: ErrorBoundaryState = { hasError: false };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fix: line 14 - state is now correctly defined via ErrorBoundaryState
-    this.state = { hasError: false };
   }
+
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("React Error:", error, errorInfo); }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { 
+    console.error("React Error:", error, errorInfo); 
+  }
+
   render() {
-    // Fix: line 19 - state check is now type-safe
+    // Fix: Accessing state safely now that Component is correctly extended
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -39,7 +49,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fix: line 31 - props.children is now correctly defined via ErrorBoundaryProps
+    // Fix: props.children is now correctly defined via ErrorBoundaryProps
     return this.props.children;
   }
 }
@@ -63,9 +73,9 @@ const PageLoader = () => (
   </div>
 );
 
-// Fix: Explicitly define props to include children, resolving the error where children was missing in usage
+// Fix: Make children optional to resolve errors where JSX children are not detected as props
 interface AuthGuardProps {
-  children: React.ReactNode;
+  children?: ReactNode;
   allowedRoles: string[];
   user: User | null;
 }
