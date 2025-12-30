@@ -1,9 +1,9 @@
+
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
-  // Fix: Property 'cwd' does not exist on type 'Process'. Cast process to any to access Node.js cwd method.
   const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
@@ -12,14 +12,17 @@ export default defineConfig(({ mode }) => {
     define: {
       /**
        * In Vite, 'define' is used for build-time replacement of global variables.
-       * This mapping ensures that 'process.env.API_KEY' in the source code is replaced
-       * with the value of 'VITE_GEMINI_API_KEY' set in your Hostinger or local environment.
        */
       'process.env.API_KEY': JSON.stringify(
         env.VITE_GEMINI_API_KEY || 
         env.API_KEY || 
         process.env.API_KEY || 
         ''
+      ),
+      'process.env.GOOGLE_CLIENT_ID': JSON.stringify(
+        env.VITE_GOOGLE_CLIENT_ID || 
+        env.GOOGLE_CLIENT_ID || 
+        'YOUR_GOOGLE_CLIENT_ID_HERE'
       ),
     },
     server: {

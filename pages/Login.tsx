@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
 import { User } from '../types';
-import { Lock, User as UserIcon, Loader2, KeyRound, ShieldCheck, AlertCircle, Phone } from 'lucide-react';
+import { Lock, User as UserIcon, Loader2, KeyRound, ShieldCheck, AlertCircle, Phone, Info } from 'lucide-react';
 
 // Fix: Declare google as a global variable to satisfy TypeScript for Google Identity Services (GIS)
 declare const google: any;
@@ -21,34 +21,64 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [onboardingUser, setOnboardingUser] = useState<User | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  const [googleInitError, setGoogleInitError] = useState<string | null>(null);
+
   useEffect(() => {
-    /* global google */
     // Initialize Google Identity Services
-    if (typeof google !== 'undefined') {
-      google.accounts.id.initialize({
-        client_id: "788258327176-s33t7p2h9h29643u7k2t9r7j6e7q7i8f.apps.googleusercontent.com", // Replace with actual Client ID
-        callback: handleGoogleResponse
-      });
-      google.accounts.id.renderButton(
-        document.getElementById("google-login-btn"),
-        { theme: "outline", size: "large", width: "100%", text: "continue_with" }
-      );
-    }
+    const initGoogle = () => {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      
+      if (typeof google !== 'undefined') {
+        try {
+          google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleGoogleResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+          
+          google.accounts.id.renderButton(
+            document.getElementById("google-login-btn"),
+            { 
+                theme: "outline", 
+                size: "large", 
+                width: "100%", 
+                text: "continue_with",
+                shape: "rectangular"
+            }
+          );
+        } catch (err) {
+          console.error("Google GIS Initialization failed:", err);
+          setGoogleInitError("Google Sign-In configuration error. Please verify the Client ID.");
+        }
+      } else {
+        // Retry logic if library is still loading
+        setTimeout(initGoogle, 500);
+      }
+    };
+
+    initGoogle();
   }, []);
 
   const handleGoogleResponse = async (response: any) => {
     setIsLoading(true);
-    const user = await storeService.loginWithGoogle(response.credential);
-    if (user) {
-      // Ask for phone if missing
-      if (!user.phone) {
-        setOnboardingUser(user);
-        setIsLoading(false);
+    setError('');
+    try {
+      const user = await storeService.loginWithGoogle(response.credential);
+      if (user) {
+        // Logic: if customer doesn't have a phone, we MUST get it for insights
+        if (!user.phone) {
+          setOnboardingUser(user);
+          setIsLoading(false);
+        } else {
+          onLoginSuccess(user);
+        }
       } else {
-        onLoginSuccess(user);
+        setError('Authentication service was unable to process Google credentials.');
+        setIsLoading(false);
       }
-    } else {
-      setError('Google Authentication Failed.');
+    } catch (err) {
+      setError('Login failed. Please ensure cookies are enabled.');
       setIsLoading(false);
     }
   };
@@ -57,7 +87,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     e.preventDefault();
     if (onboardingUser && phoneNumber) {
       const updated = storeService.updateUserProfile({ phone: phoneNumber });
-      if (updated) onLoginSuccess(updated);
+      if (updated) {
+          onLoginSuccess(updated);
+      }
     }
   };
 
@@ -66,9 +98,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
     setError('');
     const user = await storeService.login(username, password);
-    if (user) onLoginSuccess(user);
-    else {
-      setError('Invalid internal credentials.');
+    if (user) {
+      onLoginSuccess(user);
+    } else {
+      setError('Invalid internal staff credentials.');
       setIsLoading(false);
     }
   };
@@ -80,7 +113,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <div className="text-center mb-6">
                 <div className="bg-gold-50 p-4 rounded-full inline-block mb-4"><Phone className="text-gold-600" size={32} /></div>
                 <h2 className="text-2xl font-serif text-stone-800">Welcome, {onboardingUser.name}</h2>
-                <p className="text-stone-500 text-sm mt-2">To provide a bespoke experience, please share your contact number for quick inquiries.</p>
+                <p className="text-stone-500 text-sm mt-2">To provide a bespoke experience and track your liked designs, please share your contact number.</p>
             </div>
             <form onSubmit={handleOnboardingSubmit} className="space-y-4">
                 <div>
@@ -89,12 +122,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         type="tel" 
                         value={phoneNumber} 
                         onChange={e => setPhoneNumber(e.target.value)} 
-                        className="w-full p-4 border border-stone-200 rounded-xl focus:border-gold-500 outline-none" 
+                        className="w-full p-4 border border-stone-200 rounded-xl focus:border-gold-500 outline-none text-lg" 
                         placeholder="+91 98765 43210" 
                         required 
                     />
                 </div>
-                <button type="submit" className="w-full py-4 bg-gold-600 text-white rounded-xl font-bold shadow-lg hover:bg-gold-700 transition">Complete Profile</button>
+                <button type="submit" className="w-full py-4 bg-gold-600 text-white rounded-xl font-bold shadow-lg hover:bg-gold-700 transition transform active:scale-[0.98]">Complete Profile</button>
             </form>
         </div>
       </div>
@@ -112,7 +145,20 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         <div className="p-8">
             <div className="mb-8">
                 <h3 className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-4">Customer Access</h3>
-                <div id="google-login-btn" className="w-full"></div>
+                
+                {googleInitError ? (
+                    <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3 text-amber-700 text-sm">
+                        <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-bold">Configuration Required</p>
+                            <p className="opacity-80">Google Login ID is not yet configured for this domain. Please contact administrator.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div id="google-login-btn" className="w-full min-h-[44px]"></div>
+                )}
+                
+                <p className="text-[10px] text-stone-400 mt-3 text-center">Login to view full collection & save favorites.</p>
             </div>
 
             <div className="relative mb-8 text-center">
@@ -129,11 +175,25 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
                     <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-stone-200 rounded-xl bg-stone-50 focus:bg-white focus:border-gold-500 outline-none" placeholder="Staff Password" required />
                 </div>
-                {error && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg flex items-center gap-2"><AlertCircle size={14} /> {error}</div>}
+                
+                {error && (
+                    <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg flex items-center gap-2 animate-pulse">
+                        <AlertCircle size={14} /> {error}
+                    </div>
+                )}
+                
                 <button type="submit" disabled={isLoading} className="w-full py-3.5 bg-stone-800 text-white rounded-xl font-bold shadow-md hover:bg-stone-700 transition flex items-center justify-center gap-2">
                     {isLoading ? <Loader2 className="animate-spin" size={18}/> : <Lock size={18} />} Secure Access
                 </button>
             </form>
+
+            <div className="mt-8 pt-6 border-t border-stone-100 text-center">
+                <p className="text-[10px] text-stone-400 uppercase tracking-widest">Authorized Access Only</p>
+                <div className="flex justify-center gap-4 mt-2">
+                    <ShieldCheck size={16} className="text-stone-300" />
+                    <Info size={16} className="text-stone-300" />
+                </div>
+            </div>
         </div>
       </div>
     </div>
