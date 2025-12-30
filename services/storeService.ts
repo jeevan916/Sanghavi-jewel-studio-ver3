@@ -20,9 +20,9 @@ export interface HealthStatus {
     reason?: string;
 }
 
-async function apiFetch(endpoint: string, options: RequestInit = {}) {
+async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 15000) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), customTimeout);
     
     try {
         const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -55,7 +55,8 @@ export const storeService = {
   
   checkServerHealth: async (): Promise<HealthStatus> => {
     try {
-        const data = await apiFetch('/health');
+        // Quick 3-second timeout for health checks to prevent boot hangs
+        const data = await apiFetch('/health', {}, 3000);
         return { healthy: data.status === 'online' };
     } catch (e: any) {
         return { healthy: false, reason: e.message };

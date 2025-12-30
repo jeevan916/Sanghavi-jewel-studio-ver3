@@ -20,7 +20,12 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2611/2611152.png" />
 
-    <!-- Configuration & Import Maps (Must be before modules) -->
+    <!-- Polyfill for process (Commonly needed for browser builds) -->
+    <script>
+      window.process = window.process || { env: { NODE_ENV: 'production' } };
+    </script>
+
+    <!-- Configuration & Import Maps -->
     <script type="importmap">
 {
   "imports": {
@@ -28,24 +33,10 @@
     "react-dom": "https://esm.sh/react-dom@^19.0.0",
     "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "express": "https://esm.sh/express@^5.2.1",
-    "path": "https://esm.sh/path@^0.12.7",
-    "url": "https://esm.sh/url@^0.11.4",
-    "fs": "https://esm.sh/fs@^0.0.1-security",
-    "cors": "https://esm.sh/cors@^2.8.5",
-    "dotenv/": "https://esm.sh/dotenv@^17.2.3/",
-    "fs/": "https://esm.sh/fs@^0.0.1-security/"
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
   }
 }
 </script>
-    
-    <!-- Module Preload -->
-    <link rel="modulepreload" href="./index.tsx" />
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -60,16 +51,8 @@
             },
             colors: {
               gold: {
-                50: '#fbf8f1',
-                100: '#f5efdb',
-                200: '#ebdbb2',
-                300: '#dec082',
-                400: '#d1a355',
-                500: '#c68a36',
-                600: '#aa6c29',
-                700: '#885025',
-                800: '#704126',
-                900: '#5e3722',
+                50: '#fbf8f1', 100: '#f5efdb', 200: '#ebdbb2', 300: '#dec082', 400: '#d1a355',
+                500: '#c68a36', 600: '#aa6c29', 700: '#885025', 800: '#704126', 900: '#5e3722',
               }
             }
           }
@@ -125,6 +108,12 @@
         left: -30%;
         animation: loadingSlide 1.5s infinite ease-in-out;
       }
+      #boot-emergency {
+        display: none;
+        margin-top: 2rem;
+        text-align: center;
+        animation: fadeInUp 0.5s ease-out forwards;
+      }
       @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
@@ -136,6 +125,7 @@
       .loaded #initial-loader {
         opacity: 0;
         visibility: hidden;
+        pointer-events: none;
       }
     </style>
   </head>
@@ -146,18 +136,38 @@
         <div class="loading-bar-container">
             <div class="loading-bar-progress"></div>
         </div>
+        
+        <!-- Diagnostic fallback if JS fails to mount -->
+        <div id="boot-emergency" class="px-6">
+            <p class="text-[10px] text-stone-400 font-bold uppercase tracking-widest mb-4">Establishing Secure Vault Link...</p>
+            <button onclick="window.location.reload()" class="px-6 py-2 border border-gold-400 text-gold-600 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                Force Connection
+            </button>
+        </div>
     </div>
 
     <div id="root"></div>
     
+    <!-- Primary App Script -->
     <script type="module" src="./index.tsx"></script>
     
     <script>
+      // Boot Watchdog
       window.addEventListener('load', () => {
+        // Give React a few seconds to initialize
         setTimeout(() => {
-          document.body.classList.add('loaded');
-        }, 300);
+          if (!document.body.classList.contains('loaded')) {
+            const emergency = document.getElementById('boot-emergency');
+            if (emergency) emergency.style.display = 'block';
+            console.warn('[Sanghavi Studio] Boot sequence slow or interrupted.');
+          }
+        }, 4000);
       });
+
+      // Global error tracker to hide loader if app crashes during boot
+      window.onerror = function() {
+        document.body.classList.add('loaded');
+      };
     </script>
   </body>
 </html>

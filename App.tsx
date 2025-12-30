@@ -1,11 +1,11 @@
 
-import React, { useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
 import { User, Product } from './types';
 import { UploadProvider } from './contexts/UploadContext';
-import { Loader2, RefreshCcw, AlertTriangle, Info } from 'lucide-react';
+import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
 // Error Boundary Implementation
 interface ErrorBoundaryProps {
@@ -18,13 +18,11 @@ interface ErrorBoundaryState {
 }
 
 /**
- * Standardized Error Boundary for Production
+ * Global Error Boundary
  */
-// Fix: Explicitly extending React.Component to ensure 'state' and 'props' properties are correctly inherited and typed.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fix: Properly initializing state on the class component instance.
     this.state = { hasError: false };
   }
 
@@ -33,26 +31,22 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Sanghavi Studio Rendering Exception:", error, errorInfo);
+    console.error("Sanghavi Studio Exception:", error, errorInfo);
+    // Ensure we hide the initial splash screen even on error
+    document.body.classList.add('loaded');
   }
 
   render() {
-    // Fix: Accessing state.hasError which is now properly defined by extending React.Component.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
           <div className="bg-red-50 p-8 rounded-3xl border border-red-100 flex flex-col items-center max-w-sm shadow-xl">
             <AlertTriangle className="text-red-500 mb-4" size={48} />
             <h1 className="font-serif text-2xl text-stone-900 mb-2">Studio Interrupted</h1>
-            <p className="text-stone-500 mb-6 text-sm">
-              The interface encountered a module loading error. This usually happens after a server update.
-            </p>
+            <p className="text-stone-500 mb-6 text-sm">A module failed to initialize. This is often due to a poor connection to the server vault.</p>
             <button 
-              onClick={() => {
-                // Clear any potential corrupt state and force reload
-                window.location.reload();
-              }} 
-              className="flex items-center gap-2 bg-stone-900 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-stone-200 hover:scale-105 transition-transform"
+              onClick={() => window.location.reload()} 
+              className="flex items-center gap-2 bg-stone-900 text-white px-8 py-3 rounded-2xl font-bold shadow-lg"
             >
               <RefreshCcw size={18}/> Hard Refresh
             </button>
@@ -60,13 +54,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-
-    // Fix: Accessing props.children which is now properly defined by extending React.Component.
     return this.props.children;
   }
 }
 
-// Lazy Load Pages with proper named-to-default conversion
+// Lazy Load Pages
 const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })));
 const Gallery = lazy(() => import('./pages/Gallery').then(m => ({ default: m.Gallery })));
 const UploadWizard = lazy(() => import('./pages/UploadWizard').then(m => ({ default: m.UploadWizard })));
@@ -77,35 +69,12 @@ const CustomerLogin = lazy(() => import('./pages/CustomerLogin').then(m => ({ de
 const StaffLogin = lazy(() => import('./pages/StaffLogin').then(m => ({ default: m.StaffLogin })));
 const ProductDetails = lazy(() => import('./pages/ProductDetails').then(m => ({ default: m.ProductDetails })));
 
-const PageLoader = () => {
-  const [showSlowMessage, setShowSlowMessage] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSlowMessage(true), 5000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 animate-in fade-in duration-500">
-      <div className="relative flex flex-col items-center text-center px-6">
-        <Loader2 className="animate-spin text-gold-600 mb-4" size={40} strokeWidth={1.5} />
-        <span className="font-serif text-lg text-stone-400 animate-pulse uppercase tracking-[0.2em] text-[10px] font-bold">Synchronizing Studio...</span>
-        
-        {showSlowMessage && (
-          <div className="mt-8 animate-in slide-in-from-bottom-2 duration-700">
-            <p className="text-stone-400 text-[10px] mb-4">Establishing connection to Hostinger vault...</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="flex items-center gap-2 text-gold-600 text-[10px] font-bold uppercase tracking-widest border border-gold-200 px-4 py-2 rounded-full hover:bg-gold-50 transition-colors"
-            >
-              <RefreshCcw size={12} /> Click here to force reload
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+const PageLoader = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
+    <Loader2 className="animate-spin text-gold-600 mb-4" size={40} strokeWidth={1.5} />
+    <span className="font-serif text-lg text-stone-400 animate-pulse uppercase tracking-[0.2em] text-[10px] font-bold">Synchronizing...</span>
+  </div>
+);
 
 interface AuthGuardProps {
   children?: ReactNode;
@@ -115,8 +84,7 @@ interface AuthGuardProps {
 
 const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
   if (!user) {
-    const hash = window.location.hash || '';
-    const isStaffRoute = hash.includes('/admin') || hash.includes('/staff');
+    const isStaffRoute = window.location.hash.includes('/admin') || window.location.hash.includes('/staff');
     return <Navigate to={isStaffRoute ? "/staff" : "/login"} replace />;
   }
   if (!allowedRoles.includes(user.role)) return <Navigate to="/collection" replace />;
@@ -130,15 +98,10 @@ function AppContent() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const currentUser = storeService.getCurrentUser();
-    setUser(currentUser);
-    console.debug("[Sanghavi Studio] App Initialized. Current User:", currentUser?.role || 'Guest');
+    setUser(storeService.getCurrentUser());
+    // Force hide the splash screen once React has taken over
+    document.body.classList.add('loaded');
   }, []);
-
-  // Diagnostic logging for Hostinger routing
-  useEffect(() => {
-    console.debug("[Sanghavi Studio] Navigation Event:", location.pathname, location.hash);
-  }, [location]);
 
   // Deep Link Handling
   useEffect(() => {
@@ -172,7 +135,7 @@ function AppContent() {
     setUser(null);
   };
 
-  const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff' || window.location.hash.startsWith('#/admin');
+  const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff' || window.location.hash.includes('/admin');
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'}`}>

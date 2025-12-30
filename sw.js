@@ -25,18 +25,6 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-/**
- * Fetch with timeout to prevent hung requests
- */
-const fetchWithTimeout = (request, timeout = 10000) => {
-  return Promise.race([
-    fetch(request),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Network timeout')), timeout)
-    )
-  ]);
-};
-
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -44,34 +32,5 @@ self.addEventListener('fetch', (event) => {
   // Bypass API calls entirely
   if (url.pathname.startsWith('/api/')) return;
 
-  // Strategy for CDN Images: Cache First, then Network
-  if (CDN_IMAGE_REGEX.test(request.url)) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((res) => {
-          const cacheCopy = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
-          return res;
-        }).catch(() => null);
-      })
-    );
-    return;
-  }
-
-  // Strategy for JS/Assets: Network First with Timeout fallback to Cache
-  event.respondWith(
-    fetchWithTimeout(request)
-      .then((response) => {
-        // If it's a valid JS/CSS/HTML response, cache it
-        if (response.ok && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname === '/')) {
-          const cacheCopy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
-        }
-        return response;
-      })
-      .catch(() => {
-        return caches.match(request);
-      })
-  );
-});
+  // Bypassing main document fetch to prevent blank screen hangs on some server configs
+  if (request.mode === '
