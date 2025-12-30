@@ -29,6 +29,13 @@ const DEFAULT_ADMIN = {
     createdAt: new Date().toISOString() 
 };
 
+const DEFAULT_CONFIG = {
+    suppliers: [{ id: '1', name: 'Sanghavi In-House', isPrivate: false }],
+    categories: [{ id: 'c1', name: 'Necklace', subCategories: ['Choker'], isPrivate: false }],
+    linkExpiryHours: 24,
+    whatsappNumber: ''
+};
+
 const initStorage = () => {
     try {
         if (!fs.existsSync(persistenceDir)) {
@@ -39,25 +46,35 @@ const initStorage = () => {
         let db;
         if (!fs.existsSync(dbFile)) {
             console.log('Initializing new database file...');
-            db = { products: [], analytics: [], config: null, links: [], staff: [DEFAULT_ADMIN] };
+            db = { 
+                products: [], 
+                analytics: [], 
+                config: DEFAULT_CONFIG, 
+                links: [], 
+                staff: [DEFAULT_ADMIN] 
+            };
             fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
         } else {
             console.log('Loading existing database...');
             const fileContent = fs.readFileSync(dbFile, 'utf8');
             db = JSON.parse(fileContent);
             
-            // Critical Migration: Ensure staff array exists and contains at least one active admin
+            let updated = false;
+
+            // Migration: Ensure staff array exists
             if (!db.staff || !Array.isArray(db.staff) || db.staff.length === 0) {
-                console.log('Migration: Repairing missing or empty staff table...');
                 db.staff = [DEFAULT_ADMIN];
+                updated = true;
+            }
+
+            // Migration: Ensure config exists
+            if (!db.config) {
+                db.config = DEFAULT_CONFIG;
+                updated = true;
+            }
+
+            if (updated) {
                 fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
-            } else {
-                // Ensure the 'admin' user specifically exists for first-time login
-                const adminExists = db.staff.find(s => s.username === 'admin');
-                if (!adminExists) {
-                    db.staff.push(DEFAULT_ADMIN);
-                    fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
-                }
             }
         }
     } catch (err) {
@@ -69,15 +86,29 @@ initStorage();
 
 const getDB = () => {
     try {
-        return JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+        const db = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+        // Fallback for missing fields in runtime
+        return {
+            products: db.products || [],
+            analytics: db.analytics || [],
+            config: db.config || DEFAULT_CONFIG,
+            links: db.links || [],
+            staff: db.staff || [DEFAULT_ADMIN]
+        };
     } catch (e) {
-        return { products: [], analytics: [], config: null, links: [], staff: [DEFAULT_ADMIN] };
+        return { 
+            products: [], 
+            analytics: [], 
+            config: DEFAULT_CONFIG, 
+            links: [], 
+            staff: [DEFAULT_ADMIN] 
+        };
     }
 };
 
 const saveDB = (data) => fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
 
-// Logging Middleware for Cloud Debugging
+// Logging Middleware
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} | ${req.method} ${req.path}`);
     next();
@@ -92,29 +123,16 @@ app.get('/api/health', (req, res) => res.json({
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    console.log(`Login attempt for: ${username}`);
-    
     const db = getDB();
-    const staff = db.staff.find(s => 
-        s.username === username && 
-        s.password === password
-    );
+    const staff = db.staff.find(s => s.username === username && s.password === password);
 
-    if (!staff) {
-        console.log(`Login failed: Invalid credentials for ${username}`);
-        return res.status(401).json({ error: 'Invalid username or security key' });
-    }
+    if (!staff) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!staff.isActive) return res.status(403).json({ error: 'Account disabled' });
 
-    if (!staff.isActive) {
-        console.log(`Login failed: Account inactive for ${username}`);
-        return res.status(403).json({ error: 'Account has been disabled by administrator' });
-    }
-
-    console.log(`Login successful: ${username} (${staff.role})`);
     res.json({ id: staff.id, name: staff.name, role: staff.role });
 });
 
-app.get('/api/products', (req, res) => res.json(getDB().products || []));
+app.get('/api/products', (req, res) => res.json(getDB().products));
 app.post('/api/products', (req, res) => {
     const db = getDB();
     db.products.push(req.body);
@@ -139,7 +157,11 @@ app.delete('/api/products/:id', (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/config', (req, res) => res.json(getDB().config));
+app.get('/api/config', (req, res) => {
+    const db = getDB();
+    res.json(db.config);
+});
+
 app.post('/api/config', (req, res) => {
     const db = getDB();
     db.config = req.body;
@@ -160,4 +182,4 @@ if (fs.existsSync(distPath)) {
     });
 }
 
-app.listen(PORT, () => console.log(`Production server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

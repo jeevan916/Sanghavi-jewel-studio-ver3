@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
 import { AppConfig, Supplier, CategoryConfig, StaffAccount } from '../types';
-import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers } from 'lucide-react';
+import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw } from 'lucide-react';
 
 interface SettingsProps {
   onBack?: () => void;
@@ -12,6 +12,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [activeTab, setActiveTab] = useState<'suppliers' | 'categories' | 'staff' | 'general'>('suppliers');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   
   const [staffList, setStaffList] = useState<StaffAccount[]>([]);
   const [showAddStaff, setShowAddStaff] = useState(false);
@@ -26,13 +27,23 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [newSubCategory, setNewSubCategory] = useState<{catId: string, val: string}>({catId: '', val: ''});
 
   useEffect(() => {
-    storeService.getConfig().then(setConfig);
-    if (isAdmin) {
-      storeService.getStaff().then(setStaffList);
-    } else {
-        // If not admin, the only visible tabs should be inventory-related
-        if (activeTab === 'staff' || activeTab === 'general') setActiveTab('suppliers');
-    }
+    const loadData = async () => {
+        try {
+            const data = await storeService.getConfig();
+            setConfig(data);
+            if (isAdmin) {
+              const staff = await storeService.getStaff();
+              setStaffList(staff);
+            } else {
+                if (activeTab === 'staff' || activeTab === 'general') setActiveTab('suppliers');
+            }
+        } catch (e) {
+            console.error("Failed to load settings data", e);
+        } finally {
+            setIsInitializing(false);
+        }
+    };
+    loadData();
   }, [isAdmin]);
 
   const handleSave = async () => {
@@ -120,7 +131,20 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     });
   };
 
-  if (!config) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-gold-600"/></div>;
+  if (isInitializing || !config) {
+      return (
+          <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6">
+              <Loader2 className="animate-spin text-gold-600 mb-4" size={40} />
+              <p className="text-stone-400 font-serif text-lg">Synchronizing Studio Prefs...</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="mt-8 flex items-center gap-2 text-xs font-bold text-stone-400 uppercase tracking-widest hover:text-gold-600"
+              >
+                  <RefreshCw size={14}/> Reload Interface
+              </button>
+          </div>
+      );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 pb-24 animate-fade-in">

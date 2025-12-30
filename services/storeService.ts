@@ -1,19 +1,14 @@
 
 import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent, StaffAccount } from "../types";
 
-// Determine the API base path dynamically to support subfolder hosting
-const getApiBase = () => {
-    const path = window.location.pathname;
-    // If we're in a subdirectory, the API should be relative to that
-    if (path.length > 1 && path.includes('/')) {
-        const segments = path.split('/').filter(Boolean);
-        // This is a heuristic: if the first segment looks like a subfolder (not a route), use it
-        // However, standard /api is usually correct for root or proxied deployments
-    }
-    return '/api';
-};
+const API_BASE = '/api';
 
-const API_BASE = getApiBase();
+const DEFAULT_CONFIG: AppConfig = {
+    suppliers: [{ id: '1', name: 'Sanghavi In-House', isPrivate: false }],
+    categories: [{ id: 'c1', name: 'Necklace', subCategories: ['Choker'], isPrivate: false }],
+    linkExpiryHours: 24,
+    whatsappNumber: ''
+};
 
 const KEYS = {
   SESSION: 'sanghavi_user_session',
@@ -105,14 +100,12 @@ export const storeService = {
   getConfig: async (): Promise<AppConfig> => {
     try {
       const res = await fetch(`${API_BASE}/config`);
-      if (res.ok) return await res.json();
+      if (res.ok) {
+          const data = await res.json();
+          return data || DEFAULT_CONFIG;
+      }
     } catch (e) {}
-    return {
-        suppliers: [{ id: '1', name: 'Sanghavi In-House', isPrivate: false }],
-        categories: [{ id: 'c1', name: 'Necklace', subCategories: ['Choker'], isPrivate: false }],
-        linkExpiryHours: 24,
-        whatsappNumber: ''
-    };
+    return DEFAULT_CONFIG;
   },
 
   saveConfig: async (config: AppConfig) => {
@@ -171,8 +164,7 @@ export const storeService = {
       
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-          // This usually happens when the API path is wrong and the server returns a 404 HTML page
-          throw new Error(`Critical Error: API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+          throw new Error(`Critical Error: API returned non-JSON response (${res.status}).`);
       }
 
       const data = await res.json();
