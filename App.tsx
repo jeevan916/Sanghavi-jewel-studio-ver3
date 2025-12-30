@@ -16,37 +16,55 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Extending Component directly and adding a constructor ensures that TypeScript correctly recognizes the component structure and its props, resolving the "Property 'props' does not exist" error.
+/**
+ * Global Error Boundary to prevent the entire app from crashing 
+ * if a specific component fails to render.
+ */
+// Fix: Use Component explicitly from named imports to resolve potential inheritance typing issues where 'props' property might not be recognized
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly declare state property to resolve "Property 'state' does not exist" error
+  public state: ErrorBoundaryState = { hasError: false };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Fix: Correctly initialize state in constructor
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError() { return { hasError: true }; }
+  static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+    return { hasError: true };
+  }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) { 
-    console.error("React Error:", error, errorInfo); 
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Sanghavi Studio Exception:", error, errorInfo);
   }
 
   render() {
+    // Fix: Access state safely after explicit declaration
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
+          <div className="bg-red-50 p-6 rounded-3xl border border-red-100 flex flex-col items-center max-w-sm">
             <AlertTriangle className="text-red-500 mb-4" size={48} />
-            <h1 className="font-serif text-2xl text-stone-900 mb-2">Something went wrong</h1>
-            <p className="text-stone-500 mb-6 max-w-sm">The studio interface encountered an unexpected error. Please reload the application.</p>
-            <button onClick={() => window.location.reload()} className="flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-bold">
-                <RefreshCcw size={18}/> Reload Studio
+            <h1 className="font-serif text-2xl text-stone-900 mb-2">Studio Interrupted</h1>
+            <p className="text-stone-500 mb-6 text-sm">A rendering error occurred. This may be due to a connection drop during synchronization.</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="flex items-center gap-2 bg-stone-900 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-stone-200"
+            >
+              <RefreshCcw size={18}/> Refresh Studio
             </button>
+          </div>
         </div>
       );
     }
-    // Accessing children from the correctly typed this.props
+
+    // Fix: Access props safely from Component base class
     return this.props.children;
   }
 }
 
+// Lazy Load Pages for Performance
 const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })));
 const Gallery = lazy(() => import('./pages/Gallery').then(m => ({ default: m.Gallery })));
 const UploadWizard = lazy(() => import('./pages/UploadWizard').then(m => ({ default: m.UploadWizard })));
@@ -61,7 +79,7 @@ const PageLoader = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 animate-in fade-in duration-500">
     <div className="relative flex flex-col items-center">
       <Loader2 className="animate-spin text-gold-600 mb-4" size={40} strokeWidth={1.5} />
-      <span className="font-serif text-lg text-stone-400 animate-pulse">Synchronizing Studio...</span>
+      <span className="font-serif text-lg text-stone-400 animate-pulse uppercase tracking-[0.2em] text-[10px] font-bold">Synchronizing...</span>
     </div>
   </div>
 );
@@ -91,7 +109,7 @@ function AppContent() {
     setUser(storeService.getCurrentUser());
   }, []);
 
-  // --- Deep Link Detection ---
+  // Deep Link Handling
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const productId = params.get('id');
@@ -102,7 +120,6 @@ function AppContent() {
         const found = products.find(p => p.id === productId);
         if (found) {
           setActiveProduct(found);
-          // Clean up the URL after opening
           const cleanUrl = location.pathname;
           navigate(cleanUrl, { replace: true });
         }

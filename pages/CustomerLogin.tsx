@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { storeService } from '../services/storeService';
 import { whatsappService } from '../services/whatsappService';
 import { User } from '../types';
-import { ArrowLeft, Loader2, Info, ShieldCheck, MessageCircle, Phone, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Info, ShieldCheck, MessageCircle, Phone, ArrowRight, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';
 
 export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ onLoginSuccess }) => {
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
@@ -13,6 +13,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [timer, setTimer] = useState(0);
   const navigate = useNavigate();
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -25,31 +26,29 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
     return () => clearInterval(interval);
   }, [timer]);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneNumber || phoneNumber.length < 10) {
-      setError('Please enter a valid WhatsApp number');
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!phoneNumber || phoneNumber.replace(/\D/g, '').length < 10) {
+      setError('Please enter a valid WhatsApp number with country code (e.g., 91...)');
       return;
     }
 
     setIsLoading(true);
     setError('');
+    setIsDemoMode(false);
     
     const otp = whatsappService.generateOTP();
-    const { success, error: apiError } = await whatsappService.sendOTP(phoneNumber, otp);
+    const result = await whatsappService.sendOTP(phoneNumber, otp);
 
-    if (success) {
+    if (result.success) {
       setGeneratedOtp(otp);
       setStep('otp');
       setTimer(60);
-      // For development/testing:
-      console.log('OTP SENT:', otp);
+      if (result.isDemo) {
+        setIsDemoMode(true);
+      }
     } else {
-      setError('Failed to send WhatsApp message. Please try again.');
-      // If API fails (e.g. template not ready), we allow proceed for demo/dev purposes in this environment
-      setGeneratedOtp(otp); 
-      setStep('otp');
-      setTimer(60);
+      setError(result.error || 'WhatsApp delivery failed. Please check your Meta configuration.');
     }
     setIsLoading(false);
   };
@@ -77,15 +76,22 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
 
     if (entered === generatedOtp) {
       setIsLoading(true);
-      const user = await storeService.loginWithWhatsApp(phoneNumber);
-      if (user) {
-        onLoginSuccess(user);
-      } else {
-        setError('Verification failed on our servers.');
+      try {
+        const user = await storeService.loginWithWhatsApp(phoneNumber);
+        if (user) {
+          onLoginSuccess(user);
+        } else {
+          setError('Session creation failed. Please contact support.');
+        }
+      } catch (err) {
+        setError('Server verification failed. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     } else {
-      setError('Invalid verification code. Please try again.');
+      setError('Incorrect verification code.');
+      // Vibration for failure
+      if (navigator.vibrate) navigator.vibrate(100);
     }
   };
 
@@ -118,38 +124,54 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
           </h2>
           <p className="text-stone-500 font-light text-sm">
             {step === 'phone' 
-              ? 'Enter your WhatsApp number to receive a secure access code.' 
-              : `We've sent a 6-digit code to your WhatsApp.`}
+              ? 'Enter your registered WhatsApp number for secure access.' 
+              : `A 6-digit code has been dispatched to your WhatsApp.`}
           </p>
         </div>
 
         {step === 'phone' ? (
           <form onSubmit={handleSendOtp} className="space-y-6">
-            <div className="relative">
-              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
-              <input 
-                type="tel" 
-                value={phoneNumber}
-                onChange={e => setPhoneNumber(e.target.value)}
-                placeholder="WhatsApp Number (e.g. 919876543210)"
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
-                required
-              />
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 ml-1">International Format</label>
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                <input 
+                  type="tel" 
+                  value={phoneNumber}
+                  onChange={e => setPhoneNumber(e.target.value)}
+                  placeholder="e.g. 919876543210"
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
+                  required
+                />
+              </div>
             </div>
             
-            {error && <p className="text-red-500 text-xs text-center font-medium">{error}</p>}
+            {error && (
+              <div className="p-4 bg-red-50 text-red-700 text-xs rounded-2xl flex flex-col gap-2 border border-red-100 animate-in fade-in slide-in-from-top-1">
+                <div className="flex items-start gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                    <span className="font-bold">WhatsApp Delivery Error</span>
+                </div>
+                <p className="opacity-80 ml-6">{error}</p>
+                <div className="ml-6 pt-2 border-t border-red-100/50">
+                    <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="text-red-800 underline flex items-center gap-1 hover:text-red-900 transition">
+                        Check Meta Settings <ExternalLink size={10} />
+                    </a>
+                </div>
+              </div>
+            )}
 
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-800 transition-all shadow-xl shadow-stone-200"
+              className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-800 transition-all shadow-xl shadow-stone-200 disabled:opacity-50"
             >
               {isLoading ? <Loader2 className="animate-spin" size={20}/> : <ArrowRight size={20}/>}
               {isLoading ? 'Requesting Code...' : 'Send Access Code'}
             </button>
           </form>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
             <div className="flex justify-between gap-2">
               {otpValue.map((digit, idx) => (
                 <input
@@ -165,35 +187,54 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
               ))}
             </div>
 
-            {error && <p className="text-red-500 text-xs text-center font-medium">{error}</p>}
+            {error && (
+              <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl flex items-start gap-2 border border-red-100">
+                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {isDemoMode && (
+              <div className="p-5 bg-gold-50 border border-gold-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-500">
+                <div className="flex items-center gap-2 text-gold-800 font-bold text-xs uppercase tracking-widest mb-2">
+                   <Info size={16} /> Admin Debug Active
+                </div>
+                <p className="text-[11px] text-stone-600 font-medium leading-relaxed">
+                  WhatsApp message failed (likely Template or Token issue).
+                  <span className="block mt-2 font-bold text-stone-800 bg-white/50 p-2 rounded border border-gold-200">
+                    Press F12 (Console) to view your 6-digit verification code.
+                  </span>
+                </p>
+              </div>
+            )}
 
             <div className="text-center">
-              <p className="text-stone-400 text-xs mb-2">Didn't receive the code?</p>
+              <p className="text-stone-400 text-xs mb-2">Issue receiving the code?</p>
               <button 
-                onClick={handleSendOtp}
+                onClick={() => handleSendOtp()}
                 disabled={timer > 0 || isLoading}
                 className={`text-xs font-bold uppercase tracking-widest ${timer > 0 ? 'text-stone-300' : 'text-gold-600 hover:text-gold-700'}`}
               >
-                {timer > 0 ? `Resend available in ${timer}s` : 'Resend Access Code'}
+                {timer > 0 ? `Resend in ${timer}s` : 'Resend Access Code'}
               </button>
             </div>
           </div>
         )}
 
         <div className="mt-12 pt-8 border-t border-stone-100 text-center space-y-4">
-          <p className="text-[10px] uppercase font-bold tracking-widest text-stone-300">Secure Environment</p>
+          <p className="text-[10px] uppercase font-bold tracking-widest text-stone-300">Sanghavi Biometric Standard</p>
           <div className="flex justify-center gap-2 text-stone-400">
             <CheckCircle2 size={16} className="text-gold-500" />
-            <span className="text-[10px] font-medium">Encrypted Authorization</span>
+            <span className="text-[10px] font-medium">Bespoke Authorization Encrypted</span>
           </div>
-          <Link to="/staff" className="block text-stone-400 text-[10px] font-bold uppercase tracking-widest hover:text-gold-600 transition">Internal Personnel Portal →</Link>
+          <Link to="/staff" className="block text-stone-400 text-[10px] font-bold uppercase tracking-widest hover:text-gold-600 transition">Personnel Portal →</Link>
         </div>
       </div>
       
       {isLoading && (
         <div className="fixed inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex flex-col items-center justify-center">
           <Loader2 className="animate-spin text-gold-600 mb-4" size={48} />
-          <p className="font-serif text-lg text-stone-800 animate-pulse">Authenticating Studio Session...</p>
+          <p className="font-serif text-lg text-stone-800 animate-pulse">Establishing Secure Session...</p>
         </div>
       )}
     </div>

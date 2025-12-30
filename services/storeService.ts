@@ -115,21 +115,21 @@ export const storeService = {
   },
 
   loginWithWhatsApp: async (phoneNumber: string): Promise<User | null> => {
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
     try {
       const userData = await apiFetch('/login-whatsapp', {
           method: 'POST',
-          body: JSON.stringify({ phone: phoneNumber })
+          body: JSON.stringify({ phone: cleanPhone })
       });
       localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
       storeService.logEvent('login', undefined, userData);
       return userData;
     } catch (e) { 
       console.error('WhatsApp Login Store Error:', e);
-      return null; 
+      throw e; 
     }
   },
 
-  // Fix: Added missing loginWithGoogle method to resolve type error in Login.tsx
   loginWithGoogle: async (credential: string): Promise<User | null> => {
     try {
       const userData = await apiFetch('/login-google', {
