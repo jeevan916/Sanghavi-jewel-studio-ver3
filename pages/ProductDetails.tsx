@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, AppConfig } from '../types';
-// Fixed: Remove MoveHorizontal from lucide-react import to avoid conflict with local definition at the bottom of the file
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Maximize2, Camera, Edit2, Lock, Link, Check, Plus, Upload, Eye, EyeOff, Sparkles, Eraser, Wand2, StickyNote, Loader2, CheckCircle2, XCircle, SlidersHorizontal, Download, Trash2, Cpu, Smartphone } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ImageEditor } from '../components/ImageEditor';
@@ -35,6 +34,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
 
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setProduct(initialProduct);
@@ -134,7 +134,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   const goToPrev = () => { if (hasPrev && !isAnimating) { setIsAnimating(true); setSlideDirection('right'); setTimeout(() => { setProduct(productList[currentIndex-1]); setSlideDirection(null); setIsAnimating(false); }, 300); } };
 
   return (
-    <div className="fixed inset-0 z-40 bg-stone-50 overflow-y-auto animate-in slide-in-from-bottom-10 duration-300">
+    <div className="fixed inset-0 z-40 bg-stone-50 overflow-y-auto animate-in slide-in-from-bottom-10 duration-300 pb-20">
       {showFullScreen && <ImageViewer images={product.images} initialIndex={currentImageIndex} title={product.title} onClose={() => setShowFullScreen(false)} />}
       {isManualEditing && <ImageEditor imageSrc={product.images[currentImageIndex]} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
 
@@ -147,6 +147,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
       <div className={`transition-all duration-300 ease-out ${isAnimating ? (slideDirection === 'left' ? 'opacity-0 -translate-x-10' : 'opacity-0 translate-x-10') : 'opacity-100'}`}>
           <div ref={imageContainerRef} className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none" onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}>
             <img src={product.images[currentImageIndex]} className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`} onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} />
+            
             {pendingEnhancedImage && (
                 <>
                     <img src={pendingEnhancedImage} className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" style={{ clipPath: `inset(0 ${100 - compareSliderPos}% 0 0)` }} />
@@ -154,27 +155,61 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4"><button onClick={() => setPendingEnhancedImage(null)} className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl border border-stone-700 font-medium">Discard</button><button onClick={() => { const next = [...product.images]; next[currentImageIndex] = pendingEnhancedImage; handleUpdateProduct({ images: next }); setPendingEnhancedImage(null); }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button></div>
                 </>
             )}
-            {!pendingEnhancedImage && isAuthorized && (
-                <div className="absolute top-4 left-4 flex gap-2 z-10">
-                    <button onClick={() => fileInputRef.current?.click()} className="p-2 bg-gold-600 text-white rounded-full shadow-lg"><Camera size={20} /></button>
-                    <button onClick={() => setShowAiMenu(!showAiMenu)} className="p-2 bg-purple-600 text-white rounded-full shadow-lg"><Sparkles size={20} /></button>
-                    <button onClick={() => setIsManualEditing(true)} className="p-2 bg-stone-800 text-white rounded-full shadow-lg"><SlidersHorizontal size={20} /></button>
-                    {showAiMenu && (
-                        <div className="absolute top-12 left-0 bg-white rounded-xl shadow-xl border p-2 w-48">
-                            <button onClick={() => handleAiAction('clean')} className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50 rounded-lg flex items-center gap-2"><Eraser size={16} className="text-red-400" /> Remove Branding</button>
-                            <button onClick={() => handleAiAction('enhance')} className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50 rounded-lg flex items-center gap-2"><Wand2 size={16} className="text-gold-500" /> Studio Enhance</button>
-                        </div>
-                    )}
-                </div>
-            )}
+
             {!pendingEnhancedImage && product.images.length > 1 && (
                 <>
                     <button onClick={goToPrev} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white"><ChevronLeft size={24}/></button>
                     <button onClick={goToNext} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white"><ChevronRight size={24}/></button>
                 </>
             )}
-            <input type="file" ref={fileInputRef} onChange={handleAddImage} className="hidden" accept="image/*" />
           </div>
+
+          {/* New Admin Control Bar below image */}
+          {isAuthorized && !pendingEnhancedImage && (
+              <div className="max-w-3xl mx-auto px-6 py-4 flex flex-wrap gap-3 items-center justify-center border-b border-stone-200 bg-white">
+                <div className="flex gap-2">
+                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition text-xs font-bold uppercase tracking-wider">
+                        <Upload size={16} /> Add Photo
+                    </button>
+                    <button onClick={() => cameraInputRef.current?.click()} className="flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition text-xs font-bold uppercase tracking-wider">
+                        <Camera size={16} /> Capture
+                    </button>
+                </div>
+
+                <div className="h-6 w-px bg-stone-200 mx-2 hidden sm:block" />
+
+                <div className="flex gap-2 relative">
+                    <button 
+                      onClick={() => setShowAiMenu(!showAiMenu)} 
+                      className={`flex items-center gap-2 px-3 py-2 ${showAiMenu ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'} rounded-lg hover:bg-purple-100 hover:text-purple-800 transition text-xs font-bold uppercase tracking-wider shadow-sm`}
+                    >
+                        {isProcessingImage ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} 
+                        AI Studio
+                    </button>
+
+                    {showAiMenu && (
+                        <div className="absolute top-12 left-0 bg-white rounded-xl shadow-2xl border border-stone-200 p-2 w-48 z-40 animate-in fade-in slide-in-from-top-2">
+                            <button onClick={() => handleAiAction('clean')} className="w-full text-left px-3 py-3 text-sm hover:bg-stone-50 rounded-lg flex items-center gap-2 transition-colors">
+                                <Eraser size={16} className="text-red-400" /> Remove Branding
+                            </button>
+                            <button onClick={() => handleAiAction('enhance')} className="w-full text-left px-3 py-3 text-sm hover:bg-stone-50 rounded-lg flex items-center gap-2 transition-colors">
+                                <Wand2 size={16} className="text-gold-500" /> Studio Enhance
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <button 
+                  onClick={() => setIsManualEditing(true)} 
+                  className="flex items-center gap-2 px-3 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition text-xs font-bold uppercase tracking-wider shadow-sm"
+                >
+                    <SlidersHorizontal size={16} /> Edit Details
+                </button>
+
+                <input type="file" ref={fileInputRef} onChange={handleAddImage} className="hidden" accept="image/*" />
+                <input type="file" ref={cameraInputRef} onChange={handleAddImage} className="hidden" accept="image/*" capture="environment" />
+              </div>
+          )}
 
           <div className="max-w-3xl mx-auto p-6 space-y-6">
              <div className="flex justify-between items-start">
@@ -200,7 +235,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
                  </div>
              )}
 
-             <div className="flex gap-4 border-b border-stone-100 pb-6"><button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white py-3.5 rounded-xl font-medium shadow-lg flex items-center justify-center gap-2"><MessageCircle size={20} /> Inquire via WhatsApp</button></div>
+             <div className="flex gap-4 border-b border-stone-100 pb-6"><button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white py-3.5 rounded-xl font-medium shadow-lg flex items-center justify-center gap-2 hover:bg-gold-700 transition-colors"><MessageCircle size={20} /> Inquire via WhatsApp</button></div>
 
              <div className="prose prose-stone">
                  <h3 className="text-sm font-bold text-stone-400 uppercase tracking-wider flex items-center justify-between gap-2 mb-2"><span className="flex items-center gap-2"><Info size={16} /> Description</span>{isAuthorized && <button onClick={() => { if(isEditingDescription) handleSaveDescription(); else setIsEditingDescription(true); }} className="p-1 hover:bg-stone-100 rounded text-gold-600 transition">{isEditingDescription ? <Check size={16} /> : <Edit2 size={16} />}</button>}</h3>

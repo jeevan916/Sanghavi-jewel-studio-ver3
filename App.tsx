@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
@@ -15,8 +15,8 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Use React.Component and remove redundant constructor to ensure 'props' is correctly resolved from base class
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Use Component directly from react and ensure state is correctly typed to help TS resolve 'props' from the base class
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError() { return { hasError: true }; }
@@ -38,6 +38,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Accessing children from props
     return this.props.children;
   }
 }
