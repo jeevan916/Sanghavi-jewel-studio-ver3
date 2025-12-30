@@ -21,32 +21,37 @@ const persistenceDir = path.join(os.homedir(), 'sanghavi_persistence');
 const uploadsDir = path.join(persistenceDir, 'uploads');
 const dbFile = path.join(persistenceDir, 'db.json');
 
+const DEFAULT_ADMIN = { 
+    id: 'admin-default', 
+    username: 'admin', 
+    password: 'admin', 
+    role: 'admin', 
+    isActive: true, 
+    name: 'System Admin', 
+    createdAt: new Date().toISOString() 
+};
+
 const initStorage = () => {
     try {
         if (!fs.existsSync(persistenceDir)) fs.mkdirSync(persistenceDir, { recursive: true });
         if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        
+        let db;
         if (!fs.existsSync(dbFile)) {
-            const initialDB = { 
-                products: [], 
-                analytics: [], 
-                config: null, 
-                links: [], 
-                staff: [
-                    { 
-                        id: 'admin-default', 
-                        username: 'admin', 
-                        password: 'admin', 
-                        role: 'admin', 
-                        isActive: true, 
-                        name: 'System Admin', 
-                        createdAt: new Date().toISOString() 
-                    }
-                ] 
-            };
-            fs.writeFileSync(dbFile, JSON.stringify(initialDB, null, 2));
+            db = { products: [], analytics: [], config: null, links: [], staff: [DEFAULT_ADMIN] };
+            console.log("Creating new database with default admin account.");
+        } else {
+            const data = fs.readFileSync(dbFile, 'utf8');
+            db = JSON.parse(data);
+            // Ensure staff array exists and has at least one admin
+            if (!db.staff || db.staff.length === 0) {
+                db.staff = [DEFAULT_ADMIN];
+                console.log("Repairing database: Added default admin account.");
+            }
         }
+        fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
     } catch (err) {
-        console.error(`Storage Failure:`, err);
+        console.error(`Storage Initialization Failure:`, err);
     }
 };
 
@@ -82,7 +87,7 @@ const deletePhysicalFile = (imageUrl) => {
 
 // --- API ROUTES ---
 
-app.get('/api/health', (req, res) => res.json({ status: 'online' }));
+app.get('/api/health', (req, res) => res.json({ status: 'online', timestamp: new Date().toISOString() }));
 
 app.get('/api/products', (req, res) => res.json(getDB().products || []));
 
@@ -132,7 +137,6 @@ app.post('/api/analytics', (req, res) => {
     res.json({ success: true });
 });
 
-// --- STAFF ENDPOINTS ---
 app.get('/api/staff', (req, res) => res.json(getDB().staff || []));
 
 app.post('/api/staff', (req, res) => {
@@ -163,19 +167,25 @@ app.delete('/api/staff/:id', (req, res) => {
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     const db = getDB();
+    
+    console.log(`Login attempt for user: ${username}`);
+    
     const staff = (db.staff || []).find(s => 
-        s.username.toLowerCase() === username.toLowerCase() && 
+        s.username.toLowerCase() === username.trim().toLowerCase() && 
         s.password === password
     );
 
     if (!staff) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        console.warn(`Failed login attempt for: ${username}`);
+        return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     if (!staff.isActive) {
-        return res.status(403).json({ error: 'Account is disabled. Please contact admin.' });
+        console.warn(`Disabled account access attempt: ${username}`);
+        return res.status(403).json({ error: 'Account is disabled. Please contact system admin.' });
     }
 
+    console.log(`Successful login: ${username} (Role: ${staff.role})`);
     res.json({
         id: staff.id,
         name: staff.name,
@@ -207,4 +217,10 @@ if (fs.existsSync(distPath)) {
     });
 }
 
-app.listen(PORT, '0.0.0.0', () => console.log(`API running on ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+    console.log('---------------------------------------------');
+    console.log(`Sanghavi Studio Server running on port ${PORT}`);
+    console.log(`Persistence Directory: ${persistenceDir}`);
+    console.log(`Default Admin Login: admin / admin`);
+    console.log('---------------------------------------------');
+});

@@ -147,18 +147,20 @@ export const storeService = {
         body: JSON.stringify({ username, password })
       });
       
+      const data = await res.json();
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Login failed');
+        throw new Error(data.error || 'Login failed');
       }
 
-      const userData: User = await res.json();
+      const userData: User = data;
       localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
       storeService.logEvent('login', undefined, userData);
       return userData;
     } catch (err: any) {
-      alert(err.message);
-      return null;
+      console.error("Login attempt failed:", err.message);
+      // Let the UI handle the error display via the returned null
+      throw err; 
     }
   },
 

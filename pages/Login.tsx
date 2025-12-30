@@ -103,13 +103,21 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   const handleStaffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username || !password) return;
+    
     setIsLoading(true);
     setError('');
-    const user = await storeService.login(username, password);
-    if (user) {
-      onLoginSuccess(user);
-    } else {
-      setError('Invalid internal staff credentials.');
+    
+    try {
+      const user = await storeService.login(username, password);
+      if (user) {
+        onLoginSuccess(user);
+      } else {
+        setError('Unexpected authentication response.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Connection to authentication server failed.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -188,12 +196,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 </div>
                 
                 {error && (
-                    <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg flex items-center gap-2 animate-pulse">
+                    <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg flex items-center gap-2 animate-in fade-in">
                         <AlertCircle size={14} /> {error}
                     </div>
                 )}
                 
-                <button type="submit" disabled={isLoading} className="w-full py-3.5 bg-stone-800 text-white rounded-xl font-bold shadow-md hover:bg-stone-700 transition flex items-center justify-center gap-2">
+                <button type="submit" disabled={isLoading} className="w-full py-3.5 bg-stone-800 text-white rounded-xl font-bold shadow-md hover:bg-stone-700 transition flex items-center justify-center gap-2 disabled:opacity-70">
                     {isLoading ? <Loader2 className="animate-spin" size={18}/> : <Lock size={18} />} Secure Access
                 </button>
             </form>
