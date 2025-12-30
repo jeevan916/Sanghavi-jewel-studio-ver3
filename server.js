@@ -1,7 +1,8 @@
 
 import express from 'express';
 import path from 'path';
-import fs from 'fs';
+import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
@@ -15,7 +16,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 
-// Hostinger-compatible relative path for data persistence
 const persistenceDir = path.join(__dirname, 'data');
 const dbFile = path.join(persistenceDir, 'db.json');
 
@@ -36,144 +36,103 @@ const DEFAULT_CONFIG = {
     whatsappNumber: ''
 };
 
-const initStorage = () => {
+// State Cache to avoid excessive Disk I/O
+let dbCache = null;
+
+const initStorage = async () => {
     try {
-        if (!fs.existsSync(persistenceDir)) {
-            console.log('Creating persistence directory:', persistenceDir);
-            fs.mkdirSync(persistenceDir, { recursive: true });
+        if (!existsSync(persistenceDir)) {
+            await fs.mkdir(persistenceDir, { recursive: true });
         }
         
-        let db;
-        if (!fs.existsSync(dbFile)) {
-            console.log('Initializing new database file...');
-            db = { 
-                products: [], 
-                analytics: [], 
-                config: DEFAULT_CONFIG, 
-                links: [], 
-                staff: [DEFAULT_ADMIN] 
-            };
-            fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
+        if (!existsSync(dbFile)) {
+            dbCache = { products: [], analytics: [], config: DEFAULT_CONFIG, links: [], staff: [DEFAULT_ADMIN] };
+            await saveDB();
         } else {
-            console.log('Loading existing database...');
-            const fileContent = fs.readFileSync(dbFile, 'utf8');
-            db = JSON.parse(fileContent);
+            const fileContent = await fs.readFile(dbFile, 'utf8');
+            dbCache = JSON.parse(fileContent);
             
-            let updated = false;
-
-            // Migration: Ensure staff array exists
-            if (!db.staff || !Array.isArray(db.staff) || db.staff.length === 0) {
-                db.staff = [DEFAULT_ADMIN];
-                updated = true;
-            }
-
-            // Migration: Ensure config exists
-            if (!db.config) {
-                db.config = DEFAULT_CONFIG;
-                updated = true;
-            }
-
-            if (updated) {
-                fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
-            }
+            // Ensure schema integrity
+            dbCache.products = dbCache.products || [];
+            dbCache.analytics = dbCache.analytics || [];
+            dbCache.config = dbCache.config || DEFAULT_CONFIG;
+            dbCache.links = dbCache.links || [];
+            dbCache.staff = dbCache.staff || [DEFAULT_ADMIN];
         }
     } catch (err) {
-        console.error('FAILED TO INITIALIZE STORAGE:', err);
+        console.error('CRITICAL: STORAGE INIT FAILED', err);
+        process.exit(1);
     }
 };
 
-initStorage();
-
-const getDB = () => {
+const saveDB = async () => {
     try {
-        const db = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
-        // Fallback for missing fields in runtime
-        return {
-            products: db.products || [],
-            analytics: db.analytics || [],
-            config: db.config || DEFAULT_CONFIG,
-            links: db.links || [],
-            staff: db.staff || [DEFAULT_ADMIN]
-        };
-    } catch (e) {
-        return { 
-            products: [], 
-            analytics: [], 
-            config: DEFAULT_CONFIG, 
-            links: [], 
-            staff: [DEFAULT_ADMIN] 
-        };
+        const tempPath = `${dbFile}.tmp`;
+        await fs.writeFile(tempPath, JSON.stringify(dbCache, null, 2), 'utf8');
+        await fs.rename(tempPath, dbFile); // Atomic rename
+    } catch (err) {
+        console.error('DB SAVE ERROR:', err);
     }
 };
 
-const saveDB = (data) => fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
-
-// Logging Middleware
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} | ${req.method} ${req.path}`);
-    next();
-});
+// Initialize before starting server
+await initStorage();
 
 // --- API ---
-app.get('/api/health', (req, res) => res.json({ 
-    status: 'online', 
-    timestamp: new Date().toISOString(),
-    persistence: fs.existsSync(dbFile) ? 'healthy' : 'missing'
-}));
+app.get('/api/health', (req, res) => res.json({ status: 'online', uptime: process.uptime() }));
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    const db = getDB();
-    const staff = db.staff.find(s => s.username === username && s.password === password);
-
+    const staff = dbCache.staff.find(s => s.username === username && s.password === password);
     if (!staff) return res.status(401).json({ error: 'Invalid credentials' });
     if (!staff.isActive) return res.status(403).json({ error: 'Account disabled' });
-
     res.json({ id: staff.id, name: staff.name, role: staff.role });
 });
 
-app.get('/api/products', (req, res) => res.json(getDB().products));
-app.post('/api/products', (req, res) => {
-    const db = getDB();
-    db.products.push(req.body);
-    saveDB(db);
+app.get('/api/products', (req, res) => res.json(dbCache.products));
+app.post('/api/products', async (req, res) => {
+    dbCache.products.push(req.body);
+    await saveDB();
     res.json(req.body);
 });
 
-app.put('/api/products/:id', (req, res) => {
-    const db = getDB();
-    const idx = db.products.findIndex(p => p.id === req.params.id);
+app.put('/api/products/:id', async (req, res) => {
+    const idx = dbCache.products.findIndex(p => p.id === req.params.id);
     if (idx !== -1) {
-        db.products[idx] = req.body;
-        saveDB(db);
+        dbCache.products[idx] = req.body;
+        await saveDB();
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ error: 'Not found' });
     }
+});
+
+app.delete('/api/products/:id', async (req, res) => {
+    dbCache.products = dbCache.products.filter(p => p.id !== req.params.id);
+    await saveDB();
     res.json({ success: true });
 });
 
-app.delete('/api/products/:id', (req, res) => {
-    const db = getDB();
-    db.products = db.products.filter(p => p.id !== req.params.id);
-    saveDB(db);
+app.get('/api/config', (req, res) => res.json(dbCache.config));
+app.post('/api/config', async (req, res) => {
+    dbCache.config = req.body;
+    await saveDB();
+    res.json(dbCache.config);
+});
+
+app.get('/api/staff', (req, res) => res.json(dbCache.staff.map(({password, ...s}) => s)));
+
+app.post('/api/analytics', async (req, res) => {
+    dbCache.analytics.push(req.body);
+    // Keep analytics lean
+    if (dbCache.analytics.length > 5000) dbCache.analytics.shift();
+    await saveDB();
     res.json({ success: true });
 });
-
-app.get('/api/config', (req, res) => {
-    const db = getDB();
-    res.json(db.config);
-});
-
-app.post('/api/config', (req, res) => {
-    const db = getDB();
-    db.config = req.body;
-    saveDB(db);
-    res.json(db.config);
-});
-
-app.get('/api/staff', (req, res) => res.json(getDB().staff.map(({password, ...s}) => s)));
 
 // Serve Frontend
 const distPath = path.join(__dirname, 'dist');
-if (fs.existsSync(distPath)) {
+if (existsSync(distPath)) {
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
@@ -182,4 +141,4 @@ if (fs.existsSync(distPath)) {
     });
 }
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`[ Sanghavi ] Optimized Server on port ${PORT}`));

@@ -18,7 +18,37 @@ const KEYS = {
 export interface HealthStatus {
     healthy: boolean;
     reason?: string;
-    timestamp?: string;
+}
+
+// Robust Fetch Wrapper
+async function apiFetch(endpoint: string, options: RequestInit = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            ...options,
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers,
+            },
+        });
+        
+        clearTimeout(timeout);
+        
+        if (response.status === 401) {
+            storeService.logout();
+            throw new Error('Session expired');
+        }
+        
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        return data;
+    } catch (err: any) {
+        if (err.name === 'AbortError') throw new Error('Request timed out');
+        throw err;
+    }
 }
 
 export const storeService = {
@@ -26,26 +56,10 @@ export const storeService = {
   
   checkServerHealth: async (): Promise<HealthStatus> => {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-        const res = await fetch(`${API_BASE}/health`, { 
-            method: 'GET',
-            headers: { 'Cache-Control': 'no-cache' },
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-
-        if (!res.ok) return { healthy: false, reason: `HTTP ${res.status}` };
-        
-        const data = await res.json();
-        return { 
-            healthy: data.status === 'online', 
-            timestamp: data.timestamp 
-        };
+        const data = await apiFetch('/health');
+        return { healthy: data.status === 'online' };
     } catch (e: any) {
-        return { healthy: false, reason: e.name === 'AbortError' ? "Request Timeout" : "Connection Refused" };
+        return { healthy: false, reason: e.message };
     }
   },
 
@@ -61,90 +75,35 @@ export const storeService = {
 
   getProducts: async (): Promise<Product[]> => {
     try {
-      const res = await fetch(`${API_BASE}/products`);
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
+      const data = await apiFetch('/products');
       return (data || []).sort((a: Product, b: Product) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     } catch (err) { return []; }
   },
 
-  getProductById: async (id: string): Promise<Product | null> => {
-    const products = await storeService.getProducts();
-    return products.find(p => p.id === id) || null;
-  },
-
-  addProduct: async (product: Product) => {
-    const res = await fetch(`${API_BASE}/products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product)
-    });
-    return await res.json();
-  },
-
-  updateProduct: async (updatedProduct: Product) => {
-    const res = await fetch(`${API_BASE}/products/${updatedProduct.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedProduct)
-    });
-    return await res.json();
-  },
-
-  deleteProduct: async (id: string) => {
-    await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' });
-  },
+  addProduct: (product: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }),
+  
+  updateProduct: (product: Product) => apiFetch(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) }),
+  
+  deleteProduct: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
 
   getConfig: async (): Promise<AppConfig> => {
     try {
-      const res = await fetch(`${API_BASE}/config`);
-      if (res.ok) {
-          const data = await res.json();
-          return data || DEFAULT_CONFIG;
-      }
-    } catch (e) {}
-    return DEFAULT_CONFIG;
+      const data = await apiFetch('/config');
+      return data || DEFAULT_CONFIG;
+    } catch (e) { return DEFAULT_CONFIG; }
   },
 
-  saveConfig: async (config: AppConfig) => {
-    const res = await fetch(`${API_BASE}/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config)
-    });
-    return await res.json();
-  },
+  saveConfig: (config: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(config) }),
 
-  getStaff: async (): Promise<StaffAccount[]> => {
-    try {
-      const res = await fetch(`${API_BASE}/staff`);
-      return await res.json();
-    } catch (e) { return []; }
-  },
+  getStaff: () => apiFetch('/staff'),
 
-  addStaff: async (staff: Partial<StaffAccount>) => {
-    const res = await fetch(`${API_BASE}/staff`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(staff)
-    });
-    return await res.json();
-  },
+  addStaff: (staff: Partial<StaffAccount>) => apiFetch('/staff', { method: 'POST', body: JSON.stringify(staff) }),
 
-  updateStaff: async (id: string, updates: Partial<StaffAccount>) => {
-    const res = await fetch(`${API_BASE}/staff/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
-    return await res.json();
-  },
+  updateStaff: (id: string, updates: Partial<StaffAccount>) => apiFetch(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
 
-  deleteStaff: async (id: string) => {
-    await fetch(`${API_BASE}/staff/${id}`, { method: 'DELETE' });
-  },
+  deleteStaff: (id: string) => apiFetch(`/staff/${id}`, { method: 'DELETE' }),
 
   getCurrentUser: (): User | null => {
     const data = localStorage.getItem(KEYS.SESSION);
@@ -152,35 +111,13 @@ export const storeService = {
   },
 
   login: async (username: string, password: string): Promise<User | null> => {
-    try {
-      const res = await fetch(`${API_BASE}/login`, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify({ username, password })
+      const userData = await apiFetch('/login', {
+          method: 'POST',
+          body: JSON.stringify({ username, password })
       });
-      
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-          throw new Error(`Critical Error: API returned non-JSON response (${res.status}).`);
-      }
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || `Error ${res.status}: Access Denied`);
-      }
-
-      const userData: User = data;
       localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
       storeService.logEvent('login', undefined, userData);
       return userData;
-    } catch (err: any) {
-      console.error("StoreService Login Failed:", err.message);
-      throw err; 
-    }
   },
 
   loginWithGoogle: async (credential: string): Promise<User | null> => {
@@ -212,6 +149,7 @@ export const storeService = {
 
   logout: () => {
     localStorage.removeItem(KEYS.SESSION);
+    window.location.hash = '/';
     window.location.reload();
   },
 
@@ -246,20 +184,11 @@ export const storeService = {
         imageIndex
     };
     try {
-        await fetch(`${API_BASE}/analytics`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(event)
-        });
+        await apiFetch('/analytics', { method: 'POST', body: JSON.stringify(event) });
     } catch (e) {}
   },
 
-  getAnalytics: async (): Promise<AnalyticsEvent[]> => {
-    try {
-        const res = await fetch(`${API_BASE}/analytics`);
-        return await res.json();
-    } catch (e) { return []; }
-  },
+  getAnalytics: () => apiFetch('/analytics'),
 
   getDesigns: async (): Promise<GeneratedDesign[]> => {
     const data = localStorage.getItem('sanghavi_designs');
@@ -278,19 +207,7 @@ export const storeService = {
     const token = Math.random().toString(36).substring(2, 15);
     const expiresAt = new Date(Date.now() + config.linkExpiryHours * 60 * 60 * 1000).toISOString();
     const newLink = { id: Date.now().toString(), targetId, type, token, expiresAt };
-    await fetch(`${API_BASE}/links`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newLink)
-    });
+    await apiFetch('/links', { method: 'POST', body: JSON.stringify(newLink) });
     return `${window.location.origin}${window.location.pathname}?shareToken=${token}`;
-  },
-
-  validateSharedLink: async (token: string): Promise<SharedLink | null> => {
-    try {
-        const res = await fetch(`${API_BASE}/links/${token}`);
-        if (!res.ok) return null;
-        return await res.json();
-    } catch (e) { return null; }
   }
 };

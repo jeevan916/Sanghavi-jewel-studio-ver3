@@ -1,12 +1,49 @@
-import React, { useState, Suspense, lazy, useEffect } from 'react';
+
+import React, { useState, Suspense, lazy, useEffect, ErrorInfo } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
 import { User, Product } from './types';
 import { UploadProvider } from './contexts/UploadContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
-// True Multi-page Code Splitting
+// Error Boundary Implementation
+// Fix: Explicitly define prop and state interfaces to resolve "Property 'state/props' does not exist" errors
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    // Fix: line 14 - state is now correctly defined via ErrorBoundaryState
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("React Error:", error, errorInfo); }
+  render() {
+    // Fix: line 19 - state check is now type-safe
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
+            <AlertTriangle className="text-red-500 mb-4" size={48} />
+            <h1 className="font-serif text-2xl text-stone-900 mb-2">Something went wrong</h1>
+            <p className="text-stone-500 mb-6 max-w-sm">The studio interface encountered an unexpected error. Please reload the application.</p>
+            <button onClick={() => window.location.reload()} className="flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-bold">
+                <RefreshCcw size={18}/> Reload Studio
+            </button>
+        </div>
+      );
+    }
+    // Fix: line 31 - props.children is now correctly defined via ErrorBoundaryProps
+    return this.props.children;
+  }
+}
+
 const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })));
 const Gallery = lazy(() => import('./pages/Gallery').then(m => ({ default: m.Gallery })));
 const UploadWizard = lazy(() => import('./pages/UploadWizard').then(m => ({ default: m.UploadWizard })));
@@ -18,18 +55,17 @@ const StaffLogin = lazy(() => import('./pages/StaffLogin').then(m => ({ default:
 const ProductDetails = lazy(() => import('./pages/ProductDetails').then(m => ({ default: m.ProductDetails })));
 
 const PageLoader = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
+  <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 animate-in fade-in duration-500">
     <div className="relative flex flex-col items-center">
       <Loader2 className="animate-spin text-gold-600 mb-4" size={40} strokeWidth={1.5} />
-      <span className="font-serif text-lg text-stone-400 animate-pulse">Sanghavi Studio</span>
+      <span className="font-serif text-lg text-stone-400 animate-pulse">Synchronizing Studio...</span>
     </div>
   </div>
 );
 
-// Guard Component
-// Fix: Changed 'children' to optional to resolve call-site TypeScript validation errors when components are wrapped in AuthGuard.
+// Fix: Explicitly define props to include children, resolving the error where children was missing in usage
 interface AuthGuardProps {
-  children?: React.ReactNode;
+  children: React.ReactNode;
   allowedRoles: string[];
   user: User | null;
 }
@@ -39,9 +75,7 @@ const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
     const isStaffRoute = window.location.hash.includes('/admin') || window.location.hash.includes('/staff');
     return <Navigate to={isStaffRoute ? "/staff" : "/login"} replace />;
   }
-  if (!allowedRoles.includes(user.role)) {
-    return <Navigate to="/collection" replace />;
-  }
+  if (!allowedRoles.includes(user.role)) return <Navigate to="/collection" replace />;
   return <>{children}</>;
 };
 
@@ -52,75 +86,44 @@ function AppContent() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const saved = storeService.getCurrentUser();
-    if (saved) setUser(saved);
+    setUser(storeService.getCurrentUser());
   }, []);
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
-    if (loggedInUser.role === 'customer') {
-      navigate('/collection');
-    } else {
-      navigate('/admin/dashboard');
-    }
+    navigate(loggedInUser.role === 'customer' ? '/collection' : '/admin/dashboard');
   };
 
   const handleLogout = () => {
     storeService.logout();
     setUser(null);
-    navigate('/');
   };
 
   const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff';
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'}`}>
-      <main className="pb-20 md:pb-0 md:pt-0">
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            {/* Public/Customer Routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/collection" element={<Gallery onProductSelect={setActiveProduct} />} />
-            <Route path="/login" element={<CustomerLogin onLoginSuccess={handleLoginSuccess} />} />
-            
-            {/* Staff Entry */}
-            <Route path="/staff" element={<StaffLogin onLoginSuccess={handleLoginSuccess} />} />
-            
-            {/* Protected Admin Routes */}
-            <Route path="/admin/dashboard" element={
-              <AuthGuard user={user} allowedRoles={['admin', 'contributor']}>
-                <AdminDashboard onNavigate={(p) => navigate(`/admin/${p}`)} />
-              </AuthGuard>
-            } />
-            <Route path="/admin/upload" element={
-              <AuthGuard user={user} allowedRoles={['admin', 'contributor']}>
-                <UploadWizard />
-              </AuthGuard>
-            } />
-            <Route path="/admin/studio" element={
-              <AuthGuard user={user} allowedRoles={['admin']}>
-                <DesignStudio />
-              </AuthGuard>
-            } />
-            <Route path="/admin/settings" element={
-              <AuthGuard user={user} allowedRoles={['admin']}>
-                <Settings onBack={() => navigate(-1)} />
-              </AuthGuard>
-            } />
-
-            {/* Redirects */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+      <main className="pb-20 md:pb-0">
+        <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/collection" element={<Gallery onProductSelect={setActiveProduct} />} />
+                <Route path="/login" element={<CustomerLogin onLoginSuccess={handleLoginSuccess} />} />
+                <Route path="/staff" element={<StaffLogin onLoginSuccess={handleLoginSuccess} />} />
+                <Route path="/admin/dashboard" element={<AuthGuard user={user} allowedRoles={['admin', 'contributor']}><AdminDashboard onNavigate={(p) => navigate(`/admin/${p}`)} /></AuthGuard>} />
+                <Route path="/admin/upload" element={<AuthGuard user={user} allowedRoles={['admin', 'contributor']}><UploadWizard /></AuthGuard>} />
+                <Route path="/admin/studio" element={<AuthGuard user={user} allowedRoles={['admin']}><DesignStudio /></AuthGuard>} />
+                <Route path="/admin/settings" element={<AuthGuard user={user} allowedRoles={['admin']}><Settings onBack={() => navigate(-1)} /></AuthGuard>} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+        </ErrorBoundary>
       </main>
 
       {activeProduct && (
-        <Suspense fallback={<PageLoader />}>
-          <ProductDetails 
-            initialProduct={activeProduct} 
-            productList={[]} 
-            onClose={() => setActiveProduct(null)} 
-          />
+        <Suspense fallback={null}>
+          <ProductDetails initialProduct={activeProduct} productList={[]} onClose={() => setActiveProduct(null)} />
         </Suspense>
       )}
 
