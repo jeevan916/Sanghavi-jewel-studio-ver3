@@ -25,30 +25,53 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+/**
+ * Fetch with timeout to prevent hung requests
+ */
+const fetchWithTimeout = (request, timeout = 10000) => {
+  return Promise.race([
+    fetch(request),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Network timeout')), timeout)
+    )
+  ]);
+};
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Bypass API calls
+  // Bypass API calls entirely
   if (url.pathname.startsWith('/api/')) return;
 
-  // Strategy: Stale-While-Revalidate for CDN Images
+  // Strategy for CDN Images: Cache First, then Network
   if (CDN_IMAGE_REGEX.test(request.url)) {
     event.respondWith(
       caches.match(request).then((cached) => {
-        const networked = fetch(request).then((res) => {
+        if (cached) return cached;
+        return fetch(request).then((res) => {
           const cacheCopy = res.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
           return res;
-        }).catch(() => cached);
-        return cached || networked;
+        }).catch(() => null);
       })
     );
     return;
   }
 
-  // Default Strategy
+  // Strategy for JS/Assets: Network First with Timeout fallback to Cache
   event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request))
+    fetchWithTimeout(request)
+      .then((response) => {
+        // If it's a valid JS/CSS/HTML response, cache it
+        if (response.ok && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname === '/')) {
+          const cacheCopy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
+        }
+        return response;
+      })
+      .catch(() => {
+        return caches.match(request);
+      })
   );
 });
