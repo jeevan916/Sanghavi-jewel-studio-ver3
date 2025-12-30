@@ -1,5 +1,4 @@
-
-import React, { useState, Suspense, lazy, useEffect, ErrorInfo, Component, ReactNode } from 'react';
+import React, { useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
@@ -8,7 +7,6 @@ import { UploadProvider } from './contexts/UploadContext';
 import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
 // Error Boundary Implementation
-// Fix: Use ReactNode for children and make it optional to satisfy JSX prop checks
 interface ErrorBoundaryProps {
   children?: ReactNode;
 }
@@ -17,17 +15,9 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-/**
- * Robust Error Boundary for Sanghavi Jewel Studio.
- * Explicitly typed state and Component extension to fix property access errors.
- */
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicit state property initialization for strict type checking
+// Fix: Use React.Component and remove redundant constructor to ensure 'props' is correctly resolved from base class
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
 
   static getDerivedStateFromError() { return { hasError: true }; }
 
@@ -36,7 +26,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: Accessing state safely now that Component is correctly extended
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -49,7 +38,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fix: props.children is now correctly defined via ErrorBoundaryProps
     return this.props.children;
   }
 }
@@ -73,7 +61,6 @@ const PageLoader = () => (
   </div>
 );
 
-// Fix: Make children optional to resolve errors where JSX children are not detected as props
 interface AuthGuardProps {
   children?: ReactNode;
   allowedRoles: string[];
@@ -98,6 +85,26 @@ function AppContent() {
   useEffect(() => {
     setUser(storeService.getCurrentUser());
   }, []);
+
+  // --- Deep Link Detection ---
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const productId = params.get('id');
+    
+    if (productId) {
+      const fetchDeepLinkProduct = async () => {
+        const products = await storeService.getProducts();
+        const found = products.find(p => p.id === productId);
+        if (found) {
+          setActiveProduct(found);
+          // Clean up the URL after opening
+          const cleanUrl = location.pathname;
+          navigate(cleanUrl, { replace: true });
+        }
+      };
+      fetchDeepLinkProduct();
+    }
+  }, [location.search, navigate]);
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);

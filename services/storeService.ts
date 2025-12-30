@@ -208,54 +208,36 @@ export const storeService = {
     const expiresAt = new Date(Date.now() + config.linkExpiryHours * 60 * 60 * 1000).toISOString();
     const newLink = { id: Date.now().toString(), targetId, type, token, expiresAt };
     await apiFetch('/links', { method: 'POST', body: JSON.stringify(newLink) });
-    return `${window.location.origin}${window.location.pathname}?shareToken=${token}`;
+    return `${window.location.origin}${window.location.pathname}?id=${targetId}`;
   },
 
   shareToWhatsApp: async (product: Product, imageIndex: number = 0) => {
     const config = await storeService.getConfig();
     const phone = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
+    
+    // Create a direct deep link that the receiver can click to see the product
     const productLink = `${window.location.origin}${window.location.pathname}#/collection?id=${product.id}`;
     
-    const message = `Hi Sanghavi Jewelers, I'm interested in this piece:
-*Title:* ${product.title}
-*Weight:* ${product.weight}g
-*ID:* ${product.id}
-*Link:* ${productLink}`;
+    const message = `*Hi Sanghavi Jewel Studio,*
+
+I'm interested in this jewelry piece:
+
+💎 *Title:* ${product.title}
+⚖️ *Weight:* ${product.weight}g
+🆔 *Product ID:* #${product.id.slice(-6).toUpperCase()}
+
+🔗 *View details in Studio:* ${productLink}
+
+Please provide more information about this design.`;
 
     // Log the inquiry event
     storeService.logEvent('inquiry', product, null, imageIndex);
 
-    // Try Rich Sharing (Native Share) first if available
-    if (navigator.share && navigator.canShare) {
-        try {
-            const imageData = product.images[imageIndex];
-            const byteString = atob(imageData.split(',')[1]);
-            const mimeString = imageData.split(',')[0].split(':')[1].split(';')[0];
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-            }
-            const blob = new Blob([ab], { type: mimeString });
-            const file = new File([blob], `sanghavi-${product.id}.jpg`, { type: mimeString });
-
-            if (navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: product.title,
-                    text: message,
-                });
-                return; // Successful rich share
-            }
-        } catch (e) {
-            console.error("Rich share failed, falling back to basic link", e);
-        }
-    }
-
-    // Fallback: Basic WhatsApp link
-    const url = phone 
+    // Direct redirection to WhatsApp bypasses share sheet
+    const waUrl = phone 
       ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` 
       : `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    
+    window.open(waUrl, '_blank');
   }
 };
