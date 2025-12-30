@@ -38,11 +38,16 @@ const PageLoader = () => (
 );
 
 function AppContent() {
-  const [user, setUser] = useState<User | null>(storeService.getCurrentUser());
+  const [user, setUser] = useState<User | null>(null);
   const [currentTab, setCurrentTab] = useState('gallery');
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [productContext, setProductContext] = useState<Product[]>([]);
   const [isResolvingLink, setIsResolvingLink] = useState(false);
+
+  useEffect(() => {
+    const savedUser = storeService.getCurrentUser();
+    if (savedUser) setUser(savedUser);
+  }, []);
 
   // --- Deep Link Resolution ---
   useEffect(() => {
@@ -59,17 +64,12 @@ function AppContent() {
             if (product) {
               setActiveProduct(product);
               setProductContext([product]);
-            } else {
-              alert("Shared product no longer exists.");
             }
-          } else {
-            alert("This shared link is invalid or has expired.");
           }
         } catch (e) {
           console.error("Link resolution error:", e);
         } finally {
           setIsResolvingLink(false);
-          // Clean up URL without refreshing
           const newUrl = window.location.origin + window.location.pathname;
           window.history.replaceState({}, document.title, newUrl);
         }
@@ -80,7 +80,12 @@ function AppContent() {
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
-    setCurrentTab(loggedInUser.role === 'admin' ? 'dashboard' : 'gallery');
+    // Logic: Force admin to dashboard, contributor to gallery
+    if (loggedInUser.role === 'admin') {
+        setCurrentTab('dashboard');
+    } else {
+        setCurrentTab('gallery');
+    }
   };
 
   const handleLogout = () => {
@@ -110,13 +115,14 @@ function AppContent() {
 
   const renderPage = () => {
     const isStaff = user?.role === 'admin' || user?.role === 'contributor';
+    const isAdmin = user?.role === 'admin';
     
     switch (currentTab) {
       case 'gallery': return <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
-      case 'upload': return user ? <UploadWizard /> : <Login onLoginSuccess={handleLoginSuccess} />;
-      case 'studio': return user ? <DesignStudio /> : <Login onLoginSuccess={handleLoginSuccess} />;
-      case 'dashboard': return user?.role === 'admin' ? <AdminDashboard onNavigate={setCurrentTab} /> : <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
-      case 'settings': return isStaff ? <Settings onBack={() => setCurrentTab(user?.role === 'admin' ? 'dashboard' : 'gallery')} /> : <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
+      case 'upload': return isStaff ? <UploadWizard /> : <Login onLoginSuccess={handleLoginSuccess} />;
+      case 'studio': return isAdmin ? <DesignStudio /> : <Login onLoginSuccess={handleLoginSuccess} />;
+      case 'dashboard': return isAdmin ? <AdminDashboard onNavigate={setCurrentTab} /> : <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
+      case 'settings': return isStaff ? <Settings onBack={() => setCurrentTab(isAdmin ? 'dashboard' : 'gallery')} /> : <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
       default: return <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
     }
