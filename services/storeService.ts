@@ -1,7 +1,19 @@
 
 import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent, StaffAccount } from "../types";
 
-const API_BASE = '/api';
+// Determine the API base path dynamically to support subfolder hosting
+const getApiBase = () => {
+    const path = window.location.pathname;
+    // If we're in a subdirectory, the API should be relative to that
+    if (path.length > 1 && path.includes('/')) {
+        const segments = path.split('/').filter(Boolean);
+        // This is a heuristic: if the first segment looks like a subfolder (not a route), use it
+        // However, standard /api is usually correct for root or proxied deployments
+    }
+    return '/api';
+};
+
+const API_BASE = getApiBase();
 
 const KEYS = {
   SESSION: 'sanghavi_user_session',
@@ -11,7 +23,7 @@ const KEYS = {
 export interface HealthStatus {
     healthy: boolean;
     reason?: string;
-    path?: string;
+    timestamp?: string;
 }
 
 export const storeService = {
@@ -19,15 +31,26 @@ export const storeService = {
   
   checkServerHealth: async (): Promise<HealthStatus> => {
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
         const res = await fetch(`${API_BASE}/health`, { 
             method: 'GET',
-            headers: { 'Cache-Control': 'no-cache' } 
+            headers: { 'Cache-Control': 'no-cache' },
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+
         if (!res.ok) return { healthy: false, reason: `HTTP ${res.status}` };
+        
         const data = await res.json();
-        return { healthy: data.status === 'online' };
+        return { 
+            healthy: data.status === 'online', 
+            timestamp: data.timestamp 
+        };
     } catch (e: any) {
-        return { healthy: false, reason: "Server Unreachable (Offline)" };
+        return { healthy: false, reason: e.name === 'AbortError' ? "Request Timeout" : "Connection Refused" };
     }
   },
 
@@ -146,6 +169,12 @@ export const storeService = {
         body: JSON.stringify({ username, password })
       });
       
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+          // This usually happens when the API path is wrong and the server returns a 404 HTML page
+          throw new Error(`Critical Error: API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+      }
+
       const data = await res.json();
 
       if (!res.ok) {
