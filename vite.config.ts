@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
-  const env = loadEnv(mode, process.cwd(), '');
+  // Fix: Property 'cwd' does not exist on type 'Process'. Cast process to any to access Node.js cwd method.
+  const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
     base: './',

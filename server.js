@@ -47,8 +47,11 @@ const initStorage = () => {
 
 initStorage();
 
-// Serve the 'uploads' folder as a static endpoint
-app.use('/api/uploads', express.static(uploadsDir));
+// Serve the 'uploads' folder as a static endpoint with 1 week caching
+app.use('/api/uploads', express.static(uploadsDir, {
+    maxAge: '7d',
+    immutable: true
+}));
 
 const getDB = () => {
     try {
@@ -82,18 +85,14 @@ const deletePhysicalFile = (imageUrl) => {
     if (!imageUrl.includes('/api/uploads/')) return;
 
     try {
-        // Extract filename after /api/uploads/ and strip any query params/hashes
         const parts = imageUrl.split('/api/uploads/');
         const filenameWithParams = parts[parts.length - 1];
         const filename = filenameWithParams.split('?')[0].split('#')[0];
-        
         const filePath = path.resolve(uploadsDir, filename);
         
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             console.log(`[Cleanup] PHYSICALLY DELETED: ${filename}`);
-        } else {
-            console.warn(`[Cleanup] File not found on disk: ${filename}`);
         }
     } catch (err) {
         console.error(`[Cleanup] ERROR deleting file ${imageUrl}:`, err);
@@ -101,7 +100,6 @@ const deletePhysicalFile = (imageUrl) => {
 };
 
 const extractAndSaveImage = (imgData, productId, index) => {
-    // If it's already a URL, don't re-save it
     if (!imgData || !imgData.startsWith('data:image')) return imgData;
     
     try {
@@ -141,16 +139,13 @@ app.post('/api/products', (req, res) => {
     try {
         const product = req.body;
         const productId = product.id || Date.now().toString();
-        
         const processedImages = (product.images || []).map((img, idx) => 
             extractAndSaveImage(img, productId, idx)
         );
-
         const db = getDB();
         const finalProduct = { ...product, id: productId, images: processedImages };
         db.products.push(finalProduct);
         saveDB(db);
-        
         res.status(201).json(finalProduct);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -162,26 +157,19 @@ app.put('/api/products/:id', (req, res) => {
         const { id } = req.params;
         const updatedData = req.body;
         const db = getDB();
-        
         const index = db.products.findIndex(p => String(p.id) === String(id));
         if (index === -1) return res.status(404).json({ error: 'Not found' });
-
         const oldImages = db.products[index].images || [];
-
         const processedImages = (updatedData.images || []).map((img, idx) => 
             extractAndSaveImage(img, id, idx)
         );
-
-        // Cleanup old images that were removed in this update
         oldImages.forEach(oldImg => {
             if (!processedImages.includes(oldImg)) {
                 deletePhysicalFile(oldImg);
             }
         });
-
         db.products[index] = { ...updatedData, images: processedImages };
         saveDB(db);
-        
         res.json(db.products[index]);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -192,30 +180,21 @@ app.delete('/api/products/:id', (req, res) => {
     try {
         const { id } = req.params;
         const db = getDB();
-        
         const prodIndex = db.products.findIndex(p => String(p.id) === String(id));
-        
         if (prodIndex !== -1) {
             const productToDelete = db.products[prodIndex];
-            console.log(`[Delete] Removing product: ${productToDelete.title} (${id})`);
-            
-            // 1. Delete all associated physical image files
             if (Array.isArray(productToDelete.images)) {
                 productToDelete.images.forEach(imgUrl => {
                     deletePhysicalFile(imgUrl);
                 });
             }
-
-            // 2. Remove from database
             db.products.splice(prodIndex, 1);
             saveDB(db);
-            
             res.json({ success: true });
         } else {
             res.status(404).json({ error: 'Product not found' });
         }
     } catch (err) {
-        console.error(`[Delete] Error:`, err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -252,10 +231,13 @@ app.get('/api/links/:token', (req, res) => {
     res.json(link);
 });
 
-// Serve frontend dist if it exists
+// Serve frontend dist if it exists with caching
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+        maxAge: '1d',
+        etag: true
+    }));
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
             res.sendFile(path.join(distPath, 'index.html'));
@@ -264,6 +246,5 @@ if (fs.existsSync(distPath)) {
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Server] Persistent API Engine running on port ${PORT}`);
-    console.log(`[Server] Data Directory: ${persistenceDir}`);
+    console.log(`[Server] Optimized Persistent API Engine running on port ${PORT}`);
 });

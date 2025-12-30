@@ -1,3 +1,4 @@
+
 import React, { useState, Suspense, lazy, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
@@ -15,9 +16,24 @@ const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login }
 const ProductDetails = lazy(() => import('./pages/ProductDetails').then(m => ({ default: m.ProductDetails })));
 
 const PageLoader = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-gold-50/30">
-    <Loader2 className="animate-spin text-gold-600 mb-4" size={40} />
-    <p className="font-serif text-gold-800 animate-pulse tracking-widest uppercase text-xs">Loading Sanghavi Studio...</p>
+  <div className="min-h-screen flex flex-col items-center justify-center bg-gold-50/30 animate-in fade-in duration-500">
+    <div className="relative mb-6">
+        <Loader2 className="animate-spin text-gold-600" size={48} strokeWidth={1.5} />
+        <div className="absolute inset-0 animate-ping bg-gold-400/20 rounded-full scale-150 blur-xl"></div>
+    </div>
+    <div className="flex flex-col items-center">
+        <p className="font-serif text-2xl text-gold-800 mb-1 opacity-80">Sanghavi</p>
+        <div className="h-0.5 w-12 bg-gold-300 mb-3 overflow-hidden rounded-full">
+            <div className="h-full bg-gold-600 w-1/2 animate-[shimmer_1.5s_infinite_linear]"></div>
+        </div>
+        <p className="font-sans text-[10px] tracking-[0.3em] text-gold-500 uppercase font-bold animate-pulse">Initializing Studio</p>
+    </div>
+    <style>{`
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(200%); }
+      }
+    `}</style>
   </div>
 );
 
