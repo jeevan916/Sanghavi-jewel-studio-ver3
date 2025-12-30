@@ -109,14 +109,16 @@ function AppContent() {
   }
 
   const renderPage = () => {
+    const isStaff = user?.role === 'admin' || user?.role === 'contributor';
+    
     switch (currentTab) {
-      case 'gallery': return <Gallery onProductSelect={handleProductSelect} />;
+      case 'gallery': return <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
       case 'upload': return user ? <UploadWizard /> : <Login onLoginSuccess={handleLoginSuccess} />;
       case 'studio': return user ? <DesignStudio /> : <Login onLoginSuccess={handleLoginSuccess} />;
-      case 'dashboard': return user?.role === 'admin' ? <AdminDashboard onNavigate={setCurrentTab} /> : <Gallery />;
-      case 'settings': return user?.role === 'admin' ? <Settings onBack={() => setCurrentTab('dashboard')} /> : <Gallery />;
+      case 'dashboard': return user?.role === 'admin' ? <AdminDashboard onNavigate={setCurrentTab} /> : <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
+      case 'settings': return isStaff ? <Settings onBack={() => setCurrentTab(user?.role === 'admin' ? 'dashboard' : 'gallery')} /> : <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
-      default: return <Gallery onProductSelect={handleProductSelect} />;
+      default: return <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
     }
   };
 

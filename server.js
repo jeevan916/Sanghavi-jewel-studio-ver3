@@ -26,7 +26,24 @@ const initStorage = () => {
         if (!fs.existsSync(persistenceDir)) fs.mkdirSync(persistenceDir, { recursive: true });
         if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
         if (!fs.existsSync(dbFile)) {
-            fs.writeFileSync(dbFile, JSON.stringify({ products: [], analytics: [], config: null, links: [] }, null, 2));
+            const initialDB = { 
+                products: [], 
+                analytics: [], 
+                config: null, 
+                links: [], 
+                staff: [
+                    { 
+                        id: 'admin-default', 
+                        username: 'admin', 
+                        password: 'admin', 
+                        role: 'admin', 
+                        isActive: true, 
+                        name: 'System Admin', 
+                        createdAt: new Date().toISOString() 
+                    }
+                ] 
+            };
+            fs.writeFileSync(dbFile, JSON.stringify(initialDB, null, 2));
         }
     } catch (err) {
         console.error(`Storage Failure:`, err);
@@ -42,7 +59,7 @@ const getDB = () => {
         const data = fs.readFileSync(dbFile, 'utf8');
         return JSON.parse(data);
     } catch (e) {
-        return { products: [], analytics: [], config: null, links: [] };
+        return { products: [], analytics: [], config: null, links: [], staff: [] };
     }
 };
 
@@ -113,6 +130,58 @@ app.post('/api/analytics', (req, res) => {
     db.analytics.push(event);
     saveDB(db);
     res.json({ success: true });
+});
+
+// --- STAFF ENDPOINTS ---
+app.get('/api/staff', (req, res) => res.json(getDB().staff || []));
+
+app.post('/api/staff', (req, res) => {
+    const db = getDB();
+    if (!db.staff) db.staff = [];
+    const newStaff = { ...req.body, id: Date.now().toString(), createdAt: new Date().toISOString() };
+    db.staff.push(newStaff);
+    saveDB(db);
+    res.status(201).json(newStaff);
+});
+
+app.put('/api/staff/:id', (req, res) => {
+    const db = getDB();
+    const index = db.staff.findIndex(s => String(s.id) === String(req.params.id));
+    if (index === -1) return res.status(404).json({ error: 'Staff not found' });
+    db.staff[index] = { ...db.staff[index], ...req.body };
+    saveDB(db);
+    res.json(db.staff[index]);
+});
+
+app.delete('/api/staff/:id', (req, res) => {
+    const db = getDB();
+    db.staff = (db.staff || []).filter(s => String(s.id) !== String(req.params.id));
+    saveDB(db);
+    res.json({ success: true });
+});
+
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    const db = getDB();
+    const staff = (db.staff || []).find(s => 
+        s.username.toLowerCase() === username.toLowerCase() && 
+        s.password === password
+    );
+
+    if (!staff) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (!staff.isActive) {
+        return res.status(403).json({ error: 'Account is disabled. Please contact admin.' });
+    }
+
+    res.json({
+        id: staff.id,
+        name: staff.name,
+        role: staff.role,
+        lastLogin: new Date().toISOString()
+    });
 });
 
 app.post('/api/links', (req, res) => {

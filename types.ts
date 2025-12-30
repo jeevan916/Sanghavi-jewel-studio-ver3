@@ -34,6 +34,16 @@ export type User = {
   lastLogin?: string;
 };
 
+export interface StaffAccount {
+  id: string;
+  username: string;
+  password?: string; // Only used for storage/comparison
+  role: 'admin' | 'contributor';
+  isActive: boolean;
+  name: string;
+  createdAt: string;
+}
+
 export type AspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '9:16' | '16:9' | '21:9';
 
 export interface GeneratedDesign {

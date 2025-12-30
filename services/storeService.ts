@@ -1,5 +1,5 @@
 
-import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent } from "../types";
+import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent, StaffAccount } from "../types";
 
 const API_BASE = '/api';
 
@@ -103,6 +103,36 @@ export const storeService = {
     return await res.json();
   },
 
+  // --- Staff Management ---
+  getStaff: async (): Promise<StaffAccount[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/staff`);
+      return await res.json();
+    } catch (e) { return []; }
+  },
+
+  addStaff: async (staff: Partial<StaffAccount>) => {
+    const res = await fetch(`${API_BASE}/staff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(staff)
+    });
+    return await res.json();
+  },
+
+  updateStaff: async (id: string, updates: Partial<StaffAccount>) => {
+    const res = await fetch(`${API_BASE}/staff/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    return await res.json();
+  },
+
+  deleteStaff: async (id: string) => {
+    await fetch(`${API_BASE}/staff/${id}`, { method: 'DELETE' });
+  },
+
   // --- User Session & Auth ---
   getCurrentUser: (): User | null => {
     const data = localStorage.getItem(KEYS.SESSION);
@@ -110,22 +140,30 @@ export const storeService = {
   },
 
   login: async (username: string, password: string): Promise<User | null> => {
-    const u = username.toLowerCase().trim();
-    const p = password.trim();
-    let userData: User | null = null;
-    if (u === 'admin' && p === 'admin') userData = { id: 'admin1', name: 'Admin', role: 'admin' };
-    else if (u === 'staff' && p === 'staff') userData = { id: 'staff1', name: 'Staff', role: 'contributor' };
-    
-    if (userData) {
+    try {
+      const res = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Login failed');
+      }
+
+      const userData: User = await res.json();
       localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
       storeService.logEvent('login', undefined, userData);
+      return userData;
+    } catch (err: any) {
+      alert(err.message);
+      return null;
     }
-    return userData;
   },
 
   loginWithGoogle: async (credential: string): Promise<User | null> => {
     try {
-      // Basic JWT payload extraction (base64)
       const payload = JSON.parse(atob(credential.split('.')[1]));
       const userData: User = {
         id: payload.sub,

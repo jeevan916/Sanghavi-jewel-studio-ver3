@@ -25,6 +25,7 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect, onNavigate })
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNavigatingToLogin, setIsNavigatingToLogin] = useState(false);
   
   const [visualSearch, setVisualSearch] = useState<VisualSearchState | null>(null);
   const [isVisualSearching, setIsVisualSearching] = useState(false);
@@ -92,14 +93,17 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect, onNavigate })
         return matchesCategory && matchesSearch && matchesTag && visible && matchesVisual;
       });
 
-      // GUEST RESTRICTION: 10 Random Pictures
       if (isGuest) {
-          // Stable shuffle using a simple seed or just randomizing on load
           return [...list].sort(() => 0.5 - Math.random()).slice(0, 10);
       }
 
       return list;
   }, [products, activeCategory, search, activeTag, isAdmin, visualSearch, isGuest]);
+
+  const handleUnlockClick = () => {
+    setIsNavigatingToLogin(true);
+    onNavigate?.('login');
+  };
 
   if (isLoading) {
       return <div className="min-h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-gold-600" size={32} /></div>;
@@ -167,7 +171,13 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect, onNavigate })
                         <p className="text-gold-100 text-sm">Sign in with Google to unlock our full luxury catalog and bespoke features.</p>
                     </div>
                 </div>
-                <button onClick={() => onNavigate?.('login')} className="px-6 py-2.5 bg-white text-gold-700 rounded-xl font-bold shadow-sm hover:bg-gold-50 transition flex items-center gap-2">Unlock Full Collection <ArrowRight size={18}/></button>
+                <button 
+                    onClick={handleUnlockClick} 
+                    disabled={isNavigatingToLogin}
+                    className="px-6 py-2.5 bg-white text-gold-700 rounded-xl font-bold shadow-sm hover:bg-gold-50 transition flex items-center gap-2 disabled:opacity-70"
+                >
+                    {isNavigatingToLogin ? <Loader2 className="animate-spin" size={18} /> : <>Unlock Full Collection <ArrowRight size={18}/></>}
+                </button>
             </div>
           )}
 

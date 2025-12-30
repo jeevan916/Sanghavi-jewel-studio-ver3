@@ -47,6 +47,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 shape: "rectangular"
             }
           );
+
+          // Proactively trigger One Tap prompt
+          google.accounts.id.prompt((notification: any) => {
+              if (notification.isNotDisplayed()) {
+                  console.debug("One Tap not displayed:", notification.getNotDisplayedReason());
+              }
+          });
+
         } catch (err) {
           console.error("Google GIS Initialization failed:", err);
           setGoogleInitError("Google Sign-In configuration error. Please verify the Client ID.");
@@ -155,7 +163,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         </div>
                     </div>
                 ) : (
-                    <div id="google-login-btn" className="w-full min-h-[44px]"></div>
+                    <div className="space-y-4">
+                        <div id="google-login-btn" className="w-full min-h-[44px]"></div>
+                        <p className="text-center text-xs text-stone-400">Click the button above to continue</p>
+                    </div>
                 )}
                 
                 <p className="text-[10px] text-stone-400 mt-3 text-center">Login to view full collection & save favorites.</p>
