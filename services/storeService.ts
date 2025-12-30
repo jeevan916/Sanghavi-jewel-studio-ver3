@@ -1,10 +1,11 @@
+
 import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent } from "../types";
 
-// Always use /api - the .htaccess in public_html will handle the routing to the Node.js process
 const API_BASE = '/api';
 
 const KEYS = {
   SESSION: 'sanghavi_user_session',
+  LIKES: 'sanghavi_user_likes'
 };
 
 export interface HealthStatus {
@@ -22,16 +23,11 @@ export const storeService = {
             method: 'GET',
             headers: { 'Cache-Control': 'no-cache' } 
         });
-        
-        if (!res.ok) return { healthy: false, reason: `HTTP ${res.status}: ${res.statusText}` };
+        if (!res.ok) return { healthy: false, reason: `HTTP ${res.status}` };
         const data = await res.json();
-        
-        if (data.status === 'online') {
-            return { healthy: true };
-        }
-        return { healthy: false, reason: "API responded but reported issues." };
+        return { healthy: data.status === 'online' };
     } catch (e: any) {
-        return { healthy: false, reason: "Cannot reach API server. Check Node.js app status in Hostinger." };
+        return { healthy: false, reason: "Server Unreachable" };
     }
   },
 
@@ -48,13 +44,12 @@ export const storeService = {
   getProducts: async (): Promise<Product[]> => {
     try {
       const res = await fetch(`${API_BASE}/products`);
-      if (!res.ok) throw new Error('Failed to fetch products');
+      if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       return (data || []).sort((a: Product, b: Product) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     } catch (err) {
-      console.error("Store Fetch Error:", err);
       return [];
     }
   },
@@ -65,40 +60,21 @@ export const storeService = {
   },
 
   addProduct: async (product: Product) => {
-    if (!product || !product.images?.length) throw new Error("No image data provided.");
-
-    try {
-        const res = await fetch(`${API_BASE}/products`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(product)
-        });
-        
-        if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(`Server Error: ${errorText}`);
-        }
-        
-        return await res.json();
-    } catch (err: any) {
-        throw new Error(err.message || "Upload encountered a network error.");
-    }
+    const res = await fetch(`${API_BASE}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product)
+    });
+    return await res.json();
   },
 
   updateProduct: async (updatedProduct: Product) => {
-    try {
-        const res = await fetch(`${API_BASE}/products/${updatedProduct.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedProduct)
-        });
-        
-        if (!res.ok) throw new Error('Update failed');
-        return await res.json();
-    } catch (err) {
-        console.error("Update error:", err);
-        throw err;
-    }
+    const res = await fetch(`${API_BASE}/products/${updatedProduct.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedProduct)
+    });
+    return await res.json();
   },
 
   deleteProduct: async (id: string) => {
@@ -108,12 +84,8 @@ export const storeService = {
   getConfig: async (): Promise<AppConfig> => {
     try {
       const res = await fetch(`${API_BASE}/config`);
-      if (res.ok) {
-          const data = await res.json();
-          if (data) return data;
-      }
+      if (res.ok) return await res.json();
     } catch (e) {}
-
     return {
         suppliers: [{ id: '1', name: 'Sanghavi In-House', isPrivate: false }],
         categories: [{ id: 'c1', name: 'Necklace', subCategories: ['Choker'], isPrivate: false }],
@@ -129,6 +101,123 @@ export const storeService = {
       body: JSON.stringify(config)
     });
     return await res.json();
+  },
+
+  // --- User Session & Auth ---
+  getCurrentUser: (): User | null => {
+    const data = localStorage.getItem(KEYS.SESSION);
+    return data ? JSON.parse(data) : null;
+  },
+
+  login: async (username: string, password: string): Promise<User | null> => {
+    const u = username.toLowerCase().trim();
+    const p = password.trim();
+    let userData: User | null = null;
+    if (u === 'admin' && p === 'admin') userData = { id: 'admin1', name: 'Admin', role: 'admin' };
+    else if (u === 'staff' && p === 'staff') userData = { id: 'staff1', name: 'Staff', role: 'contributor' };
+    
+    if (userData) {
+      localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
+      storeService.logEvent('login', undefined, userData);
+    }
+    return userData;
+  },
+
+  loginWithGoogle: async (credential: string): Promise<User | null> => {
+    try {
+      // Basic JWT payload extraction (base64)
+      const payload = JSON.parse(atob(credential.split('.')[1]));
+      const userData: User = {
+        id: payload.sub,
+        name: payload.name,
+        email: payload.email,
+        picture: payload.picture,
+        role: 'customer',
+        lastLogin: new Date().toISOString()
+      };
+      localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
+      storeService.logEvent('login', undefined, userData);
+      return userData;
+    } catch (e) {
+      console.error("Google login parsing failed", e);
+      return null;
+    }
+  },
+
+  updateUserProfile: (updates: Partial<User>) => {
+    const current = storeService.getCurrentUser();
+    if (current) {
+      const updated = { ...current, ...updates };
+      localStorage.setItem(KEYS.SESSION, JSON.stringify(updated));
+      return updated;
+    }
+    return null;
+  },
+
+  logout: () => {
+    localStorage.removeItem(KEYS.SESSION);
+    window.location.reload();
+  },
+
+  // --- Tracking & Analytics ---
+  getLikes: (): string[] => {
+    const data = localStorage.getItem(KEYS.LIKES);
+    return data ? JSON.parse(data) : [];
+  },
+
+  toggleLike: (productId: string) => {
+    const likes = storeService.getLikes();
+    const index = likes.indexOf(productId);
+    let newLikes = [...likes];
+    if (index === -1) newLikes.push(productId);
+    else newLikes.splice(index, 1);
+    localStorage.setItem(KEYS.LIKES, JSON.stringify(newLikes));
+    return index === -1; // returns true if liked, false if unliked
+  },
+
+  logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number) => {
+    const user = userOverride || storeService.getCurrentUser();
+    
+    const getPos = (): Promise<GeolocationPosition | null> => new Promise(res => {
+      if (!navigator.geolocation) return res(null);
+      navigator.geolocation.getCurrentPosition(res, () => res(null), { timeout: 3000 });
+    });
+
+    const pos = await getPos();
+
+    const event: AnalyticsEvent = {
+        id: Date.now().toString(),
+        type,
+        productId: product?.id,
+        productTitle: product?.title,
+        userId: user ? user.id : 'Guest',
+        userName: user ? user.name : 'Guest',
+        userEmail: user?.email,
+        userPhone: user?.phone,
+        location: pos ? {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        } : undefined,
+        deviceName: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+        imageIndex
+    };
+
+    try {
+        await fetch(`${API_BASE}/analytics`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(event)
+        });
+    } catch (e) {}
+  },
+
+  getAnalytics: async (): Promise<AnalyticsEvent[]> => {
+    try {
+        const res = await fetch(`${API_BASE}/analytics`);
+        return await res.json();
+    } catch (e) { return []; }
   },
 
   getDesigns: async (): Promise<GeneratedDesign[]> => {
@@ -147,15 +236,12 @@ export const storeService = {
     const config = await storeService.getConfig();
     const token = Math.random().toString(36).substring(2, 15);
     const expiresAt = new Date(Date.now() + config.linkExpiryHours * 60 * 60 * 1000).toISOString();
-    
-    const newLink: SharedLink = { id: Date.now().toString(), targetId, type, token, expiresAt };
-    
+    const newLink = { id: Date.now().toString(), targetId, type, token, expiresAt };
     await fetch(`${API_BASE}/links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newLink)
     });
-
     return `${window.location.origin}${window.location.pathname}?shareToken=${token}`;
   },
 
@@ -164,56 +250,6 @@ export const storeService = {
         const res = await fetch(`${API_BASE}/links/${token}`);
         if (!res.ok) return null;
         return await res.json();
-    } catch (e) {
-        return null;
-    }
-  },
-
-  getCurrentUser: (): User | null => {
-    const data = localStorage.getItem(KEYS.SESSION);
-    return data ? JSON.parse(data) : null;
-  },
-
-  login: async (username: string, password: string): Promise<User | null> => {
-    const u = username.toLowerCase().trim();
-    const p = password.trim();
-    let userData: User | null = null;
-    if (u === 'admin' && p === 'admin') userData = { id: 'admin1', name: 'Admin', role: 'admin' };
-    else if (u === 'staff' && p === 'staff') userData = { id: 'staff1', name: 'Staff', role: 'contributor' };
-    
-    if (userData) localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
-    return userData;
-  },
-
-  logout: () => {
-    localStorage.removeItem(KEYS.SESSION);
-    window.location.reload();
-  },
-
-  logEvent: async (type: 'inquiry' | 'screenshot' | 'view', product: Product, user: User | null, imageIndex?: number) => {
-    const event: AnalyticsEvent = {
-        id: Date.now().toString(),
-        type,
-        productId: product.id,
-        productTitle: product.title,
-        userName: user ? user.name : 'Guest',
-        deviceName: navigator.userAgent,
-        timestamp: new Date().toISOString(),
-        imageIndex
-    };
-    try {
-        await fetch(`${API_BASE}/analytics`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(event)
-        });
-    } catch (e) {}
-  },
-
-  getAnalytics: async (): Promise<AnalyticsEvent[]> => {
-    try {
-        const res = await fetch(`${API_BASE}/analytics`);
-        return await res.json();
-    } catch (e) { return []; }
+    } catch (e) { return null; }
   }
 };

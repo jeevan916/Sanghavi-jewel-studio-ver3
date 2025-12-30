@@ -1,3 +1,4 @@
+
 export type Product = {
   id: string;
   title: string;
@@ -26,6 +27,11 @@ export type User = {
   id: string;
   name: string;
   role: UserRole;
+  email?: string;
+  picture?: string;
+  location?: string;
+  phone?: string;
+  lastLogin?: string;
 };
 
 export type AspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '9:16' | '16:9' | '21:9';
@@ -60,10 +66,18 @@ export interface AppConfig {
 
 export interface AnalyticsEvent {
   id: string;
-  type: 'inquiry' | 'screenshot' | 'view';
-  productId: string;
-  productTitle: string;
+  type: 'inquiry' | 'screenshot' | 'view' | 'like' | 'download' | 'login';
+  productId?: string;
+  productTitle?: string;
+  userId: string;
   userName: string;
+  userEmail?: string;
+  userPhone?: string;
+  location?: {
+    lat: number;
+    lng: number;
+    accuracy?: number;
+  };
   deviceName: string;
   timestamp: string;
   imageIndex?: number;
