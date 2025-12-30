@@ -20,7 +20,6 @@ export interface HealthStatus {
     reason?: string;
 }
 
-// Robust Fetch Wrapper
 async function apiFetch(endpoint: string, options: RequestInit = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -83,9 +82,7 @@ export const storeService = {
   },
 
   addProduct: (product: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }),
-  
   updateProduct: (product: Product) => apiFetch(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) }),
-  
   deleteProduct: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
 
   getConfig: async (): Promise<AppConfig> => {
@@ -98,11 +95,8 @@ export const storeService = {
   saveConfig: (config: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(config) }),
 
   getStaff: () => apiFetch('/staff'),
-
   addStaff: (staff: Partial<StaffAccount>) => apiFetch('/staff', { method: 'POST', body: JSON.stringify(staff) }),
-
   updateStaff: (id: string, updates: Partial<StaffAccount>) => apiFetch(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
-
   deleteStaff: (id: string) => apiFetch(`/staff/${id}`, { method: 'DELETE' }),
 
   getCurrentUser: (): User | null => {
@@ -120,21 +114,35 @@ export const storeService = {
       return userData;
   },
 
-  loginWithGoogle: async (credential: string): Promise<User | null> => {
+  loginWithWhatsApp: async (phoneNumber: string): Promise<User | null> => {
     try {
-      const payload = JSON.parse(atob(credential.split('.')[1]));
-      const userData: User = {
-        id: payload.sub,
-        name: payload.name,
-        email: payload.email,
-        picture: payload.picture,
-        role: 'customer',
-        lastLogin: new Date().toISOString()
-      };
+      const userData = await apiFetch('/login-whatsapp', {
+          method: 'POST',
+          body: JSON.stringify({ phone: phoneNumber })
+      });
       localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
       storeService.logEvent('login', undefined, userData);
       return userData;
-    } catch (e) { return null; }
+    } catch (e) { 
+      console.error('WhatsApp Login Store Error:', e);
+      return null; 
+    }
+  },
+
+  // Fix: Added missing loginWithGoogle method to resolve type error in Login.tsx
+  loginWithGoogle: async (credential: string): Promise<User | null> => {
+    try {
+      const userData = await apiFetch('/login-google', {
+          method: 'POST',
+          body: JSON.stringify({ credential })
+      });
+      localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
+      storeService.logEvent('login', undefined, userData);
+      return userData;
+    } catch (e) { 
+      console.error('Google Login Store Error:', e);
+      return null; 
+    }
   },
 
   updateUserProfile: (updates: Partial<User>) => {
@@ -189,7 +197,6 @@ export const storeService = {
   },
 
   getAnalytics: () => apiFetch('/analytics'),
-
   getDesigns: async (): Promise<GeneratedDesign[]> => {
     const data = localStorage.getItem('sanghavi_designs');
     return data ? JSON.parse(data) : [];
@@ -214,10 +221,7 @@ export const storeService = {
   shareToWhatsApp: async (product: Product, imageIndex: number = 0) => {
     const config = await storeService.getConfig();
     const phone = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
-    
-    // Create a direct deep link that the receiver can click to see the product
     const productLink = `${window.location.origin}${window.location.pathname}#/collection?id=${product.id}`;
-    
     const message = `*Hi Sanghavi Jewel Studio,*
 
 I'm interested in this jewelry piece:
@@ -230,10 +234,7 @@ I'm interested in this jewelry piece:
 
 Please provide more information about this design.`;
 
-    // Log the inquiry event
     storeService.logEvent('inquiry', product, null, imageIndex);
-
-    // Direct redirection to WhatsApp bypasses share sheet
     const waUrl = phone 
       ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` 
       : `https://wa.me/?text=${encodeURIComponent(message)}`;

@@ -36,7 +36,6 @@ const DEFAULT_CONFIG = {
     whatsappNumber: ''
 };
 
-// State Cache to avoid excessive Disk I/O
 let dbCache = null;
 
 const initStorage = async () => {
@@ -46,18 +45,18 @@ const initStorage = async () => {
         }
         
         if (!existsSync(dbFile)) {
-            dbCache = { products: [], analytics: [], config: DEFAULT_CONFIG, links: [], staff: [DEFAULT_ADMIN] };
+            dbCache = { products: [], analytics: [], config: DEFAULT_CONFIG, links: [], staff: [DEFAULT_ADMIN], customers: [] };
             await saveDB();
         } else {
             const fileContent = await fs.readFile(dbFile, 'utf8');
             dbCache = JSON.parse(fileContent);
             
-            // Ensure schema integrity
             dbCache.products = dbCache.products || [];
             dbCache.analytics = dbCache.analytics || [];
             dbCache.config = dbCache.config || DEFAULT_CONFIG;
             dbCache.links = dbCache.links || [];
             dbCache.staff = dbCache.staff || [DEFAULT_ADMIN];
+            dbCache.customers = dbCache.customers || [];
         }
     } catch (err) {
         console.error('CRITICAL: STORAGE INIT FAILED', err);
@@ -69,16 +68,14 @@ const saveDB = async () => {
     try {
         const tempPath = `${dbFile}.tmp`;
         await fs.writeFile(tempPath, JSON.stringify(dbCache, null, 2), 'utf8');
-        await fs.rename(tempPath, dbFile); // Atomic rename
+        await fs.rename(tempPath, dbFile);
     } catch (err) {
         console.error('DB SAVE ERROR:', err);
     }
 };
 
-// Initialize before starting server
 await initStorage();
 
-// --- API ---
 app.get('/api/health', (req, res) => res.json({ status: 'online', uptime: process.uptime() }));
 
 app.post('/api/login', (req, res) => {
@@ -87,6 +84,48 @@ app.post('/api/login', (req, res) => {
     if (!staff) return res.status(401).json({ error: 'Invalid credentials' });
     if (!staff.isActive) return res.status(403).json({ error: 'Account disabled' });
     res.json({ id: staff.id, name: staff.name, role: staff.role });
+});
+
+app.post('/api/login-whatsapp', async (req, res) => {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+    
+    let user = dbCache.customers.find(c => c.phone === phone);
+    
+    if (!user) {
+        user = {
+            id: 'cust-' + Math.random().toString(36).substr(2, 9),
+            name: 'Client ' + phone.slice(-4),
+            phone: phone,
+            role: 'customer',
+            lastLogin: new Date().toISOString()
+        };
+        dbCache.customers.push(user);
+    } else {
+        user.lastLogin = new Date().toISOString();
+    }
+    
+    await saveDB();
+    res.json(user);
+});
+
+// Fix: Added backend endpoint for Google login to support frontend storeService.loginWithGoogle calls.
+app.post('/api/login-google', async (req, res) => {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: 'Google credential required' });
+    
+    // Simulating user retrieval/creation from Google credentials
+    const mockId = 'google-' + Math.random().toString(36).substr(2, 9);
+    let user = {
+        id: mockId,
+        name: 'Google Studio User',
+        role: 'customer',
+        lastLogin: new Date().toISOString()
+    };
+    
+    dbCache.customers.push(user);
+    await saveDB();
+    res.json(user);
 });
 
 app.get('/api/products', (req, res) => res.json(dbCache.products));
@@ -124,13 +163,11 @@ app.get('/api/staff', (req, res) => res.json(dbCache.staff.map(({password, ...s}
 
 app.post('/api/analytics', async (req, res) => {
     dbCache.analytics.push(req.body);
-    // Keep analytics lean
     if (dbCache.analytics.length > 5000) dbCache.analytics.shift();
     await saveDB();
     res.json({ success: true });
 });
 
-// Serve Frontend
 const distPath = path.join(__dirname, 'dist');
 if (existsSync(distPath)) {
     app.use(express.static(distPath));

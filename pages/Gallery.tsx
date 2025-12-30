@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef, Suspense, lazy } from 'rea
 import { ProductCard } from '../components/ProductCard';
 import { storeService } from '../services/storeService';
 import { identifyJewelryFeatures } from '../services/geminiService';
-import { Search, Folder, Tag, Menu, X, Filter, Loader2, Camera, ArrowRight, Grid, LayoutGrid } from 'lucide-react';
+import { Search, Folder, Tag, Menu, X, Filter, Loader2, Camera, ArrowRight, Grid, LayoutGrid, LogOut } from 'lucide-react';
 import { Product } from '../types';
 
 interface GalleryProps {
@@ -40,6 +40,10 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect }) => {
         return matchesCategory && matchesSearch && visible;
       });
   }, [products, activeCategory, search, isAdmin]);
+
+  const handleLogout = () => {
+    storeService.logout();
+  };
 
   if (isLoading) {
       return (
@@ -80,10 +84,15 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect }) => {
             ))}
           </div>
 
-          <div className="flex gap-2">
-             <button onClick={() => setViewMode(viewMode === 'grid' ? 'masonry' : 'grid')} className="p-2 text-stone-400 hover:text-gold-600 transition">
+          <div className="flex gap-2 items-center">
+             <button onClick={() => setViewMode(viewMode === 'grid' ? 'masonry' : 'grid')} className="p-2 text-stone-400 hover:text-gold-600 transition" title="Change View">
                {viewMode === 'grid' ? <LayoutGrid size={20}/> : <Grid size={20}/>}
              </button>
+             {user && (
+               <button onClick={handleLogout} className="p-2 text-stone-400 hover:text-red-500 transition" title="Logout">
+                 <LogOut size={20} />
+               </button>
+             )}
           </div>
         </div>
       </div>

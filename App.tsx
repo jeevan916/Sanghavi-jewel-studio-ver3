@@ -1,3 +1,4 @@
+
 import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
@@ -15,9 +16,12 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Use Component directly from react and ensure state is correctly typed to help TS resolve 'props' from the base class
+// Fix: Extending Component directly and adding a constructor ensures that TypeScript correctly recognizes the component structure and its props, resolving the "Property 'props' does not exist" error.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError() { return { hasError: true }; }
 
@@ -38,7 +42,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Accessing children from props
+    // Accessing children from the correctly typed this.props
     return this.props.children;
   }
 }

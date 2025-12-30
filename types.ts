@@ -28,16 +28,16 @@ export type User = {
   name: string;
   role: UserRole;
   email?: string;
+  phone?: string;
   picture?: string;
   location?: string;
-  phone?: string;
   lastLogin?: string;
 };
 
 export interface StaffAccount {
   id: string;
   username: string;
-  password?: string; // Only used for storage/comparison
+  password?: string;
   role: 'admin' | 'contributor';
   isActive: boolean;
   name: string;
@@ -72,6 +72,8 @@ export interface AppConfig {
   categories: CategoryConfig[];
   linkExpiryHours: number;
   whatsappNumber?: string;
+  whatsappPhoneId?: string;
+  whatsappToken?: string;
 }
 
 export interface AnalyticsEvent {
