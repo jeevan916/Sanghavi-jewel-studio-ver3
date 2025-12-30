@@ -27,7 +27,7 @@ export const storeService = {
         const data = await res.json();
         return { healthy: data.status === 'online' };
     } catch (e: any) {
-        return { healthy: false, reason: "Server Unreachable" };
+        return { healthy: false, reason: "Server Unreachable (Offline)" };
     }
   },
 
@@ -49,9 +49,7 @@ export const storeService = {
       return (data || []).sort((a: Product, b: Product) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
-    } catch (err) {
-      return [];
-    }
+    } catch (err) { return []; }
   },
 
   getProductById: async (id: string): Promise<Product | null> => {
@@ -103,7 +101,6 @@ export const storeService = {
     return await res.json();
   },
 
-  // --- Staff Management ---
   getStaff: async (): Promise<StaffAccount[]> => {
     try {
       const res = await fetch(`${API_BASE}/staff`);
@@ -133,7 +130,6 @@ export const storeService = {
     await fetch(`${API_BASE}/staff/${id}`, { method: 'DELETE' });
   },
 
-  // --- User Session & Auth ---
   getCurrentUser: (): User | null => {
     const data = localStorage.getItem(KEYS.SESSION);
     return data ? JSON.parse(data) : null;
@@ -143,14 +139,17 @@ export const storeService = {
     try {
       const res = await fetch(`${API_BASE}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
         body: JSON.stringify({ username, password })
       });
       
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Login failed');
+        throw new Error(data.error || `Error ${res.status}: Access Denied`);
       }
 
       const userData: User = data;
@@ -158,8 +157,7 @@ export const storeService = {
       storeService.logEvent('login', undefined, userData);
       return userData;
     } catch (err: any) {
-      console.error("Login attempt failed:", err.message);
-      // Let the UI handle the error display via the returned null
+      console.error("StoreService Login Failed:", err.message);
       throw err; 
     }
   },
@@ -178,10 +176,7 @@ export const storeService = {
       localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
       storeService.logEvent('login', undefined, userData);
       return userData;
-    } catch (e) {
-      console.error("Google login parsing failed", e);
-      return null;
-    }
+    } catch (e) { return null; }
   },
 
   updateUserProfile: (updates: Partial<User>) => {
@@ -199,7 +194,6 @@ export const storeService = {
     window.location.reload();
   },
 
-  // --- Tracking & Analytics ---
   getLikes: (): string[] => {
     const data = localStorage.getItem(KEYS.LIKES);
     return data ? JSON.parse(data) : [];
@@ -212,19 +206,11 @@ export const storeService = {
     if (index === -1) newLikes.push(productId);
     else newLikes.splice(index, 1);
     localStorage.setItem(KEYS.LIKES, JSON.stringify(newLikes));
-    return index === -1; // returns true if liked, false if unliked
+    return index === -1;
   },
 
   logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number) => {
     const user = userOverride || storeService.getCurrentUser();
-    
-    const getPos = (): Promise<GeolocationPosition | null> => new Promise(res => {
-      if (!navigator.geolocation) return res(null);
-      navigator.geolocation.getCurrentPosition(res, () => res(null), { timeout: 3000 });
-    });
-
-    const pos = await getPos();
-
     const event: AnalyticsEvent = {
         id: Date.now().toString(),
         type,
@@ -234,16 +220,10 @@ export const storeService = {
         userName: user ? user.name : 'Guest',
         userEmail: user?.email,
         userPhone: user?.phone,
-        location: pos ? {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy
-        } : undefined,
         deviceName: navigator.userAgent,
         timestamp: new Date().toISOString(),
         imageIndex
     };
-
     try {
         await fetch(`${API_BASE}/analytics`, {
           method: 'POST',

@@ -13,11 +13,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Permissive CORS for local network access
+// Permissive CORS for local network/XAMPP access
 app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: true
 }));
 
 app.use(express.json({ limit: '100mb' }));
@@ -45,91 +46,108 @@ const initStorage = () => {
         let db;
         if (!fs.existsSync(dbFile)) {
             db = { products: [], analytics: [], config: null, links: [], staff: [DEFAULT_ADMIN] };
-            console.log("DB: Initialized fresh database.");
+            console.log("DB: Fresh database created.");
         } else {
             const data = fs.readFileSync(dbFile, 'utf8');
             try {
                 db = JSON.parse(data);
                 if (!db.products) db.products = [];
-                if (!db.staff) db.staff = [];
+                if (!db.staff) db.staff = [DEFAULT_ADMIN];
                 
-                // CRITICAL: Ensure at least one admin exists and is active
-                const activeAdmin = db.staff.find(s => s.role === 'admin' && s.isActive);
-                if (!activeAdmin) {
-                    console.warn("DB WARNING: No active admin found! Forcing 'admin/admin' reset.");
-                    const existingAdmin = db.staff.find(s => s.username === 'admin');
-                    if (existingAdmin) {
-                        existingAdmin.isActive = true;
-                        existingAdmin.role = 'admin';
-                        existingAdmin.password = 'admin'; 
-                    } else {
-                        db.staff.push(DEFAULT_ADMIN);
-                    }
+                // Always ensure 'admin' user is present and has role 'admin'
+                const adminExists = db.staff.find(s => s.username.toLowerCase() === 'admin');
+                if (!adminExists) {
+                    db.staff.push(DEFAULT_ADMIN);
                 }
             } catch (e) {
-                console.error("DB ERROR: Corrupt JSON. Resetting to defaults.");
+                console.error("DB: Corruption detected. Resetting.");
                 db = { products: [], analytics: [], config: null, links: [], staff: [DEFAULT_ADMIN] };
             }
         }
         fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
     } catch (err) {
-        console.error(`DB: Critical Storage Failure:`, err);
+        console.error(`DB: Fatal Initialization Failure:`, err);
     }
 };
 
 initStorage();
 
-// Static file serving
-app.use('/api/uploads', express.static(uploadsDir, { maxAge: '7d', immutable: true }));
+app.use('/api/uploads', express.static(uploadsDir, { maxAge: '7d' }));
 
 const getDB = () => {
     try {
         const data = fs.readFileSync(dbFile, 'utf8');
         return JSON.parse(data);
-    } catch (e) {
-        return { products: [], analytics: [], config: null, links: [], staff: [] };
-    }
+    } catch (e) { return { staff: [] }; }
 };
 
 const saveDB = (data) => {
-    try {
-        fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
-        return true;
-    } catch (e) { throw e; }
+    try { fs.writeFileSync(dbFile, JSON.stringify(data, null, 2)); return true; } catch (e) { throw e; }
 };
 
 // --- API ROUTES ---
 
 app.get('/api/health', (req, res) => res.json({ 
     status: 'online', 
-    dbConnected: fs.existsSync(dbFile),
-    staffCount: getDB().staff.length 
+    serverTime: new Date().toISOString(),
+    authSystem: 'ready'
 }));
 
-app.get('/api/products', (req, res) => res.json(getDB().products || []));
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    console.log(`[LOGIN ATTEMPT] User: "${username}" | IP: ${req.ip}`);
 
-app.post('/api/products', (req, res) => {
-    const product = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+    }
+
     const db = getDB();
-    db.products.push(product);
+    
+    // Case-insensitive lookup
+    const staff = (db.staff || []).find(s => 
+        s.username.trim().toLowerCase() === username.trim().toLowerCase() && 
+        s.password === password
+    );
+
+    if (!staff) {
+        console.warn(`[AUTH FAILED] Invalid credentials for "${username}"`);
+        return res.status(401).json({ error: 'Invalid username or password. Note: Password is case-sensitive.' });
+    }
+
+    if (!staff.isActive) {
+        console.warn(`[AUTH DENIED] Account disabled for "${username}"`);
+        return res.status(403).json({ error: 'This account has been disabled. Please contact the system administrator.' });
+    }
+
+    console.log(`[AUTH SUCCESS] User: "${username}" | Role: ${staff.role}`);
+    res.json({
+        id: staff.id,
+        name: staff.name,
+        role: staff.role,
+        lastLogin: new Date().toISOString()
+    });
+});
+
+app.get('/api/products', (req, res) => res.json(getDB().products || []));
+app.post('/api/products', (req, res) => {
+    const db = getDB();
+    db.products.push(req.body);
     saveDB(db);
-    res.status(201).json(product);
+    res.status(201).json(req.body);
 });
 
 app.put('/api/products/:id', (req, res) => {
-    const { id } = req.params;
     const db = getDB();
-    const index = db.products.findIndex(p => String(p.id) === String(id));
-    if (index === -1) return res.status(404).json({ error: 'Not found' });
-    db.products[index] = req.body;
+    const idx = db.products.findIndex(p => String(p.id) === String(req.params.id));
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    db.products[idx] = req.body;
     saveDB(db);
-    res.json(db.products[index]);
+    res.json(db.products[idx]);
 });
 
 app.delete('/api/products/:id', (req, res) => {
-    const { id } = req.params;
     const db = getDB();
-    db.products = db.products.filter(p => String(p.id) !== String(id));
+    db.products = db.products.filter(p => String(p.id) !== String(req.params.id));
     saveDB(db);
     res.json({ success: true });
 });
@@ -143,57 +161,12 @@ app.post('/api/config', (req, res) => {
 });
 
 app.get('/api/staff', (req, res) => res.json(getDB().staff || []));
-
 app.post('/api/staff', (req, res) => {
     const db = getDB();
-    const newStaff = { ...req.body, id: Date.now().toString(), createdAt: new Date().toISOString() };
+    const newStaff = { ...req.body, id: Date.now().toString() };
     db.staff.push(newStaff);
     saveDB(db);
-    res.status(201).json(newStaff);
-});
-
-app.put('/api/staff/:id', (req, res) => {
-    const db = getDB();
-    const index = db.staff.findIndex(s => String(s.id) === String(req.params.id));
-    if (index === -1) return res.status(404).json({ error: 'Staff not found' });
-    db.staff[index] = { ...db.staff[index], ...req.body };
-    saveDB(db);
-    res.json(db.staff[index]);
-});
-
-app.delete('/api/staff/:id', (req, res) => {
-    const db = getDB();
-    db.staff = (db.staff || []).filter(s => String(s.id) !== String(req.params.id));
-    saveDB(db);
-    res.json({ success: true });
-});
-
-app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
-    const db = getDB();
-    
-    // Exact match check
-    const staff = (db.staff || []).find(s => 
-        s.username.trim() === username.trim() && 
-        s.password === password
-    );
-
-    if (!staff) {
-        console.warn(`AUTH FAILED: User "${username}" incorrect from ${req.ip}`);
-        return res.status(401).json({ error: 'Invalid username or password' });
-    }
-
-    if (!staff.isActive) {
-        return res.status(403).json({ error: 'Account disabled. Contact admin.' });
-    }
-
-    console.log(`AUTH SUCCESS: "${username}" as ${staff.role}`);
-    res.json({
-        id: staff.id,
-        name: staff.name,
-        role: staff.role,
-        lastLogin: new Date().toISOString()
-    });
+    res.json(newStaff);
 });
 
 app.get('/api/analytics', (req, res) => res.json(getDB().analytics || []));
@@ -205,6 +178,7 @@ app.post('/api/analytics', (req, res) => {
     res.json({ success: true });
 });
 
+// Deployment serving
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
@@ -214,10 +188,12 @@ if (fs.existsSync(distPath)) {
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log('=============================================');
-    console.log(` SERVER ACTIVE: http://localhost:${PORT}`);
-    console.log(` NETWORK ACCESS: http://<Your-IP-Address>:${PORT}`);
-    console.log(` DATABASE: ${dbFile}`);
-    console.log(` ADMIN ACCESS: admin / admin`);
-    console.log('=============================================');
+    console.log('\n=============================================');
+    console.log(` SANGHAVI STUDIO BACKEND ACTIVE`);
+    console.log(` LOCAL:   http://localhost:${PORT}`);
+    console.log(` NETWORK: http://0.0.0.0:${PORT}`);
+    console.log(`\n ADMIN CREDENTIALS:`);
+    console.log(` Username: admin`);
+    console.log(` Password: admin`);
+    console.log('=============================================\n');
 });

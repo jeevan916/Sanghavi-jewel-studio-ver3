@@ -1,143 +1,127 @@
 
 import React, { useState, Suspense, lazy, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
 import { User, Product } from './types';
 import { UploadProvider } from './contexts/UploadContext';
 import { Loader2 } from 'lucide-react';
 
-// Lazy load large page components
+// Lazy load pages for true multipage performance
+const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })));
 const Gallery = lazy(() => import('./pages/Gallery').then(m => ({ default: m.Gallery })));
 const UploadWizard = lazy(() => import('./pages/UploadWizard').then(m => ({ default: m.UploadWizard })));
 const DesignStudio = lazy(() => import('./pages/DesignStudio').then(m => ({ default: m.DesignStudio })));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
-const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const CustomerLogin = lazy(() => import('./pages/CustomerLogin').then(m => ({ default: m.CustomerLogin })));
+const StaffLogin = lazy(() => import('./pages/StaffLogin').then(m => ({ default: m.StaffLogin })));
 const ProductDetails = lazy(() => import('./pages/ProductDetails').then(m => ({ default: m.ProductDetails })));
 
 const PageLoader = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-gold-50/30 animate-in fade-in duration-500">
-    <div className="relative mb-6">
-        <Loader2 className="animate-spin text-gold-600" size={48} strokeWidth={1.5} />
-        <div className="absolute inset-0 animate-ping bg-gold-400/20 rounded-full scale-150 blur-xl"></div>
+  <div className="min-h-screen flex flex-col items-center justify-center bg-gold-50/20">
+    <div className="relative">
+      <Loader2 className="animate-spin text-gold-600 mb-4" size={48} strokeWidth={1} />
+      <div className="absolute inset-0 blur-xl bg-gold-400/20 rounded-full scale-150 animate-pulse"></div>
     </div>
-    <div className="flex flex-col items-center">
-        <p className="font-serif text-2xl text-gold-800 mb-1 opacity-80">Sanghavi</p>
-        <div className="h-0.5 w-12 bg-gold-300 mb-3 overflow-hidden rounded-full">
-            <div className="h-full bg-gold-600 w-1/2 animate-[shimmer_1.5s_infinite_linear]"></div>
-        </div>
-        <p className="font-sans text-[10px] tracking-[0.3em] text-gold-500 uppercase font-bold animate-pulse">Initializing Studio</p>
-    </div>
-    <style>{`
-      @keyframes shimmer {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(200%); }
-      }
-    `}</style>
+    <p className="font-serif text-xl text-gold-800 tracking-wide animate-pulse">Sanghavi Studio</p>
   </div>
 );
 
+// Fix: Make children optional in GuardProps to resolve TypeScript error where children are not correctly inferred from JSX
+interface GuardProps {
+  children?: React.ReactNode;
+  user: User | null;
+  requireAdmin?: boolean;
+}
+
+const StaffGuard = ({ children, user, requireAdmin }: GuardProps) => {
+    if (!user) return <Navigate to="/staff" replace />;
+    if (requireAdmin && user.role !== 'admin') return <Navigate to="/collection" replace />;
+    if (user.role === 'customer') return <Navigate to="/collection" replace />;
+    return <>{children}</>;
+};
+
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
-  const [currentTab, setCurrentTab] = useState('gallery');
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
-  const [productContext, setProductContext] = useState<Product[]>([]);
-  const [isResolvingLink, setIsResolvingLink] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const savedUser = storeService.getCurrentUser();
     if (savedUser) setUser(savedUser);
   }, []);
 
-  // --- Deep Link Resolution ---
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shareToken = params.get('shareToken');
-
-    if (shareToken) {
-      const resolveToken = async () => {
-        setIsResolvingLink(true);
-        try {
-          const link = await storeService.validateSharedLink(shareToken);
-          if (link && link.type === 'product') {
-            const product = await storeService.getProductById(link.targetId);
-            if (product) {
-              setActiveProduct(product);
-              setProductContext([product]);
-            }
-          }
-        } catch (e) {
-          console.error("Link resolution error:", e);
-        } finally {
-          setIsResolvingLink(false);
-          const newUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, document.title, newUrl);
-        }
-      };
-      resolveToken();
-    }
-  }, []);
-
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
-    // Logic: Force admin to dashboard, contributor to gallery
-    if (loggedInUser.role === 'admin') {
-        setCurrentTab('dashboard');
+    if (loggedInUser.role === 'admin' || loggedInUser.role === 'contributor') {
+        navigate('/admin/dashboard');
     } else {
-        setCurrentTab('gallery');
+        navigate('/collection');
     }
   };
 
   const handleLogout = () => {
     storeService.logout();
     setUser(null);
-    setCurrentTab('gallery');
+    navigate('/');
   };
 
-  const handleProductSelect = (product: Product, list: Product[]) => {
-    setProductContext(list);
-    setActiveProduct(product);
-  };
-
-  if (isResolvingLink) return <PageLoader />;
-
-  if (activeProduct) {
-    return (
-      <Suspense fallback={<PageLoader />}>
-        <ProductDetails 
-          initialProduct={activeProduct} 
-          productList={productContext} 
-          onClose={() => setActiveProduct(null)} 
-        />
-      </Suspense>
-    );
-  }
-
-  const renderPage = () => {
-    const isStaff = user?.role === 'admin' || user?.role === 'contributor';
-    const isAdmin = user?.role === 'admin';
-    
-    switch (currentTab) {
-      case 'gallery': return <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
-      case 'upload': return isStaff ? <UploadWizard /> : <Login onLoginSuccess={handleLoginSuccess} />;
-      case 'studio': return isAdmin ? <DesignStudio /> : <Login onLoginSuccess={handleLoginSuccess} />;
-      case 'dashboard': return isAdmin ? <AdminDashboard onNavigate={setCurrentTab} /> : <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
-      case 'settings': return isStaff ? <Settings onBack={() => setCurrentTab(isAdmin ? 'dashboard' : 'gallery')} /> : <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
-      case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
-      default: return <Gallery onProductSelect={handleProductSelect} onNavigate={setCurrentTab} />;
-    }
-  };
+  const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff';
 
   return (
-    <div className="min-h-screen bg-stone-50 font-sans">
-      <main className="pt-0 md:pt-16 pb-20 md:pb-0">
+    <div className={`min-h-screen font-sans selection:bg-gold-200 ${isStaffRoute ? 'bg-stone-950 text-stone-200' : 'bg-stone-50 text-stone-900'}`}>
+      <main className="pb-20 md:pb-0">
         <Suspense fallback={<PageLoader />}>
-          {renderPage()}
+          <Routes>
+            {/* --- CUSTOMER PORTAL --- */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/collection" element={<Gallery onProductSelect={(p) => setActiveProduct(p)} />} />
+            <Route path="/login" element={<CustomerLogin onLoginSuccess={handleLoginSuccess} />} />
+            
+            {/* --- STAFF PORTAL --- */}
+            <Route path="/staff" element={<StaffLogin onLoginSuccess={handleLoginSuccess} />} />
+            
+            <Route path="/admin/upload" element={
+                <StaffGuard user={user}><UploadWizard /></StaffGuard>
+            } />
+            
+            <Route path="/admin/dashboard" element={
+                <StaffGuard user={user}><AdminDashboard onNavigate={(tab) => navigate(`/admin/${tab}`)} /></StaffGuard>
+            } />
+            
+            <Route path="/admin/studio" element={
+                <StaffGuard user={user}><DesignStudio /></StaffGuard>
+            } />
+            
+            <Route path="/admin/settings" element={
+                <StaffGuard user={user} requireAdmin><Settings onBack={() => navigate(-1)} /></StaffGuard>
+            } />
+
+            {/* Global Redirects */}
+            <Route path="/upload" element={<Navigate to="/admin/upload" replace />} />
+            <Route path="/studio" element={<Navigate to="/admin/studio" replace />} />
+            <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </Suspense>
       </main>
+
+      {/* Details Modal (Overlay) */}
+      {activeProduct && (
+        <Suspense fallback={<PageLoader />}>
+          <ProductDetails 
+            initialProduct={activeProduct} 
+            productList={[]} 
+            onClose={() => setActiveProduct(null)} 
+          />
+        </Suspense>
+      )}
+
+      {/* Universal Navigation */}
       <Navigation 
-        currentTab={currentTab} 
-        onTabChange={setCurrentTab} 
         user={user}
         onLogout={handleLogout}
       />
