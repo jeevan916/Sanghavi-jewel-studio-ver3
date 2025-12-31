@@ -5,7 +5,11 @@ const API_BASE = '/api';
 
 const DEFAULT_CONFIG: AppConfig = {
     suppliers: [{ id: '1', name: 'Sanghavi In-House', isPrivate: false }],
-    categories: [{ id: 'c1', name: 'Necklace', subCategories: ['Choker'], isPrivate: false }],
+    categories: [
+        { id: 'c1', name: 'Necklace', subCategories: ['Choker', 'Long Set'], isPrivate: false },
+        { id: 'c2', name: 'Ring', subCategories: ['Solitaire', 'Band'], isPrivate: false },
+        { id: 'c3', name: 'Bangles', subCategories: ['Bracelet', 'Kada'], isPrivate: false }
+    ],
     linkExpiryHours: 24,
     whatsappNumber: ''
 };
@@ -18,6 +22,7 @@ const KEYS = {
 export interface HealthStatus {
     healthy: boolean;
     reason?: string;
+    mode?: string;
 }
 
 async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 10000) {
@@ -57,7 +62,7 @@ export const storeService = {
   checkServerHealth: async (): Promise<HealthStatus> => {
     try {
         const data = await apiFetch('/health', {}, 3000);
-        return { healthy: data.status === 'online' };
+        return { healthy: data.status === 'online', mode: data.mode };
     } catch (e: any) {
         console.warn('[Store] Health check failed:', e.message);
         return { healthy: false, reason: e.message };
@@ -116,12 +121,6 @@ export const storeService = {
     return user;
   },
 
-  loginWithGoogle: async (credential: string): Promise<User | null> => {
-    const user = await apiFetch('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
-    if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
-    return user;
-  },
-
   login: async (username: string, password: string): Promise<User | null> => {
     const user = await apiFetch('/auth/staff', { method: 'POST', body: JSON.stringify({ username, password }) });
     if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
@@ -133,17 +132,16 @@ export const storeService = {
     if (!user) return null;
     const updated = { ...user, ...updates };
     localStorage.setItem(KEYS.SESSION, JSON.stringify(updated));
-    apiFetch('/auth/update', { method: 'POST', body: JSON.stringify(updated) }).catch(() => {});
     return updated;
   },
 
   createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
-    const data = await apiFetch('/links', { method: 'POST', body: JSON.stringify({ targetId, type }) });
-    return `${window.location.origin}${window.location.pathname}#/shared/${data.token}`;
+    const token = btoa(`${targetId}-${Date.now()}`).slice(0, 16);
+    return `${window.location.origin}${window.location.pathname}#/shared/${token}?id=${targetId}&type=${type}`;
   },
 
   getStaff: (): Promise<StaffAccount[]> => apiFetch('/staff'),
-  
+
   addStaff: (staff: Partial<StaffAccount>): Promise<StaffAccount> => 
     apiFetch('/staff', { method: 'POST', body: JSON.stringify(staff) }),
 
@@ -152,11 +150,11 @@ export const storeService = {
 
   deleteStaff: (id: string): Promise<void> => 
     apiFetch(`/staff/${id}`, { method: 'DELETE' }),
-
+  
   getConfig: async (): Promise<AppConfig> => {
     try {
       const data = await apiFetch('/config');
-      return data || DEFAULT_CONFIG;
+      return data && data.categories ? data : DEFAULT_CONFIG;
     } catch (e) { return DEFAULT_CONFIG; }
   },
 

@@ -5,8 +5,6 @@ import { User as UserType } from '../types';
 import { Lock, User as UserIcon, Loader2, KeyRound, ShieldCheck, AlertCircle, Phone, Info, HelpCircle, Wifi, WifiOff, Terminal, ArrowLeft, LogIn } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 
-declare const google: any;
-
 interface LoginProps {
   onLoginSuccess: (user: UserType) => void;
   mode: 'customer' | 'staff';
@@ -30,48 +28,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, mode }) => {
     };
     checkHealth();
     const interval = setInterval(checkHealth, 5000);
-
-    if (mode === 'customer') {
-        const initGoogle = () => {
-          const clientId = process.env.GOOGLE_CLIENT_ID;
-          if (typeof google !== 'undefined' && clientId) {
-            try {
-              google.accounts.id.initialize({
-                client_id: clientId,
-                callback: handleGoogleResponse,
-                auto_select: false,
-                cancel_on_tap_outside: true
-              });
-              google.accounts.id.renderButton(
-                document.getElementById("google-login-btn"),
-                { theme: "outline", size: "large", width: "100%", text: "continue_with" }
-              );
-            } catch (err) {}
-          }
-        };
-        initGoogle();
-    }
-
     return () => clearInterval(interval);
-  }, [mode]);
-
-  const handleGoogleResponse = async (response: any) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const user = await storeService.loginWithGoogle(response.credential);
-      if (user) {
-        if (!user.phone) setOnboardingUser(user);
-        else onLoginSuccess(user);
-      } else {
-        setError('Google authentication failed.');
-      }
-    } catch (err) {
-      setError('Connection error. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, []);
 
   const handleStaffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,11 +87,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, mode }) => {
         
         <div className="p-8">
             {mode === 'customer' ? (
-                <div className="space-y-6">
-                    <p className="text-center text-stone-500 text-sm mb-4">Sign in with your Google account to unlock full catalog access and personalized studio features.</p>
-                    <div id="google-login-btn" className="w-full min-h-[44px]"></div>
+                <div className="space-y-6 text-center">
+                    <p className="text-stone-500 text-sm mb-4">Please use the WhatsApp portal to securely access the Sanghavi Jewel Studio collection.</p>
+                    <button 
+                      onClick={() => navigate('/login')}
+                      className="w-full py-3.5 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition flex items-center justify-center gap-2"
+                    >
+                        <Phone size={18} /> Go to WhatsApp Login
+                    </button>
                     <div className="pt-6 border-t border-stone-100 text-center">
-                        <Link to="/staff/login" className="text-xs text-stone-400 hover:text-gold-600 font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
+                        <Link to="/staff" className="text-xs text-stone-400 hover:text-gold-600 font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
                              Internal Personnel? Click Here
                         </Link>
                     </div>

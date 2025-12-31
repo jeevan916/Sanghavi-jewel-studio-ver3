@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product } from '../types';
-import { Share2, MessageCircle, ChevronLeft, ChevronRight, Camera, User, Calendar, Box, Maximize2, Heart } from 'lucide-react';
+import { Share2, MessageCircle, ChevronLeft, ChevronRight, Maximize2, Heart } from 'lucide-react';
 import { storeService } from '../services/storeService';
 
 interface ProductCardProps {
@@ -18,19 +18,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     const likes = storeService.getLikes();
     setIsLiked(likes.includes(product.id));
   }, [product.id]);
-
-  const handleShare = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.title,
-          text: product.description,
-          url: window.location.href,
-        });
-      } catch (error) {}
-    }
-  };
 
   const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -56,23 +43,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
   };
 
-  // Optimization: Favor thumbnails in card view. Paths are now server-relative.
+  // Safe URL helper for local storage
   const getImageUrl = (path: string) => {
     if (!path) return '';
-    return path.startsWith('data:') || path.startsWith('http') ? path : `${window.location.origin}${path}`;
+    if (path.startsWith('data:') || path.startsWith('http')) return path;
+    return `${window.location.origin}${path}`;
   };
 
-  const displayImage = getImageUrl(product.thumbnails?.[currentImageIndex] || product.images?.[currentImageIndex] || product.images?.[0]);
+  const displayImage = getImageUrl(
+    product.thumbnails?.[currentImageIndex] || 
+    product.images?.[currentImageIndex] || 
+    product.images?.[0]
+  );
 
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all hover:shadow-md flex flex-col h-full cursor-pointer" onClick={onClick}>
       <div className="relative aspect-square overflow-hidden bg-stone-100 group/image">
         <img src={displayImage} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" loading="lazy" />
+        
         <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center">
             <Maximize2 className="text-white opacity-0 group-hover/image:opacity-100 transition-opacity drop-shadow-md" size={32} />
         </div>
 
-        {/* Action Overlays */}
         <button onClick={handleToggleLike} className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur shadow-sm transition-all z-20 ${isLiked ? 'bg-red-50 text-white' : 'bg-white/70 text-stone-400 hover:text-red-500'}`}>
             <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
         </button>
@@ -95,8 +87,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
         <p className="text-stone-600 text-sm line-clamp-2 mb-4 font-light">{product.description}</p>
 
         <div className="flex gap-2 mt-auto">
-          <button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white text-sm py-2 px-4 rounded-lg hover:bg-gold-700 transition flex items-center justify-center gap-2"><MessageCircle size={16} /> Inquire</button>
-          <button onClick={handleShare} className="p-2 text-stone-400 hover:text-gold-600 border border-stone-200 rounded-lg"><Share2 size={18} /></button>
+          <button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white text-sm py-2 px-4 rounded-lg hover:bg-gold-700 transition flex items-center justify-center gap-2 font-bold"><MessageCircle size={16} /> Inquire</button>
+          <button onClick={(e) => { e.stopPropagation(); navigator.share?.({ title: product.title, url: window.location.href }); }} className="p-2 text-stone-400 hover:text-gold-600 border border-stone-200 rounded-lg"><Share2 size={18} /></button>
         </div>
       </div>
     </div>

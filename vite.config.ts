@@ -19,11 +19,6 @@ export default defineConfig(({ mode }) => {
         process.env.API_KEY || 
         ''
       ),
-      'process.env.GOOGLE_CLIENT_ID': JSON.stringify(
-        env.VITE_GOOGLE_CLIENT_ID || 
-        env.GOOGLE_CLIENT_ID || 
-        'YOUR_GOOGLE_CLIENT_ID_HERE'
-      ),
     },
     server: {
       host: true,
