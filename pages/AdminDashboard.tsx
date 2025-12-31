@@ -36,12 +36,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   const refreshData = async () => {
     setLoading(true);
-    const p = await storeService.getProducts();
-    const a = await storeService.getAnalytics();
-    const c = await storeService.getCustomers();
-    setProducts(p);
-    setAnalytics(a);
-    setCustomers(c);
+    try {
+        const p = await storeService.getProducts();
+        const a = await storeService.getAnalytics();
+        const c = await storeService.getCustomers();
+        setProducts(p);
+        setAnalytics(a);
+        setCustomers(c);
+    } catch (e) {}
     setLoading(false);
   };
 
@@ -62,7 +64,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   }, [products, selectedFolder, searchQuery]);
 
   const recentInquiries = useMemo(() => analytics.filter(e => e.type === 'inquiry').slice(0, 10), [analytics]);
-  const recentScreenshots = useMemo(() => analytics.filter(e => e.type === 'screenshot').slice(0, 10), [analytics]);
 
   const handleSelect = (id: string, multi: boolean) => {
       if (multi) {
@@ -87,31 +88,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   const handleTogglePrivacy = async (status: boolean) => {
       const ids = Array.from(selectedIds);
-      const updatedList = products.map(p => {
-          if (ids.includes(p.id)) {
-              const updated = { ...p, isHidden: status };
-              storeService.updateProduct(updated);
-              return updated;
-          }
-          return p;
-      });
-      setProducts(updatedList);
+      for(const id of ids) {
+          const p = products.find(prod => prod.id === id);
+          if(p) await storeService.updateProduct({...p, isHidden: status});
+      }
       setSelectedIds(new Set());
-  };
-
-  const handleMoveSelected = async (targetCategory: string) => {
-      const ids = Array.from(selectedIds);
-      const updatedList = products.map(p => {
-          if (ids.includes(p.id)) {
-              const updated = { ...p, category: targetCategory };
-              storeService.updateProduct(updated);
-              return updated;
-          }
-          return p;
-      });
-      setProducts(updatedList);
-      setSelectedIds(new Set());
-      setShowMoveModal(false);
+      refreshData();
   };
 
   const handleSaveEdit = async () => {
@@ -136,7 +118,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         <div className="flex justify-between items-start w-full md:w-auto">
            <div>
               <h2 className="font-serif text-3xl text-gold-700">Admin Dashboard</h2>
-              <p className="text-stone-500 text-sm">Manage inventory, privacy, and insights.</p>
+              <p className="text-stone-500 text-sm">Persistent Catalog & Lead Management</p>
            </div>
            <button onClick={() => storeService.logout()} className="md:hidden p-2 text-stone-400 hover:text-red-500 transition-colors">
               <LogOut size={22} />
@@ -154,7 +136,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 onClick={() => setActiveView('files')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${activeView === 'files' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
             >
-                <FolderOpen size={16} /> Media Library
+                <FolderOpen size={16} /> Media Vault
             </button>
             <button 
                 onClick={() => setActiveView('leads')}
@@ -177,56 +159,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
                     <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><Lock size={24} /></div>
-                    <div><p className="text-stone-500 text-xs font-bold uppercase">Locked</p><p className="text-2xl font-bold text-stone-800">{products.filter(p => p.isHidden).length}</p></div>
+                    <div><p className="text-stone-500 text-xs font-bold uppercase">Private</p><p className="text-2xl font-bold text-stone-800">{products.filter(p => p.isHidden).length}</p></div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
-                    <div className="p-3 bg-green-50 text-green-600 rounded-xl"><MessageCircle size={24} /></div>
+                    <div className="p-3 bg-green-50 text-green-600 rounded-xl"><UserCheck size={24} /></div>
                     <div><p className="text-stone-500 text-xs font-bold uppercase">Leads</p><p className="text-2xl font-bold text-stone-800">{customers.length}</p></div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
-                    <div className="p-3 bg-gold-50 text-gold-600 rounded-xl"><Download size={24} /></div>
-                    <div><p className="text-stone-500 text-xs font-bold uppercase">Saves</p><p className="text-2xl font-bold text-stone-800">{analytics.filter(e => e.type === 'screenshot').length}</p></div>
+                    <div className="p-3 bg-gold-50 text-gold-600 rounded-xl"><MessageCircle size={24} /></div>
+                    <div><p className="text-stone-500 text-xs font-bold uppercase">Inquiries</p><p className="text-2xl font-bold text-stone-800">{analytics.filter(e => e.type === 'inquiry').length}</p></div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
-                <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
-                    <div className="p-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center"><h3 className="font-serif text-lg text-stone-800">Recent Inquiries</h3></div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-stone-50 text-stone-400 font-bold uppercase text-[10px] tracking-wider">
-                                <tr><th className="p-3">Product</th><th className="p-3">User</th><th className="p-3 text-right">Time</th></tr>
-                            </thead>
-                            <tbody>
-                                {recentInquiries.map(e => (
-                                    <tr key={e.id} className="border-b border-stone-50 hover:bg-stone-50 cursor-pointer" onClick={() => navigate(`/product/${e.productId}`)}>
-                                        <td className="p-3 font-medium text-stone-700 truncate max-w-[120px]">{e.productTitle}</td>
-                                        <td className="p-3"><div className="flex flex-col"><span className="font-medium">{e.userName}</span><span className="text-[10px] text-stone-400">{e.deviceName}</span></div></td>
-                                        <td className="p-3 text-right text-stone-400 text-xs">{new Date(e.timestamp).toLocaleDateString()}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
-                    <div className="p-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center"><h3 className="font-serif text-lg text-stone-800">Recent Captures</h3></div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-stone-50 text-stone-400 font-bold uppercase text-[10px] tracking-wider">
-                                <tr><th className="p-3">Product</th><th className="p-3">User</th><th className="p-3 text-right">Time</th></tr>
-                            </thead>
-                            <tbody>
-                                {recentScreenshots.map(e => (
-                                    <tr key={e.id} className="border-b border-stone-50 hover:bg-stone-50 cursor-pointer" onClick={() => navigate(`/product/${e.productId}`)}>
-                                        <td className="p-3 font-medium text-stone-700 truncate max-w-[120px]">{e.productTitle}</td>
-                                        <td className="p-3"><div className="flex flex-col"><span className="font-medium">{e.userName}</span><span className="text-[10px] text-stone-400">{e.deviceName}</span></div></td>
-                                        <td className="p-3 text-right text-stone-400 text-xs">{new Date(e.timestamp).toLocaleDateString()}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+                <div className="p-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center"><h3 className="font-serif text-lg text-stone-800">Recent Customer Inquiries</h3></div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-stone-50 text-stone-400 font-bold uppercase text-[10px] tracking-wider">
+                            <tr><th className="p-4">Jewelry Item</th><th className="p-4">Customer</th><th className="p-4">Platform Info</th><th className="p-4 text-right">Timestamp</th></tr>
+                        </thead>
+                        <tbody>
+                            {recentInquiries.map(e => (
+                                <tr key={e.id} className="border-b border-stone-50 hover:bg-stone-50 cursor-pointer" onClick={() => navigate(`/product/${e.productId}`)}>
+                                    <td className="p-4 font-bold text-stone-800">{e.productTitle}</td>
+                                    <td className="p-4 font-medium text-stone-600">{e.userName}</td>
+                                    <td className="p-4 text-xs text-stone-400 truncate max-w-[200px]">{e.deviceName}</td>
+                                    <td className="p-4 text-right text-stone-400 text-xs font-mono">{new Date(e.timestamp).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
           </div>
@@ -235,7 +197,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {activeView === 'files' && (
           <div className="flex-1 flex flex-col md:flex-row bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden min-h-[500px]">
              <div className="w-full md:w-64 bg-stone-50 border-r border-stone-200 flex flex-col">
-                 <div className="p-4 border-b border-stone-200"><button onClick={() => onNavigate?.('upload')} className="w-full py-2 bg-gold-600 text-white rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-gold-700 transition"><Plus size={18} /> Add Photos</button></div>
+                 <div className="p-4 border-b border-stone-200"><button onClick={() => onNavigate?.('upload')} className="w-full py-2 bg-gold-600 text-white rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-gold-700 transition"><Plus size={18} /> Batch Media</button></div>
                  <div className="flex-1 p-2 space-y-1">
                      {folders.map(folder => (
                          <button key={folder} onClick={() => { setSelectedFolder(folder); setSelectedIds(new Set()); }} className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-3 transition-colors ${selectedFolder === folder ? 'bg-white shadow-sm text-gold-700 font-medium' : 'text-stone-600 hover:bg-stone-100'}`}>
@@ -247,60 +209,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
              <div className="flex-1 flex flex-col h-full min-h-0">
                  <div className="p-4 border-b border-stone-200 flex items-center justify-between gap-4 bg-white">
-                     <div className="flex-1 max-w-md relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} /><input type="text" placeholder="Search files..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-gold-400" /></div>
+                     <div className="flex-1 max-w-md relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} /><input type="text" placeholder="Search physical vault..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-gold-400" /></div>
                      <div className="flex items-center gap-2"><button onClick={() => setViewStyle('grid')} className={`p-2 rounded ${viewStyle === 'grid' ? 'bg-stone-100 text-stone-900' : 'text-stone-400'}`}><Grid size={18}/></button><button onClick={() => setViewStyle('list')} className={`p-2 rounded ${viewStyle === 'list' ? 'bg-stone-100 text-stone-900' : 'text-stone-400'}`}><ListIcon size={18}/></button></div>
                  </div>
 
-                 {selectedIds.size > 0 && (
-                     <div className="bg-gold-50 px-4 py-2 border-b border-gold-100 flex items-center justify-between text-sm text-gold-800 animate-in slide-in-from-top-2 overflow-x-auto">
-                         <span className="font-medium whitespace-nowrap mr-4">{selectedIds.size} selected</span>
-                         <div className="flex gap-2">
-                             <button onClick={() => setShowMoveModal(true)} className="flex items-center gap-1 px-3 py-1 bg-white border border-gold-200 rounded hover:bg-gold-100 whitespace-nowrap"><FolderInput size={14}/> Move</button>
-                             <button onClick={() => handleTogglePrivacy(true)} className="flex items-center gap-1 px-3 py-1 bg-white border border-gold-200 rounded hover:bg-gold-100 whitespace-nowrap"><Lock size={14}/> Lock</button>
-                             <button onClick={() => handleTogglePrivacy(false)} className="flex items-center gap-1 px-3 py-1 bg-white border border-gold-200 rounded hover:bg-gold-100 whitespace-nowrap"><Unlock size={14}/> Unlock</button>
-                             <button onClick={handleDeleteSelected} className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 border border-red-200 rounded hover:bg-red-200 whitespace-nowrap"><Trash2 size={14}/> Delete</button>
-                         </div>
-                     </div>
-                 )}
-
                  <div className="flex-1 overflow-y-auto p-4 bg-stone-50/50">
-                     {filteredProducts.length === 0 ? (
-                         <div className="h-full flex flex-col items-center justify-center text-stone-400"><FolderOpen size={48} className="mb-2 opacity-20" /><p>No files found</p></div>
-                     ) : (
-                         viewStyle === 'grid' ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                {filteredProducts.map(product => (
-                                    <div key={product.id} onClick={(e) => handleSelect(product.id, e.ctrlKey || e.metaKey || true)} onDoubleClick={() => navigate(`/product/${product.id}`)} className={`group relative aspect-square bg-white rounded-xl shadow-sm border cursor-pointer transition-all ${selectedIds.has(product.id) ? 'border-gold-500 ring-2 ring-gold-200' : 'border-stone-200 hover:border-gold-300'}`}>
-                                        <img src={product.thumbnails?.[0] || product.images[0]} className="w-full h-full object-cover rounded-xl p-1" />
-                                        <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/60 to-transparent rounded-b-xl"><p className="text-white text-xs truncate font-medium">{product.title}</p></div>
-                                        {product.isHidden && <div className="absolute top-2 right-2 bg-black/50 p-1 rounded-full text-white backdrop-blur"><Lock size={10} /></div>}
-                                        <button onClick={(e) => { e.stopPropagation(); setEditProduct(product); }} className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"><Edit2 size={12} /></button>
-                                        {selectedIds.has(product.id) && <div className="absolute top-2 left-2 bg-gold-600 text-white rounded-full p-0.5 shadow-sm"><CheckCircle size={14} /></div>}
-                                    </div>
-                                ))}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {filteredProducts.map(product => (
+                            <div key={product.id} onClick={(e) => handleSelect(product.id, e.ctrlKey || e.metaKey || true)} onDoubleClick={() => navigate(`/product/${product.id}`)} className={`group relative aspect-square bg-white rounded-xl shadow-sm border cursor-pointer transition-all ${selectedIds.has(product.id) ? 'border-gold-500 ring-2 ring-gold-200' : 'border-stone-200 hover:border-gold-300'}`}>
+                                <img src={product.thumbnails?.[0] ? `${window.location.origin}${product.thumbnails[0]}` : `${window.location.origin}${product.images[0]}`} className="w-full h-full object-cover rounded-xl p-1" />
+                                <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/60 to-transparent rounded-b-xl"><p className="text-white text-xs truncate font-medium">{product.title}</p></div>
+                                <button onClick={(e) => { e.stopPropagation(); setEditProduct(product); }} className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"><Edit2 size={12} /></button>
+                                {selectedIds.has(product.id) && <div className="absolute top-2 left-2 bg-gold-600 text-white rounded-full p-0.5 shadow-sm"><CheckCircle size={14} /></div>}
                             </div>
-                         ) : (
-                             <div className="bg-white rounded-lg border border-stone-200 overflow-x-auto">
-                                 <table className="w-full text-sm text-left min-w-[500px]">
-                                     <thead className="bg-stone-50 text-stone-500 font-medium border-b border-stone-200">
-                                         <tr><th className="p-3 w-10"></th><th className="p-3">Name</th><th className="p-3">Category</th><th className="p-3">Date</th><th className="p-3 w-20">Status</th><th className="p-3 w-10"></th></tr>
-                                     </thead>
-                                     <tbody>
-                                         {filteredProducts.map(product => (
-                                             <tr key={product.id} onClick={(e) => handleSelect(product.id, e.ctrlKey || e.metaKey || true)} onDoubleClick={() => navigate(`/product/${product.id}`)} className={`border-b border-stone-100 hover:bg-stone-50 cursor-pointer ${selectedIds.has(product.id) ? 'bg-gold-50' : ''}`}>
-                                                 <td className="p-3"><img src={product.thumbnails?.[0] || product.images[0]} className="w-8 h-8 rounded object-cover bg-stone-200" /></td>
-                                                 <td className="p-3 font-medium text-stone-700">{product.title}</td>
-                                                 <td className="p-3 text-stone-500">{product.category}</td>
-                                                 <td className="p-3 text-stone-400 text-xs">{product.dateTaken}</td>
-                                                 <td className="p-3">{product.isHidden ? <Lock size={14} className="text-red-400"/> : <CheckCircle size={14} className="text-green-400"/>}</td>
-                                                 <td className="p-3 text-stone-400"><button onClick={(e) => {e.stopPropagation(); setEditProduct(product);}} className="hover:text-gold-600"><Edit2 size={14}/></button></td>
-                                             </tr>
-                                         ))}
-                                     </tbody>
-                                 </table>
-                             </div>
-                         )
-                     )}
+                        ))}
+                    </div>
                  </div>
              </div>
           </div>
@@ -308,50 +231,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
       {activeView === 'leads' && (
           <div className="flex-1 bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
-              <div className="p-4 bg-stone-50 border-b border-stone-200 flex justify-between items-center">
-                  <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2"><UserCheck className="text-gold-600" /> Studio Lead Capture</h3>
-                  <div className="text-[10px] uppercase font-bold text-stone-400 tracking-widest">{customers.length} Registered Potential Leads</div>
+              <div className="p-6 bg-stone-50 border-b border-stone-200">
+                  <h3 className="font-serif text-2xl text-stone-800 flex items-center gap-2"><UserCheck className="text-gold-600" /> Customer Insight Database</h3>
+                  <p className="text-stone-500 text-sm mt-1">Directly message potential leads captured from WhatsApp verification.</p>
               </div>
               <div className="flex-1 overflow-y-auto">
-                   <table className="w-full text-sm text-left">
-                       <thead className="bg-stone-100 text-stone-500 uppercase text-[10px] font-bold tracking-widest border-b border-stone-200">
-                           <tr>
-                               <th className="p-4">Customer Name</th>
-                               <th className="p-4">WhatsApp Link</th>
-                               <th className="p-4">Registration Date</th>
-                               <th className="p-4 text-right">Action</th>
-                           </tr>
-                       </thead>
-                       <tbody className="divide-y divide-stone-100">
-                           {customers.map(lead => (
-                               <tr key={lead.id} className="hover:bg-gold-50/30 transition-colors">
-                                   <td className="p-4">
-                                       <div className="flex items-center gap-3">
-                                           <div className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center font-bold text-stone-400">{lead.name.charAt(0)}</div>
-                                           <div><p className="font-bold text-stone-800">{lead.name}</p><p className="text-xs text-stone-500 font-mono">{lead.phone}</p></div>
-                                       </div>
-                                   </td>
-                                   <td className="p-4">
-                                       <span className="text-stone-400 font-mono text-xs">{lead.phone || 'N/A'}</span>
-                                   </td>
-                                   <td className="p-4 text-stone-500 text-xs">
-                                       {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : 'Historical Data'}
-                                   </td>
-                                   <td className="p-4 text-right">
-                                       <button 
-                                          onClick={() => storeService.chatWithLead(lead)}
-                                          className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-sm hover:shadow-md"
-                                       >
-                                           <MessageCircle size={14} /> Start Chat
-                                       </button>
-                                   </td>
-                               </tr>
-                           ))}
-                           {customers.length === 0 && (
-                               <tr><td colSpan={4} className="p-20 text-center text-stone-400 font-serif text-lg">No customer leads captured yet.</td></tr>
-                           )}
-                       </tbody>
-                   </table>
+                  <table className="w-full text-sm text-left">
+                      <thead className="bg-stone-100 text-stone-500 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-stone-200">
+                          <tr>
+                              <th className="p-6">Lead Identity</th>
+                              <th className="p-6">WhatsApp Number</th>
+                              <th className="p-6">Registration Date</th>
+                              <th className="p-6 text-right">Actions</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100">
+                          {customers.map(customer => (
+                              <tr key={customer.id} className="hover:bg-gold-50/20 transition-colors">
+                                  <td className="p-6">
+                                      <div className="flex items-center gap-4">
+                                          <div className="w-10 h-10 bg-gold-100 rounded-full flex items-center justify-center font-bold text-gold-700">{customer.name.charAt(0)}</div>
+                                          <div><p className="font-bold text-stone-800 text-base">{customer.name}</p><p className="text-xs text-stone-400">Sanghavi User</p></div>
+                                      </div>
+                                  </td>
+                                  <td className="p-6 font-mono font-medium text-stone-600">+{customer.phone}</td>
+                                  <td className="p-6 text-stone-500">{new Date(customer.createdAt).toLocaleDateString()}</td>
+                                  <td className="p-6 text-right">
+                                      <button 
+                                        onClick={() => storeService.chatWithLead(customer)}
+                                        className="bg-green-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 ml-auto shadow-sm hover:bg-green-600 hover:shadow-md transition-all"
+                                      >
+                                          <MessageCircle size={16} /> Direct Chat
+                                      </button>
+                                  </td>
+                              </tr>
+                          ))}
+                          {customers.length === 0 && (
+                              <tr><td colSpan={4} className="p-20 text-center text-stone-400 font-serif text-lg">Lead database is currently empty.</td></tr>
+                          )}
+                      </tbody>
+                  </table>
               </div>
           </div>
       )}
@@ -359,29 +278,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {editProduct && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-                  <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50"><h3 className="font-serif text-lg font-bold text-stone-800">Edit Details</h3><button onClick={() => setEditProduct(null)} className="text-stone-400 hover:text-stone-600"><X size={20}/></button></div>
-                  <div className="p-6 space-y-4">
-                      <div className="flex justify-center mb-4"><img src={editProduct.images[0]} className="h-32 w-32 object-cover rounded-xl shadow-md border border-stone-200" /></div>
-                      <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Title</label><input value={editProduct.title} onChange={e => setEditProduct({...editProduct, title: e.target.value})} className="w-full p-2 border border-stone-200 rounded-lg text-sm" /></div>
-                      <div className="grid grid-cols-2 gap-4">
-                          <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Category</label><select value={editProduct.category} onChange={e => setEditProduct({...editProduct, category: e.target.value})} className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-white">{folders.filter(f => f !== 'All' && f !== 'Private').map(f => <option key={f} value={f}>{f}</option>)}</select></div>
-                          <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Visibility</label><button onClick={() => setEditProduct({...editProduct, isHidden: !editProduct.isHidden})} className={`w-full p-2 rounded-lg text-sm flex items-center justify-center gap-2 border ${editProduct.isHidden ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>{editProduct.isHidden ? <Lock size={14}/> : <Unlock size={14}/>}{editProduct.isHidden ? 'Private' : 'Public'}</button></div>
-                      </div>
+                  <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50"><h3 className="font-serif text-lg font-bold text-stone-800">Edit Jewelry Assets</h3><button onClick={() => setEditProduct(null)} className="text-stone-400 hover:text-stone-600"><X size={20}/></button></div>
+                  <div className="p-6 space-y-4 text-stone-800">
+                      <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Product Title</label><input value={editProduct.title} onChange={e => setEditProduct({...editProduct, title: e.target.value})} className="w-full p-2 border border-stone-200 rounded-lg text-sm" /></div>
+                      <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Catalog Category</label><select value={editProduct.category} onChange={e => setEditProduct({...editProduct, category: e.target.value})} className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-white">{folders.filter(f => f !== 'All' && f !== 'Private').map(f => <option key={f} value={f}>{f}</option>)}</select></div>
                   </div>
                   <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-end gap-2"><button onClick={() => setEditProduct(null)} className="px-4 py-2 text-stone-500 hover:bg-stone-100 rounded-lg text-sm">Cancel</button><button onClick={handleSaveEdit} className="px-4 py-2 bg-stone-900 text-white rounded-lg text-sm flex items-center gap-2 hover:bg-stone-800"><Save size={16} /> Save Changes</button></div>
-              </div>
-          </div>
-      )}
-
-      {showMoveModal && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200">
-                  <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50"><h3 className="font-serif text-lg font-bold text-stone-800">Move Items</h3><button onClick={() => setShowMoveModal(false)} className="text-stone-400 hover:text-stone-600"><X size={20}/></button></div>
-                  <div className="p-4"><p className="text-sm text-stone-500 mb-3">Select destination for {selectedIds.size} items:</p>
-                      <div className="space-y-1 max-h-60 overflow-y-auto">
-                          {folders.filter(f => f !== 'All' && f !== 'Private').map(folder => (<button key={folder} onClick={() => handleMoveSelected(folder)} className="w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-3 text-stone-700 hover:bg-gold-50 hover:text-gold-700"><Folder size={16} className="text-gold-400" />{folder}</button>))}
-                      </div>
-                  </div>
               </div>
           </div>
       )}
