@@ -1,16 +1,13 @@
 
-import React, { useState, useMemo, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
 import { storeService } from '../services/storeService';
-import { identifyJewelryFeatures } from '../services/geminiService';
-import { Search, Folder, Tag, Menu, X, Filter, Loader2, Camera, ArrowRight, Grid, LayoutGrid, LogOut } from 'lucide-react';
+import { Search, Grid, LayoutGrid, LogOut, Loader2, Filter } from 'lucide-react';
 import { Product } from '../types';
 
-interface GalleryProps {
-  onProductSelect?: (product: Product) => void;
-}
-
-export const Gallery: React.FC<GalleryProps> = ({ onProductSelect }) => {
+export const Gallery: React.FC = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
@@ -56,7 +53,6 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect }) => {
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20 md:pt-16">
-      {/* Search & Filter Top Bar */}
       <div className="sticky top-0 md:top-16 bg-white/80 backdrop-blur-md border-b border-stone-200 z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
           <div className="flex-1 max-w-md relative">
@@ -108,7 +104,7 @@ export const Gallery: React.FC<GalleryProps> = ({ onProductSelect }) => {
               key={product.id} 
               product={product} 
               isAdmin={isAdmin} 
-              onClick={() => onProductSelect?.(product)} 
+              onClick={() => navigate(`/product/${product.id}`)} 
             />
           ))}
         </div>

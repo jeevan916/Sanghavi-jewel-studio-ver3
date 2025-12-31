@@ -1,21 +1,22 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Product, AppConfig } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Maximize2, Camera, Edit2, Lock, Link, Check, Plus, Upload, Eye, EyeOff, Sparkles, Eraser, Wand2, StickyNote, Loader2, CheckCircle2, XCircle, SlidersHorizontal, Download, Trash2, Cpu, Smartphone } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ImageEditor } from '../components/ImageEditor';
 import { storeService } from '../services/storeService';
 import { removeWatermark, enhanceJewelryImage } from '../services/geminiService';
 
-interface ProductDetailsProps {
-  initialProduct: Product;
-  productList: Product[];
-  onClose: () => void;
-}
-
-export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, productList, onClose }) => {
-  const [product, setProduct] = useState(initialProduct);
+export const ProductDetails: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
+  const [product, setProduct] = useState<Product | null>(null);
+  const [productList, setProductList] = useState<Product[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [currentUser] = useState(storeService.getCurrentUser());
   const isAuthorized = currentUser?.role === 'admin' || currentUser?.role === 'contributor';
   
@@ -30,33 +31,56 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   const [compareSliderPos, setCompareSliderPos] = useState(50);
   const [isManualEditing, setIsManualEditing] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editDescValue, setEditDescValue] = useState(product.description);
+  const [editDescValue, setEditDescValue] = useState('');
 
-  // Gesture Tracking
   const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setProduct(initialProduct);
-    setGeneratedLink(null);
-    setPendingEnhancedImage(null);
-    setCurrentImageIndex(0);
-    setIsManualEditing(false);
-    setIsEditingDescription(false);
-    setEditDescValue(initialProduct.description);
-  }, [initialProduct]);
+    const fetchData = async () => {
+      setIsLoading(true);
+      const allProducts = await storeService.getProducts();
+      setProductList(allProducts);
+      
+      const found = allProducts.find(p => p.id === id);
+      if (found) {
+        setProduct(found);
+        setEditDescValue(found.description);
+      }
+      
+      const conf = await storeService.getConfig();
+      setConfig(conf);
+      setIsLoading(false);
+    };
+    fetchData();
+  }, [id]);
 
-  useEffect(() => {
-    storeService.getConfig().then(setConfig);
-  }, []);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
+        <Loader2 className="animate-spin text-gold-600 mb-4" size={40} strokeWidth={1.5} />
+        <span className="font-serif text-sm text-stone-400 uppercase tracking-widest">Opening Vault...</span>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center">
+        <h2 className="font-serif text-2xl text-stone-800 mb-4">Product Not Found</h2>
+        <button onClick={() => navigate('/collection')} className="px-6 py-2 bg-stone-900 text-white rounded-xl">Back to Collection</button>
+      </div>
+    );
+  }
 
   const currentIndex = productList.findIndex(p => p.id === product.id);
   const hasNext = currentIndex < productList.length - 1;
   const hasPrev = currentIndex > 0;
 
   const handleUpdateProduct = (updates: Partial<Product>) => {
+      if (!product) return;
       const updatedProduct = { ...product, ...updates };
       setProduct(updatedProduct);
       storeService.updateProduct(updatedProduct);
@@ -70,7 +94,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   const handleDeleteProduct = async () => {
     if (window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
         await storeService.deleteProduct(product.id);
-        onClose();
+        navigate('/collection');
     }
   };
 
@@ -82,7 +106,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
         reader.onload = (ev) => {
             const base64 = ev.target?.result as string;
             const newImages = [...product.images, base64];
-            // Also update thumbnails if possible, otherwise rely on fallback
             handleUpdateProduct({ images: newImages });
         };
         reader.readAsDataURL(file);
@@ -97,6 +120,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   };
 
   const handleAiAction = async (action: 'clean' | 'enhance') => {
+      if (!product) return;
       setIsProcessingImage(true);
       setShowAiMenu(false);
       try {
@@ -120,6 +144,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   };
 
   const handleDownload = () => {
+      if (!product) return;
       storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
       const link = document.createElement('a');
       link.href = product.images[currentImageIndex];
@@ -130,11 +155,21 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   };
 
   const handleInquiry = async () => {
+      if (!product) return;
       await storeService.shareToWhatsApp(product, currentImageIndex);
   };
 
-  const goToNext = () => { if (hasNext && !isAnimating) { setIsAnimating(true); setSlideDirection('left'); setTimeout(() => { setProduct(productList[currentIndex+1]); setSlideDirection(null); setIsAnimating(false); }, 300); } };
-  const goToPrev = () => { if (hasPrev && !isAnimating) { setIsAnimating(true); setSlideDirection('right'); setTimeout(() => { setProduct(productList[currentIndex-1]); setSlideDirection(null); setIsAnimating(false); }, 300); } };
+  const goToNext = () => { 
+    if (hasNext && !isAnimating) { 
+        navigate(`/product/${productList[currentIndex+1].id}`);
+    } 
+  };
+  
+  const goToPrev = () => { 
+    if (hasPrev && !isAnimating) { 
+        navigate(`/product/${productList[currentIndex-1].id}`);
+    } 
+  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -165,21 +200,19 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
     touchStart.current = null;
   };
 
-  // Optimization: Load thumbnails for the preview pane
   const displayPreview = product.thumbnails?.[currentImageIndex] || product.images[currentImageIndex];
 
   return (
     <div 
-        className="fixed inset-0 z-40 bg-stone-50 overflow-y-auto animate-in slide-in-from-bottom-10 duration-300 pb-20"
+        className="min-h-screen bg-stone-50 overflow-y-auto animate-in fade-in duration-300 pb-20"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
     >
-      {/* Zoom Mode: This is where we load the full high-res images */}
       {showFullScreen && <ImageViewer images={product.images} initialIndex={currentImageIndex} title={product.title} onClose={() => setShowFullScreen(false)} />}
       {isManualEditing && <ImageEditor imageSrc={product.images[currentImageIndex]} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
 
       <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30">
-        <button onClick={onClose} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full"><ArrowLeft size={24} /></button>
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full"><ArrowLeft size={24} /></button>
         <div className="flex-1 flex items-center gap-2 px-2 overflow-hidden">
             {product.isHidden && <Lock size={14} className="text-red-500 shrink-0" />}
             <h2 className="font-serif font-bold text-stone-800 text-lg truncate break-words">
@@ -192,14 +225,13 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
         </div>
       </div>
 
-      <div className={`transition-all duration-300 ease-out ${isAnimating ? (slideDirection === 'left' ? 'opacity-0 -translate-x-10' : 'opacity-0 translate-x-10') : 'opacity-100'}`}>
+      <div className={`transition-all duration-300 ease-out`}>
           <div 
             ref={imageContainerRef} 
             className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none image-nav-container" 
             onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}
             onTouchMove={(e) => pendingEnhancedImage && handleSliderMove(e.touches[0].clientX)}
           >
-            {/* Displaying low-res thumbnail here for fast interaction */}
             <img 
                 src={displayPreview} 
                 className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`} 
@@ -231,8 +263,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
              <div className="flex flex-col md:flex-row md:justify-between items-start gap-4">
                  <div className="flex-1 min-w-0">
                      <span className="text-gold-600 text-xs font-bold tracking-wider uppercase">{product.category}</span>
-                     {/* Fix for long numerical titles: use overflow-wrap and break-word */}
-                     <h1 className="font-serif text-2xl md:text-3xl text-stone-900 mt-1 mb-2 leading-tight overflow-wrap-break-word break-words">
+                     <h1 className="font-serif text-2xl md:text-3xl text-stone-900 mt-1 mb-2 leading-tight break-words">
                         {product.title}
                      </h1>
                      <div className="flex items-center gap-4 text-stone-500 text-sm">
@@ -244,14 +275,27 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
                  <div className="bg-stone-100 px-3 py-1 rounded text-[10px] font-mono text-stone-500 uppercase shrink-0">ID: {product.id.slice(-6)}</div>
              </div>
 
-             {/* Rest of the component remains the same ... */}
              {isAuthorized && (
                  <div className="bg-stone-800 p-4 rounded-xl text-white space-y-4">
                      <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2"><Lock size={12} /> Authorized Control</h3><button onClick={handleDeleteProduct} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase flex items-center gap-1"><Trash2 size={12}/> Delete</button></div>
-                     <div className="flex gap-2">
-                         <button onClick={() => handleUpdateProduct({isHidden: !product.isHidden})} className={`flex-1 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 ${product.isHidden ? 'bg-red-500/20 text-red-200' : 'bg-stone-700'}`}>{product.isHidden ? <EyeOff size={16}/> : <Eye size={16}/>} {product.isHidden ? 'Private' : 'Public'}</button>
-                         <button onClick={async () => { const link = await storeService.createSharedLink(product.id, 'product'); setGeneratedLink(link); navigator.clipboard.writeText(link); }} className="flex-[2] py-2 bg-gold-600 text-white rounded text-sm font-medium flex items-center justify-center gap-2">{generatedLink ? 'Link Copied' : 'Generate Secret Link'}</button>
+                     <div className="flex gap-2 relative">
+                        <button onClick={() => handleUpdateProduct({isHidden: !product.isHidden})} className={`flex-1 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 ${product.isHidden ? 'bg-red-500/20 text-red-200' : 'bg-stone-700'}`}>{product.isHidden ? <EyeOff size={16}/> : <Eye size={16}/>} {product.isHidden ? 'Private' : 'Public'}</button>
+                        <button onClick={async () => { const link = await storeService.createSharedLink(product.id, 'product'); setGeneratedLink(link); navigator.clipboard.writeText(link); }} className="flex-[2] py-2 bg-gold-600 text-white rounded text-sm font-medium flex items-center justify-center gap-2">{generatedLink ? 'Link Copied' : 'Generate Secret Link'}</button>
                      </div>
+
+                     <div className="flex gap-2">
+                        <button onClick={() => setShowAiMenu(!showAiMenu)} className={`flex-1 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 ${showAiMenu ? 'bg-purple-600' : 'bg-purple-900/30'}`}>
+                            {isProcessingImage ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16}/>} AI Studio
+                        </button>
+                        <button onClick={() => setIsManualEditing(true)} className="flex-1 py-2 bg-stone-700 rounded text-sm font-medium flex items-center justify-center gap-2"><SlidersHorizontal size={16}/> Edit Image</button>
+                     </div>
+
+                     {showAiMenu && (
+                        <div className="bg-stone-900 rounded-lg p-1 border border-stone-700 grid grid-cols-2 gap-1">
+                             <button onClick={() => handleAiAction('clean')} className="px-3 py-2 text-xs hover:bg-stone-800 rounded flex items-center gap-2"><Eraser size={14}/> Clear Branding</button>
+                             <button onClick={() => handleAiAction('enhance')} className="px-3 py-2 text-xs hover:bg-stone-800 rounded flex items-center gap-2"><Wand2 size={14}/> Studio Enhance</button>
+                        </div>
+                     )}
                  </div>
              )}
 
@@ -260,6 +304,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
              <div className="prose prose-stone">
                  <h3 className="text-sm font-bold text-stone-400 uppercase tracking-wider flex items-center justify-between gap-2 mb-2"><span className="flex items-center gap-2"><Info size={16} /> Description</span>{isAuthorized && <button onClick={() => { if(isEditingDescription) handleSaveDescription(); else setIsEditingDescription(true); }} className="p-1 hover:bg-stone-100 rounded text-gold-600 transition">{isEditingDescription ? <Check size={16} /> : <Edit2 size={16} />}</button>}</h3>
                  {isEditingDescription ? <div className="space-y-2"><textarea value={editDescValue} onChange={(e) => setEditDescValue(e.target.value)} className="w-full p-4 border border-gold-300 rounded-xl text-stone-700 min-h-[120px]" /><div className="flex justify-end gap-2"><button onClick={() => { setIsEditingDescription(false); setEditDescValue(product.description); }} className="px-4 py-1 text-xs text-stone-400 uppercase">Cancel</button><button onClick={handleSaveDescription} className="px-4 py-1 text-xs text-gold-600 border border-gold-200 rounded-lg">Apply</button></div></div> : <p className="text-stone-600 leading-relaxed text-lg font-light">{product.description}</p>}
+             </div>
+
+             <div className="bg-stone-50 rounded-xl p-4 border border-stone-100 grid grid-cols-2 gap-4 text-sm">
+                 <div><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Date Added</span><div className="flex items-center gap-2 text-stone-700"><Calendar size={14} /> {product.dateTaken || new Date(product.createdAt).toLocaleDateString()}</div></div>
+                 <div><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Supplier</span><div className="text-stone-700 font-medium">{product.supplier || 'N/A'}</div></div>
+                 {isAuthorized && product.meta?.cameraModel && (<div><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Device Type</span><div className="flex items-center gap-2 text-stone-700"><Smartphone size={14} /> {product.meta.cameraModel}</div></div>)}
+                 {isAuthorized && product.meta?.deviceManufacturer && (<div><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Manufacturer</span><div className="flex items-center gap-2 text-stone-700"><Cpu size={14} /> {product.meta.deviceManufacturer}</div></div>)}
+                 <div className="col-span-2"><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Tags</span><div className="flex flex-wrap gap-2">{product.tags.map(tag => <span key={tag} className="bg-white border border-stone-200 px-2 py-1 rounded text-xs text-stone-600">#{tag}</span>)}</div></div>
              </div>
           </div>
       </div>

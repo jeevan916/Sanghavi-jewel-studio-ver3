@@ -1,8 +1,9 @@
+
 import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
-import { User, Product } from './types';
+import { User } from './types';
 import { UploadProvider } from './contexts/UploadContext';
 import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
@@ -16,13 +17,12 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-/**
- * Global Error Boundary
- */
-// Fix: Correctly extending Component from react to ensure 'props' is available on the instance
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly declare state as a class property for cleaner initialization
-  state: ErrorBoundaryState = { hasError: false };
+// Fix: Explicitly extending React.Component and defining constructor to ensure 'this.props' is correctly typed in TypeScript.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -30,12 +30,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Sanghavi Studio Exception:", error, errorInfo);
-    // Ensure we hide the splash screen even on error
     document.body.classList.add('loaded');
   }
 
   render() {
-    // Fix: State is now correctly accessed via this.state
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -53,7 +51,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fix: props is correctly recognized as existing on the ErrorBoundary instance by extending Component
     return this.props.children;
   }
 }
@@ -93,49 +90,20 @@ const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
-  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
     setUser(storeService.getCurrentUser());
-    // Force hide the splash screen once React has taken over
     document.body.classList.add('loaded');
   }, []);
-
-  // Deep Link Handling
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const productId = params.get('id');
-    
-    if (productId) {
-      const fetchDeepLinkProduct = async () => {
-        try {
-          const products = await storeService.getProducts();
-          const found = products.find(p => p.id === productId);
-          if (found) {
-            setActiveProduct(found);
-            navigate(location.pathname, { replace: true });
-          }
-        } catch (e) {
-          console.error("Deep link resolution failed", e);
-        }
-      };
-      fetchDeepLinkProduct();
-    }
-  }, [location.search, navigate]);
-
-  const handleLoginSuccess = (loggedInUser: User) => {
-    setUser(loggedInUser);
-    navigate(loggedInUser.role === 'customer' ? '/collection' : '/admin/dashboard');
-  };
 
   const handleLogout = () => {
     storeService.logout();
     setUser(null);
   };
 
-  const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff' || window.location.hash.includes('/admin');
+  const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff';
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'}`}>
@@ -144,9 +112,10 @@ function AppContent() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Landing />} />
-                <Route path="/collection" element={<Gallery onProductSelect={setActiveProduct} />} />
-                <Route path="/login" element={<CustomerLogin onLoginSuccess={handleLoginSuccess} />} />
-                <Route path="/staff" element={<StaffLogin onLoginSuccess={handleLoginSuccess} />} />
+                <Route path="/collection" element={<Gallery />} />
+                <Route path="/product/:id" element={<ProductDetails />} />
+                <Route path="/login" element={<CustomerLogin onLoginSuccess={(u) => { setUser(u); navigate('/collection'); }} />} />
+                <Route path="/staff" element={<StaffLogin onLoginSuccess={(u) => { setUser(u); navigate('/admin/dashboard'); }} />} />
                 <Route path="/admin/dashboard" element={<AuthGuard user={user} allowedRoles={['admin', 'contributor']}><AdminDashboard onNavigate={(p) => navigate(`/admin/${p}`)} /></AuthGuard>} />
                 <Route path="/admin/upload" element={<AuthGuard user={user} allowedRoles={['admin', 'contributor']}><UploadWizard /></AuthGuard>} />
                 <Route path="/admin/studio" element={<AuthGuard user={user} allowedRoles={['admin']}><DesignStudio /></AuthGuard>} />
@@ -156,12 +125,6 @@ function AppContent() {
             </Suspense>
         </ErrorBoundary>
       </main>
-
-      {activeProduct && (
-        <Suspense fallback={null}>
-          <ProductDetails initialProduct={activeProduct} productList={[]} onClose={() => setActiveProduct(null)} />
-        </Suspense>
-      )}
 
       <Navigation user={user} onLogout={handleLogout} />
     </div>
