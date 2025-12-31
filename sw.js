@@ -33,4 +33,25 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   // Bypassing main document fetch to prevent blank screen hangs on some server configs
-  if (request.mode === '
+  if (request.mode === 'navigate') return;
+
+  // Strategy for CDN Images: Cache First, then Network
+  if (CDN_IMAGE_REGEX.test(request.url)) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((res) => {
+          const cacheCopy = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
+          return res;
+        }).catch(() => null);
+      })
+    );
+    return;
+  }
+
+  // Default: Network First
+  event.respondWith(
+    fetch(request).catch(() => caches.match(request))
+  );
+});
