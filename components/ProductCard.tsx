@@ -56,12 +56,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
   };
 
-  const mainImage = product.images?.[currentImageIndex] || product.images?.[0];
+  // Optimization: Favor thumbnails in card view
+  const displayImage = product.thumbnails?.[currentImageIndex] || product.images?.[currentImageIndex] || product.images?.[0];
 
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all hover:shadow-md flex flex-col h-full cursor-pointer" onClick={onClick}>
       <div className="relative aspect-square overflow-hidden bg-stone-100 group/image">
-        <img src={mainImage} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" loading="lazy" />
+        <img src={displayImage} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" loading="lazy" />
         <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center">
             <Maximize2 className="text-white opacity-0 group-hover/image:opacity-100 transition-opacity drop-shadow-md" size={32} />
         </div>
@@ -80,7 +81,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
       </div>
       
       <div className="p-4 flex flex-col flex-grow">
-        <h3 className="font-serif text-lg text-stone-800 leading-tight mb-1">{product.title}</h3>
+        <h3 className="font-serif text-lg text-stone-800 leading-tight mb-1 truncate">{product.title}</h3>
         <div className="flex items-center flex-wrap gap-2 text-xs uppercase tracking-wide text-stone-500 mb-3">
           <span className="font-bold text-gold-600">{product.category}</span>
           <span className="text-stone-300">•</span>

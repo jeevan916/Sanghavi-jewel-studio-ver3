@@ -1,4 +1,3 @@
-
 import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
@@ -20,8 +19,8 @@ interface ErrorBoundaryState {
 /**
  * Global Error Boundary
  */
-// Fix: Use React.Component directly to ensure standard inheritance and property access for props and state
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Correctly extending Component from react to ensure 'props' is available on the instance
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   // Fix: Explicitly declare state as a class property for cleaner initialization
   state: ErrorBoundaryState = { hasError: false };
 
@@ -54,7 +53,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fix: props is now correctly recognized as existing on the ErrorBoundary instance
+    // Fix: props is correctly recognized as existing on the ErrorBoundary instance by extending Component
     return this.props.children;
   }
 }

@@ -161,6 +161,7 @@ export const UploadWizard: React.FC = () => {
     }
 
     try {
+      // Fix: Added missing thumbnails property to satisfy Product type
       const newProduct: Product = {
         id: Date.now().toString(),
         title: analysisData.title || 'Untitled',
@@ -170,6 +171,7 @@ export const UploadWizard: React.FC = () => {
         description: analysisData.description || '',
         tags: analysisData.tags || [],
         images: images,
+        thumbnails: images, // Use original images as thumbnails for single upload
         supplier: analysisData.supplier,
         uploadedBy: analysisData.uploadedBy,
         isHidden: false,

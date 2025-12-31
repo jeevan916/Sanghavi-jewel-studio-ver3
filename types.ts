@@ -8,6 +8,7 @@ export type Product = {
   description: string;
   tags: string[];
   images: string[];
+  thumbnails: string[]; // New: added for performance optimization
   supplier?: string;
   uploadedBy?: string;
   isHidden: boolean;

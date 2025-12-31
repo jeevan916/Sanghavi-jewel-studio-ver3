@@ -35,7 +35,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const newItems: QueueItem[] = files.map(file => ({
       id: Math.random().toString(36).substr(2, 9),
       file,
-      previewUrl: URL.createObjectURL(file), // Important: Must revoke later
+      previewUrl: URL.createObjectURL(file),
       status: 'pending',
       supplier,
       category,
@@ -70,11 +70,10 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   };
 
-  const fileToBase64 = (file: File, compress = true, maxWidth = 1600): Promise<string> => {
+  const processImage = (file: File, maxWidth = 1600, quality = 0.85): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        if (!compress) { resolve(event.target?.result as string); return; }
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
@@ -92,7 +91,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
             }
-            resolve(canvas.toDataURL('image/jpeg', 0.85));
+            resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.onerror = reject;
         img.src = event.target?.result as string;
@@ -107,7 +106,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (!item) return;
     updateQueueItem(id, { status: 'analyzing' }); 
     try {
-        const base64 = await fileToBase64(item.file);
+        const base64 = await processImage(item.file);
         const enhancedBase64 = await enhanceJewelryImage(base64.split(',')[1]);
         const enhancedUrl = `data:image/jpeg;base64,${enhancedBase64}`;
         if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
@@ -126,25 +125,35 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setIsProcessing(true);
       try {
         updateQueueItem(nextItem.id, { status: 'analyzing' });
-        const base64 = nextItem.previewUrl.startsWith('data:image') 
+        
+        // 1. Generate High Res version
+        const highRes = nextItem.previewUrl.startsWith('data:image') 
           ? nextItem.previewUrl 
-          : await fileToBase64(nextItem.file);
+          : await processImage(nextItem.file, 1600, 0.8);
+
+        // 2. Generate optimized Thumbnail for fast gallery loading
+        const thumbnail = await processImage(nextItem.file, 400, 0.6);
 
         let analysis = useAI 
-          ? await analyzeJewelryImage(base64.split(',')[1]) 
-          : { title: nextItem.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "), description: "Batch upload." };
+          ? await analyzeJewelryImage(highRes.split(',')[1]) 
+          : { title: '', description: "Batch upload." };
 
-        updateQueueItem(nextItem.id, { status: 'saving', productTitle: analysis.title });
+        // Better title fallback: Avoid raw numerical IDs in the UI
+        const readableId = `SJ-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        const finalTitle = analysis.title || nextItem.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ") || readableId;
+
+        updateQueueItem(nextItem.id, { status: 'saving', productTitle: finalTitle });
 
         const newProduct: Product = {
           id: Date.now().toString() + Math.random().toString().slice(2, 6),
-          title: analysis.title || 'Untitled',
+          title: finalTitle,
           category: nextItem.category || analysis.category || 'Other',
           subCategory: nextItem.subCategory || analysis.subCategory,
           weight: nextItem.weight || analysis.weight || 0,
           description: analysis.description || '',
           tags: analysis.tags || [],
-          images: [base64],
+          images: [highRes],
+          thumbnails: [thumbnail], // Dual-res support
           supplier: nextItem.supplier || 'Unknown',
           uploadedBy: currentUser?.name || 'Batch System',
           isHidden: false,
