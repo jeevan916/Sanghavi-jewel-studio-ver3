@@ -20,14 +20,10 @@ interface ErrorBoundaryState {
 /**
  * Global Error Boundary
  */
-// Fix: Use Component directly and remove override from state to fix inheritance errors
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly declare state as a class property and remove invalid override
-  public state: ErrorBoundaryState = { hasError: false };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
+// Fix: Use React.Component directly to ensure standard inheritance and property access for props and state
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly declare state as a class property for cleaner initialization
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -40,7 +36,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: Access state from this.state
+    // Fix: State is now correctly accessed via this.state
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -58,7 +54,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fix: Access children from this.props
+    // Fix: props is now correctly recognized as existing on the ErrorBoundary instance
     return this.props.children;
   }
 }

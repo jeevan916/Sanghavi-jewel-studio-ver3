@@ -32,6 +32,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescValue, setEditDescValue] = useState(product.description);
 
+  // Gesture Tracking
+  const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -133,8 +135,51 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
   const goToNext = () => { if (hasNext && !isAnimating) { setIsAnimating(true); setSlideDirection('left'); setTimeout(() => { setProduct(productList[currentIndex+1]); setSlideDirection(null); setIsAnimating(false); }, 300); } };
   const goToPrev = () => { if (hasPrev && !isAnimating) { setIsAnimating(true); setSlideDirection('right'); setTimeout(() => { setProduct(productList[currentIndex-1]); setSlideDirection(null); setIsAnimating(false); }, 300); } };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    const dx = touchEnd.x - touchStart.current.x;
+    const dy = touchEnd.y - touchStart.current.y;
+
+    // Detect horizontal swipe if larger than vertical movement
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        if (pendingEnhancedImage) return; // Disable swipe during comparison
+
+        // If swipe is on the image container, navigate images first
+        const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
+        if (isOnImage && product.images.length > 1) {
+            if (dx > 0) { // Swipe Right
+                if (currentImageIndex > 0) {
+                    setCurrentImageIndex(prev => prev - 1);
+                } else if (hasPrev) {
+                    goToPrev();
+                }
+            } else { // Swipe Left
+                if (currentImageIndex < product.images.length - 1) {
+                    setCurrentImageIndex(prev => prev + 1);
+                } else if (hasNext) {
+                    goToNext();
+                }
+            }
+        } else {
+            // General page swipe for navigation between products
+            if (dx > 0) goToPrev();
+            else goToNext();
+        }
+    }
+    touchStart.current = null;
+  };
+
   return (
-    <div className="fixed inset-0 z-40 bg-stone-50 overflow-y-auto animate-in slide-in-from-bottom-10 duration-300 pb-20">
+    <div 
+        className="fixed inset-0 z-40 bg-stone-50 overflow-y-auto animate-in slide-in-from-bottom-10 duration-300 pb-20"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+    >
       {showFullScreen && <ImageViewer images={product.images} initialIndex={currentImageIndex} title={product.title} onClose={() => setShowFullScreen(false)} />}
       {isManualEditing && <ImageEditor imageSrc={product.images[currentImageIndex]} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
 
@@ -145,8 +190,17 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
       </div>
 
       <div className={`transition-all duration-300 ease-out ${isAnimating ? (slideDirection === 'left' ? 'opacity-0 -translate-x-10' : 'opacity-0 translate-x-10') : 'opacity-100'}`}>
-          <div ref={imageContainerRef} className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none" onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}>
-            <img src={product.images[currentImageIndex]} className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`} onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} />
+          <div 
+            ref={imageContainerRef} 
+            className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none image-nav-container" 
+            onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}
+            onTouchMove={(e) => pendingEnhancedImage && handleSliderMove(e.touches[0].clientX)}
+          >
+            <img 
+                src={product.images[currentImageIndex]} 
+                className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`} 
+                onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} 
+            />
             
             {pendingEnhancedImage && (
                 <>
@@ -158,8 +212,20 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ initialProduct, 
 
             {!pendingEnhancedImage && product.images.length > 1 && (
                 <>
-                    <button onClick={goToPrev} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white"><ChevronLeft size={24}/></button>
-                    <button onClick={goToNext} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white"><ChevronRight size={24}/></button>
+                    {/* Navigation Arrows (Desktop Only) */}
+                    <button onClick={goToPrev} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white z-20"><ChevronLeft size={24}/></button>
+                    <button onClick={goToNext} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hidden md:block hover:bg-white z-20"><ChevronRight size={24}/></button>
+                    
+                    {/* Multi-angle Navigation Dots */}
+                    <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
+                        {product.images.map((_, idx) => (
+                            <button
+                                key={idx}
+                                onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
+                                className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-6 bg-gold-500 shadow-sm' : 'w-1.5 bg-white/60 hover:bg-white'}`}
+                            />
+                        ))}
+                    </div>
                 </>
             )}
           </div>
