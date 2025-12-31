@@ -21,7 +21,7 @@
       window.process = { env: { NODE_ENV: 'production' } };
     </script>
 
-    <!-- Corrected Import Map: Browser-only dependencies -->
+    <!-- Clean Import Map: Strictly Browser-side dependencies -->
     <script type="importmap">
 {
   "imports": {
@@ -30,18 +30,18 @@
     "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "express": "https://esm.sh/express@^5.2.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.0.0/",
+    "react/": "https://esm.sh/react@^19.0.0/",
+    "crypto": "https://esm.sh/crypto@^1.0.1",
     "path": "https://esm.sh/path@^0.12.7",
-    "fs/": "https://esm.sh/fs@^0.0.1-security/",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "express": "https://esm.sh/express@^5.2.1",
     "fs": "https://esm.sh/fs@^0.0.1-security",
+    "fs/": "https://esm.sh/fs@^0.0.1-security/",
     "cors": "https://esm.sh/cors@^2.8.5",
     "url": "https://esm.sh/url@^0.11.4",
-    "dotenv/": "https://esm.sh/dotenv@^17.2.3/",
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "crypto": "https://esm.sh/crypto@^1.0.1"
+    "dotenv/": "https://esm.sh/dotenv@^17.2.3/"
   }
 }
 </script>
@@ -89,9 +89,8 @@
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
     <script>
-      // Force clear splash screen if React takes too long (failsafe)
       window.addEventListener('load', () => {
-        setTimeout(() => document.body.classList.add('loaded'), 5000);
+        setTimeout(() => document.body.classList.add('loaded'), 500);
       });
     </script>
   </body>

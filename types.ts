@@ -8,7 +8,7 @@ export type Product = {
   description: string;
   tags: string[];
   images: string[];
-  thumbnails: string[]; // New: added for performance optimization
+  thumbnails: string[]; 
   supplier?: string;
   uploadedBy?: string;
   isHidden: boolean;
@@ -28,9 +28,7 @@ export type User = {
   id: string;
   name: string;
   role: UserRole;
-  email?: string;
   phone?: string;
-  picture?: string;
   location?: string;
   lastLogin?: string;
 };
@@ -84,7 +82,6 @@ export interface AnalyticsEvent {
   productTitle?: string;
   userId: string;
   userName: string;
-  userEmail?: string;
   userPhone?: string;
   location?: {
     lat: number;

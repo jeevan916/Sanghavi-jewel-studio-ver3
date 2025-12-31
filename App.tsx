@@ -1,4 +1,4 @@
-import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
@@ -16,13 +16,14 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-// Fix: Use React.Component explicitly to ensure TypeScript correctly identifies inherited properties like 'props' and 'state'.
+// Fix: Use React.Component specifically to ensure the compiler correctly identifies the props and state members as part of the class instance.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = {
+    hasError: false
+  };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = {
-      hasError: false
-    };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -35,7 +36,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Correctly accessing state inherited from React.Component
+    // Correctly accessing state inherited from Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -54,7 +55,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
     
-    // Correctly accessing props inherited from React.Component
+    // Correctly accessing props inherited from Component
     return this.props.children;
   }
 }
