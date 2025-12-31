@@ -87,7 +87,13 @@ export const storeService = {
   updateProduct: (product: Product) => apiFetch(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) }),
   deleteProduct: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
 
-  // Fix: Added getDesigns to fetch generated design history
+  getCustomers: async (): Promise<User[]> => {
+    try {
+      const data = await apiFetch('/customers');
+      return data || [];
+    } catch (e) { return []; }
+  },
+
   getDesigns: async (): Promise<GeneratedDesign[]> => {
     try {
       const data = await apiFetch('/designs');
@@ -95,10 +101,8 @@ export const storeService = {
     } catch (e) { return []; }
   },
 
-  // Fix: Added addDesign to save a new generated design
   addDesign: (design: GeneratedDesign) => apiFetch('/designs', { method: 'POST', body: JSON.stringify(design) }),
 
-  // Fix: Added getAnalytics to fetch usage statistics
   getAnalytics: async (): Promise<AnalyticsEvent[]> => {
     try {
       const data = await apiFetch('/analytics');
@@ -106,28 +110,24 @@ export const storeService = {
     } catch (e) { return []; }
   },
 
-  // Fix: Added loginWithWhatsApp for customer authentication
   loginWithWhatsApp: async (phone: string): Promise<User | null> => {
     const user = await apiFetch('/auth/whatsapp', { method: 'POST', body: JSON.stringify({ phone }) });
     if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
     return user;
   },
 
-  // Fix: Added loginWithGoogle for social authentication
   loginWithGoogle: async (credential: string): Promise<User | null> => {
     const user = await apiFetch('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
     if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
     return user;
   },
 
-  // Fix: Added login for staff authentication
   login: async (username: string, password: string): Promise<User | null> => {
     const user = await apiFetch('/auth/staff', { method: 'POST', body: JSON.stringify({ username, password }) });
     if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
     return user;
   },
 
-  // Fix: Added updateUserProfile to update local and remote user data
   updateUserProfile: (updates: Partial<User>): User | null => {
     const user = storeService.getCurrentUser();
     if (!user) return null;
@@ -137,24 +137,19 @@ export const storeService = {
     return updated;
   },
 
-  // Fix: Added createSharedLink to generate access tokens for items
   createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
     const data = await apiFetch('/links', { method: 'POST', body: JSON.stringify({ targetId, type }) });
     return `${window.location.origin}${window.location.pathname}#/shared/${data.token}`;
   },
 
-  // Fix: Added getStaff for admin personnel management
   getStaff: (): Promise<StaffAccount[]> => apiFetch('/staff'),
   
-  // Fix: Added addStaff to register new team members
   addStaff: (staff: Partial<StaffAccount>): Promise<StaffAccount> => 
     apiFetch('/staff', { method: 'POST', body: JSON.stringify(staff) }),
 
-  // Fix: Added updateStaff to modify account permissions or status
   updateStaff: (id: string, updates: Partial<StaffAccount>): Promise<StaffAccount> => 
     apiFetch(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
 
-  // Fix: Added deleteStaff to remove internal accounts
   deleteStaff: (id: string): Promise<void> => 
     apiFetch(`/staff/${id}`, { method: 'DELETE' }),
 
@@ -223,5 +218,13 @@ I'm interested in: ${product.title} (ID: #${product.id.slice(-6).toUpperCase()})
     storeService.logEvent('inquiry', product, null, imageIndex);
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
+  },
+
+  chatWithLead: (lead: User) => {
+      const phone = lead.phone?.replace(/\D/g, '');
+      if (!phone) return;
+      const message = `Hello ${lead.name}, thank you for visiting Sanghavi Jewel Studio. How can we assist you with your jewelry selection today?`;
+      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      window.open(waUrl, '_blank');
   }
 };

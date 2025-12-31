@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2, Cpu } from 'lucide-react';
 import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
@@ -161,7 +162,6 @@ export const UploadWizard: React.FC = () => {
     }
 
     try {
-      // Fix: Added missing thumbnails property to satisfy Product type
       const newProduct: Product = {
         id: Date.now().toString(),
         title: analysisData.title || 'Untitled',
@@ -171,7 +171,7 @@ export const UploadWizard: React.FC = () => {
         description: analysisData.description || '',
         tags: analysisData.tags || [],
         images: images,
-        thumbnails: images, // Use original images as thumbnails for single upload
+        thumbnails: images, 
         supplier: analysisData.supplier,
         uploadedBy: analysisData.uploadedBy,
         isHidden: false,
@@ -313,11 +313,15 @@ export const UploadWizard: React.FC = () => {
       {mode === 'single' && (
         <>
             {step === 1 && (
-                <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gold-300 rounded-2xl p-12 flex flex-col items-center justify-center bg-gold-50 cursor-pointer hover:bg-gold-100 transition h-80 group">
+                <div onClick={() => cameraInputRef.current?.click()} className="border-2 border-dashed border-gold-300 rounded-2xl p-12 flex flex-col items-center justify-center bg-gold-50 cursor-pointer hover:bg-gold-100 transition h-80 group">
                 <div className="p-4 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform mb-4"><Camera size={48} className="text-gold-500" /></div>
-                <p className="font-serif text-xl text-gold-800">Tap to Capture or Upload</p>
-                <p className="text-stone-500 mt-2 text-sm text-center">Support for multiple angles (Multi-select)</p>
+                <p className="font-serif text-xl text-gold-800">Tap to Capture from Camera</p>
+                <p className="text-stone-500 mt-2 text-sm text-center">Open your device's native high-res camera app</p>
+                <div className="mt-6 flex gap-4">
+                    <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="px-4 py-2 bg-white text-stone-600 border border-stone-200 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm hover:bg-stone-50">Or Upload from Files</button>
+                </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" multiple />
+                <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" capture="environment" />
                 </div>
             )}
             {step === 2 && (
@@ -330,7 +334,7 @@ export const UploadWizard: React.FC = () => {
                             {idx === 0 && <span className="absolute bottom-2 left-2 bg-gold-500 text-white text-[10px] px-2 py-0.5 rounded shadow-sm">Main</span>}
                         </div>
                     ))}
-                    <div onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center text-stone-400 cursor-pointer hover:bg-stone-50"><Plus size={24} /><span className="text-xs mt-1">Add More</span></div>
+                    <div onClick={() => cameraInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center text-stone-400 cursor-pointer hover:bg-stone-50"><Camera size={24} /><span className="text-xs mt-1">Capture More</span></div>
                 </div>
                 <div className="flex flex-col gap-4">
                     <button onClick={handleSingleEnhance} disabled={isEnhancing || images.length === 0} className={`w-full py-3 rounded-xl font-medium border border-gold-400 text-gold-700 flex items-center justify-center gap-2 transition-all ${isEnhancing ? 'bg-gold-50 opacity-70' : 'hover:bg-gold-50'}`}>{isEnhancing ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18} className="text-gold-500" />}{isEnhancing ? 'Processing...' : 'AI Studio Enhance'}</button>

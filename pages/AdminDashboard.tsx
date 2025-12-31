@@ -2,24 +2,25 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storeService } from '../services/storeService';
-import { Product, AnalyticsEvent } from '../types';
+import { Product, AnalyticsEvent, User } from '../types';
 import { 
   Loader2, Users, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, Unlock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, Save, FolderInput, Smartphone, Download, MessageCircle, LogOut
+  LayoutDashboard, FolderOpen, Save, FolderInput, Smartphone, Download, MessageCircle, LogOut, UserCheck
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files';
+type ViewMode = 'overview' | 'files' | 'leads';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState<ViewMode>('overview');
   const [products, setProducts] = useState<Product[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsEvent[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
@@ -37,8 +38,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     setLoading(true);
     const p = await storeService.getProducts();
     const a = await storeService.getAnalytics();
+    const c = await storeService.getCustomers();
     setProducts(p);
     setAnalytics(a);
+    setCustomers(c);
     setLoading(false);
   };
 
@@ -153,6 +156,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
             >
                 <FolderOpen size={16} /> Media Library
             </button>
+            <button 
+                onClick={() => setActiveView('leads')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${activeView === 'leads' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
+            >
+                <UserCheck size={16} /> Lead Capture
+            </button>
             <button onClick={() => onNavigate?.('settings')} className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-stone-500 hover:text-stone-700 transition-all whitespace-nowrap">
                 <Settings size={16} /> Settings
             </button>
@@ -172,7 +181,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
                     <div className="p-3 bg-green-50 text-green-600 rounded-xl"><MessageCircle size={24} /></div>
-                    <div><p className="text-stone-500 text-xs font-bold uppercase">Leads</p><p className="text-2xl font-bold text-stone-800">{analytics.filter(e => e.type === 'inquiry').length}</p></div>
+                    <div><p className="text-stone-500 text-xs font-bold uppercase">Leads</p><p className="text-2xl font-bold text-stone-800">{customers.length}</p></div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
                     <div className="p-3 bg-gold-50 text-gold-600 rounded-xl"><Download size={24} /></div>
@@ -294,6 +303,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                      )}
                  </div>
              </div>
+          </div>
+      )}
+
+      {activeView === 'leads' && (
+          <div className="flex-1 bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+              <div className="p-4 bg-stone-50 border-b border-stone-200 flex justify-between items-center">
+                  <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2"><UserCheck className="text-gold-600" /> Studio Lead Capture</h3>
+                  <div className="text-[10px] uppercase font-bold text-stone-400 tracking-widest">{customers.length} Registered Potential Leads</div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                   <table className="w-full text-sm text-left">
+                       <thead className="bg-stone-100 text-stone-500 uppercase text-[10px] font-bold tracking-widest border-b border-stone-200">
+                           <tr>
+                               <th className="p-4">Customer Name</th>
+                               <th className="p-4">WhatsApp Link</th>
+                               <th className="p-4">Registration Date</th>
+                               <th className="p-4 text-right">Action</th>
+                           </tr>
+                       </thead>
+                       <tbody className="divide-y divide-stone-100">
+                           {customers.map(lead => (
+                               <tr key={lead.id} className="hover:bg-gold-50/30 transition-colors">
+                                   <td className="p-4">
+                                       <div className="flex items-center gap-3">
+                                           <div className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center font-bold text-stone-400">{lead.name.charAt(0)}</div>
+                                           <div><p className="font-bold text-stone-800">{lead.name}</p><p className="text-xs text-stone-500 font-mono">{lead.phone}</p></div>
+                                       </div>
+                                   </td>
+                                   <td className="p-4">
+                                       <span className="text-stone-400 font-mono text-xs">{lead.phone || 'N/A'}</span>
+                                   </td>
+                                   <td className="p-4 text-stone-500 text-xs">
+                                       {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : 'Historical Data'}
+                                   </td>
+                                   <td className="p-4 text-right">
+                                       <button 
+                                          onClick={() => storeService.chatWithLead(lead)}
+                                          className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-sm hover:shadow-md"
+                                       >
+                                           <MessageCircle size={14} /> Start Chat
+                                       </button>
+                                   </td>
+                               </tr>
+                           ))}
+                           {customers.length === 0 && (
+                               <tr><td colSpan={4} className="p-20 text-center text-stone-400 font-serif text-lg">No customer leads captured yet.</td></tr>
+                           )}
+                       </tbody>
+                   </table>
+              </div>
           </div>
       )}
 

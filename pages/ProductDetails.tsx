@@ -21,7 +21,6 @@ export const ProductDetails: React.FC = () => {
   const isAuthorized = currentUser?.role === 'admin' || currentUser?.role === 'contributor';
   
   const [isAnimating, setIsAnimating] = useState(false);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
@@ -35,7 +34,6 @@ export const ProductDetails: React.FC = () => {
 
   const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -98,20 +96,6 @@ export const ProductDetails: React.FC = () => {
     }
   };
 
-  const handleAddImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-        const file = files[0];
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const base64 = ev.target?.result as string;
-            const newImages = [...product.images, base64];
-            handleUpdateProduct({ images: newImages });
-        };
-        reader.readAsDataURL(file);
-    }
-  };
-
   const handleManualSave = (newBase64: string) => {
       const updatedImages = [...product.images];
       updatedImages[currentImageIndex] = newBase64;
@@ -160,15 +144,11 @@ export const ProductDetails: React.FC = () => {
   };
 
   const goToNext = () => { 
-    if (hasNext && !isAnimating) { 
-        navigate(`/product/${productList[currentIndex+1].id}`);
-    } 
+    if (hasNext) navigate(`/product/${productList[currentIndex+1].id}`);
   };
   
   const goToPrev = () => { 
-    if (hasPrev && !isAnimating) { 
-        navigate(`/product/${productList[currentIndex-1].id}`);
-    } 
+    if (hasPrev) navigate(`/product/${productList[currentIndex-1].id}`);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -212,7 +192,7 @@ export const ProductDetails: React.FC = () => {
       {isManualEditing && <ImageEditor imageSrc={product.images[currentImageIndex]} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
 
       <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full"><ArrowLeft size={24} /></button>
+        <button onClick={() => navigate('/collection')} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full"><ArrowLeft size={24} /></button>
         <div className="flex-1 flex items-center gap-2 px-2 overflow-hidden">
             {product.isHidden && <Lock size={14} className="text-red-500 shrink-0" />}
             <h2 className="font-serif font-bold text-stone-800 text-lg truncate break-words">
@@ -280,7 +260,7 @@ export const ProductDetails: React.FC = () => {
                      <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2"><Lock size={12} /> Authorized Control</h3><button onClick={handleDeleteProduct} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase flex items-center gap-1"><Trash2 size={12}/> Delete</button></div>
                      <div className="flex gap-2 relative">
                         <button onClick={() => handleUpdateProduct({isHidden: !product.isHidden})} className={`flex-1 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 ${product.isHidden ? 'bg-red-500/20 text-red-200' : 'bg-stone-700'}`}>{product.isHidden ? <EyeOff size={16}/> : <Eye size={16}/>} {product.isHidden ? 'Private' : 'Public'}</button>
-                        <button onClick={async () => { const link = await storeService.createSharedLink(product.id, 'product'); setGeneratedLink(link); navigator.clipboard.writeText(link); }} className="flex-[2] py-2 bg-gold-600 text-white rounded text-sm font-medium flex items-center justify-center gap-2">{generatedLink ? 'Link Copied' : 'Generate Secret Link'}</button>
+                        <button onClick={async () => { const link = await storeService.createSharedLink(product.id, 'product'); setGeneratedLink(link); navigator.clipboard.writeText(link); }} className="flex-[2] py-2 bg-gold-600 text-white rounded-sm font-medium flex items-center justify-center gap-2">{generatedLink ? 'Link Copied' : 'Generate Secret Link'}</button>
                      </div>
 
                      <div className="flex gap-2">
