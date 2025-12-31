@@ -1,4 +1,3 @@
-
 import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
@@ -17,12 +16,15 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-// Fix: Extending the Component class from React with proper generic types to ensure 'this.state' and 'this.props' are correctly typed and available in the class.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Extending React.Component with explicit generic types and state declaration to resolve "Property 'state' does not exist" errors.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Explicitly declare state for compiler clarity
+  public state: ErrorBoundaryState = {
+    hasError: false
+  };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Initializing state correctly within the constructor
-    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -35,7 +37,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: Using 'this.state' which is now correctly recognized as existing on the ErrorBoundary type.
+    // Correctly accessing state via 'this.state'
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -53,7 +55,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fix: Using 'this.props' which is now correctly recognized as existing on the ErrorBoundary type.
+    // Correctly accessing props via 'this.props'
     return this.props.children;
   }
 }

@@ -56,8 +56,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
   };
 
-  // Optimization: Favor thumbnails in card view
-  const displayImage = product.thumbnails?.[currentImageIndex] || product.images?.[currentImageIndex] || product.images?.[0];
+  // Optimization: Favor thumbnails in card view. Paths are now server-relative.
+  const getImageUrl = (path: string) => {
+    if (!path) return '';
+    return path.startsWith('data:') || path.startsWith('http') ? path : `${window.location.origin}${path}`;
+  };
+
+  const displayImage = getImageUrl(product.thumbnails?.[currentImageIndex] || product.images?.[currentImageIndex] || product.images?.[0]);
 
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all hover:shadow-md flex flex-col h-full cursor-pointer" onClick={onClick}>
@@ -68,7 +73,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
         </div>
 
         {/* Action Overlays */}
-        <button onClick={handleToggleLike} className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur shadow-sm transition-all z-20 ${isLiked ? 'bg-red-500 text-white' : 'bg-white/70 text-stone-400 hover:text-red-500'}`}>
+        <button onClick={handleToggleLike} className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur shadow-sm transition-all z-20 ${isLiked ? 'bg-red-50 text-white' : 'bg-white/70 text-stone-400 hover:text-red-500'}`}>
             <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
         </button>
 
