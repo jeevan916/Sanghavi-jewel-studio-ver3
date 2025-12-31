@@ -20,10 +20,10 @@ interface ErrorBoundaryState {
 /**
  * Global Error Boundary
  */
-// Fix: Use React.Component with explicit generic types to resolve state and props property errors
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly declare state as a class property to satisfy TypeScript
-  public override state: ErrorBoundaryState = { hasError: false };
+// Fix: Use Component directly and remove override from state to fix inheritance errors
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly declare state as a class property and remove invalid override
+  public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
@@ -35,7 +35,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Sanghavi Studio Exception:", error, errorInfo);
-    // Ensure we hide the initial splash screen even on error
+    // Ensure we hide the splash screen even on error
     document.body.classList.add('loaded');
   }
 

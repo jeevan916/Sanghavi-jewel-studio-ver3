@@ -20,7 +20,7 @@ export interface HealthStatus {
     reason?: string;
 }
 
-async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 15000) {
+async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 10000) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), customTimeout);
     
@@ -36,6 +36,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeo
         
         clearTimeout(timeout);
         
+        if (response.status === 503) throw new Error('Server starting up or unavailable');
         if (response.status === 401) {
             storeService.logout();
             throw new Error('Session expired');
@@ -55,10 +56,10 @@ export const storeService = {
   
   checkServerHealth: async (): Promise<HealthStatus> => {
     try {
-        // Quick 3-second timeout for health checks to prevent boot hangs
         const data = await apiFetch('/health', {}, 3000);
         return { healthy: data.status === 'online' };
     } catch (e: any) {
+        console.warn('[Store] Health check failed:', e.message);
         return { healthy: false, reason: e.message };
     }
   },
@@ -86,6 +87,77 @@ export const storeService = {
   updateProduct: (product: Product) => apiFetch(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) }),
   deleteProduct: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
 
+  // Fix: Added getDesigns to fetch generated design history
+  getDesigns: async (): Promise<GeneratedDesign[]> => {
+    try {
+      const data = await apiFetch('/designs');
+      return data || [];
+    } catch (e) { return []; }
+  },
+
+  // Fix: Added addDesign to save a new generated design
+  addDesign: (design: GeneratedDesign) => apiFetch('/designs', { method: 'POST', body: JSON.stringify(design) }),
+
+  // Fix: Added getAnalytics to fetch usage statistics
+  getAnalytics: async (): Promise<AnalyticsEvent[]> => {
+    try {
+      const data = await apiFetch('/analytics');
+      return data || [];
+    } catch (e) { return []; }
+  },
+
+  // Fix: Added loginWithWhatsApp for customer authentication
+  loginWithWhatsApp: async (phone: string): Promise<User | null> => {
+    const user = await apiFetch('/auth/whatsapp', { method: 'POST', body: JSON.stringify({ phone }) });
+    if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
+    return user;
+  },
+
+  // Fix: Added loginWithGoogle for social authentication
+  loginWithGoogle: async (credential: string): Promise<User | null> => {
+    const user = await apiFetch('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
+    if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
+    return user;
+  },
+
+  // Fix: Added login for staff authentication
+  login: async (username: string, password: string): Promise<User | null> => {
+    const user = await apiFetch('/auth/staff', { method: 'POST', body: JSON.stringify({ username, password }) });
+    if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
+    return user;
+  },
+
+  // Fix: Added updateUserProfile to update local and remote user data
+  updateUserProfile: (updates: Partial<User>): User | null => {
+    const user = storeService.getCurrentUser();
+    if (!user) return null;
+    const updated = { ...user, ...updates };
+    localStorage.setItem(KEYS.SESSION, JSON.stringify(updated));
+    apiFetch('/auth/update', { method: 'POST', body: JSON.stringify(updated) }).catch(() => {});
+    return updated;
+  },
+
+  // Fix: Added createSharedLink to generate access tokens for items
+  createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
+    const data = await apiFetch('/links', { method: 'POST', body: JSON.stringify({ targetId, type }) });
+    return `${window.location.origin}${window.location.pathname}#/shared/${data.token}`;
+  },
+
+  // Fix: Added getStaff for admin personnel management
+  getStaff: (): Promise<StaffAccount[]> => apiFetch('/staff'),
+  
+  // Fix: Added addStaff to register new team members
+  addStaff: (staff: Partial<StaffAccount>): Promise<StaffAccount> => 
+    apiFetch('/staff', { method: 'POST', body: JSON.stringify(staff) }),
+
+  // Fix: Added updateStaff to modify account permissions or status
+  updateStaff: (id: string, updates: Partial<StaffAccount>): Promise<StaffAccount> => 
+    apiFetch(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+
+  // Fix: Added deleteStaff to remove internal accounts
+  deleteStaff: (id: string): Promise<void> => 
+    apiFetch(`/staff/${id}`, { method: 'DELETE' }),
+
   getConfig: async (): Promise<AppConfig> => {
     try {
       const data = await apiFetch('/config');
@@ -95,65 +167,9 @@ export const storeService = {
 
   saveConfig: (config: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(config) }),
 
-  getStaff: () => apiFetch('/staff'),
-  addStaff: (staff: Partial<StaffAccount>) => apiFetch('/staff', { method: 'POST', body: JSON.stringify(staff) }),
-  updateStaff: (id: string, updates: Partial<StaffAccount>) => apiFetch(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
-  deleteStaff: (id: string) => apiFetch(`/staff/${id}`, { method: 'DELETE' }),
-
   getCurrentUser: (): User | null => {
     const data = localStorage.getItem(KEYS.SESSION);
     return data ? JSON.parse(data) : null;
-  },
-
-  login: async (username: string, password: string): Promise<User | null> => {
-      const userData = await apiFetch('/login', {
-          method: 'POST',
-          body: JSON.stringify({ username, password })
-      });
-      localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
-      storeService.logEvent('login', undefined, userData);
-      return userData;
-  },
-
-  loginWithWhatsApp: async (phoneNumber: string): Promise<User | null> => {
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
-    try {
-      const userData = await apiFetch('/login-whatsapp', {
-          method: 'POST',
-          body: JSON.stringify({ phone: cleanPhone })
-      });
-      localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
-      storeService.logEvent('login', undefined, userData);
-      return userData;
-    } catch (e) { 
-      console.error('WhatsApp Login Store Error:', e);
-      throw e; 
-    }
-  },
-
-  loginWithGoogle: async (credential: string): Promise<User | null> => {
-    try {
-      const userData = await apiFetch('/login-google', {
-          method: 'POST',
-          body: JSON.stringify({ credential })
-      });
-      localStorage.setItem(KEYS.SESSION, JSON.stringify(userData));
-      storeService.logEvent('login', undefined, userData);
-      return userData;
-    } catch (e) { 
-      console.error('Google Login Store Error:', e);
-      return null; 
-    }
-  },
-
-  updateUserProfile: (updates: Partial<User>) => {
-    const current = storeService.getCurrentUser();
-    if (current) {
-      const updated = { ...current, ...updates };
-      localStorage.setItem(KEYS.SESSION, JSON.stringify(updated));
-      return updated;
-    }
-    return null;
   },
 
   logout: () => {
@@ -186,8 +202,6 @@ export const storeService = {
         productTitle: product?.title,
         userId: user ? user.id : 'Guest',
         userName: user ? user.name : 'Guest',
-        userEmail: user?.email,
-        userPhone: user?.phone,
         deviceName: navigator.userAgent,
         timestamp: new Date().toISOString(),
         imageIndex
@@ -197,49 +211,17 @@ export const storeService = {
     } catch (e) {}
   },
 
-  getAnalytics: () => apiFetch('/analytics'),
-  getDesigns: async (): Promise<GeneratedDesign[]> => {
-    const data = localStorage.getItem('sanghavi_designs');
-    return data ? JSON.parse(data) : [];
-  },
-
-  addDesign: async (design: GeneratedDesign) => {
-    const existing = await storeService.getDesigns();
-    const updated = [design, ...existing].slice(0, 50);
-    localStorage.setItem('sanghavi_designs', JSON.stringify(updated));
-    return design;
-  },
-
-  createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
-    const config = await storeService.getConfig();
-    const token = Math.random().toString(36).substring(2, 15);
-    const expiresAt = new Date(Date.now() + config.linkExpiryHours * 60 * 60 * 1000).toISOString();
-    const newLink = { id: Date.now().toString(), targetId, type, token, expiresAt };
-    await apiFetch('/links', { method: 'POST', body: JSON.stringify(newLink) });
-    return `${window.location.origin}${window.location.pathname}?id=${targetId}`;
-  },
-
   shareToWhatsApp: async (product: Product, imageIndex: number = 0) => {
     const config = await storeService.getConfig();
     const phone = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
     const productLink = `${window.location.origin}${window.location.pathname}#/collection?id=${product.id}`;
     const message = `*Hi Sanghavi Jewel Studio,*
 
-I'm interested in this jewelry piece:
-
-💎 *Title:* ${product.title}
-⚖️ *Weight:* ${product.weight}g
-🆔 *Product ID:* #${product.id.slice(-6).toUpperCase()}
-
-🔗 *View details in Studio:* ${productLink}
-
-Please provide more information about this design.`;
+I'm interested in: ${product.title} (ID: #${product.id.slice(-6).toUpperCase()})
+🔗 Link: ${productLink}`;
 
     storeService.logEvent('inquiry', product, null, imageIndex);
-    const waUrl = phone 
-      ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` 
-      : `https://wa.me/?text=${encodeURIComponent(message)}`;
-    
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
   }
 };

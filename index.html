@@ -6,26 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Sanghavi Jewel Studio | Bespoke Luxury</title>
     
-    <!-- Speed Optimizations: Preconnect to CDNs -->
+    <!-- Speed Optimizations -->
     <link rel="preconnect" href="https://esm.sh" crossorigin />
     <link rel="dns-prefetch" href="https://esm.sh" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     
     <!-- PWA & Mobile Meta -->
     <meta name="theme-color" content="#c68a36" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Sanghavi" />
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2611/2611152.png" />
 
-    <!-- Polyfill for process (Commonly needed for browser builds) -->
     <script>
-      window.process = window.process || { env: { NODE_ENV: 'production' } };
+      window.process = { env: { NODE_ENV: 'production' } };
     </script>
 
-    <!-- Configuration & Import Maps -->
+    <!-- Corrected Import Map: Browser-only dependencies -->
     <script type="importmap">
 {
   "imports": {
@@ -36,15 +32,15 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "cors": "https://esm.sh/cors@^2.8.5",
-    "path": "https://esm.sh/path@^0.12.7",
     "express": "https://esm.sh/express@^5.2.1",
+    "path": "https://esm.sh/path@^0.12.7",
+    "fs/": "https://esm.sh/fs@^0.0.1-security/",
+    "fs": "https://esm.sh/fs@^0.0.1-security",
+    "cors": "https://esm.sh/cors@^2.8.5",
     "url": "https://esm.sh/url@^0.11.4",
     "dotenv/": "https://esm.sh/dotenv@^17.2.3/",
-    "fs": "https://esm.sh/fs@^0.0.1-security",
-    "fs/": "https://esm.sh/fs@^0.0.1-security/"
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
@@ -72,113 +68,30 @@
     </script>
     <style>
       body { -webkit-tap-highlight-color: transparent; background-color: #fbf8f1; margin: 0; padding: 0; }
-      .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-      
       #initial-loader {
-        position: fixed;
-        inset: 0;
-        background: #fbf8f1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        transition: opacity 0.5s ease-out, visibility 0.5s;
+        position: fixed; inset: 0; background: #fbf8f1;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 9999; transition: opacity 0.5s ease-out;
       }
-      .splash-logo {
-        font-family: 'Playfair Display', serif;
-        font-size: 2.5rem;
-        color: #c68a36;
-        margin-bottom: 0.5rem;
-        opacity: 0;
-        animation: fadeInUp 0.8s ease-out forwards;
-      }
-      .splash-sub {
-        font-family: 'Inter', sans-serif;
-        font-size: 0.75rem;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        color: #d1a355;
-        opacity: 0;
-        animation: fadeInUp 0.8s ease-out 0.2s forwards;
-      }
-      .loading-bar-container {
-        width: 120px;
-        height: 2px;
-        background: #ebdbb2;
-        margin-top: 2rem;
-        position: relative;
-        overflow: hidden;
-        border-radius: 2px;
-      }
-      .loading-bar-progress {
-        position: absolute;
-        height: 100%;
-        width: 30%;
-        background: #c68a36;
-        left: -30%;
-        animation: loadingSlide 1.5s infinite ease-in-out;
-      }
-      #boot-emergency {
-        display: none;
-        margin-top: 2rem;
-        text-align: center;
-        animation: fadeInUp 0.5s ease-out forwards;
-      }
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes loadingSlide {
-        0% { left: -30%; }
-        100% { left: 100%; }
-      }
-      .loaded #initial-loader {
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-      }
+      .splash-logo { font-family: 'Playfair Display', serif; font-size: 2.5rem; color: #c68a36; }
+      .loading-bar-container { width: 120px; height: 2px; background: #ebdbb2; margin-top: 2rem; position: relative; overflow: hidden; }
+      .loading-bar-progress { position: absolute; height: 100%; width: 30%; background: #c68a36; left: -30%; animation: loadingSlide 1.5s infinite ease-in-out; }
+      @keyframes loadingSlide { 0% { left: -30%; } 100% { left: 100%; } }
+      .loaded #initial-loader { opacity: 0; visibility: hidden; pointer-events: none; }
     </style>
   </head>
   <body>
     <div id="initial-loader">
         <div class="splash-logo">Sanghavi</div>
-        <div class="splash-sub">Jewel Studio</div>
-        <div class="loading-bar-container">
-            <div class="loading-bar-progress"></div>
-        </div>
-        
-        <!-- Diagnostic fallback if JS fails to mount -->
-        <div id="boot-emergency" class="px-6">
-            <p class="text-[10px] text-stone-400 font-bold uppercase tracking-widest mb-4">Establishing Secure Vault Link...</p>
-            <button onclick="window.location.reload()" class="px-6 py-2 border border-gold-400 text-gold-600 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                Force Connection
-            </button>
-        </div>
+        <div class="loading-bar-container"><div class="loading-bar-progress"></div></div>
     </div>
-
     <div id="root"></div>
-    
-    <!-- Primary App Script -->
     <script type="module" src="./index.tsx"></script>
-    
     <script>
-      // Boot Watchdog
+      // Force clear splash screen if React takes too long (failsafe)
       window.addEventListener('load', () => {
-        // Give React a few seconds to initialize
-        setTimeout(() => {
-          if (!document.body.classList.contains('loaded')) {
-            const emergency = document.getElementById('boot-emergency');
-            if (emergency) emergency.style.display = 'block';
-            console.warn('[Sanghavi Studio] Boot sequence slow or interrupted.');
-          }
-        }, 4000);
+        setTimeout(() => document.body.classList.add('loaded'), 5000);
       });
-
-      // Global error tracker to hide loader if app crashes during boot
-      window.onerror = function() {
-        document.body.classList.add('loaded');
-      };
     </script>
   </body>
 </html>

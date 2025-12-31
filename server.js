@@ -16,8 +16,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 
-const persistenceDir = path.join(__dirname, 'data');
-const dbFile = path.join(persistenceDir, 'db.json');
+// Use a predictable path for the database file
+const persistenceDir = path.resolve(__dirname, 'data');
+const dbFile = path.resolve(persistenceDir, 'db.json');
 
 const DEFAULT_ADMIN = { 
     id: 'staff-root', 
@@ -36,120 +37,80 @@ const DEFAULT_CONFIG = {
     whatsappNumber: ''
 };
 
-let dbCache = null;
+// Fix: Extended dbCache to include all necessary data collections
+let dbCache = { products: [], analytics: [], config: DEFAULT_CONFIG, links: [], staff: [DEFAULT_ADMIN], designs: [], customers: [] };
 
 const initStorage = async () => {
     try {
         if (!existsSync(persistenceDir)) {
             await fs.mkdir(persistenceDir, { recursive: true });
+            console.log('[Server] Created data directory at:', persistenceDir);
         }
         
         if (!existsSync(dbFile)) {
-            dbCache = { products: [], analytics: [], config: DEFAULT_CONFIG, links: [], staff: [DEFAULT_ADMIN], customers: [] };
-            await saveDB();
+            await fs.writeFile(dbFile, JSON.stringify(dbCache, null, 2), 'utf8');
+            console.log('[Server] Initialized new db.json');
         } else {
             const fileContent = await fs.readFile(dbFile, 'utf8');
-            dbCache = JSON.parse(fileContent);
-            
-            dbCache.products = dbCache.products || [];
-            dbCache.analytics = dbCache.analytics || [];
-            dbCache.config = dbCache.config || DEFAULT_CONFIG;
-            dbCache.links = dbCache.links || [];
-            dbCache.staff = dbCache.staff || [DEFAULT_ADMIN];
-            dbCache.customers = dbCache.customers || [];
+            const parsed = JSON.parse(fileContent);
+            dbCache = { ...dbCache, ...parsed };
+            console.log('[Server] Loaded existing database');
         }
     } catch (err) {
-        console.error('CRITICAL: STORAGE INIT FAILED', err);
-        process.exit(1);
+        console.error('[Server] Storage initialization failed:', err);
     }
 };
 
 const saveDB = async () => {
     try {
-        const tempPath = `${dbFile}.tmp`;
-        await fs.writeFile(tempPath, JSON.stringify(dbCache, null, 2), 'utf8');
-        await fs.rename(tempPath, dbFile);
+        await fs.writeFile(dbFile, JSON.stringify(dbCache, null, 2), 'utf8');
     } catch (err) {
-        console.error('DB SAVE ERROR:', err);
+        console.error('[Server] DB Save Error:', err);
     }
 };
 
-await initStorage();
+// Start initialization
+initStorage();
 
-app.get('/api/health', (req, res) => res.json({ status: 'online', uptime: process.uptime() }));
+// Endpoints
+app.get('/api/health', (req, res) => res.json({ 
+    status: 'online', 
+    dbReady: existsSync(dbFile),
+    timestamp: new Date().toISOString() 
+}));
 
-app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
-    const staff = dbCache.staff.find(s => s.username === username && s.password === password);
-    if (!staff) return res.status(401).json({ error: 'Invalid credentials' });
-    if (!staff.isActive) return res.status(403).json({ error: 'Account disabled' });
-    res.json({ id: staff.id, name: staff.name, role: staff.role });
-});
+app.get('/api/products', (req, res) => res.json(dbCache.products || []));
 
-app.post('/api/login-whatsapp', async (req, res) => {
-    const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Phone number required' });
-    
-    let user = dbCache.customers.find(c => c.phone === phone);
-    
-    if (!user) {
-        user = {
-            id: 'cust-' + Math.random().toString(36).substr(2, 9),
-            name: 'Client ' + phone.slice(-4),
-            phone: phone,
-            role: 'customer',
-            lastLogin: new Date().toISOString()
-        };
-        dbCache.customers.push(user);
-    } else {
-        user.lastLogin = new Date().toISOString();
-    }
-    
-    await saveDB();
-    res.json(user);
-});
-
-// Fix: Added backend endpoint for Google login to support frontend storeService.loginWithGoogle calls.
-app.post('/api/login-google', async (req, res) => {
-    const { credential } = req.body;
-    if (!credential) return res.status(400).json({ error: 'Google credential required' });
-    
-    // Simulating user retrieval/creation from Google credentials
-    const mockId = 'google-' + Math.random().toString(36).substr(2, 9);
-    let user = {
-        id: mockId,
-        name: 'Google Studio User',
-        role: 'customer',
-        lastLogin: new Date().toISOString()
-    };
-    
-    dbCache.customers.push(user);
-    await saveDB();
-    res.json(user);
-});
-
-app.get('/api/products', (req, res) => res.json(dbCache.products));
 app.post('/api/products', async (req, res) => {
     dbCache.products.push(req.body);
     await saveDB();
     res.json(req.body);
 });
 
+// Fix: Added products update and delete endpoints
 app.put('/api/products/:id', async (req, res) => {
-    const idx = dbCache.products.findIndex(p => p.id === req.params.id);
-    if (idx !== -1) {
-        dbCache.products[idx] = req.body;
+    const index = dbCache.products.findIndex(p => p.id === req.params.id);
+    if (index !== -1) {
+        dbCache.products[index] = { ...dbCache.products[index], ...req.body };
         await saveDB();
-        res.json({ success: true });
+        res.json(dbCache.products[index]);
     } else {
-        res.status(404).json({ error: 'Not found' });
+        res.status(404).json({ error: 'Product not found' });
     }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
     dbCache.products = dbCache.products.filter(p => p.id !== req.params.id);
     await saveDB();
-    res.json({ success: true });
+    res.status(204).send();
+});
+
+// Fix: Added designs endpoints
+app.get('/api/designs', (req, res) => res.json(dbCache.designs || []));
+app.post('/api/designs', async (req, res) => {
+    dbCache.designs.push(req.body);
+    await saveDB();
+    res.json(req.body);
 });
 
 app.get('/api/config', (req, res) => res.json(dbCache.config));
@@ -159,16 +120,87 @@ app.post('/api/config', async (req, res) => {
     res.json(dbCache.config);
 });
 
-app.get('/api/staff', (req, res) => res.json(dbCache.staff.map(({password, ...s}) => s)));
-
+// Fix: Added analytics retrieval
+app.get('/api/analytics', (req, res) => res.json(dbCache.analytics || []));
 app.post('/api/analytics', async (req, res) => {
     dbCache.analytics.push(req.body);
     if (dbCache.analytics.length > 5000) dbCache.analytics.shift();
     await saveDB();
-    res.json({ success: true });
+    res.status(204).send();
 });
 
-const distPath = path.join(__dirname, 'dist');
+// Fix: Added staff management endpoints
+app.get('/api/staff', (req, res) => res.json(dbCache.staff || []));
+app.post('/api/staff', async (req, res) => {
+    const newStaff = { id: Date.now().toString(), ...req.body };
+    dbCache.staff.push(newStaff);
+    await saveDB();
+    res.json(newStaff);
+});
+app.put('/api/staff/:id', async (req, res) => {
+    const index = dbCache.staff.findIndex(s => s.id === req.params.id);
+    if (index !== -1) {
+        dbCache.staff[index] = { ...dbCache.staff[index], ...req.body };
+        await saveDB();
+        res.json(dbCache.staff[index]);
+    } else {
+        res.status(404).json({ error: 'Staff not found' });
+    }
+});
+app.delete('/api/staff/:id', async (req, res) => {
+    dbCache.staff = dbCache.staff.filter(s => s.id !== req.params.id);
+    await saveDB();
+    res.status(204).send();
+});
+
+// Fix: Added authentication endpoints
+app.post('/api/auth/whatsapp', async (req, res) => {
+    const { phone } = req.body;
+    let user = dbCache.customers.find(c => c.phone === phone);
+    if (!user) {
+        user = { id: Date.now().toString(), phone, name: 'Customer ' + phone.slice(-4), role: 'customer' };
+        dbCache.customers.push(user);
+        await saveDB();
+    }
+    res.json(user);
+});
+
+app.post('/api/auth/google', async (req, res) => {
+    const user = { id: 'google-' + Date.now(), name: 'Google User', role: 'customer' };
+    res.json(user);
+});
+
+app.post('/api/auth/staff', async (req, res) => {
+    const { username, password } = req.body;
+    const staff = dbCache.staff.find(s => s.username === username && s.password === password);
+    if (staff && staff.isActive) {
+        res.json(staff);
+    } else {
+        res.status(401).json({ error: 'Invalid credentials or inactive account' });
+    }
+});
+
+app.post('/api/auth/update', async (req, res) => {
+    const index = dbCache.customers.findIndex(c => c.id === req.body.id);
+    if (index !== -1) {
+        dbCache.customers[index] = { ...dbCache.customers[index], ...req.body };
+        await saveDB();
+        res.json(dbCache.customers[index]);
+    } else {
+        res.status(404).json({ error: 'User not found' });
+    }
+});
+
+// Fix: Added links management
+app.post('/api/links', async (req, res) => {
+    const link = { id: Date.now().toString(), ...req.body, token: Math.random().toString(36).substring(7) };
+    dbCache.links.push(link);
+    await saveDB();
+    res.json(link);
+});
+
+// Serve Frontend
+const distPath = path.resolve(__dirname, 'dist');
 if (existsSync(distPath)) {
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -178,4 +210,9 @@ if (existsSync(distPath)) {
     });
 }
 
-app.listen(PORT, () => console.log(`[ Sanghavi ] Optimized Server on port ${PORT}`));
+// Global error handler
+process.on('uncaughtException', (err) => {
+    console.error('[Server] Uncaught Exception:', err);
+});
+
+app.listen(PORT, () => console.log(`[Server] Sanghavi Studio active on port ${PORT}`));
