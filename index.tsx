@@ -9,17 +9,40 @@ if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual';
 }
 
-// Relative path registration for PWA functionality with origin check
+/**
+ * Service Worker Registration
+ * Resilient to origin mismatches in sandbox environments and 
+ * avoids 'Invalid URL' crashes by using defensive checks.
+ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Only attempt registration if we are on the same origin to avoid sandbox errors
-    const swUrl = new URL('./sw.js', window.location.href);
-    if (swUrl.origin === window.location.origin) {
-      navigator.serviceWorker.register('./sw.js').catch(err => {
-        console.warn('SW registration bypassed or failed: ', err.message);
-      });
-    } else {
-      console.debug('SW registration skipped: Origin mismatch in sandbox environment.');
+    try {
+      // Check if we are in a context where SW is likely to succeed
+      // (Secure origin or localhost)
+      const isLocalhost = Boolean(
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '[::1]' ||
+        window.location.hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/)
+      );
+
+      const isSecure = window.location.protocol === 'https:';
+
+      if (isSecure || isLocalhost) {
+        // We use a relative path. The browser will resolve it.
+        // We catch errors to prevent the entire app from crashing if registration fails.
+        navigator.serviceWorker
+          .register('./sw.js')
+          .then((registration) => {
+            console.debug('SW registered successfully:', registration.scope);
+          })
+          .catch((err) => {
+            // Silently fail or log a warning if SW is blocked by origin/security policy
+            console.warn('SW registration bypassed or failed: ', err.message);
+          });
+      }
+    } catch (e) {
+      // Absolute safety: ensure no error in this block crashes the main thread
+      console.error('Service Worker initialization error skipped:', e);
     }
   });
 }
