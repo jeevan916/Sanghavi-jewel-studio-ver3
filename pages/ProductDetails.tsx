@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, AppConfig, ProductSuggestion } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare, LogIn } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ImageEditor } from '../components/ImageEditor';
 import { storeService } from '../services/storeService';
@@ -19,6 +19,7 @@ export const ProductDetails: React.FC = () => {
   
   const [currentUser] = useState(storeService.getCurrentUser());
   const isAuthorized = currentUser?.role === 'admin' || currentUser?.role === 'contributor';
+  const isGuest = !currentUser;
   
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -199,6 +200,12 @@ export const ProductDetails: React.FC = () => {
   };
 
   const handleInquiry = async () => {
+      if (isGuest) {
+          if(confirm("To inquire about pricing and customization, please login.")) {
+              navigate('/login');
+          }
+          return;
+      }
       if (!product) return;
       await storeService.shareToWhatsApp(product, currentImageIndex);
   };
@@ -435,14 +442,22 @@ export const ProductDetails: React.FC = () => {
                  </div>
              )}
 
-             <div className="flex gap-4 border-b border-stone-100 pb-6"><button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white py-3.5 rounded-xl font-medium shadow-lg flex items-center justify-center gap-2 hover:bg-gold-700 transition-colors"><MessageCircle size={20} /> Inquire via WhatsApp</button></div>
+             <div className="flex gap-4 border-b border-stone-100 pb-6">
+                <button 
+                  onClick={handleInquiry} 
+                  className={`flex-1 py-3.5 rounded-xl font-medium shadow-lg flex items-center justify-center gap-2 transition-colors ${isGuest ? 'bg-stone-200 text-stone-500 hover:bg-stone-300' : 'bg-gold-600 text-white hover:bg-gold-700'}`}
+                >
+                  {isGuest ? <LogIn size={20} /> : <MessageCircle size={20} />} 
+                  {isGuest ? 'Login to Inquire' : 'Inquire via WhatsApp'}
+                </button>
+             </div>
 
              <div className="prose prose-stone">
                  <h3 className="text-sm font-bold text-stone-400 uppercase tracking-wider flex items-center justify-between gap-2 mb-2"><span className="flex items-center gap-2"><Info size={16} /> Description</span>{isAuthorized && <button onClick={() => { if(isEditingDescription) handleSaveDescription(); else setIsEditingDescription(true); }} className="p-1 hover:bg-stone-100 rounded text-gold-600 transition">{isEditingDescription ? <Check size={16} /> : <Edit2 size={16} />}</button>}</h3>
                  {isEditingDescription ? <div className="space-y-2"><textarea value={editDescValue} onChange={(e) => setEditDescValue(e.target.value)} className="w-full p-4 border border-gold-300 rounded-xl text-stone-700 min-h-[120px]" /><div className="flex justify-end gap-2"><button onClick={() => { setIsEditingDescription(false); setEditDescValue(product.description); }} className="px-4 py-1 text-xs text-stone-400 uppercase">Cancel</button><button onClick={handleSaveDescription} className="px-4 py-1 text-xs text-gold-600 border border-gold-200 rounded-lg">Apply</button></div></div> : <p className="text-stone-600 leading-relaxed text-lg font-light">{product.description}</p>}
              </div>
              
-             {/* Suggestion Box for Customers */}
+             {/* Suggestion Box for Customers (Hidden for guests) */}
              {!isAuthorized && currentUser && (
                  <div className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm mt-4">
                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Sparkles size={14} className="text-gold-500" /> Suggest Customization</h4>
