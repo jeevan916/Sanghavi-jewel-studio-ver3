@@ -2,6 +2,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import process from 'process';
 
 export default defineConfig(({ mode }) => {
   // Point loadEnv to the user-specified configuration directory

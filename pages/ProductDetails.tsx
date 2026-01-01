@@ -85,6 +85,31 @@ export const ProductDetails: React.FC = () => {
   const hasNext = currentIndex < productList.length - 1;
   const hasPrev = currentIndex > 0;
 
+  const createThumbnail = (base64: string, size = 1000): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > size) {
+          height *= size / width;
+          width = size;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = base64;
+    });
+  };
+
   const handleUpdateProduct = (updates: Partial<Product>) => {
       if (!product) return;
       const updatedProduct = { ...product, ...updates };
@@ -104,10 +129,22 @@ export const ProductDetails: React.FC = () => {
     }
   };
 
-  const handleManualSave = (newBase64: string) => {
+  const handleManualSave = async (newBase64: string) => {
       const updatedImages = [...productImages];
+      const updatedThumbs = [...productThumbnails];
+      
       updatedImages[currentImageIndex] = newBase64;
-      handleUpdateProduct({ images: updatedImages });
+      
+      // Generate and sync thumbnail
+      try {
+        const thumbBase64 = await createThumbnail(newBase64);
+        updatedThumbs[currentImageIndex] = thumbBase64;
+      } catch (e) {
+        // Fallback to full image if thumbnail generation fails
+        updatedThumbs[currentImageIndex] = newBase64;
+      }
+      
+      handleUpdateProduct({ images: updatedImages, thumbnails: updatedThumbs });
       setIsManualEditing(false);
   };
 
@@ -243,7 +280,25 @@ export const ProductDetails: React.FC = () => {
                 <>
                     <img src={pendingEnhancedImage} className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" style={{ clipPath: `inset(0 ${100 - compareSliderPos}% 0 0)`, imageRendering: '-webkit-optimize-contrast' }} />
                     <div className="absolute inset-y-0 w-1 bg-white z-20 cursor-col-resize shadow-lg flex items-center justify-center pointer-events-none" style={{ left: `${compareSliderPos}%` }}><div className="bg-white rounded-full p-1 shadow text-stone-900"><MoveHorizontal size={16} /></div></div>
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4"><button onClick={() => setPendingEnhancedImage(null)} className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl border border-stone-700 font-medium">Discard</button><button onClick={() => { const next = [...productImages]; next[currentImageIndex] = pendingEnhancedImage; handleUpdateProduct({ images: next }); setPendingEnhancedImage(null); }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button></div>
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4">
+                        <button onClick={() => setPendingEnhancedImage(null)} className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl border border-stone-700 font-medium">Discard</button>
+                        <button onClick={async () => { 
+                            const nextImgs = [...productImages]; 
+                            const nextThumbs = [...productThumbnails];
+                            
+                            nextImgs[currentImageIndex] = pendingEnhancedImage; 
+                            
+                            try {
+                              const thumbBase64 = await createThumbnail(pendingEnhancedImage);
+                              nextThumbs[currentImageIndex] = thumbBase64;
+                            } catch (e) {
+                              nextThumbs[currentImageIndex] = pendingEnhancedImage;
+                            }
+
+                            handleUpdateProduct({ images: nextImgs, thumbnails: nextThumbs }); 
+                            setPendingEnhancedImage(null); 
+                        }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button>
+                    </div>
                 </>
             )}
 

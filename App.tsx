@@ -17,8 +17,8 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-// Fixed: Explicitly extend React.Component to ensure props are correctly identified by the TypeScript compiler
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Explicitly extend Component from react and use named generic parameters to ensure 'props' is properly typed
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false
   };
@@ -36,7 +36,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
-          <div className="bg-red-50 p-8 rounded-3xl border border-red-100 flex flex-col items-center max-w-sm shadow-xl">
+          <div className="bg-red-50 p-8 rounded-3xl border border-red-100 flex flex-col items-center max-sm shadow-xl">
             <AlertTriangle className="text-red-500 mb-4" size={48} />
             <h1 className="font-serif text-2xl text-stone-900 mb-2">Studio Interrupted</h1>
             <p className="text-stone-500 mb-6 text-sm">A module failed to initialize. This is often due to a poor connection to the server vault.</p>
@@ -51,7 +51,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
     
-    // Fixed: Accessed children via this.props safely after standardizing the class definition
+    // Fixed: Accessed children via this.props safely after ensuring class extends Component correctly
     return this.props.children;
   }
 }
