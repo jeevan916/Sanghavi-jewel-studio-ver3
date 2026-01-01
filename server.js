@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-// Bind to 0.0.0.0 to allow access from other devices on the same network
+// In production/Hostinger, we bind to 0.0.0.0 to be accessible via the assigned port
 const HOST = '0.0.0.0';
 
 app.use(cors());
@@ -22,6 +22,7 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * 1. PHYSICAL PERSISTENCE SETUP
+ * Using a dedicated folder for uploads to ensure they survive deployments
  */
 const DATA_ROOT = path.resolve(__dirname, 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
@@ -35,48 +36,37 @@ app.use('/uploads', express.static(UPLOADS_ROOT));
 /**
  * 2. MYSQL CONNECTION CONFIG
  */
+const getDbHost = () => {
+    const rawHost = process.env.DB_HOST || 'localhost';
+    // CRITICAL: Hostinger/Linux environments often resolve 'localhost' to IPv6 '::1'.
+    // If we see 'localhost', we force '127.0.0.1' to ensure IPv4 connection matching MySQL user grants.
+    if (rawHost.toLowerCase() === 'localhost') return '127.0.0.1';
+    return rawHost;
+};
+
 const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'sanghavi_studio',
+    host: getDbHost(),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     waitForConnections: true,
-    connectionLimit: 20,
+    connectionLimit: 10,
     queueLimit: 0,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 10000,
-    connectTimeout: 20000
+    keepAliveInitialDelay: 10000
 };
 
 let pool;
 
 const initializeDatabase = async () => {
     try {
-        console.log('----------------------------------------------------');
-        console.log(`[MySQL] Initializing connection to: ${dbConfig.host}`);
-        console.log(`[MySQL] Target Database: ${dbConfig.database}`);
-
-        // Try direct connection
-        try {
-            pool = mysql.createPool(dbConfig);
-            await pool.query('SELECT 1');
-            console.log(`[MySQL] Connection established successfully.`);
-        } catch (initialError) {
-            // Auto-create for local XAMPP if database is missing
-            if (initialError.code === 'ER_BAD_DB_ERROR' && (dbConfig.host === 'localhost' || dbConfig.host === '127.0.0.1')) {
-                console.warn(`[MySQL] Database "${dbConfig.database}" not found locally. Provisioning...`);
-                const setupConn = await mysql.createConnection({
-                    host: dbConfig.host,
-                    user: dbConfig.user,
-                    password: dbConfig.password,
-                });
-                await setupConn.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
-                await setupConn.end();
-                pool = mysql.createPool(dbConfig);
-            } else {
-                throw initialError;
-            }
-        }
+        console.log(`[Production] Connecting to Vault at ${dbConfig.host}...`);
+        
+        pool = mysql.createPool(dbConfig);
+        
+        // Test connection immediately
+        await pool.query('SELECT 1');
+        console.log(`[Production] Vault Synchronized Successfully.`);
 
         const tables = [
             `CREATE TABLE IF NOT EXISTS products (
@@ -137,7 +127,9 @@ const initializeDatabase = async () => {
             )`
         ];
 
-        for (const query of tables) { await pool.query(query); }
+        for (const query of tables) { 
+            await pool.query(query); 
+        }
 
         const [rows] = await pool.query('SELECT count(*) as count FROM staff');
         if (rows[0].count === 0) {
@@ -145,14 +137,14 @@ const initializeDatabase = async () => {
                 'INSERT INTO staff (id, username, password, role, isActive, name, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 ['staff-root', 'admin', 'admin', 'admin', true, 'Sanghavi Admin', new Date()]
             );
-            console.log('[MySQL] Default credentials: admin / admin');
         }
 
-        console.log('[MySQL] Persistence Engine Ready.');
-        console.log(`[Vault] Listening on http://${HOST}:${PORT}`);
-        console.log('----------------------------------------------------');
+        console.log('[Production] Database Schema Verified.');
     } catch (err) {
-        console.error('[MySQL] FATAL:', err.message);
+        console.error('[Production] Database Initialization Failed:', err.message);
+        if (err.code === 'ER_ACCESS_DENIED_ERROR') {
+            console.error('TIP: On Hostinger, ensure the MySQL user has permissions for 127.0.0.1.');
+        }
     }
 };
 
@@ -195,99 +187,133 @@ const processMedia = async (data) => {
  */
 app.get('/api/health', async (req, res) => {
     try {
+        if (!pool) throw new Error('Database not initialized');
         await pool.query('SELECT 1');
-        res.json({ status: 'online', database: 'connected', vault: 'active' });
-    } catch (e) { res.status(503).json({ status: 'offline' }); }
+        res.json({ status: 'online', database: 'connected' });
+    } catch (e) { 
+        res.status(503).json({ status: 'offline', error: e.message }); 
+    }
 });
 
 app.get('/api/products', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/products', async (req, res) => {
-    const p = await processMedia(req.body);
-    const query = `INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    await pool.query(query, [p.id, p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, new Date(p.createdAt), p.dateTaken, JSON.stringify(p.meta)]);
-    res.json(p);
+    try {
+        const p = await processMedia(req.body);
+        const query = `INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        await pool.query(query, [p.id, p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, new Date(p.createdAt), p.dateTaken, JSON.stringify(p.meta)]);
+        res.json(p);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/products/:id', async (req, res) => {
-    const p = await processMedia(req.body);
-    const query = `UPDATE products SET title=?, category=?, subCategory=?, weight=?, description=?, tags=?, images=?, thumbnails=?, supplier=?, uploadedBy=?, isHidden=?, dateTaken=?, meta=? WHERE id=?`;
-    await pool.query(query, [p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, p.dateTaken, JSON.stringify(p.meta), req.params.id]);
-    res.json(p);
+    try {
+        const p = await processMedia(req.body);
+        const query = `UPDATE products SET title=?, category=?, subCategory=?, weight=?, description=?, tags=?, images=?, thumbnails=?, supplier=?, uploadedBy=?, isHidden=?, dateTaken=?, meta=? WHERE id=?`;
+        await pool.query(query, [p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, p.dateTaken, JSON.stringify(p.meta), req.params.id]);
+        res.json(p);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
-    await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
-    res.status(204).send();
+    try {
+        await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+        res.status(204).send();
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/config', async (req, res) => {
-    const [rows] = await pool.query('SELECT data FROM app_config WHERE id = 1');
-    res.json(rows[0]?.data || {});
+    try {
+        const [rows] = await pool.query('SELECT data FROM app_config WHERE id = 1');
+        res.json(rows[0]?.data || {});
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/config', async (req, res) => {
-    await pool.query('INSERT INTO app_config (id, data) VALUES (1, ?) ON DUPLICATE KEY UPDATE data = ?', [JSON.stringify(req.body), JSON.stringify(req.body)]);
-    res.json(req.body);
+    try {
+        await pool.query('INSERT INTO app_config (id, data) VALUES (1, ?) ON DUPLICATE KEY UPDATE data = ?', [JSON.stringify(req.body), JSON.stringify(req.body)]);
+        res.json(req.body);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/auth/whatsapp', async (req, res) => {
-    const { phone } = req.body;
-    const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
-    if (rows.length > 0) return res.json(rows[0]);
-    const user = { id: Date.now().toString(), phone, name: 'Client ' + phone.slice(-4), role: 'customer', createdAt: new Date() };
-    await pool.query('INSERT INTO customers (id, phone, name, role, createdAt) VALUES (?, ?, ?, ?, ?)', [user.id, user.phone, user.name, user.role, user.createdAt]);
-    res.json(user);
+    try {
+        const { phone } = req.body;
+        const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
+        if (rows.length > 0) return res.json(rows[0]);
+        const user = { id: Date.now().toString(), phone, name: 'Client ' + phone.slice(-4), role: 'customer', createdAt: new Date() };
+        await pool.query('INSERT INTO customers (id, phone, name, role, createdAt) VALUES (?, ?, ?, ?, ?)', [user.id, user.phone, user.name, user.role, user.createdAt]);
+        res.json(user);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/auth/staff', async (req, res) => {
-    const { username, password } = req.body;
-    const [rows] = await pool.query('SELECT * FROM staff WHERE username = ? AND password = ? AND isActive = 1', [username, password]);
-    if (rows.length > 0) res.json(rows[0]);
-    else res.status(401).json({ error: 'Access Denied' });
+    try {
+        const { username, password } = req.body;
+        const [rows] = await pool.query('SELECT * FROM staff WHERE username = ? AND password = ? AND isActive = 1', [username, password]);
+        if (rows.length > 0) res.json(rows[0]);
+        else res.status(401).json({ error: 'Access Denied' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/staff', async (req, res) => {
-    const [rows] = await pool.query('SELECT id, username, role, isActive, name, createdAt FROM staff');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT id, username, role, isActive, name, createdAt FROM staff');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/designs', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM designs ORDER BY createdAt DESC');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT * FROM designs ORDER BY createdAt DESC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/designs', async (req, res) => {
-    const clean = await processMedia(req.body);
-    await pool.query('INSERT INTO designs (id, imageUrl, prompt, aspectRatio, createdAt) VALUES (?, ?, ?, ?, ?)', [clean.id, clean.imageUrl, clean.prompt, clean.aspectRatio, new Date(clean.createdAt)]);
-    res.json(clean);
+    try {
+        const clean = await processMedia(req.body);
+        await pool.query('INSERT INTO designs (id, imageUrl, prompt, aspectRatio, createdAt) VALUES (?, ?, ?, ?, ?)', [clean.id, clean.imageUrl, clean.prompt, clean.aspectRatio, new Date(clean.createdAt)]);
+        res.json(clean);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/analytics', async (req, res) => {
-    const e = req.body;
-    await pool.query('INSERT INTO analytics (id, type, productId, productTitle, userId, userName, deviceName, timestamp, imageIndex) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [e.id, e.type, e.productId, e.productTitle, e.userId, e.userName, e.deviceName, new Date(e.timestamp), e.imageIndex]);
-    res.status(204).send();
+    try {
+        const e = req.body;
+        await pool.query('INSERT INTO analytics (id, type, productId, productTitle, userId, userName, deviceName, timestamp, imageIndex) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [e.id, e.type, e.productId, e.productTitle, e.userId, e.userName, e.deviceName, new Date(e.timestamp), e.imageIndex]);
+        res.status(204).send();
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/analytics', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/customers', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM customers ORDER BY createdAt DESC');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT * FROM customers ORDER BY createdAt DESC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Serve frontend in production
 const distPath = path.resolve(__dirname, 'dist');
 if (existsSync(distPath)) {
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) res.sendFile(path.join(distPath, 'index.html'));
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+            res.sendFile(path.join(distPath, 'index.html'));
+        }
     });
 }
 
-app.listen(PORT, HOST, () => console.log(`[Vault Server] Listening on http://${HOST}:${PORT}`));
+app.listen(PORT, HOST, () => console.log(`[Production Server] Listening on http://${HOST}:${PORT}`));

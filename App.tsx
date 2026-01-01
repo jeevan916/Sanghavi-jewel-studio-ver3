@@ -1,4 +1,3 @@
-
 import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
@@ -17,9 +16,14 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-// Fix: Use explicitly imported Component and apply ErrorBoundaryProps/State as generics to ensure 'props' and 'state' are correctly typed and inherited.
+// Fix: Use explicit Component import and property initializer for state to resolve TS accessibility issues
+/**
+ * Standard React Error Boundary.
+ * Handles UI failures gracefully by showing a fallback screen.
+ */
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = {
+  // Fix: Property initialization ensures the compiler recognizes 'state' on this class
+  public state: ErrorBoundaryState = {
     hasError: false
   };
 
@@ -33,6 +37,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
+    // Fix: Access hasError from this.state which is now explicitly recognized by the compiler
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -51,7 +56,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
     
-    // Fix: Correctly access children through this.props which is now available via Component inheritance.
+    // Fix: Access children via this.props which is inherited from Component
     return this.props.children;
   }
 }
