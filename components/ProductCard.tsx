@@ -75,6 +75,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
             src={displayImage} 
             alt={product.title} 
             className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" 
+            style={{ imageRendering: '-webkit-optimize-contrast' }}
             loading="lazy" 
             onError={(e) => {
               const target = e.target as HTMLImageElement;

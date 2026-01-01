@@ -227,6 +227,7 @@ export const ProductDetails: React.FC = () => {
               <img 
                 src={displayPreview} 
                 className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`} 
+                style={{ imageRendering: '-webkit-optimize-contrast' }}
                 onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} 
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
@@ -239,7 +240,7 @@ export const ProductDetails: React.FC = () => {
             
             {pendingEnhancedImage && (
                 <>
-                    <img src={pendingEnhancedImage} className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" style={{ clipPath: `inset(0 ${100 - compareSliderPos}% 0 0)` }} />
+                    <img src={pendingEnhancedImage} className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" style={{ clipPath: `inset(0 ${100 - compareSliderPos}% 0 0)`, imageRendering: '-webkit-optimize-contrast' }} />
                     <div className="absolute inset-y-0 w-1 bg-white z-20 cursor-col-resize shadow-lg flex items-center justify-center pointer-events-none" style={{ left: `${compareSliderPos}%` }}><div className="bg-white rounded-full p-1 shadow text-stone-900"><MoveHorizontal size={16} /></div></div>
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4"><button onClick={() => setPendingEnhancedImage(null)} className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl border border-stone-700 font-medium">Discard</button><button onClick={() => { const next = [...productImages]; next[currentImageIndex] = pendingEnhancedImage; handleUpdateProduct({ images: next }); setPendingEnhancedImage(null); }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button></div>
                 </>

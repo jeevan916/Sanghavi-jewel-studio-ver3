@@ -131,14 +131,13 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           ? nextItem.previewUrl 
           : await processImage(nextItem.file, 1600, 0.8);
 
-        // 2. Generate optimized Thumbnail for fast gallery loading
-        const thumbnail = await processImage(nextItem.file, 400, 0.6);
+        // 2. Generate optimized Thumbnail - Improved quality parameters
+        const thumbnail = await processImage(nextItem.file, 800, 0.8);
 
         let analysis = useAI 
           ? await analyzeJewelryImage(highRes.split(',')[1]) 
           : { title: '', description: "Batch upload." };
 
-        // Better title fallback: Avoid raw numerical IDs in the UI
         const readableId = `SJ-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
         const finalTitle = analysis.title || nextItem.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ") || readableId;
 
@@ -153,7 +152,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           description: analysis.description || '',
           tags: analysis.tags || [],
           images: [highRes],
-          thumbnails: [thumbnail], // Dual-res support
+          thumbnails: [thumbnail], // High-quality 800px thumbnail
           supplier: nextItem.supplier || 'Unknown',
           uploadedBy: currentUser?.name || 'Batch System',
           isHidden: false,
