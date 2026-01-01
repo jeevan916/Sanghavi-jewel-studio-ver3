@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Product, QueueItem } from '../types';
-import { analyzeJewelryImage, removeWatermark, enhanceJewelryImage } from '../services/geminiService';
+import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
 
 interface UploadContextType {
@@ -70,7 +70,12 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   };
 
-  const processImage = (file: File, maxWidth = 1600, quality = 0.85): Promise<string> => {
+  /**
+   * 3G Optimized Image Processor
+   * High Res: 2200px @ 0.82 quality (Progressive)
+   * Thumbnail: 1000px @ 0.82 quality
+   */
+  const processImage = (file: File, maxWidth = 2200, quality = 0.82): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -91,6 +96,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
             }
+            // Generate progressive JPEG base64
             resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.onerror = reject;
@@ -106,7 +112,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (!item) return;
     updateQueueItem(id, { status: 'analyzing' }); 
     try {
-        const base64 = await processImage(item.file);
+        const base64 = await processImage(item.file, 2200);
         const enhancedBase64 = await enhanceJewelryImage(base64.split(',')[1]);
         const enhancedUrl = `data:image/jpeg;base64,${enhancedBase64}`;
         if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
@@ -126,41 +132,38 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         updateQueueItem(nextItem.id, { status: 'analyzing' });
         
-        // 1. Generate High Res version
         const highRes = nextItem.previewUrl.startsWith('data:image') 
           ? nextItem.previewUrl 
-          : await processImage(nextItem.file, 1600, 0.8);
+          : await processImage(nextItem.file, 2200);
 
-        // 2. Generate optimized Thumbnail - Improved quality parameters
-        const thumbnail = await processImage(nextItem.file, 800, 0.8);
+        const thumbnail = await processImage(nextItem.file, 1000);
 
         let analysis = useAI 
           ? await analyzeJewelryImage(highRes.split(',')[1]) 
-          : { title: '', description: "Batch upload." };
+          : { title: '', description: "Vault Input." };
 
-        const readableId = `SJ-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        const finalTitle = analysis.title || nextItem.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ") || readableId;
+        const finalTitle = analysis.title || nextItem.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ") || `SJ-${Date.now().toString().slice(-6)}`;
 
         updateQueueItem(nextItem.id, { status: 'saving', productTitle: finalTitle });
 
         const newProduct: Product = {
           id: Date.now().toString() + Math.random().toString().slice(2, 6),
           title: finalTitle,
-          category: nextItem.category || analysis.category || 'Other',
+          category: nextItem.category || analysis.category || 'Legacy',
           subCategory: nextItem.subCategory || analysis.subCategory,
           weight: nextItem.weight || analysis.weight || 0,
           description: analysis.description || '',
           tags: analysis.tags || [],
           images: [highRes],
-          thumbnails: [thumbnail], // High-quality 800px thumbnail
-          supplier: nextItem.supplier || 'Unknown',
-          uploadedBy: currentUser?.name || 'Batch System',
+          thumbnails: [thumbnail],
+          supplier: nextItem.supplier || 'Internal',
+          uploadedBy: currentUser?.name || 'Mobile User',
           isHidden: false,
           createdAt: new Date().toISOString(),
           dateTaken: new Date().toISOString().split('T')[0],
           meta: { 
-              cameraModel: nextItem.device || 'Unknown',
-              deviceManufacturer: nextItem.manufacturer || 'Unknown'
+              cameraModel: nextItem.device || 'Mobile',
+              deviceManufacturer: nextItem.manufacturer || 'Sanghavi'
           }
         };
 

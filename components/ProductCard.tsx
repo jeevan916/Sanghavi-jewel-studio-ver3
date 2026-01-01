@@ -50,9 +50,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     }
   };
 
-  /**
-   * Resolves local relative paths to full absolute URLs
-   */
   const getImageUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('data:') || path.startsWith('http')) return path;
@@ -61,6 +58,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     return `${origin}${cleanPath}`;
   };
 
+  // High-Quality Logic: Prefer high-res thumbnails
   const displayImage = getImageUrl(
     productThumbnails[currentImageIndex] || 
     productImages[currentImageIndex] || 
@@ -75,11 +73,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
             src={displayImage} 
             alt={product.title} 
             className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" 
-            style={{ imageRendering: '-webkit-optimize-contrast' }}
+            style={{ 
+                imageRendering: '-webkit-optimize-contrast',
+                backfaceVisibility: 'hidden'
+            }}
             loading="lazy" 
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              // Attempt fallback to full res if thumb fails
               if (productImages[currentImageIndex] && target.src !== getImageUrl(productImages[currentImageIndex])) {
                  target.src = getImageUrl(productImages[currentImageIndex]);
               }
@@ -108,16 +108,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
       </div>
       
       <div className="p-4 flex flex-col flex-grow">
-        <h3 className="font-serif text-lg text-stone-800 leading-tight mb-1 truncate">{product.title}</h3>
-        <div className="flex items-center flex-wrap gap-2 text-xs uppercase tracking-wide text-stone-500 mb-3">
-          <span className="font-bold text-gold-600">{product.category}</span>
+        <h3 className="font-serif text-lg text-stone-800 leading-tight mb-1 truncate font-bold">{product.title}</h3>
+        <div className="flex items-center flex-wrap gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-500 mb-3 font-bold">
+          <span className="text-gold-600">{product.category}</span>
           <span className="text-stone-300">•</span>
-          <span>{product.weight}g</span>
+          <span>{product.weight}G</span>
         </div>
-        <p className="text-stone-600 text-sm line-clamp-2 mb-4 font-light">{product.description}</p>
+        <p className="text-stone-600 text-sm line-clamp-2 mb-4 font-light leading-relaxed">{product.description}</p>
 
         <div className="flex gap-2 mt-auto">
-          <button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white text-sm py-2 px-4 rounded-lg hover:bg-gold-700 transition flex items-center justify-center gap-2 font-bold"><MessageCircle size={16} /> Inquire</button>
+          <button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white text-xs py-2.5 px-4 rounded-lg hover:bg-gold-700 transition flex items-center justify-center gap-2 font-bold uppercase tracking-widest"><MessageCircle size={14} /> Inquire</button>
           <button onClick={(e) => { e.stopPropagation(); navigator.share?.({ title: product.title, url: window.location.href }); }} className="p-2 text-stone-400 hover:text-gold-600 border border-stone-200 rounded-lg"><Share2 size={18} /></button>
         </div>
       </div>

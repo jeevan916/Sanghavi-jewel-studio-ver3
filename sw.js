@@ -1,6 +1,6 @@
 
-const CACHE_NAME = 'sanghavi-v3-prod';
-const CDN_IMAGE_REGEX = /cloudinary|imgix|hostinger|googleusercontent|cdn-icons-png/;
+const CACHE_NAME = 'sanghavi-v4-3g-opt';
+const CDN_IMAGE_REGEX = /cloudinary|imgix|hostinger|googleusercontent|cdn-icons-png|uploads/;
 
 const STATIC_ASSETS = [
   './',
@@ -29,28 +29,27 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Bypass API calls entirely
+  // Skip API calls for SW caching
   if (url.pathname.startsWith('/api/')) return;
 
-  // Bypassing main document fetch to prevent blank screen hangs on some server configs
-  if (request.mode === 'navigate') return;
-
-  // Strategy for CDN Images: Cache First, then Network
-  if (CDN_IMAGE_REGEX.test(request.url)) {
+  // Optimized for 3G: Stale-While-Revalidate for UI and Images
+  if (CDN_IMAGE_REGEX.test(request.url) || STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((res) => {
-          const cacheCopy = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
-          return res;
-        }).catch(() => null);
+        const fetchPromise = fetch(request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const cacheCopy = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
+          }
+          return networkResponse;
+        });
+        return cached || fetchPromise;
       })
     );
     return;
   }
 
-  // Default: Network First
+  // Fallback: Network with Cache Fallback
   event.respondWith(
     fetch(request).catch(() => caches.match(request))
   );

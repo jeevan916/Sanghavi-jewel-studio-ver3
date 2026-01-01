@@ -191,7 +191,8 @@ export const ProductDetails: React.FC = () => {
       return `${origin}${cleanPath}`;
   };
 
-  const displayPreview = getFullUrl(productThumbnails[currentImageIndex] || productImages[currentImageIndex]);
+  // Optimization: Prioritize the high-res image (productImages) over the thumbnail (productThumbnails) for the details hero.
+  const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
 
   return (
     <div 
@@ -231,8 +232,8 @@ export const ProductDetails: React.FC = () => {
                 onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} 
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  if (productImages[currentImageIndex] && target.src !== getFullUrl(productImages[currentImageIndex])) {
-                     target.src = getFullUrl(productImages[currentImageIndex]);
+                  if (productThumbnails[currentImageIndex] && target.src !== getFullUrl(productThumbnails[currentImageIndex])) {
+                     target.src = getFullUrl(productThumbnails[currentImageIndex]);
                   }
                 }}
               />
