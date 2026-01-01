@@ -36,6 +36,7 @@ export const ProductDetails: React.FC = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [isDisliked, setIsDisliked] = useState(false);
   const [isOwned, setIsOwned] = useState(false);
+  const [isRequested, setIsRequested] = useState(false);
   const [suggestionText, setSuggestionText] = useState('');
   const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
@@ -61,6 +62,7 @@ export const ProductDetails: React.FC = () => {
           setIsLiked(storeService.getLikes().includes(found.id));
           setIsDisliked(storeService.getDislikes().includes(found.id));
           setIsOwned(storeService.getOwned().includes(found.id));
+          setIsRequested(storeService.getRequested().includes(found.id));
           
           // Parallel fetch for secondary data
           const [productStats, suggestionsList] = await Promise.all([
@@ -217,9 +219,17 @@ export const ProductDetails: React.FC = () => {
           return;
       }
       if (!product) return;
-      // Optimistic update for "Will Buy" / Inquiry
-      setStats(prev => ({...prev, inquiry: prev.inquiry + 1}));
-      await storeService.shareToWhatsApp(product, currentImageIndex);
+      
+      // Update local requested state
+      const requested = storeService.toggleRequested(product.id);
+      setIsRequested(requested);
+
+      // Optimistic update for "Will Buy" / Inquiry count
+      setStats(prev => ({...prev, inquiry: requested ? prev.inquiry + 1 : Math.max(0, prev.inquiry - 1)}));
+      
+      if (requested) {
+          await storeService.shareToWhatsApp(product, currentImageIndex);
+      }
   };
 
   const handleMarkAsSold = async () => {
@@ -412,17 +422,6 @@ export const ProductDetails: React.FC = () => {
                     ))}
                 </div>
             )}
-            
-            {!pendingEnhancedImage && (
-                <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
-                    <button onClick={toggleLike} className={`p-3 rounded-full backdrop-blur shadow-sm transition-all ${isLiked ? 'bg-red-500 text-white' : 'bg-white/70 text-stone-400 hover:text-red-500'}`}>
-                         <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
-                    </button>
-                    <button onClick={toggleDislike} className={`p-3 rounded-full backdrop-blur shadow-sm transition-all ${isDisliked ? 'bg-stone-800 text-white' : 'bg-white/70 text-stone-400 hover:text-stone-800'}`}>
-                         <ThumbsDown size={20} fill={isDisliked ? "currentColor" : "none"} />
-                    </button>
-                </div>
-            )}
           </div>
 
           <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -442,27 +441,33 @@ export const ProductDetails: React.FC = () => {
              </div>
 
              {/* Live Market Sentiment Stats */}
-             <div className="grid grid-cols-4 gap-2 md:gap-4 mb-4">
-                 <button onClick={toggleLike} className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm hover:bg-stone-50 transition-colors">
-                     <Heart size={18} className="text-red-500 mb-1" fill={isLiked ? "currentColor" : "none"}/>
-                     <span className="font-bold text-lg text-stone-800 leading-none">{stats.like}</span>
-                     <span className="text-[9px] uppercase font-bold text-stone-400">Likes</span>
-                 </button>
-                 <button onClick={toggleDislike} className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm hover:bg-stone-50 transition-colors">
-                     <ThumbsDown size={18} className="text-stone-400 mb-1" fill={isDisliked ? "currentColor" : "none"}/>
-                     <span className="font-bold text-lg text-stone-800 leading-none">{stats.dislike}</span>
-                     <span className="text-[9px] uppercase font-bold text-stone-400">Dislikes</span>
-                 </button>
-                 <button onClick={handleInquiry} className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm hover:bg-stone-50 transition-colors">
-                     <ShoppingBag size={18} className="text-gold-600 mb-1" />
-                     <span className="font-bold text-lg text-stone-800 leading-none">{stats.inquiry}</span>
-                     <span className="text-[9px] uppercase font-bold text-stone-400">Will Buy</span>
-                 </button>
-                 <button onClick={toggleOwned} className={`bg-white/60 backdrop-blur border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm hover:bg-stone-50 transition-colors ${isOwned ? 'border-blue-300 bg-blue-50/50' : 'border-stone-200'}`}>
-                     <Gem size={18} className="text-blue-500 mb-1" fill={isOwned ? "currentColor" : "none"} />
-                     <span className="font-bold text-lg text-stone-800 leading-none">{stats.purchase}</span>
-                     <span className="text-[9px] uppercase font-bold text-stone-400">{isOwned ? 'Owned' : 'Purchased'}</span>
-                 </button>
+             <div className="mb-4">
+                <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-2"><BarChart2 size={12}/> Live Market Insights</h3>
+                <div className="grid grid-cols-4 gap-2 md:gap-4">
+                    <button onClick={toggleLike} className={`border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all ${isLiked ? 'bg-red-50 border-red-200' : 'bg-white/60 border-stone-200 hover:bg-stone-50'}`}>
+                        <Heart size={18} className="mb-1 transition-colors" fill={isLiked ? "currentColor" : "none"} color={isLiked ? "#ef4444" : "#9ca3af"} />
+                        <span className={`font-bold text-lg leading-none ${isLiked ? 'text-red-600' : 'text-stone-800'}`}>{stats.like}</span>
+                        <span className="text-[9px] uppercase font-bold text-stone-400">Likes</span>
+                    </button>
+                    
+                    <button onClick={toggleDislike} className={`border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all ${isDisliked ? 'bg-stone-100 border-stone-300' : 'bg-white/60 border-stone-200 hover:bg-stone-50'}`}>
+                        <ThumbsDown size={18} className={`mb-1 transition-colors ${isDisliked ? 'text-stone-800' : 'text-stone-400'}`} fill={isDisliked ? "currentColor" : "none"}/>
+                        <span className={`font-bold text-lg leading-none ${isDisliked ? 'text-stone-900' : 'text-stone-800'}`}>{stats.dislike}</span>
+                        <span className="text-[9px] uppercase font-bold text-stone-400">Dislikes</span>
+                    </button>
+                    
+                    <button onClick={handleInquiry} className={`border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all ${isRequested ? 'bg-gold-50 border-gold-200' : 'bg-white/60 border-stone-200 hover:bg-stone-50'}`}>
+                        <ShoppingBag size={18} className={`mb-1 transition-colors ${isRequested ? 'text-gold-600' : 'text-stone-400'}`} fill={isRequested ? "currentColor" : "none"} />
+                        <span className={`font-bold text-lg leading-none ${isRequested ? 'text-gold-700' : 'text-stone-800'}`}>{stats.inquiry}</span>
+                        <span className="text-[9px] uppercase font-bold text-stone-400">{isRequested ? 'Added' : 'Will Buy'}</span>
+                    </button>
+                    
+                    <button onClick={toggleOwned} className={`border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all ${isOwned ? 'bg-blue-50 border-blue-200' : 'bg-white/60 border-stone-200 hover:bg-stone-50'}`}>
+                        <Gem size={18} className={`mb-1 transition-colors ${isOwned ? 'text-blue-500' : 'text-stone-400'}`} fill={isOwned ? "currentColor" : "none"} />
+                        <span className={`font-bold text-lg leading-none ${isOwned ? 'text-blue-700' : 'text-stone-800'}`}>{stats.purchase}</span>
+                        <span className="text-[9px] uppercase font-bold text-stone-400">{isOwned ? 'Owned' : 'Purchased'}</span>
+                    </button>
+                </div>
              </div>
 
              {isAuthorized && (

@@ -66,13 +66,20 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
         // 2. Check Database
         const check = await storeService.checkCustomerExistence(phone);
         
-        if (check.exists) {
-            // Existing user: Skip registration fields
+        // Ensure name is updated if it's a default "Client XXX" name
+        const hasDefaultName = check.user?.name?.startsWith('Client ') || false;
+
+        if (check.exists && !hasDefaultName) {
+            // Existing user with real name: Skip registration
             setExistingUserName(check.user?.name || '');
             setIsNewUser(false);
             initiateOtp();
         } else {
-            // New user: Reveal registration fields
+            // New user OR Existing user with Default Name: Force Registration/Update
+            if (check.exists && hasDefaultName && check.user?.pincode) {
+                // Pre-fill pincode if we have it, but force name entry
+                setRegistrationData(prev => ({...prev, pincode: check.user.pincode || ''}));
+            }
             setIsNewUser(true);
             setIsCheckingUser(false);
         }

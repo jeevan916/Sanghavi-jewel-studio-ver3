@@ -18,7 +18,8 @@ const KEYS = {
   SESSION: 'sanghavi_user_session',
   LIKES: 'sanghavi_user_likes',
   DISLIKES: 'sanghavi_user_dislikes',
-  OWNED: 'sanghavi_user_owned'
+  OWNED: 'sanghavi_user_owned',
+  REQUESTED: 'sanghavi_user_requested'
 };
 
 export interface HealthStatus {
@@ -178,6 +179,11 @@ export const storeService = {
     return data ? JSON.parse(data) : [];
   },
 
+  getRequested: (): string[] => {
+    const data = localStorage.getItem(KEYS.REQUESTED);
+    return data ? JSON.parse(data) : [];
+  },
+
   toggleLike: (productId: string) => {
     const likes = storeService.getLikes();
     const index = likes.indexOf(productId);
@@ -205,6 +211,16 @@ export const storeService = {
     if (index === -1) newOwned.push(productId);
     else newOwned.splice(index, 1);
     localStorage.setItem(KEYS.OWNED, JSON.stringify(newOwned));
+    return index === -1;
+  },
+
+  toggleRequested: (productId: string) => {
+    const requested = storeService.getRequested();
+    const index = requested.indexOf(productId);
+    let newRequested = [...requested];
+    if (index === -1) newRequested.push(productId);
+    else newRequested.splice(index, 1);
+    localStorage.setItem(KEYS.REQUESTED, JSON.stringify(newRequested));
     return index === -1;
   },
 
