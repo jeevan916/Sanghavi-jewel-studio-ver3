@@ -203,6 +203,29 @@ app.post('/api/analytics', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// New Endpoint: Aggregated Stats per Product
+app.get('/api/stats/:productId', async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT type, COUNT(*) as count FROM analytics WHERE productId = ? GROUP BY type', 
+            [req.params.productId]
+        );
+        
+        const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0, sold: 0 };
+        // Map rows to object
+        rows.forEach(r => {
+            if (stats.hasOwnProperty(r.type)) {
+                stats[r.type] = r.count;
+            }
+            // Map legacy or specific events if needed
+            if (r.type === 'inquiry') stats.inquiry = r.count; // "Will Buy"
+            if (r.type === 'sold') stats.purchase = r.count;   // "Purchased"
+        });
+        
+        res.json(stats);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/designs', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM designs ORDER BY createdAt DESC');

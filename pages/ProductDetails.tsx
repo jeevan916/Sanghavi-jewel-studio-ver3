@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, AppConfig, ProductSuggestion } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare, LogIn } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare, LogIn, ShoppingBag, Gem, BarChart2 } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ImageEditor } from '../components/ImageEditor';
-import { storeService } from '../services/storeService';
+import { storeService, ProductStats } from '../services/storeService';
 import { removeWatermark, enhanceJewelryImage } from '../services/geminiService';
 
 export const ProductDetails: React.FC = () => {
@@ -39,6 +39,9 @@ export const ProductDetails: React.FC = () => {
   const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  // Live Stats
+  const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, purchase: 0 });
 
   const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -56,9 +59,14 @@ export const ProductDetails: React.FC = () => {
           setEditDescValue(found.description);
           setIsLiked(storeService.getLikes().includes(found.id));
           setIsDisliked(storeService.getDislikes().includes(found.id));
-          if(isAuthorized) {
-             storeService.getSuggestions(found.id).then(setSuggestions);
-          }
+          
+          // Parallel fetch for secondary data
+          const [productStats, suggestionsList] = await Promise.all([
+              storeService.getProductStats(found.id),
+              isAuthorized ? storeService.getSuggestions(found.id) : Promise.resolve([])
+          ]);
+          setStats(productStats);
+          if (suggestionsList) setSuggestions(suggestionsList);
         }
         
         const conf = await storeService.getConfig();
@@ -207,6 +215,8 @@ export const ProductDetails: React.FC = () => {
           return;
       }
       if (!product) return;
+      // Optimistic update for "Will Buy" / Inquiry
+      setStats(prev => ({...prev, inquiry: prev.inquiry + 1}));
       await storeService.shareToWhatsApp(product, currentImageIndex);
   };
 
@@ -215,9 +225,14 @@ export const ProductDetails: React.FC = () => {
       if (isDisliked) {
           storeService.toggleDislike(product.id);
           setIsDisliked(false);
+          setStats(prev => ({...prev, dislike: Math.max(0, prev.dislike - 1)}));
       }
       const liked = storeService.toggleLike(product.id);
       setIsLiked(liked);
+      
+      // Update stats locally
+      setStats(prev => ({...prev, like: liked ? prev.like + 1 : Math.max(0, prev.like - 1)}));
+      
       if (liked) storeService.logEvent('like', product);
   };
 
@@ -226,9 +241,14 @@ export const ProductDetails: React.FC = () => {
       if (isLiked) {
           storeService.toggleLike(product.id);
           setIsLiked(false);
+          setStats(prev => ({...prev, like: Math.max(0, prev.like - 1)}));
       }
       const disliked = storeService.toggleDislike(product.id);
       setIsDisliked(disliked);
+      
+      // Update stats locally
+      setStats(prev => ({...prev, dislike: disliked ? prev.dislike + 1 : Math.max(0, prev.dislike - 1)}));
+      
       if (disliked) storeService.logEvent('dislike', product);
   };
 
@@ -394,6 +414,30 @@ export const ProductDetails: React.FC = () => {
                      </div>
                  </div>
                  <div className="bg-stone-100 px-3 py-1 rounded text-[10px] font-mono text-stone-500 uppercase shrink-0">ID: {product.id.slice(-6)}</div>
+             </div>
+
+             {/* Live Market Sentiment Stats */}
+             <div className="grid grid-cols-4 gap-2 md:gap-4 mb-4">
+                 <div className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
+                     <Heart size={18} className="text-red-500 mb-1" fill="currentColor"/>
+                     <span className="font-bold text-lg text-stone-800 leading-none">{stats.like}</span>
+                     <span className="text-[9px] uppercase font-bold text-stone-400">Likes</span>
+                 </div>
+                 <div className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
+                     <ThumbsDown size={18} className="text-stone-400 mb-1" />
+                     <span className="font-bold text-lg text-stone-800 leading-none">{stats.dislike}</span>
+                     <span className="text-[9px] uppercase font-bold text-stone-400">Dislikes</span>
+                 </div>
+                 <div className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
+                     <ShoppingBag size={18} className="text-gold-600 mb-1" />
+                     <span className="font-bold text-lg text-stone-800 leading-none">{stats.inquiry}</span>
+                     <span className="text-[9px] uppercase font-bold text-stone-400">Will Buy</span>
+                 </div>
+                 <div className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
+                     <Gem size={18} className="text-blue-500 mb-1" />
+                     <span className="font-bold text-lg text-stone-800 leading-none">{stats.purchase}</span>
+                     <span className="text-[9px] uppercase font-bold text-stone-400">Purchased</span>
+                 </div>
              </div>
 
              {isAuthorized && (

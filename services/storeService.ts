@@ -26,6 +26,13 @@ export interface HealthStatus {
     mode?: string;
 }
 
+export interface ProductStats {
+    like: number;
+    dislike: number;
+    inquiry: number;
+    purchase: number;
+}
+
 // Increased timeout to 45s for production robustness
 async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 45000) {
     const controller = new AbortController();
@@ -103,6 +110,15 @@ export const storeService = {
     }
   },
 
+  getProductStats: async (productId: string): Promise<ProductStats> => {
+      try {
+          const stats = await apiFetch(`/stats/${productId}`);
+          return stats || { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
+      } catch (e) {
+          return { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
+      }
+  },
+
   addProduct: (product: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }),
   updateProduct: (product: Product) => apiFetch(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) }),
   deleteProduct: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
@@ -176,7 +192,7 @@ export const storeService = {
     return index === -1;
   },
 
-  logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number) => {
+  logEvent: async (type: AnalyticsEvent['type'] | 'sold', product?: Product, userOverride?: User | null, imageIndex?: number) => {
     const user = userOverride || storeService.getCurrentUser();
     const event = {
         id: crypto.randomUUID(),
