@@ -92,11 +92,6 @@ export const Gallery: React.FC = () => {
 
     // B. Recently Added (Top 10 by Date)
     const sortedByDate = [...availableProducts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    // Filter out items already in trending to keep lists unique? 
-    // Requirement says "Design first... then remaining". 
-    // However, usually "Recently Added" is strictly time-based regardless of trend.
-    // To strictly follow "then remaining product with label browse all", 
-    // I will NOT exclude from these top lists, but I WILL exclude ALL top lists from "Browse All".
     const recentList = sortedByDate.slice(0, 10);
     recentList.forEach(p => featuredIds.add(p.id));
 
@@ -278,70 +273,109 @@ export const Gallery: React.FC = () => {
             /* --- DASHBOARD SECTIONS VIEW --- */
             <div className="space-y-8 animate-in fade-in duration-500">
                 
-                {/* 1. Trending */}
+                {/* 1. Trending (Limited for Guests) */}
                 <section>
                     <SectionHeader icon={TrendingUp} title="Trending Now" subtitle="Most Engaged Designs" />
-                    <HorizontalScroll items={trending} />
+                    <HorizontalScroll items={isGuest ? trending.slice(0, 4) : trending} />
                 </section>
+                
+                {/* GUEST LOCK WALL: Hides all other sections */}
+                {isGuest ? (
+                   <div className="relative mt-8 py-16 text-center border-t border-stone-200 overflow-hidden rounded-3xl bg-stone-100/50">
+                       <div className="absolute inset-0 bg-white/40 backdrop-blur-md z-10 flex flex-col items-center justify-center p-6">
+                           <div className="p-4 bg-stone-900 text-gold-500 rounded-full mb-4 shadow-xl">
+                               <Lock size={32} />
+                           </div>
+                           <h3 className="font-serif text-3xl text-stone-900 mb-3 font-bold">Vault Access Restricted</h3>
+                           <p className="text-stone-600 mb-8 max-w-md mx-auto leading-relaxed">
+                               You are viewing a limited public preview. Join our exclusive client list to access the full 
+                               <span className="font-bold text-stone-900"> {products.length}+ item collection</span>, 
+                               view detailed pricing, and make inquiries.
+                           </p>
+                           <button onClick={() => navigate('/login')} className="bg-gold-600 text-white px-10 py-4 rounded-xl font-bold uppercase tracking-widest shadow-lg hover:bg-gold-700 transition transform hover:scale-105 active:scale-95">
+                               Secure Client Login
+                           </button>
+                           <p className="mt-6 text-[10px] text-stone-400 uppercase tracking-widest font-bold">Verified by WhatsApp</p>
+                       </div>
+                       
+                       {/* Fake Blurred Background Content to simulate depth */}
+                       <div className="opacity-30 pointer-events-none filter blur-sm select-none grayscale flex flex-col gap-8">
+                           <div>
+                               <SectionHeader icon={Clock} title="Fresh Arrivals" subtitle="Just Added" />
+                               <div className="flex gap-4 px-4 overflow-hidden">
+                                   {[1,2,3,4].map(i => <div key={i} className="min-w-[280px] h-[350px] bg-stone-300 rounded-xl" />)}
+                               </div>
+                           </div>
+                           <div>
+                               <SectionHeader icon={Gem} title="Royal Collection" subtitle="Premium Sets" />
+                               <div className="flex gap-4 px-4 overflow-hidden">
+                                   {[1,2,3,4].map(i => <div key={i} className="min-w-[280px] h-[350px] bg-stone-300 rounded-xl" />)}
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+                ) : (
+                    <>
+                        {/* 2. Recently Added */}
+                        <section>
+                            <SectionHeader icon={Clock} title="Fresh Arrivals" subtitle="Just Added to Vault" />
+                            <HorizontalScroll items={recent} />
+                        </section>
 
-                {/* 2. Recently Added */}
-                <section>
-                    <SectionHeader icon={Clock} title="Fresh Arrivals" subtitle="Just Added to Vault" />
-                    <HorizontalScroll items={recent} />
-                </section>
+                        {/* 3. Most Desired */}
+                        <section>
+                            <SectionHeader icon={ShoppingBag} title="Most Desired" subtitle="High Inquiry Volume" />
+                            <HorizontalScroll items={desired} />
+                        </section>
 
-                {/* 3. Most Desired */}
-                <section>
-                    <SectionHeader icon={ShoppingBag} title="Most Desired" subtitle="High Inquiry Volume" />
-                    <HorizontalScroll items={desired} />
-                </section>
+                        {/* 4. Most Purchased */}
+                        <section>
+                            <SectionHeader icon={Gem} title="Sanghavi Icons" subtitle="Most Purchased Collections" />
+                            <HorizontalScroll items={purchased} />
+                        </section>
 
-                {/* 4. Most Purchased */}
-                <section>
-                    <SectionHeader icon={Gem} title="Sanghavi Icons" subtitle="Most Purchased Collections" />
-                    <HorizontalScroll items={purchased} />
-                </section>
-
-                {/* 5. Browse All (Paginated) */}
-                <section id="browse-all" className="pt-8 border-t border-stone-200 mt-8">
-                    <div className="flex items-center justify-between mb-6">
-                        <SectionHeader icon={Grid} title="Browse Collection" subtitle="Explore Full Catalog" />
-                        <span className="text-xs text-stone-400 font-mono">
-                            Showing {(browsePage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(browsePage * ITEMS_PER_PAGE, browseAll.length)} of {browseAll.length}
-                        </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {browseAll
-                            .slice((browsePage - 1) * ITEMS_PER_PAGE, browsePage * ITEMS_PER_PAGE)
-                            .map(product => (
-                                <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigate(`/product/${product.id}`)} />
-                        ))}
-                    </div>
-
-                    {/* Pagination Controls */}
-                    {browseAll.length > ITEMS_PER_PAGE && (
-                        <div className="flex justify-center gap-4 mt-12">
-                            <button 
-                                onClick={() => setBrowsePage(p => Math.max(1, p - 1))}
-                                disabled={browsePage === 1}
-                                className="p-3 rounded-full bg-white border border-stone-200 disabled:opacity-50 hover:border-gold-500 hover:text-gold-600 transition"
-                            >
-                                <ChevronLeft size={24} />
-                            </button>
-                            <div className="flex items-center px-6 bg-white border border-stone-200 rounded-full text-sm font-bold text-stone-600">
-                                Page {browsePage} of {Math.ceil(browseAll.length / ITEMS_PER_PAGE)}
+                        {/* 5. Browse All (Paginated) */}
+                        <section id="browse-all" className="pt-8 border-t border-stone-200 mt-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <SectionHeader icon={Grid} title="Browse Collection" subtitle="Explore Full Catalog" />
+                                <span className="text-xs text-stone-400 font-mono">
+                                    Showing {(browsePage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(browsePage * ITEMS_PER_PAGE, browseAll.length)} of {browseAll.length}
+                                </span>
                             </div>
-                            <button 
-                                onClick={() => setBrowsePage(p => Math.min(Math.ceil(browseAll.length / ITEMS_PER_PAGE), p + 1))}
-                                disabled={browsePage >= Math.ceil(browseAll.length / ITEMS_PER_PAGE)}
-                                className="p-3 rounded-full bg-white border border-stone-200 disabled:opacity-50 hover:border-gold-500 hover:text-gold-600 transition"
-                            >
-                                <ChevronRight size={24} />
-                            </button>
-                        </div>
-                    )}
-                </section>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {browseAll
+                                    .slice((browsePage - 1) * ITEMS_PER_PAGE, browsePage * ITEMS_PER_PAGE)
+                                    .map(product => (
+                                        <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigate(`/product/${product.id}`)} />
+                                ))}
+                            </div>
+
+                            {/* Pagination Controls */}
+                            {browseAll.length > ITEMS_PER_PAGE && (
+                                <div className="flex justify-center gap-4 mt-12">
+                                    <button 
+                                        onClick={() => setBrowsePage(p => Math.max(1, p - 1))}
+                                        disabled={browsePage === 1}
+                                        className="p-3 rounded-full bg-white border border-stone-200 disabled:opacity-50 hover:border-gold-500 hover:text-gold-600 transition"
+                                    >
+                                        <ChevronLeft size={24} />
+                                    </button>
+                                    <div className="flex items-center px-6 bg-white border border-stone-200 rounded-full text-sm font-bold text-stone-600">
+                                        Page {browsePage} of {Math.ceil(browseAll.length / ITEMS_PER_PAGE)}
+                                    </div>
+                                    <button 
+                                        onClick={() => setBrowsePage(p => Math.min(Math.ceil(browseAll.length / ITEMS_PER_PAGE), p + 1))}
+                                        disabled={browsePage >= Math.ceil(browseAll.length / ITEMS_PER_PAGE)}
+                                        className="p-3 rounded-full bg-white border border-stone-200 disabled:opacity-50 hover:border-gold-500 hover:text-gold-600 transition"
+                                    >
+                                        <ChevronRight size={24} />
+                                    </button>
+                                </div>
+                            )}
+                        </section>
+                    </>
+                )}
 
             </div>
         )}

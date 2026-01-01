@@ -13,6 +13,7 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onClick }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
+  const [isGuest] = useState(!storeService.getCurrentUser());
 
   useEffect(() => {
     const likes = storeService.getLikes();
@@ -33,8 +34,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     await storeService.shareToWhatsApp(product, currentImageIndex);
   };
 
-  const productImages = Array.isArray(product.images) ? product.images : [];
-  const productThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
+  const allImages = Array.isArray(product.images) ? product.images : [];
+  const allThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
+  
+  // Guest Limitation: Limit accessible images to 1
+  const productImages = isGuest ? allImages.slice(0, 1) : allImages;
+  const productThumbnails = isGuest ? allThumbnails.slice(0, 1) : allThumbnails;
 
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -104,6 +109,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
             <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 p-1 rounded-full shadow-sm opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-white z-10"><ChevronLeft size={16} /></button>
             <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 p-1 rounded-full shadow-sm opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-white z-10"><ChevronRight size={16} /></button>
           </>
+        )}
+        
+        {/* Guest Lock Hint if more images exist but are hidden */}
+        {isGuest && allImages.length > 1 && (
+             <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur rounded text-[9px] font-bold text-white uppercase tracking-widest pointer-events-none">
+                 +{allImages.length - 1} More
+             </div>
         )}
       </div>
       

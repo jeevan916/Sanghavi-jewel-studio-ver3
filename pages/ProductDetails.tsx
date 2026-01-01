@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, AppConfig, ProductSuggestion } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare, LogIn, ShoppingBag, Gem, BarChart2, DollarSign } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare, LogIn, ShoppingBag, Gem, BarChart2, DollarSign, Image as ImageIcon } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ImageEditor } from '../components/ImageEditor';
 import { storeService, ProductStats } from '../services/storeService';
@@ -110,10 +110,14 @@ export const ProductDetails: React.FC = () => {
     );
   }
 
-  // Defensive array access
-  const productImages = Array.isArray(product.images) ? product.images : [];
-  const productThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
+  // Defensive array access & Guest Logic
+  const allImages = Array.isArray(product.images) ? product.images : [];
+  const allThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
   const productTags = Array.isArray(product.tags) ? product.tags : [];
+
+  const productImages = isGuest ? allImages.slice(0, 1) : allImages;
+  const productThumbnails = isGuest ? allThumbnails.slice(0, 1) : allThumbnails;
+  const hiddenCount = allImages.length - productImages.length;
 
   const currentIndex = productList.findIndex(p => p.id === product.id);
   const hasNext = currentIndex < productList.length - 1;
@@ -164,8 +168,8 @@ export const ProductDetails: React.FC = () => {
   };
 
   const handleManualSave = async (newBase64: string) => {
-      const updatedImages = [...productImages];
-      const updatedThumbs = [...productThumbnails];
+      const updatedImages = [...allImages];
+      const updatedThumbs = [...allThumbnails];
       
       updatedImages[currentImageIndex] = newBase64;
       
@@ -401,8 +405,8 @@ export const ProductDetails: React.FC = () => {
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4">
                         <button onClick={() => setPendingEnhancedImage(null)} className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl border border-stone-700 font-medium">Discard</button>
                         <button onClick={async () => { 
-                            const nextImgs = [...productImages]; 
-                            const nextThumbs = [...productThumbnails];
+                            const nextImgs = [...allImages]; 
+                            const nextThumbs = [...allThumbnails];
                             nextImgs[currentImageIndex] = pendingEnhancedImage; 
                             try {
                               const thumbBase64 = await createThumbnail(pendingEnhancedImage);
@@ -417,16 +421,30 @@ export const ProductDetails: React.FC = () => {
                 </>
             )}
 
-            {!pendingEnhancedImage && productImages.length > 1 && (
-                <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
-                    {productImages.map((_, idx) => (
-                        <button
-                            key={idx}
-                            onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
-                            className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-6 bg-gold-500 shadow-sm' : 'w-1.5 bg-white/60'}`}
-                        />
-                    ))}
-                </div>
+            {!pendingEnhancedImage && (
+                <>
+                    {/* Guest Locked Badge */}
+                    {isGuest && hiddenCount > 0 && (
+                       <button 
+                         onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                         className="absolute bottom-4 right-4 z-20 bg-black/70 backdrop-blur text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-white/10 hover:bg-gold-600 transition-colors shadow-lg animate-pulse"
+                       >
+                           <Lock size={12} /> +{hiddenCount} Photos Locked
+                       </button>
+                    )}
+
+                    {!isGuest && productImages.length > 1 && (
+                        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
+                            {productImages.map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-6 bg-gold-500 shadow-sm' : 'w-1.5 bg-white/60'}`}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
             
             {!pendingEnhancedImage && (
@@ -440,7 +458,7 @@ export const ProductDetails: React.FC = () => {
                 </div>
             )}
           </div>
-
+          
           <div className="max-w-3xl mx-auto p-6 space-y-6">
              <div className="flex flex-col md:flex-row md:justify-between items-start gap-4">
                  <div className="flex-1 min-w-0">
