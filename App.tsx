@@ -51,7 +51,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
     
-    // Fixed: Accessed children via this.props safely after ensuring class extends Component correctly
     return this.props.children;
   }
 }
@@ -93,6 +92,11 @@ function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Fix: Reset scroll position to top on every route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   useEffect(() => {
     setUser(storeService.getCurrentUser());
