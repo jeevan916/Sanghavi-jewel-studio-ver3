@@ -3,6 +3,6 @@
     "camera",
     "geolocation"
   ],
-  "name": "Sanghavi Jewel Studio ver3",
-  "description": "AI-Powered Bespoke Luxury Jewelry Studio"
+  "name": "Sanghavi Jewel Studio v3.2",
+  "description": "Enterprise-grade AI-Powered Bespoke Luxury Jewelry Studio with MySQL Persistence"
 }
