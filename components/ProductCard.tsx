@@ -50,6 +50,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     }
   };
 
+  /**
+   * Resolves local relative paths to full absolute URLs
+   */
   const getImageUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('data:') || path.startsWith('http')) return path;
@@ -75,6 +78,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
             loading="lazy" 
             onError={(e) => {
               const target = e.target as HTMLImageElement;
+              // Attempt fallback to full res if thumb fails
               if (productImages[currentImageIndex] && target.src !== getImageUrl(productImages[currentImageIndex])) {
                  target.src = getImageUrl(productImages[currentImageIndex]);
               }

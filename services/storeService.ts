@@ -25,7 +25,8 @@ export interface HealthStatus {
     mode?: string;
 }
 
-async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 20000) {
+// Increased timeout to 45s for production robustness
+async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 45000) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), customTimeout);
     
@@ -41,17 +42,17 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeo
         
         clearTimeout(timeout);
         
-        if (response.status === 503) throw new Error('Vault is syncing. Please wait 10 seconds.');
+        if (response.status === 503) throw new Error('Vault is syncing. Please wait.');
         if (response.status === 401) {
             storeService.logout();
-            throw new Error('Access Revoked. Please re-authenticate.');
+            throw new Error('Access Revoked.');
         }
         
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || `Vault Rejected Request (${response.status})`);
+        if (!response.ok) throw new Error(data.error || `Error (${response.status})`);
         return data;
     } catch (err: any) {
-        if (err.name === 'AbortError') throw new Error('Connection timed out. Check network or server load.');
+        if (err.name === 'AbortError') throw new Error('Connection timed out. Retrying...');
         console.error(`[API Error] ${endpoint}:`, err);
         throw err;
     }
@@ -82,8 +83,10 @@ export const storeService = {
   getProducts: async (): Promise<Product[]> => {
     try {
       const data = await apiFetch('/products');
-      const products = (data || []).map((p: any) => {
-          // Defensive parsing for images and thumbnails in case the API returns them as strings
+      if (!Array.isArray(data)) return [];
+      
+      const products = data.map((p: any) => {
+          // Defensive parsing for images and thumbnails
           if (typeof p.images === 'string') {
               try { p.images = JSON.parse(p.images); } catch(e) { p.images = []; }
           }
@@ -93,23 +96,17 @@ export const storeService = {
           if (typeof p.tags === 'string') {
               try { p.tags = JSON.parse(p.tags); } catch(e) { p.tags = []; }
           }
-          if (typeof p.meta === 'string') {
-              try { p.meta = JSON.parse(p.meta); } catch(e) { p.meta = {}; }
-          }
           
-          // Double-check they are arrays now
+          // Ensure arrays
           if (!Array.isArray(p.images)) p.images = [];
           if (!Array.isArray(p.thumbnails)) p.thumbnails = [];
-          if (!Array.isArray(p.tags)) p.tags = [];
           
           return p as Product;
       });
-      return products.sort((a: Product, b: Product) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      return products.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (err) { 
         console.error("StoreService getProducts Error:", err);
-        return []; 
+        throw err; // Propagate for UI error handling
     }
   },
 
@@ -120,22 +117,6 @@ export const storeService = {
   getCustomers: async (): Promise<User[]> => {
     try {
       const data = await apiFetch('/customers');
-      return data || [];
-    } catch (e) { return []; }
-  },
-
-  getDesigns: async (): Promise<GeneratedDesign[]> => {
-    try {
-      const data = await apiFetch('/designs');
-      return data || [];
-    } catch (e) { return []; }
-  },
-
-  addDesign: (design: GeneratedDesign) => apiFetch('/designs', { method: 'POST', body: JSON.stringify(design) }),
-
-  getAnalytics: async (): Promise<AnalyticsEvent[]> => {
-    try {
-      const data = await apiFetch('/analytics');
       return data || [];
     } catch (e) { return []; }
   },
@@ -151,39 +132,6 @@ export const storeService = {
     if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
     return user;
   },
-
-  updateUserProfile: (updates: Partial<User>): User | null => {
-    const user = storeService.getCurrentUser();
-    if (!user) return null;
-    const updated = { ...user, ...updates };
-    localStorage.setItem(KEYS.SESSION, JSON.stringify(updated));
-    return updated;
-  },
-
-  createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
-    const token = btoa(`${targetId}-${Date.now()}`).slice(0, 16);
-    return `${window.location.origin}${window.location.pathname}#/shared/${token}?id=${targetId}&type=${type}`;
-  },
-
-  getStaff: (): Promise<StaffAccount[]> => apiFetch('/staff'),
-
-  addStaff: (staff: Partial<StaffAccount>): Promise<StaffAccount> => 
-    apiFetch('/staff', { method: 'POST', body: JSON.stringify(staff) }),
-
-  updateStaff: (id: string, updates: Partial<StaffAccount>): Promise<StaffAccount> => 
-    apiFetch(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
-
-  deleteStaff: (id: string): Promise<void> => 
-    apiFetch(`/staff/${id}`, { method: 'DELETE' }),
-  
-  getConfig: async (): Promise<AppConfig> => {
-    try {
-      const data = await apiFetch('/config');
-      return data && data.categories ? data : DEFAULT_CONFIG;
-    } catch (e) { return DEFAULT_CONFIG; }
-  },
-
-  saveConfig: (config: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(config) }),
 
   getCurrentUser: (): User | null => {
     const data = localStorage.getItem(KEYS.SESSION);
@@ -213,21 +161,27 @@ export const storeService = {
 
   logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number) => {
     const user = userOverride || storeService.getCurrentUser();
-    const event: AnalyticsEvent = {
-        id: Date.now().toString(),
+    const event = {
+        id: crypto.randomUUID(),
         type,
         productId: product?.id,
         productTitle: product?.title,
         userId: user ? user.id : 'Guest',
         userName: user ? user.name : 'Guest',
-        deviceName: navigator.userAgent,
-        timestamp: new Date().toISOString(),
-        imageIndex
+        timestamp: new Date().toISOString()
     };
-    try {
-        await apiFetch('/analytics', { method: 'POST', body: JSON.stringify(event) });
-    } catch (e) {}
+    // No-wait logging
+    fetch(`${API_BASE}/analytics`, { method: 'POST', body: JSON.stringify(event), headers: {'Content-Type': 'application/json'} }).catch(() => {});
   },
+
+  getConfig: async (): Promise<AppConfig> => {
+    try {
+      const data = await apiFetch('/config');
+      return data && data.categories ? data : DEFAULT_CONFIG;
+    } catch (e) { return DEFAULT_CONFIG; }
+  },
+
+  saveConfig: (config: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(config) }),
 
   shareToWhatsApp: async (product: Product, imageIndex: number = 0) => {
     const config = await storeService.getConfig();
@@ -243,11 +197,50 @@ I'm interested in: ${product.title} (ID: #${product.id.slice(-6).toUpperCase()})
     window.open(waUrl, '_blank');
   },
 
-  chatWithLead: (lead: User) => {
-      const phone = lead.phone?.replace(/\D/g, '');
-      if (!phone) return;
-      const message = `Hello ${lead.name}, thank you for visiting Sanghavi Jewel Studio. How can we assist you with your jewelry selection today?`;
-      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-      window.open(waUrl, '_blank');
-  }
+  /**
+   * FIX: Added missing methods for Design Studio, Analytics, Staff management, and Shared links.
+   */
+  getDesigns: async (): Promise<GeneratedDesign[]> => {
+    try {
+      const data = await apiFetch('/designs');
+      return data || [];
+    } catch (e) { return []; }
+  },
+
+  addDesign: (design: GeneratedDesign) => apiFetch('/designs', { method: 'POST', body: JSON.stringify(design) }),
+
+  getAnalytics: async (): Promise<AnalyticsEvent[]> => {
+    try {
+      const data = await apiFetch('/analytics');
+      return Array.isArray(data) ? data : [];
+    } catch (e) { return []; }
+  },
+
+  chatWithLead: (user: User) => {
+    const phone = user.phone ? user.phone.replace(/\D/g, '') : '';
+    const message = `*Hi ${user.name},* reaching out from Sanghavi Jewel Studio regarding your interest in our collections.`;
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+  },
+
+  createSharedLink: async (targetId: string, type: 'product' | 'category'): Promise<string> => {
+    const response = await apiFetch('/shared-links', { 
+        method: 'POST', 
+        body: JSON.stringify({ targetId, type }) 
+    });
+    return `${window.location.origin}${window.location.pathname}#/shared/${response.token}`;
+  },
+
+  getStaff: async (): Promise<StaffAccount[]> => {
+    try {
+      const data = await apiFetch('/staff');
+      return Array.isArray(data) ? data : [];
+    } catch (e) { return []; }
+  },
+
+  addStaff: (staff: Partial<StaffAccount>) => apiFetch('/staff', { method: 'POST', body: JSON.stringify(staff) }),
+
+  updateStaff: (id: string, updates: Partial<StaffAccount>) => apiFetch(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+
+  deleteStaff: (id: string) => apiFetch(`/staff/${id}`, { method: 'DELETE' })
 };
