@@ -1,31 +1,40 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
 import { storeService } from '../services/storeService';
-import { Search, Grid, LayoutGrid, LogOut, Loader2, Filter, RefreshCw, Lock, Sparkles, UserPlus } from 'lucide-react';
-import { Product } from '../types';
+import { Search, Grid, LayoutGrid, LogOut, Loader2, Filter, RefreshCw, Lock, Sparkles, UserPlus, TrendingUp, Clock, Heart, ShoppingBag, Gem, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Product, AnalyticsEvent } from '../types';
 
 export const Gallery: React.FC = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'masonry'>('grid');
-  const [randomSeed, setRandomSeed] = useState(Math.random());
   
+  // Pagination for Browse All
+  const [browsePage, setBrowsePage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
   const user = storeService.getCurrentUser();
   const isAdmin = user?.role === 'admin' || user?.role === 'contributor';
   const isGuest = !user;
 
-  const loadProducts = async (isBackground = false) => {
+  const loadData = async (isBackground = false) => {
     if (!isBackground) setIsLoading(true);
     else setIsRefreshing(true);
     
     try {
-        const data = await storeService.getProducts();
-        setProducts(data);
+        const [prodData, analyticsData] = await Promise.all([
+            storeService.getProducts(),
+            storeService.getAnalytics()
+        ]);
+        setProducts(prodData);
+        setAnalytics(analyticsData);
     } catch (e) {
         console.warn('Live sync failed');
     } finally {
@@ -35,8 +44,8 @@ export const Gallery: React.FC = () => {
   };
 
   useEffect(() => {
-    loadProducts();
-    const interval = setInterval(() => loadProducts(true), 30000);
+    loadData();
+    const interval = setInterval(() => loadData(true), 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -45,33 +54,106 @@ export const Gallery: React.FC = () => {
     return ['All', ...Array.from(cats)];
   }, [products]);
 
-  // Filter Logic with Guest Restriction
-  const visibleProducts = useMemo(() => {
-    let filtered = products.filter(p => {
-        const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
-        const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
-        const visible = !p.isHidden || isAdmin;
-        return matchesCategory && matchesSearch && visible;
+  // --- Segmentation Logic ---
+
+  const { trending, recent, desired, purchased, browseAll } = useMemo(() => {
+    // 1. Calculate Scores
+    const scores: Record<string, { views: number, likes: number, inquiries: number, sold: number, score: number }> = {};
+    
+    products.forEach(p => {
+        scores[p.id] = { views: 0, likes: 0, inquiries: 0, sold: 0, score: 0 };
     });
 
-    if (isGuest) {
-        // The Trick: Shuffle and pick 5 to show "Trending" vibes
-        // We use a seed so it doesn't jitter on every re-render, but changes on reload
-        return filtered
-            .map(value => ({ value, sort: Math.sin(value.id.length + randomSeed) }))
-            .sort((a, b) => a.sort - b.sort)
-            .map(({ value }) => value)
-            .slice(0, 5);
-    }
+    analytics.forEach(e => {
+        if (!e.productId || !scores[e.productId]) return;
+        if (e.type === 'view') scores[e.productId].views++;
+        if (e.type === 'like') scores[e.productId].likes++;
+        if (e.type === 'inquiry') scores[e.productId].inquiries++;
+        if (e.type === 'sold') scores[e.productId].sold++;
+    });
 
-    return filtered;
-  }, [products, activeCategory, search, isAdmin, isGuest, randomSeed]);
+    // Calculate composite score for Trending
+    Object.keys(scores).forEach(id => {
+        const s = scores[id];
+        // Weighting: Sold(10) > Inquiry(5) > Like(2) > View(0.5)
+        s.score = (s.sold * 10) + (s.inquiries * 5) + (s.likes * 2) + (s.views * 0.5);
+    });
 
+    // Helper to filter hidden/private unless admin
+    const availableProducts = products.filter(p => !p.isHidden || isAdmin);
+    const featuredIds = new Set<string>();
+
+    // 2. Define Groups
+    
+    // A. Trending (Top 10 by Score)
+    const sortedByTrend = [...availableProducts].sort((a, b) => scores[b.id].score - scores[a.id].score);
+    const trendingList = sortedByTrend.slice(0, 10);
+    trendingList.forEach(p => featuredIds.add(p.id));
+
+    // B. Recently Added (Top 10 by Date)
+    const sortedByDate = [...availableProducts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Filter out items already in trending to keep lists unique? 
+    // Requirement says "Design first... then remaining". 
+    // However, usually "Recently Added" is strictly time-based regardless of trend.
+    // To strictly follow "then remaining product with label browse all", 
+    // I will NOT exclude from these top lists, but I WILL exclude ALL top lists from "Browse All".
+    const recentList = sortedByDate.slice(0, 10);
+    recentList.forEach(p => featuredIds.add(p.id));
+
+    // C. Most Desire (Top 10 by Inquiry)
+    const sortedByDesire = [...availableProducts].sort((a, b) => scores[b.id].inquiries - scores[a.id].inquiries);
+    const desiredList = sortedByDesire.filter(p => scores[p.id].inquiries > 0).slice(0, 10);
+    desiredList.forEach(p => featuredIds.add(p.id));
+
+    // D. Most Purchased (Top 10 by Sold)
+    const sortedBySold = [...availableProducts].sort((a, b) => scores[b.id].sold - scores[a.id].sold);
+    const purchasedList = sortedBySold.filter(p => scores[p.id].sold > 0).slice(0, 10);
+    purchasedList.forEach(p => featuredIds.add(p.id));
+
+    // E. Browse All (Remaining)
+    // Filter out ANY product that appeared in the lists above
+    const remaining = sortedByDate.filter(p => !featuredIds.has(p.id));
+
+    return {
+        trending: trendingList,
+        recent: recentList,
+        desired: desiredList,
+        purchased: purchasedList,
+        browseAll: remaining
+    };
+  }, [products, analytics, isAdmin]);
+
+
+  // Determine if we are in "Search/Filter Mode" or "Dashboard Mode"
+  const isFiltering = search.length > 0 || activeCategory !== 'All';
+
+  // Get current viewable products based on mode
+  const currentViewProducts = useMemo(() => {
+      if (isFiltering) {
+          return products.filter(p => {
+            const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
+            const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
+            const visible = !p.isHidden || isAdmin;
+            return matchesCategory && matchesSearch && visible;
+          });
+      }
+      return []; // Not used in dashboard mode
+  }, [isFiltering, products, activeCategory, search, isAdmin]);
+
+  // Guest Logic
   const handleGuestInteraction = () => {
       if (confirm("Unlock our full bespoke collection?\n\nLogin securely with WhatsApp to view all 500+ designs and live pricing.")) {
           navigate('/login');
       }
   };
+
+  // Scroll to top on page change
+  useEffect(() => {
+    if (!isFiltering) {
+        // window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); // Optional: auto scroll
+    }
+  }, [browsePage]);
+
 
   if (isLoading) {
       return (
@@ -81,6 +163,33 @@ export const Gallery: React.FC = () => {
         </div>
       );
   }
+
+  const SectionHeader: React.FC<{ icon: any, title: string, subtitle?: string }> = ({ icon: Icon, title, subtitle }) => (
+    <div className="flex items-center gap-3 mb-4 mt-8 px-1">
+        <div className="p-2 bg-white rounded-full shadow-sm border border-stone-100 text-gold-600">
+            <Icon size={20} />
+        </div>
+        <div>
+            <h3 className="font-serif text-xl text-stone-800 font-bold">{title}</h3>
+            {subtitle && <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">{subtitle}</p>}
+        </div>
+    </div>
+  );
+
+  const HorizontalScroll: React.FC<{ items: Product[] }> = ({ items }) => (
+      <div className="flex overflow-x-auto gap-4 pb-6 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
+          {items.map(product => (
+              <div key={product.id} className="min-w-[280px] w-[280px] snap-center">
+                  <ProductCard product={product} isAdmin={isAdmin} onClick={() => navigate(`/product/${product.id}`)} />
+              </div>
+          ))}
+          {items.length === 0 && (
+              <div className="w-full text-center py-10 text-stone-400 text-sm italic bg-stone-100/50 rounded-xl border border-dashed border-stone-200">
+                  Coming soon...
+              </div>
+          )}
+      </div>
+  );
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20 md:pt-16">
@@ -103,7 +212,7 @@ export const Gallery: React.FC = () => {
             {categories.map(cat => (
               <button
                 key={cat}
-                onClick={() => setActiveCategory(cat)}
+                onClick={() => { setActiveCategory(cat); setBrowsePage(1); }}
                 className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                   activeCategory === cat ? 'bg-white shadow-sm text-gold-600' : 'text-stone-400 hover:text-stone-600'
                 }`}
@@ -115,9 +224,11 @@ export const Gallery: React.FC = () => {
 
           <div className="flex gap-2 items-center">
              {isRefreshing && <RefreshCw size={14} className="text-gold-500 animate-spin" />}
-             <button onClick={() => setViewMode(viewMode === 'grid' ? 'masonry' : 'grid')} className="p-2 text-stone-400 hover:text-gold-600 transition" title="Change View">
-               {viewMode === 'grid' ? <LayoutGrid size={20}/> : <Grid size={20}/>}
-             </button>
+             {isFiltering && (
+                <button onClick={() => setViewMode(viewMode === 'grid' ? 'masonry' : 'grid')} className="p-2 text-stone-400 hover:text-gold-600 transition" title="Change View">
+                    {viewMode === 'grid' ? <LayoutGrid size={20}/> : <Grid size={20}/>}
+                </button>
+             )}
              {user && (
                <button onClick={() => storeService.logout()} className="p-2 text-stone-400 hover:text-red-500 transition" title="Logout">
                  <LogOut size={20} />
@@ -128,14 +239,15 @@ export const Gallery: React.FC = () => {
       </div>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
+        
         {/* Guest Banner */}
         {isGuest && (
-            <div className="mb-6 p-4 bg-stone-900 rounded-2xl text-white flex items-center justify-between shadow-xl animate-in fade-in slide-in-from-top-4">
+            <div className="mb-8 p-4 bg-stone-900 rounded-2xl text-white flex items-center justify-between shadow-xl animate-in fade-in slide-in-from-top-4">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-gold-500 rounded-full animate-pulse"><Sparkles size={16} className="text-white" /></div>
                     <div>
                         <p className="font-bold text-sm">Preview Mode Active</p>
-                        <p className="text-[10px] text-stone-400">Showing top 5 trending bespoke designs.</p>
+                        <p className="text-[10px] text-stone-400">Login to unlock full catalog pricing.</p>
                     </div>
                 </div>
                 <button onClick={() => navigate('/login')} className="bg-white text-stone-900 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-gold-50 transition">
@@ -144,52 +256,94 @@ export const Gallery: React.FC = () => {
             </div>
         )}
 
-        <div className={`grid gap-6 ${
-          viewMode === 'grid' 
-          ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
-          : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-        }`}>
-          {visibleProducts.map(product => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
-              isAdmin={isAdmin} 
-              onClick={() => navigate(`/product/${product.id}`)} 
-            />
-          ))}
-
-          {/* The Trick: Blurred Card for Guests */}
-          {isGuest && (
-              <div 
-                onClick={() => navigate('/login')}
-                className="relative bg-white rounded-xl overflow-hidden shadow-sm border border-gold-200 cursor-pointer group h-[350px] flex flex-col items-center justify-center text-center p-6"
-              >
-                  {/* Blurred Background effect */}
-                  <div className="absolute inset-0 bg-stone-200 filter blur-xl opacity-50 scale-110"></div>
-                  <div className="absolute inset-0 bg-white/60 z-10"></div>
-                  
-                  <div className="relative z-20 flex flex-col items-center space-y-4">
-                      <div className="w-16 h-16 bg-stone-900 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                          <Lock size={24} className="text-gold-500" />
-                      </div>
-                      <div>
-                          <h3 className="font-serif text-xl font-bold text-stone-800">500+ Exclusive Designs</h3>
-                          <p className="text-xs text-stone-500 mt-2 max-w-[200px] mx-auto">Register to unlock the full bespoke catalog, live pricing, and customization options.</p>
-                      </div>
-                      <button className="px-6 py-2 bg-gold-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-gold-200">
-                          Unlock Access
-                      </button>
+        {isFiltering ? (
+            /* --- FILTERED GRID VIEW --- */
+            <div className={`grid gap-6 ${
+              viewMode === 'grid' 
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+              : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+            }`}>
+              {currentViewProducts.map(product => (
+                <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigate(`/product/${product.id}`)} />
+              ))}
+              {currentViewProducts.length === 0 && (
+                  <div className="col-span-full h-64 flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-stone-200 rounded-3xl bg-white m-4">
+                    <Filter size={48} className="mb-4 opacity-20" />
+                    <p className="font-serif text-xl">No items found</p>
+                    <button onClick={() => { setSearch(''); setActiveCategory('All'); }} className="mt-4 text-gold-600 font-bold uppercase text-xs tracking-widest hover:underline">Clear Filters</button>
                   </div>
-              </div>
-          )}
-        </div>
+              )}
+            </div>
+        ) : (
+            /* --- DASHBOARD SECTIONS VIEW --- */
+            <div className="space-y-8 animate-in fade-in duration-500">
+                
+                {/* 1. Trending */}
+                <section>
+                    <SectionHeader icon={TrendingUp} title="Trending Now" subtitle="Most Engaged Designs" />
+                    <HorizontalScroll items={trending} />
+                </section>
 
-        {visibleProducts.length === 0 && !isGuest && (
-          <div className="h-64 flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-stone-200 rounded-3xl bg-white m-4">
-            <Filter size={48} className="mb-4 opacity-20" />
-            <p className="font-serif text-xl">No items found</p>
-            <button onClick={() => { setSearch(''); setActiveCategory('All'); }} className="mt-4 text-gold-600 font-bold uppercase text-xs tracking-widest hover:underline">Clear Filters</button>
-          </div>
+                {/* 2. Recently Added */}
+                <section>
+                    <SectionHeader icon={Clock} title="Fresh Arrivals" subtitle="Just Added to Vault" />
+                    <HorizontalScroll items={recent} />
+                </section>
+
+                {/* 3. Most Desired */}
+                <section>
+                    <SectionHeader icon={ShoppingBag} title="Most Desired" subtitle="High Inquiry Volume" />
+                    <HorizontalScroll items={desired} />
+                </section>
+
+                {/* 4. Most Purchased */}
+                <section>
+                    <SectionHeader icon={Gem} title="Sanghavi Icons" subtitle="Most Purchased Collections" />
+                    <HorizontalScroll items={purchased} />
+                </section>
+
+                {/* 5. Browse All (Paginated) */}
+                <section id="browse-all" className="pt-8 border-t border-stone-200 mt-8">
+                    <div className="flex items-center justify-between mb-6">
+                        <SectionHeader icon={Grid} title="Browse Collection" subtitle="Explore Full Catalog" />
+                        <span className="text-xs text-stone-400 font-mono">
+                            Showing {(browsePage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(browsePage * ITEMS_PER_PAGE, browseAll.length)} of {browseAll.length}
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {browseAll
+                            .slice((browsePage - 1) * ITEMS_PER_PAGE, browsePage * ITEMS_PER_PAGE)
+                            .map(product => (
+                                <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigate(`/product/${product.id}`)} />
+                        ))}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {browseAll.length > ITEMS_PER_PAGE && (
+                        <div className="flex justify-center gap-4 mt-12">
+                            <button 
+                                onClick={() => setBrowsePage(p => Math.max(1, p - 1))}
+                                disabled={browsePage === 1}
+                                className="p-3 rounded-full bg-white border border-stone-200 disabled:opacity-50 hover:border-gold-500 hover:text-gold-600 transition"
+                            >
+                                <ChevronLeft size={24} />
+                            </button>
+                            <div className="flex items-center px-6 bg-white border border-stone-200 rounded-full text-sm font-bold text-stone-600">
+                                Page {browsePage} of {Math.ceil(browseAll.length / ITEMS_PER_PAGE)}
+                            </div>
+                            <button 
+                                onClick={() => setBrowsePage(p => Math.min(Math.ceil(browseAll.length / ITEMS_PER_PAGE), p + 1))}
+                                disabled={browsePage >= Math.ceil(browseAll.length / ITEMS_PER_PAGE)}
+                                className="p-3 rounded-full bg-white border border-stone-200 disabled:opacity-50 hover:border-gold-500 hover:text-gold-600 transition"
+                            >
+                                <ChevronRight size={24} />
+                            </button>
+                        </div>
+                    )}
+                </section>
+
+            </div>
         )}
       </main>
 

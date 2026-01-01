@@ -224,7 +224,7 @@ export const storeService = {
     return index === -1;
   },
 
-  logEvent: async (type: AnalyticsEvent['type'] | 'sold', product?: Product, userOverride?: User | null, imageIndex?: number) => {
+  logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number) => {
     try {
         const user = userOverride || storeService.getCurrentUser();
         

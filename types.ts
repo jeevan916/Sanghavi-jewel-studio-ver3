@@ -79,7 +79,7 @@ export interface AppConfig {
 
 export interface AnalyticsEvent {
   id: string;
-  type: 'inquiry' | 'screenshot' | 'view' | 'like' | 'dislike' | 'download' | 'login';
+  type: 'inquiry' | 'screenshot' | 'view' | 'like' | 'dislike' | 'download' | 'login' | 'sold';
   productId?: string;
   productTitle?: string;
   userId: string;
