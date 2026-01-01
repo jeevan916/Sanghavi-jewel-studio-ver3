@@ -25,7 +25,7 @@ export interface HealthStatus {
     mode?: string;
 }
 
-async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 10000) {
+async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 20000) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), customTimeout);
     
@@ -41,17 +41,18 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeo
         
         clearTimeout(timeout);
         
-        if (response.status === 503) throw new Error('Server starting up or unavailable');
+        if (response.status === 503) throw new Error('Vault is syncing. Please wait 10 seconds.');
         if (response.status === 401) {
             storeService.logout();
-            throw new Error('Session expired');
+            throw new Error('Access Revoked. Please re-authenticate.');
         }
         
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Vault Rejected Request (${response.status})`);
         return data;
     } catch (err: any) {
-        if (err.name === 'AbortError') throw new Error('Request timed out');
+        if (err.name === 'AbortError') throw new Error('Connection timed out. Check network or server load.');
+        console.error(`[API Error] ${endpoint}:`, err);
         throw err;
     }
 }
@@ -61,10 +62,9 @@ export const storeService = {
   
   checkServerHealth: async (): Promise<HealthStatus> => {
     try {
-        const data = await apiFetch('/health', {}, 3000);
+        const data = await apiFetch('/health', {}, 5000);
         return { healthy: data.status === 'online', mode: data.mode };
     } catch (e: any) {
-        console.warn('[Store] Health check failed:', e.message);
         return { healthy: false, reason: e.message };
     }
   },

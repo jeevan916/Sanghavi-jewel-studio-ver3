@@ -20,7 +20,6 @@ export const ProductDetails: React.FC = () => {
   const [currentUser] = useState(storeService.getCurrentUser());
   const isAuthorized = currentUser?.role === 'admin' || currentUser?.role === 'contributor';
   
-  const [isAnimating, setIsAnimating] = useState(false);
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
@@ -89,7 +88,7 @@ export const ProductDetails: React.FC = () => {
   };
 
   const handleDeleteProduct = async () => {
-    if (window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
+    if (window.confirm("Delete this product permanently?")) {
         await storeService.deleteProduct(product.id);
         navigate('/collection');
     }
@@ -114,7 +113,7 @@ export const ProductDetails: React.FC = () => {
               setPendingEnhancedImage(`data:image/jpeg;base64,${newBase64}`);
           }
       } catch (error) {
-          alert("AI Processing Failed. Please try again.");
+          alert("AI Processing Failed.");
       } finally { setIsProcessingImage(false); }
   };
 
@@ -130,8 +129,8 @@ export const ProductDetails: React.FC = () => {
       if (!product) return;
       storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
       const link = document.createElement('a');
-      link.href = product.images[currentImageIndex];
-      link.download = `sanghavi-${product.title.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+      link.href = getFullUrl(product.images[currentImageIndex]);
+      link.download = `sanghavi-${product.title.replace(/\s+/g, '-').toLowerCase()}.jpg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -176,7 +175,10 @@ export const ProductDetails: React.FC = () => {
 
   const getFullUrl = (path: string) => {
       if (!path) return '';
-      return (path.startsWith('data:') || path.startsWith('http')) ? path : `${window.location.origin}${path}`;
+      if (path.startsWith('data:') || path.startsWith('http')) return path;
+      const origin = window.location.origin;
+      const cleanPath = path.startsWith('/') ? path : `/${path}`;
+      return `${origin}${cleanPath}`;
   };
 
   const displayPreview = getFullUrl(product.thumbnails?.[currentImageIndex] || product.images[currentImageIndex]);
@@ -204,7 +206,7 @@ export const ProductDetails: React.FC = () => {
         </div>
       </div>
 
-      <div className={`transition-all duration-300 ease-out`}>
+      <div className="transition-all duration-300 ease-out">
           <div 
             ref={imageContainerRef} 
             className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none image-nav-container" 
@@ -215,6 +217,12 @@ export const ProductDetails: React.FC = () => {
                 src={displayPreview} 
                 className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`} 
                 onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} 
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (product.images?.[currentImageIndex] && target.src !== getFullUrl(product.images[currentImageIndex])) {
+                     target.src = getFullUrl(product.images[currentImageIndex]);
+                  }
+                }}
             />
             
             {pendingEnhancedImage && (

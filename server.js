@@ -21,27 +21,49 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * 1. PHYSICAL PERSISTENCE SETUP
- * On Hostinger, we use the process.cwd() to ensure we are in a writable app directory.
+ * Using process.cwd() for absolute path stability on Hostinger.
  */
 const DATA_ROOT = path.resolve(process.cwd(), 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const THUMBS_ROOT = path.resolve(UPLOADS_ROOT, 'thumbnails');
 
-// Ensure directories exist on startup
-const ensureFolders = () => {
+// Ensure directories exist with proper permissions on startup
+const ensureFolders = async () => {
     try {
-        if (!existsSync(DATA_ROOT)) mkdirSync(DATA_ROOT, { recursive: true });
-        if (!existsSync(UPLOADS_ROOT)) mkdirSync(UPLOADS_ROOT, { recursive: true });
-        if (!existsSync(THUMBS_ROOT)) mkdirSync(THUMBS_ROOT, { recursive: true });
-        console.log(`[Vault] Persistence paths verified at: ${DATA_ROOT}`);
+        if (!existsSync(DATA_ROOT)) mkdirSync(DATA_ROOT, { recursive: true, mode: 0o777 });
+        if (!existsSync(UPLOADS_ROOT)) mkdirSync(UPLOADS_ROOT, { recursive: true, mode: 0o777 });
+        if (!existsSync(THUMBS_ROOT)) mkdirSync(THUMBS_ROOT, { recursive: true, mode: 0o777 });
+        
+        try {
+            await fs.chmod(DATA_ROOT, 0o777);
+            await fs.chmod(UPLOADS_ROOT, 0o777);
+            await fs.chmod(THUMBS_ROOT, 0o777);
+        } catch (e) {
+            console.warn(`[Vault] Chmod limited by host environment.`);
+        }
+        
+        console.log(`[Vault] Assets Directory: ${UPLOADS_ROOT}`);
     } catch (err) {
-        console.error(`[Vault] FATAL: Could not create persistence folders:`, err.message);
+        console.error(`[Vault] FATAL: Initialization failed:`, err.message);
     }
 };
 ensureFolders();
 
-// Serve the uploaded assets
-app.use('/uploads', express.static(UPLOADS_ROOT));
+/**
+ * ASSET SERVICING
+ * Explicitly serving /uploads from the physical persistence root.
+ */
+app.use('/uploads', (req, res, next) => {
+    // Basic logging to debug broken links in Hostinger logs
+    console.log(`[Vault] Serving Asset: ${req.url}`);
+    next();
+}, express.static(UPLOADS_ROOT, {
+    maxAge: '1d',
+    etag: true,
+    setHeaders: (res, path) => {
+        res.set('Access-Control-Allow-Origin', '*');
+    }
+}));
 
 /**
  * 2. MYSQL CONNECTION CONFIG
@@ -68,10 +90,9 @@ let pool;
 
 const initializeDatabase = async () => {
     try {
-        console.log(`[MySQL] Connecting to ${dbConfig.host}...`);
         pool = mysql.createPool(dbConfig);
         await pool.query('SELECT 1');
-        console.log(`[MySQL] Database Connected.`);
+        console.log(`[MySQL] Connected.`);
 
         const tables = [
             `CREATE TABLE IF NOT EXISTS products (
@@ -152,26 +173,30 @@ initializeDatabase();
  * 3. ASSET UTILITY
  */
 const saveToVault = async (base64, isThumb = false) => {
-    // Only process base64 strings
     if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image')) return base64;
     
     try {
         const match = base64.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
         if (!match) return base64;
         
-        const extension = match[1] === 'jpeg' ? 'jpg' : match[1];
+        const type = match[1];
+        const data = match[2];
+        const extension = type === 'jpeg' ? 'jpg' : type;
         const fileName = `${crypto.randomUUID()}.${extension}`;
         const relativePath = isThumb ? `thumbnails/${fileName}` : fileName;
         const absolutePath = path.resolve(UPLOADS_ROOT, relativePath);
 
-        const buffer = Buffer.from(match[2], 'base64');
+        const buffer = Buffer.from(data, 'base64');
         await fs.writeFile(absolutePath, buffer);
         
+        try {
+            await fs.chmod(absolutePath, 0o644);
+        } catch (e) {}
+
         return `/uploads/${relativePath}`;
     } catch (err) {
-        console.error(`[Vault] Image Write Failed:`, err.message);
-        // Fallback: return base64 so data isn't lost, though it creates a heavy DB record
-        return base64;
+        console.error(`[Vault] Save Error:`, err.message);
+        return null; 
     }
 };
 
@@ -188,7 +213,7 @@ const processMedia = async (data) => {
                 clean[key] = await Promise.all(val.map(v => 
                     (typeof v === 'string' && v.startsWith('data:image')) 
                     ? saveToVault(v, key.toLowerCase().includes('thumb')) 
-                    : processMedia(v)
+                    : (typeof v === 'object' && v !== null ? processMedia(v) : v)
                 ));
             } else if (val && typeof val === 'object') {
                 clean[key] = await processMedia(val);
@@ -204,17 +229,14 @@ const processMedia = async (data) => {
  */
 app.get('/api/health', async (req, res) => {
     try {
-        if (!pool) throw new Error('Database pool not ready');
+        if (!pool) throw new Error('DB not ready');
         await pool.query('SELECT 1');
         res.json({ 
             status: 'online', 
             database: 'connected', 
-            uploads_dir: existsSync(UPLOADS_ROOT),
-            path: UPLOADS_ROOT 
+            uploads_dir: existsSync(UPLOADS_ROOT)
         });
-    } catch (e) { 
-        res.status(503).json({ status: 'offline', error: e.message }); 
-    }
+    } catch (e) { res.status(503).json({ status: 'offline', error: e.message }); }
 });
 
 app.get('/api/products', async (req, res) => {
@@ -226,20 +248,22 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/products', async (req, res) => {
     try {
-        console.log(`[API] Processing new product: ${req.body.title}`);
         const p = await processMedia(req.body);
+        if (Array.isArray(p.images)) p.images = p.images.filter(img => img !== null);
+        if (Array.isArray(p.thumbnails)) p.thumbnails = p.thumbnails.filter(img => img !== null);
+
         const query = `INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await pool.query(query, [p.id, p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, new Date(p.createdAt), p.dateTaken, JSON.stringify(p.meta)]);
         res.json(p);
-    } catch (err) { 
-        console.error('[API] Product Save Error:', err.message);
-        res.status(500).json({ error: err.message }); 
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/products/:id', async (req, res) => {
     try {
         const p = await processMedia(req.body);
+        if (Array.isArray(p.images)) p.images = p.images.filter(img => img !== null);
+        if (Array.isArray(p.thumbnails)) p.thumbnails = p.thumbnails.filter(img => img !== null);
+
         const query = `UPDATE products SET title=?, category=?, subCategory=?, weight=?, description=?, tags=?, images=?, thumbnails=?, supplier=?, uploadedBy=?, isHidden=?, dateTaken=?, meta=? WHERE id=?`;
         await pool.query(query, [p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, p.dateTaken, JSON.stringify(p.meta), req.params.id]);
         res.json(p);
@@ -283,7 +307,7 @@ app.post('/api/auth/staff', async (req, res) => {
         const { username, password } = req.body;
         const [rows] = await pool.query('SELECT * FROM staff WHERE username = ? AND password = ? AND isActive = 1', [username, password]);
         if (rows.length > 0) res.json(rows[0]);
-        else res.status(401).json({ error: 'Access Denied' });
+        else res.status(401).json({ error: 'Invalid Credentials' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -341,4 +365,4 @@ if (existsSync(distPath)) {
     });
 }
 
-app.listen(PORT, HOST, () => console.log(`[Server] Active on http://${HOST}:${PORT}`));
+app.listen(PORT, HOST, () => console.log(`[Production Studio] Running on port ${PORT}`));

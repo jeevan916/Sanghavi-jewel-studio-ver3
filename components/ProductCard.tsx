@@ -43,13 +43,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
   };
 
-  // Safe URL helper for local storage
+  /**
+   * Helper to ensure image URLs are correctly resolved.
+   * If it's a relative path starting with /uploads, we ensure it uses the full origin.
+   */
   const getImageUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('data:') || path.startsWith('http')) return path;
-    return `${window.location.origin}${path}`;
+    
+    // In production on Hostinger, the origin is the actual domain.
+    // Ensure we don't double-slash or miss the root.
+    const origin = window.location.origin;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${origin}${cleanPath}`;
   };
 
+  // Favor thumbnail for performance, fallback to main image
   const displayImage = getImageUrl(
     product.thumbnails?.[currentImageIndex] || 
     product.images?.[currentImageIndex] || 
@@ -59,7 +68,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all hover:shadow-md flex flex-col h-full cursor-pointer" onClick={onClick}>
       <div className="relative aspect-square overflow-hidden bg-stone-100 group/image">
-        <img src={displayImage} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" loading="lazy" />
+        <img 
+          src={displayImage} 
+          alt={product.title} 
+          className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" 
+          loading="lazy" 
+          onError={(e) => {
+            // Fallback if thumbnail is broken
+            const target = e.target as HTMLImageElement;
+            if (product.images?.[currentImageIndex] && target.src !== getImageUrl(product.images[currentImageIndex])) {
+               target.src = getImageUrl(product.images[currentImageIndex]);
+            }
+          }}
+        />
         
         <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center">
             <Maximize2 className="text-white opacity-0 group-hover/image:opacity-100 transition-opacity drop-shadow-md" size={32} />

@@ -16,21 +16,24 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-// Fix: Use explicit Component import and property initializer for state to resolve TS accessibility issues
 /**
  * Standard React Error Boundary.
  * Handles UI failures gracefully by showing a fallback screen.
  */
+// Fix: Extending Component directly from 'react' imports instead of React.Component for cleaner type resolution in strict environments
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly defining the constructor ensures 'this.props' is correctly typed and available in all class methods
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
-
-  // Fix: Property initialization ensures the compiler recognizes 'state' on this class
+  // Fix: Explicitly declare the state property to resolve "Property 'state' does not exist" errors in strict TS environments
   public state: ErrorBoundaryState = {
     hasError: false
   };
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    // Fix: Initializing state correctly. Explicit declaration above ensures 'state' is recognized as a member of ErrorBoundary.
+    this.state = {
+      hasError: false
+    };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -42,7 +45,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: Access hasError from this.state which is now explicitly recognized by the compiler
+    // Fix: Accessing state property which is now correctly defined and inherited from the Component base class
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -61,7 +64,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
     
-    // Fix: Access children via this.props which is inherited from Component
+    // Fix: Accessing props.children which is inherited from the Component base class (resolves "Property 'props' does not exist")
     return this.props.children;
   }
 }
