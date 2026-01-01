@@ -31,6 +31,8 @@ export type User = {
   phone?: string;
   location?: string;
   lastLogin?: string;
+  // Fix: Added createdAt property to User type
+  createdAt?: string;
 };
 
 export interface StaffAccount {

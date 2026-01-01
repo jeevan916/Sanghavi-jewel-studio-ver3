@@ -82,10 +82,35 @@ export const storeService = {
   getProducts: async (): Promise<Product[]> => {
     try {
       const data = await apiFetch('/products');
-      return (data || []).sort((a: Product, b: Product) => 
+      const products = (data || []).map((p: any) => {
+          // Defensive parsing for images and thumbnails in case the API returns them as strings
+          if (typeof p.images === 'string') {
+              try { p.images = JSON.parse(p.images); } catch(e) { p.images = []; }
+          }
+          if (typeof p.thumbnails === 'string') {
+              try { p.thumbnails = JSON.parse(p.thumbnails); } catch(e) { p.thumbnails = []; }
+          }
+          if (typeof p.tags === 'string') {
+              try { p.tags = JSON.parse(p.tags); } catch(e) { p.tags = []; }
+          }
+          if (typeof p.meta === 'string') {
+              try { p.meta = JSON.parse(p.meta); } catch(e) { p.meta = {}; }
+          }
+          
+          // Double-check they are arrays now
+          if (!Array.isArray(p.images)) p.images = [];
+          if (!Array.isArray(p.thumbnails)) p.thumbnails = [];
+          if (!Array.isArray(p.tags)) p.tags = [];
+          
+          return p as Product;
+      });
+      return products.sort((a: Product, b: Product) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
-    } catch (err) { return []; }
+    } catch (err) { 
+        console.error("StoreService getProducts Error:", err);
+        return []; 
+    }
   },
 
   addProduct: (product: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }),

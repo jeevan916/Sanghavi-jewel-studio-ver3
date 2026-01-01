@@ -66,7 +66,6 @@ const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.S
 const CustomerLogin = lazy(() => import('./pages/CustomerLogin').then(m => ({ default: m.CustomerLogin })));
 const StaffLogin = lazy(() => import('./pages/StaffLogin').then(m => ({ default: m.StaffLogin })));
 const ProductDetails = lazy(() => import('./pages/ProductDetails').then(m => ({ default: m.ProductDetails })));
-const Consultant = lazy(() => import('./pages/Consultant').then(m => ({ default: m.Consultant })));
 
 const PageLoader = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
@@ -116,7 +115,6 @@ function AppContent() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/collection" element={<Gallery />} />
                 <Route path="/product/:id" element={<ProductDetails />} />
-                <Route path="/consultant" element={<Consultant />} />
                 <Route path="/login" element={<CustomerLogin onLoginSuccess={(u) => { setUser(u); navigate('/collection'); }} />} />
                 <Route path="/staff" element={<StaffLogin onLoginSuccess={(u) => { setUser(u); navigate('/admin/dashboard'); }} />} />
                 <Route path="/admin/dashboard" element={<AuthGuard user={user} allowedRoles={['admin', 'contributor']}><AdminDashboard onNavigate={(p) => navigate(`/admin/${p}`)} /></AuthGuard>} />

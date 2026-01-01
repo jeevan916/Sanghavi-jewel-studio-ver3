@@ -33,54 +33,58 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     await storeService.shareToWhatsApp(product, currentImageIndex);
   };
 
+  const productImages = Array.isArray(product.images) ? product.images : [];
+  const productThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
+
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev + 1) % product.images.length);
+    if (productImages.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % productImages.length);
+    }
   };
 
   const prevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
+    if (productImages.length > 0) {
+      setCurrentImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length);
+    }
   };
 
-  /**
-   * Helper to ensure image URLs are correctly resolved.
-   * If it's a relative path starting with /uploads, we ensure it uses the full origin.
-   */
   const getImageUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('data:') || path.startsWith('http')) return path;
-    
-    // In production on Hostinger, the origin is the actual domain.
-    // Ensure we don't double-slash or miss the root.
     const origin = window.location.origin;
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
     return `${origin}${cleanPath}`;
   };
 
-  // Favor thumbnail for performance, fallback to main image
   const displayImage = getImageUrl(
-    product.thumbnails?.[currentImageIndex] || 
-    product.images?.[currentImageIndex] || 
-    product.images?.[0]
+    productThumbnails[currentImageIndex] || 
+    productImages[currentImageIndex] || 
+    productImages[0]
   );
 
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all hover:shadow-md flex flex-col h-full cursor-pointer" onClick={onClick}>
       <div className="relative aspect-square overflow-hidden bg-stone-100 group/image">
-        <img 
-          src={displayImage} 
-          alt={product.title} 
-          className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" 
-          loading="lazy" 
-          onError={(e) => {
-            // Fallback if thumbnail is broken
-            const target = e.target as HTMLImageElement;
-            if (product.images?.[currentImageIndex] && target.src !== getImageUrl(product.images[currentImageIndex])) {
-               target.src = getImageUrl(product.images[currentImageIndex]);
-            }
-          }}
-        />
+        {displayImage ? (
+          <img 
+            src={displayImage} 
+            alt={product.title} 
+            className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" 
+            loading="lazy" 
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (productImages[currentImageIndex] && target.src !== getImageUrl(productImages[currentImageIndex])) {
+                 target.src = getImageUrl(productImages[currentImageIndex]);
+              }
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-stone-300">
+            <Maximize2 size={40} />
+          </div>
+        )}
         
         <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center">
             <Maximize2 className="text-white opacity-0 group-hover/image:opacity-100 transition-opacity drop-shadow-md" size={32} />
@@ -90,7 +94,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
             <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
         </button>
 
-        {product.images.length > 1 && (
+        {productImages.length > 1 && (
           <>
             <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 p-1 rounded-full shadow-sm opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-white z-10"><ChevronLeft size={16} /></button>
             <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 p-1 rounded-full shadow-sm opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-white z-10"><ChevronRight size={16} /></button>

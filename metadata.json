@@ -1,9 +1,8 @@
 {
   "requestFramePermissions": [
     "camera",
-    "microphone",
     "geolocation"
   ],
   "name": "Sanghavi Jewel Studio v3.5",
-  "description": "Enterprise-grade AI-Powered Bespoke Luxury Jewelry Studio with MySQL Persistence and Live AI Consultant"
+  "description": "Enterprise-grade AI-Powered Bespoke Luxury Jewelry Studio with MySQL Persistence"
 }

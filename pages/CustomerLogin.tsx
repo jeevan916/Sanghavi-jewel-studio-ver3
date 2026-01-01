@@ -176,7 +176,8 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
               {otpValue.map((digit, idx) => (
                 <input
                   key={idx}
-                  ref={el => otpRefs.current[idx] = el}
+                  // Fix: Wrapped ref assignment in a block to return void
+                  ref={el => { otpRefs.current[idx] = el; }}
                   type="text"
                   maxLength={1}
                   value={digit}

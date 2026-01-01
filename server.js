@@ -21,13 +21,11 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * 1. PHYSICAL PERSISTENCE SETUP
- * Using process.cwd() for absolute path stability on Hostinger.
  */
 const DATA_ROOT = path.resolve(process.cwd(), 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const THUMBS_ROOT = path.resolve(UPLOADS_ROOT, 'thumbnails');
 
-// Ensure directories exist with proper permissions on startup
 const ensureFolders = async () => {
     try {
         if (!existsSync(DATA_ROOT)) mkdirSync(DATA_ROOT, { recursive: true, mode: 0o777 });
@@ -41,23 +39,13 @@ const ensureFolders = async () => {
         } catch (e) {
             console.warn(`[Vault] Chmod limited by host environment.`);
         }
-        
-        console.log(`[Vault] Assets Directory: ${UPLOADS_ROOT}`);
     } catch (err) {
         console.error(`[Vault] FATAL: Initialization failed:`, err.message);
     }
 };
 ensureFolders();
 
-/**
- * ASSET SERVICING
- * Explicitly serving /uploads from the physical persistence root.
- */
-app.use('/uploads', (req, res, next) => {
-    // Basic logging to debug broken links in Hostinger logs
-    console.log(`[Vault] Serving Asset: ${req.url}`);
-    next();
-}, express.static(UPLOADS_ROOT, {
+app.use('/uploads', express.static(UPLOADS_ROOT, {
     maxAge: '1d',
     etag: true,
     setHeaders: (res, path) => {
@@ -170,6 +158,34 @@ const initializeDatabase = async () => {
 initializeDatabase();
 
 /**
+ * Helper to ensure JSON fields are parsed correctly
+ */
+const parseJsonFields = (row, fields) => {
+    if (!row) return row;
+    const clean = { ...row };
+    fields.forEach(field => {
+        if (clean[field] && typeof clean[field] === 'string') {
+            try {
+                // Remove potential extra quotes if the DB returned it double-stringified
+                let rawValue = clean[field].trim();
+                if (rawValue.startsWith('"') && rawValue.endsWith('"') && rawValue.length > 1) {
+                    rawValue = JSON.parse(rawValue);
+                }
+                clean[field] = JSON.parse(rawValue);
+            } catch (e) {
+                console.error(`Failed to parse field ${field}:`, e);
+                clean[field] = []; 
+            }
+        }
+        // Ensure it's an array if it should be
+        if (['images', 'thumbnails', 'tags'].includes(field) && !Array.isArray(clean[field])) {
+            clean[field] = [];
+        }
+    });
+    return clean;
+};
+
+/**
  * 3. ASSET UTILITY
  */
 const saveToVault = async (base64, isThumb = false) => {
@@ -242,7 +258,8 @@ app.get('/api/health', async (req, res) => {
 app.get('/api/products', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
-        res.json(rows);
+        const parsed = rows.map(r => parseJsonFields(r, ['tags', 'images', 'thumbnails', 'meta']));
+        res.json(parsed);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -280,7 +297,8 @@ app.delete('/api/products/:id', async (req, res) => {
 app.get('/api/config', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT data FROM app_config WHERE id = 1');
-        res.json(rows[0]?.data || {});
+        const config = rows[0]?.data;
+        res.json(typeof config === 'string' ? JSON.parse(config) : (config || {}));
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

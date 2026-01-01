@@ -37,18 +37,23 @@ export const ProductDetails: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      const allProducts = await storeService.getProducts();
-      setProductList(allProducts);
-      
-      const found = allProducts.find(p => p.id === id);
-      if (found) {
-        setProduct(found);
-        setEditDescValue(found.description);
+      try {
+        const allProducts = await storeService.getProducts();
+        setProductList(allProducts);
+        
+        const found = allProducts.find(p => p.id === id);
+        if (found) {
+          setProduct(found);
+          setEditDescValue(found.description);
+        }
+        
+        const conf = await storeService.getConfig();
+        setConfig(conf);
+      } catch (err) {
+        console.error("Fetch details error:", err);
+      } finally {
+        setIsLoading(false);
       }
-      
-      const conf = await storeService.getConfig();
-      setConfig(conf);
-      setIsLoading(false);
     };
     fetchData();
   }, [id]);
@@ -70,6 +75,11 @@ export const ProductDetails: React.FC = () => {
       </div>
     );
   }
+
+  // Defensive array access
+  const productImages = Array.isArray(product.images) ? product.images : [];
+  const productThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
+  const productTags = Array.isArray(product.tags) ? product.tags : [];
 
   const currentIndex = productList.findIndex(p => p.id === product.id);
   const hasNext = currentIndex < productList.length - 1;
@@ -95,19 +105,19 @@ export const ProductDetails: React.FC = () => {
   };
 
   const handleManualSave = (newBase64: string) => {
-      const updatedImages = [...product.images];
+      const updatedImages = [...productImages];
       updatedImages[currentImageIndex] = newBase64;
       handleUpdateProduct({ images: updatedImages });
       setIsManualEditing(false);
   };
 
   const handleAiAction = async (action: 'clean' | 'enhance') => {
-      if (!product) return;
+      if (!product || productImages.length === 0) return;
       setIsProcessingImage(true);
       setShowAiMenu(false);
       try {
-          const currentImg = product.images[currentImageIndex];
-          const base64Data = currentImg.split(',')[1] || currentImg;
+          const currentImg = productImages[currentImageIndex];
+          const base64Data = currentImg.includes(',') ? currentImg.split(',')[1] : currentImg;
           let newBase64 = action === 'clean' ? await removeWatermark(base64Data) : await enhanceJewelryImage(base64Data);
           if (newBase64) {
               setPendingEnhancedImage(`data:image/jpeg;base64,${newBase64}`);
@@ -126,10 +136,10 @@ export const ProductDetails: React.FC = () => {
   };
 
   const handleDownload = () => {
-      if (!product) return;
+      if (!product || productImages.length === 0) return;
       storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
       const link = document.createElement('a');
-      link.href = getFullUrl(product.images[currentImageIndex]);
+      link.href = getFullUrl(productImages[currentImageIndex]);
       link.download = `sanghavi-${product.title.replace(/\s+/g, '-').toLowerCase()}.jpg`;
       document.body.appendChild(link);
       link.click();
@@ -157,12 +167,12 @@ export const ProductDetails: React.FC = () => {
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
         if (pendingEnhancedImage) return; 
         const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
-        if (isOnImage && product.images.length > 1) {
+        if (isOnImage && productImages.length > 1) {
             if (dx > 0) {
                 if (currentImageIndex > 0) setCurrentImageIndex(prev => prev - 1);
                 else if (hasPrev) goToPrev();
             } else {
-                if (currentImageIndex < product.images.length - 1) setCurrentImageIndex(prev => prev + 1);
+                if (currentImageIndex < productImages.length - 1) setCurrentImageIndex(prev => prev + 1);
                 else if (hasNext) goToNext();
             }
         } else {
@@ -181,7 +191,7 @@ export const ProductDetails: React.FC = () => {
       return `${origin}${cleanPath}`;
   };
 
-  const displayPreview = getFullUrl(product.thumbnails?.[currentImageIndex] || product.images[currentImageIndex]);
+  const displayPreview = getFullUrl(productThumbnails[currentImageIndex] || productImages[currentImageIndex]);
 
   return (
     <div 
@@ -189,8 +199,8 @@ export const ProductDetails: React.FC = () => {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
     >
-      {showFullScreen && <ImageViewer images={product.images.map(getFullUrl)} initialIndex={currentImageIndex} title={product.title} onClose={() => setShowFullScreen(false)} />}
-      {isManualEditing && <ImageEditor imageSrc={getFullUrl(product.images[currentImageIndex])} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
+      {showFullScreen && <ImageViewer images={productImages.map(getFullUrl)} initialIndex={currentImageIndex} title={product.title} onClose={() => setShowFullScreen(false)} />}
+      {isManualEditing && <ImageEditor imageSrc={getFullUrl(productImages[currentImageIndex])} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
 
       <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30">
         <button onClick={() => navigate('/collection')} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24} /></button>
@@ -213,29 +223,31 @@ export const ProductDetails: React.FC = () => {
             onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}
             onTouchMove={(e) => pendingEnhancedImage && handleSliderMove(e.touches[0].clientX)}
           >
-            <img 
+            {displayPreview && (
+              <img 
                 src={displayPreview} 
                 className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`} 
                 onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} 
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  if (product.images?.[currentImageIndex] && target.src !== getFullUrl(product.images[currentImageIndex])) {
-                     target.src = getFullUrl(product.images[currentImageIndex]);
+                  if (productImages[currentImageIndex] && target.src !== getFullUrl(productImages[currentImageIndex])) {
+                     target.src = getFullUrl(productImages[currentImageIndex]);
                   }
                 }}
-            />
+              />
+            )}
             
             {pendingEnhancedImage && (
                 <>
                     <img src={pendingEnhancedImage} className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" style={{ clipPath: `inset(0 ${100 - compareSliderPos}% 0 0)` }} />
                     <div className="absolute inset-y-0 w-1 bg-white z-20 cursor-col-resize shadow-lg flex items-center justify-center pointer-events-none" style={{ left: `${compareSliderPos}%` }}><div className="bg-white rounded-full p-1 shadow text-stone-900"><MoveHorizontal size={16} /></div></div>
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4"><button onClick={() => setPendingEnhancedImage(null)} className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl border border-stone-700 font-medium">Discard</button><button onClick={() => { const next = [...product.images]; next[currentImageIndex] = pendingEnhancedImage; handleUpdateProduct({ images: next }); setPendingEnhancedImage(null); }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button></div>
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4"><button onClick={() => setPendingEnhancedImage(null)} className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl border border-stone-700 font-medium">Discard</button><button onClick={() => { const next = [...productImages]; next[currentImageIndex] = pendingEnhancedImage; handleUpdateProduct({ images: next }); setPendingEnhancedImage(null); }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button></div>
                 </>
             )}
 
-            {!pendingEnhancedImage && product.images.length > 1 && (
+            {!pendingEnhancedImage && productImages.length > 1 && (
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
-                    {product.images.map((_, idx) => (
+                    {productImages.map((_, idx) => (
                         <button
                             key={idx}
                             onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
@@ -298,7 +310,7 @@ export const ProductDetails: React.FC = () => {
                  <div><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Supplier</span><div className="text-stone-700 font-medium">{product.supplier || 'N/A'}</div></div>
                  {isAuthorized && product.meta?.cameraModel && (<div><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Device Type</span><div className="flex items-center gap-2 text-stone-700"><Smartphone size={14} /> {product.meta.cameraModel}</div></div>)}
                  {isAuthorized && product.meta?.deviceManufacturer && (<div><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Manufacturer</span><div className="flex items-center gap-2 text-stone-700"><Cpu size={14} /> {product.meta.deviceManufacturer}</div></div>)}
-                 <div className="col-span-2"><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Tags</span><div className="flex flex-wrap gap-2">{product.tags.map(tag => <span key={tag} className="bg-white border border-stone-200 px-2 py-1 rounded text-xs text-stone-600">#{tag}</span>)}</div></div>
+                 <div className="col-span-2"><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Tags</span><div className="flex flex-wrap gap-2">{productTags.map(tag => <span key={tag} className="bg-white border border-stone-200 px-2 py-1 rounded text-xs text-stone-600">#{tag}</span>)}</div></div>
              </div>
           </div>
       </div>
