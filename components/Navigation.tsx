@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Home, Sparkles, Upload, LayoutDashboard, LogIn, LogOut, Settings, LayoutGrid } from 'lucide-react';
+import { Home, Sparkles, Upload, LayoutDashboard, LogIn, LogOut, Settings, LayoutGrid, Mic } from 'lucide-react';
 import { User } from '../types';
 import { storeService } from '../services/storeService';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
@@ -19,13 +19,13 @@ export const Navigation: React.FC<NavigationProps> = ({ user, onLogout }) => {
     return storeService.subscribeStatus(setIsOnline);
   }, []);
 
-  const isAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'admin' || user?.role === 'contributor';
   const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff';
 
   const customerTabs = [
     { id: 'landing', path: '/', icon: Home, label: 'Studio' },
     { id: 'gallery', path: '/collection', icon: LayoutGrid, label: 'Catalog' },
+    { id: 'consultant', path: '/consultant', icon: Mic, label: 'Expert' },
   ];
 
   const staffTabs = [
@@ -75,7 +75,6 @@ export const Navigation: React.FC<NavigationProps> = ({ user, onLogout }) => {
             </button>
           ))}
           
-          {/* Mobile-only Login/Logout for small screens when tabs are many */}
           <div className="md:hidden flex items-center pl-2 ml-2 border-l border-stone-200/20">
              {user ? (
                 <button onClick={onLogout} className="flex flex-col items-center gap-1 text-red-400">
@@ -91,7 +90,7 @@ export const Navigation: React.FC<NavigationProps> = ({ user, onLogout }) => {
           </div>
         </div>
 
-        {/* Auth Actions (Desktop and wider mobile) */}
+        {/* Auth Actions (Desktop) */}
         <div className="hidden md:flex items-center gap-4 shrink-0">
           <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} title={isOnline ? 'Online' : 'Offline'} />
           {user ? (

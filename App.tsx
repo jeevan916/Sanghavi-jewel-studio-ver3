@@ -1,3 +1,4 @@
+
 import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
@@ -16,24 +17,11 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-/**
- * Standard React Error Boundary.
- * Handles UI failures gracefully by showing a fallback screen.
- */
-// Fix: Extending Component directly from 'react' imports instead of React.Component for cleaner type resolution in strict environments
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly declare the state property to resolve "Property 'state' does not exist" errors in strict TS environments
+// Fixed: Explicitly extend React.Component to ensure props are correctly identified by the TypeScript compiler
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false
   };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    // Fix: Initializing state correctly. Explicit declaration above ensures 'state' is recognized as a member of ErrorBoundary.
-    this.state = {
-      hasError: false
-    };
-  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -45,7 +33,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: Accessing state property which is now correctly defined and inherited from the Component base class
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -64,7 +51,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
     
-    // Fix: Accessing props.children which is inherited from the Component base class (resolves "Property 'props' does not exist")
+    // Fixed: Accessed children via this.props safely after standardizing the class definition
     return this.props.children;
   }
 }
@@ -79,6 +66,7 @@ const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.S
 const CustomerLogin = lazy(() => import('./pages/CustomerLogin').then(m => ({ default: m.CustomerLogin })));
 const StaffLogin = lazy(() => import('./pages/StaffLogin').then(m => ({ default: m.StaffLogin })));
 const ProductDetails = lazy(() => import('./pages/ProductDetails').then(m => ({ default: m.ProductDetails })));
+const Consultant = lazy(() => import('./pages/Consultant').then(m => ({ default: m.Consultant })));
 
 const PageLoader = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
@@ -128,6 +116,7 @@ function AppContent() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/collection" element={<Gallery />} />
                 <Route path="/product/:id" element={<ProductDetails />} />
+                <Route path="/consultant" element={<Consultant />} />
                 <Route path="/login" element={<CustomerLogin onLoginSuccess={(u) => { setUser(u); navigate('/collection'); }} />} />
                 <Route path="/staff" element={<StaffLogin onLoginSuccess={(u) => { setUser(u); navigate('/admin/dashboard'); }} />} />
                 <Route path="/admin/dashboard" element={<AuthGuard user={user} allowedRoles={['admin', 'contributor']}><AdminDashboard onNavigate={(p) => navigate(`/admin/${p}`)} /></AuthGuard>} />
