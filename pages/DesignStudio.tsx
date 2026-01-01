@@ -55,7 +55,7 @@ export const DesignStudio: React.FC = () => {
         alert("API Key configuration error. Please re-select your key.");
         (window as any).aistudio.openSelectKey();
       } else {
-        alert("Generation failed. Check your connection or Pro API settings.");
+        alert("Generation failed. Check your connection or API settings.");
       }
     } finally {
       setIsGenerating(false);
@@ -69,7 +69,7 @@ export const DesignStudio: React.FC = () => {
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="font-serif text-3xl text-gold-700">Design Studio</h2>
-          <p className="text-stone-500 mt-2">Generate luxury bespoke jewelry concepts instantly using AI.</p>
+          <p className="text-stone-500 mt-2">Generate luxury bespoke jewelry concepts instantly using Gemini.</p>
         </div>
         
         {/* Pro Mode Toggle */}
@@ -77,9 +77,9 @@ export const DesignStudio: React.FC = () => {
            <div className="flex flex-col">
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500 flex items-center gap-1">
                 {isProMode ? <ShieldCheck size={10} className="text-blue-500" /> : <Zap size={10} />}
-                {isProMode ? "Gemini 3 Pro" : "Standard Flash"}
+                {isProMode ? "Gemini 3.0 Pro" : "Gemini 2.5 Flash"}
               </span>
-              <span className="text-[9px] text-stone-400">Ultra-HD Generation</span>
+              <span className="text-[9px] text-stone-400">Masterpiece Resolution</span>
            </div>
            <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" className="sr-only peer" checked={isProMode} onChange={handleProToggle} />
@@ -92,7 +92,7 @@ export const DesignStudio: React.FC = () => {
         <div className="mb-6 bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-3">
           <Key className="text-blue-500 mt-0.5" size={18} />
           <div>
-            <p className="text-xs text-blue-800 font-medium">Pro Mode requires your own Gemini API Key from a paid project.</p>
+            <p className="text-xs text-blue-800 font-medium">Pro Mode uses Gemini 3.0 Pro for 2K ultra-fidelity concepts.</p>
             <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 underline font-bold uppercase mt-1 inline-block">Billing Docs</a>
           </div>
         </div>
@@ -113,7 +113,7 @@ export const DesignStudio: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
             <div className="flex items-center justify-between mb-4">
               <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Aspect Ratio</label>
-              <span className="text-[10px] text-stone-400 font-medium">{isProMode ? "Gemini 3 Pro Image" : "Gemini 2.5 Flash Image"}</span>
+              <span className="text-[10px] text-stone-400 font-medium">{isProMode ? "Gemini 3.0 Pro Image" : "Gemini 2.5 Flash Image"}</span>
             </div>
             <div className="grid grid-cols-5 gap-2">
               {ratios.map((r) => (
@@ -159,7 +159,7 @@ export const DesignStudio: React.FC = () => {
                  </div>
                  <p className="text-stone-400 text-sm font-medium">Specify details and click generate</p>
                  <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-stone-400 bg-white/50 px-3 py-1 rounded-full border border-stone-200 inline-flex">
-                   <Info size={10} /> Powered by Gemini AI
+                   <Info size={10} /> Powered by Gemini
                  </div>
                </div>
              )}
@@ -177,7 +177,7 @@ export const DesignStudio: React.FC = () => {
           
           {history.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest px-1">Recent Concepts ({history.length})</h4>
+              <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest px-1">Concept History ({history.length})</h4>
               <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
                 {history.map((design) => (
                   <button 

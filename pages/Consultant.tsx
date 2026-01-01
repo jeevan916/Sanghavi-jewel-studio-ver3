@@ -21,7 +21,7 @@ export const Consultant: React.FC = () => {
   const startSession = async () => {
     setIsConnecting(true);
     try {
-      // Create fresh instance for the call
+      // Strictly use Gemini 2.5 Flash for Native Audio
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -36,7 +36,7 @@ export const Consultant: React.FC = () => {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } },
           },
-          systemInstruction: 'You are an elite jewelry expert from Sanghavi Jewel Studio. You are helping high-net-worth clients design or select bespoke luxury jewelry. Your tone is sophisticated, knowledgeable, and elegant. Speak about metal types (18k gold, platinum), gem quality (VVS clarity, D color), and bespoke craftsmanship.',
+          systemInstruction: 'You are an elite jewelry expert from Sanghavi Jewel Studio. Help high-net-worth clients design or select bespoke luxury jewelry. Speak with sophistication about gold, diamonds, and high-end craftsmanship. Your expertise is unmatched in the world of high jewelry.',
           outputAudioTranscription: {},
           inputAudioTranscription: {},
         },
@@ -64,10 +64,12 @@ export const Consultant: React.FC = () => {
             }
 
             if (message.serverContent?.turnComplete) {
+              const uInput = currentInput;
+              const mOutput = currentOutput;
               setTranscriptions(prev => [
                 ...prev, 
-                { role: 'user', text: currentInput },
-                { role: 'model', text: currentOutput }
+                { role: 'user', text: uInput },
+                { role: 'model', text: mOutput }
               ]);
               setCurrentInput('');
               setCurrentOutput('');
@@ -98,7 +100,7 @@ export const Consultant: React.FC = () => {
             setIsConnecting(false);
           },
           onerror: (e) => {
-            console.error("Live API Error:", e);
+            console.error("Consultant Error:", e);
             setIsActive(false);
             setIsConnecting(false);
           }
@@ -107,7 +109,7 @@ export const Consultant: React.FC = () => {
 
       sessionRef.current = await sessionPromise;
     } catch (err) {
-      console.error(err);
+      console.error("Session Start Failed:", err);
       setIsConnecting(false);
     }
   };
@@ -175,8 +177,12 @@ export const Consultant: React.FC = () => {
 
         <div className="text-center space-y-4">
           <h3 className="text-xl font-serif text-stone-200">
-            {isActive ? "I'm listening..." : isConnecting ? "Establishing link..." : "Talk to our Jewelry Expert"}
+            {isActive ? "Consulting..." : isConnecting ? "Establishing link..." : "Talk to our Expert"}
           </h3>
+          <p className="text-xs text-stone-500 uppercase tracking-widest flex items-center justify-center gap-2">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+            Gemini 2.5 Flash Native Audio
+          </p>
         </div>
 
         {(currentInput || currentOutput) && (
@@ -200,7 +206,7 @@ export const Consultant: React.FC = () => {
       {transcriptions.length > 0 && (
         <div className="mt-12 w-full max-w-4xl space-y-4">
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-stone-500 flex items-center gap-2">
-            <MessageSquare size={12} /> Conversation History
+            <MessageSquare size={12} /> Live Consult Session
           </h4>
           <div className="space-y-4 max-h-60 overflow-y-auto pr-4 scrollbar-hide">
             {transcriptions.map((t, i) => (

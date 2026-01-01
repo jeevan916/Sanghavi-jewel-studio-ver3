@@ -28,7 +28,7 @@ export const useUpload = () => {
 export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [useAI, setUseAI] = useState(false); 
+  const [useAI, setUseAI] = useState(false); // Defaulting to OFF as requested
   const currentUser = storeService.getCurrentUser();
 
   const addToQueue = (files: File[], supplier: string, category: string, subCategory: string, device: string, manufacturer: string) => {
@@ -70,11 +70,6 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   };
 
-  /**
-   * 3G Optimized Image Processor
-   * High Res: 2200px @ 0.82 quality (Progressive)
-   * Thumbnail: 1000px @ 0.82 quality
-   */
   const processImage = (file: File, maxWidth = 2200, quality = 0.82): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -96,7 +91,6 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
             }
-            // Generate progressive JPEG base64
             resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.onerror = reject;
