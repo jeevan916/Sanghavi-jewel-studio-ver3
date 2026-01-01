@@ -1,10 +1,12 @@
 
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  // Point loadEnv to the user-specified configuration directory
+  const envDir = path.resolve(process.cwd(), '.builds/config');
+  const env = loadEnv(mode, envDir, '');
   
   return {
     base: './',

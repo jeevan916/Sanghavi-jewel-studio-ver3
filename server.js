@@ -1,16 +1,21 @@
 
-import 'dotenv/config'; 
-import express from 'express';
+import dotenv from 'dotenv';
 import path from 'path';
-import fs from 'fs/promises';
-import { existsSync, mkdirSync } from 'fs';
-import cors from 'cors';
 import { fileURLToPath } from 'url';
-import crypto from 'crypto';
-import mysql from 'mysql2/promise';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Explicitly load env from the specific path provided: /public_html/.builds/config/.env
+// We use process.cwd() to ensure it resolves correctly from the project root.
+dotenv.config({ path: path.resolve(process.cwd(), '.builds/config/.env') });
+
+import express from 'express';
+import fs from 'fs/promises';
+import { existsSync, mkdirSync } from 'fs';
+import cors from 'cors';
+import crypto from 'crypto';
+import mysql from 'mysql2/promise';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,8 +56,6 @@ app.use('/uploads', express.static(UPLOADS_ROOT, {
  */
 const getSafeDbHost = () => {
     const host = process.env.DB_HOST || 'localhost';
-    // On many shared hosts (Hostinger/Bluehost), 'localhost' resolves to '::1' (IPv6).
-    // MySQL often expects '127.0.0.1' (IPv4) for local connections.
     if (host.toLowerCase() === 'localhost') return '127.0.0.1';
     return host;
 };
@@ -125,9 +128,9 @@ const initializeDatabase = async () => {
     } catch (err) {
         let errorMsg = err.message;
         if (err.code === 'ER_ACCESS_DENIED_ERROR') {
-            errorMsg = `DB Access Denied: Check DB_USER, DB_PASSWORD, and DB_NAME in .env. Current User: ${dbConfig.user}`;
+            errorMsg = `DB Access Denied: Check credentials in .builds/config/.env. Current User: ${dbConfig.user}. Host: ${dbConfig.host}`;
         } else if (err.code === 'ECONNREFUSED') {
-            errorMsg = `DB Connection Refused: Check if DB_HOST (${dbConfig.host}) is correct and MySQL is running.`;
+            errorMsg = `DB Connection Refused: Check if DB_HOST (${dbConfig.host}) is correct and MySQL is reachable.`;
         }
         
         console.error('[MySQL] Init Error:', errorMsg);
