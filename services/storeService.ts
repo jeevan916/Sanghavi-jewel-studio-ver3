@@ -193,17 +193,27 @@ export const storeService = {
   },
 
   logEvent: async (type: AnalyticsEvent['type'] | 'sold', product?: Product, userOverride?: User | null, imageIndex?: number) => {
-    const user = userOverride || storeService.getCurrentUser();
-    const event = {
-        id: crypto.randomUUID(),
-        type,
-        productId: product?.id,
-        productTitle: product?.title,
-        userId: user ? user.id : 'Guest',
-        userName: user ? user.name : 'Guest',
-        timestamp: new Date().toISOString()
-    };
-    fetch(`${API_BASE}/analytics`, { method: 'POST', body: JSON.stringify(event), headers: {'Content-Type': 'application/json'} }).catch(() => {});
+    try {
+        const user = userOverride || storeService.getCurrentUser();
+        
+        // Construct event without client-side ID generation (Server handles ID to prevent crypto crashes)
+        const event = {
+            type,
+            productId: product?.id,
+            productTitle: product?.title,
+            userId: user ? user.id : 'Guest',
+            userName: user ? user.name : 'Guest',
+            timestamp: new Date().toISOString()
+        };
+        
+        await fetch(`${API_BASE}/analytics`, { 
+            method: 'POST', 
+            body: JSON.stringify(event), 
+            headers: {'Content-Type': 'application/json'} 
+        });
+    } catch (e) {
+        console.warn("Analytics logging failed:", e);
+    }
   },
 
   submitSuggestion: async (productId: string, suggestion: string) => {
@@ -246,7 +256,7 @@ export const storeService = {
 I'm interested in: ${product.title} (ID: #${product.id.slice(-6).toUpperCase()})
 🔗 Link: ${productLink}`;
 
-    storeService.logEvent('inquiry', product, null, imageIndex);
+    await storeService.logEvent('inquiry', product, null, imageIndex);
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
   },

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, AppConfig, ProductSuggestion } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare, LogIn, ShoppingBag, Gem, BarChart2 } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare, LogIn, ShoppingBag, Gem, BarChart2, DollarSign } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ImageEditor } from '../components/ImageEditor';
 import { storeService, ProductStats } from '../services/storeService';
@@ -218,6 +218,14 @@ export const ProductDetails: React.FC = () => {
       // Optimistic update for "Will Buy" / Inquiry
       setStats(prev => ({...prev, inquiry: prev.inquiry + 1}));
       await storeService.shareToWhatsApp(product, currentImageIndex);
+  };
+
+  const handleMarkAsSold = async () => {
+      if (!product) return;
+      if (confirm("Mark this item as Sold? This will update the public counter.")) {
+          await storeService.logEvent('sold', product);
+          setStats(prev => ({...prev, purchase: prev.purchase + 1}));
+      }
   };
 
   const toggleLike = () => {
@@ -443,6 +451,9 @@ export const ProductDetails: React.FC = () => {
              {isAuthorized && (
                  <div className="bg-stone-800 p-4 rounded-xl text-white space-y-4">
                      <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2"><Lock size={12} /> Authorized Control</h3><button onClick={handleDeleteProduct} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase flex items-center gap-1"><Trash2 size={12}/> Delete</button></div>
+                     
+                     <button onClick={handleMarkAsSold} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium flex items-center justify-center gap-2 transition"><DollarSign size={16}/> Mark as Sold (Increment Counter)</button>
+
                      <div className="flex gap-2 relative">
                         <button onClick={() => handleUpdateProduct({isHidden: !product.isHidden})} className={`flex-1 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 ${product.isHidden ? 'bg-red-500/20 text-red-200' : 'bg-stone-700'}`}>{product.isHidden ? <EyeOff size={16}/> : <Eye size={16}/>} {product.isHidden ? 'Private' : 'Public'}</button>
                         <button onClick={async () => { const link = await storeService.createSharedLink(product.id, 'product'); setGeneratedLink(link); navigator.clipboard.writeText(link); }} className="flex-[2] py-2 bg-gold-600 text-white rounded font-medium flex items-center justify-center gap-2">{generatedLink ? 'Link Copied' : 'Generate Secret Link'}</button>
