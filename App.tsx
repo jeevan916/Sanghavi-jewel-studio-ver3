@@ -1,11 +1,16 @@
 
-import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode, useLayoutEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
 import { User } from './types';
 import { UploadProvider } from './contexts/UploadContext';
 import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
+
+// Disable browser's automatic scroll restoration globally
+if ('scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
 
 // Error Boundary Implementation
 interface ErrorBoundaryProps {
@@ -17,7 +22,6 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-// Fixed: Explicitly extend Component from react and use named generic parameters to ensure 'props' is properly typed
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false
@@ -93,9 +97,11 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Fix: Reset scroll position to top on every route change
-  useEffect(() => {
+  // Reset scroll position to top on every route change
+  useLayoutEffect(() => {
     window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }, [location.pathname]);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, AppConfig } from '../types';
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone } from 'lucide-react';
@@ -33,6 +33,15 @@ export const ProductDetails: React.FC = () => {
 
   const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Decisive fix for auto-scrolling: Force internal container to top
+  useLayoutEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }, [id]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -233,6 +242,7 @@ export const ProductDetails: React.FC = () => {
 
   return (
     <div 
+        ref={scrollContainerRef}
         className="min-h-screen bg-stone-50 overflow-y-auto animate-in fade-in duration-300 pb-20"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
