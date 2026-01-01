@@ -7,6 +7,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
 import crypto from 'crypto';
+import mysql from 'mysql2/promise';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,288 +20,280 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * 1. PERSISTENCE VAULT SETUP
- * Root folder: sanghavi_persistence (protected directory)
  */
 const DATA_ROOT = path.resolve(__dirname, 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const THUMBS_ROOT = path.resolve(UPLOADS_ROOT, 'thumbnails');
-const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
-const initializeDirectories = () => {
-    [DATA_ROOT, UPLOADS_ROOT, THUMBS_ROOT, BACKUPS_ROOT].forEach(dir => {
-        if (!existsSync(dir)) {
-            mkdirSync(dir, { recursive: true });
-            console.log(`[Vault] Initializing secure directory: ${dir}`);
-        }
-    });
-};
-initializeDirectories();
+if (!existsSync(UPLOADS_ROOT)) mkdirSync(UPLOADS_ROOT, { recursive: true });
+if (!existsSync(THUMBS_ROOT)) mkdirSync(THUMBS_ROOT, { recursive: true });
 
-// Serve physical assets
 app.use('/uploads', express.static(UPLOADS_ROOT));
 
 /**
- * 2. DATABASE ARCHITECTURE
+ * 2. MYSQL CONNECTION POOL
  */
-const DB_FILES = {
-    products: path.resolve(DATA_ROOT, 'products.db.json'),
-    analytics: path.resolve(DATA_ROOT, 'analytics.db.json'),
-    config: path.resolve(DATA_ROOT, 'config.db.json'),
-    staff: path.resolve(DATA_ROOT, 'staff.db.json'),
-    customers: path.resolve(DATA_ROOT, 'customers.db.json'),
-    designs: path.resolve(DATA_ROOT, 'designs.db.json')
+const dbConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'sanghavi_studio',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 };
 
-let cache = {
-    products: [],
-    analytics: [],
-    config: { suppliers: [], categories: [], linkExpiryHours: 24, whatsappNumber: '' },
-    staff: [{ 
-        id: 'staff-root', 
-        username: 'admin', 
-        password: 'admin', 
-        role: 'admin', 
-        isActive: true, 
-        name: 'Sanghavi Admin', 
-        createdAt: new Date().toISOString() 
-    }],
-    customers: [],
-    designs: []
+const pool = mysql.createPool(dbConfig);
+
+const initializeDatabase = async () => {
+    try {
+        console.log(`[Database] Connecting to ${dbConfig.host}...`);
+        
+        // Products Table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS products (
+                id VARCHAR(255) PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                category VARCHAR(100),
+                subCategory VARCHAR(100),
+                weight DECIMAL(10,3),
+                description TEXT,
+                tags JSON,
+                images JSON,
+                thumbnails JSON,
+                supplier VARCHAR(255),
+                uploadedBy VARCHAR(255),
+                isHidden BOOLEAN DEFAULT FALSE,
+                createdAt DATETIME,
+                dateTaken DATE,
+                meta JSON
+            )
+        `);
+
+        // Staff Table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS staff (
+                id VARCHAR(255) PRIMARY KEY,
+                username VARCHAR(100) UNIQUE,
+                password VARCHAR(255),
+                role VARCHAR(50),
+                isActive BOOLEAN DEFAULT TRUE,
+                name VARCHAR(255),
+                createdAt DATETIME
+            )
+        `);
+
+        // Customers Table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS customers (
+                id VARCHAR(255) PRIMARY KEY,
+                phone VARCHAR(50) UNIQUE,
+                name VARCHAR(255),
+                role VARCHAR(50),
+                createdAt DATETIME
+            )
+        `);
+
+        // Designs Table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS designs (
+                id VARCHAR(255) PRIMARY KEY,
+                imageUrl TEXT,
+                prompt TEXT,
+                aspectRatio VARCHAR(20),
+                createdAt DATETIME
+            )
+        `);
+
+        // Analytics Table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS analytics (
+                id VARCHAR(255) PRIMARY KEY,
+                type VARCHAR(50),
+                productId VARCHAR(255),
+                productTitle VARCHAR(255),
+                userId VARCHAR(255),
+                userName VARCHAR(255),
+                deviceName TEXT,
+                timestamp DATETIME,
+                imageIndex INT
+            )
+        `);
+
+        // Config Table (One-row table for settings)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS app_config (
+                id INT PRIMARY KEY DEFAULT 1,
+                data JSON,
+                CHECK (id = 1)
+            )
+        `);
+
+        // Seed Default Staff if empty
+        const [rows] = await pool.query('SELECT count(*) as count FROM staff');
+        if (rows[0].count === 0) {
+            await pool.query(
+                'INSERT INTO staff (id, username, password, role, isActive, name, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                ['staff-root', 'admin', 'admin', 'admin', true, 'Sanghavi Admin', new Date()]
+            );
+            console.log('[Database] Default admin account provisioned.');
+        }
+
+        console.log('[Database] Schema Verified & Synced.');
+    } catch (err) {
+        console.error('[Database] Initialization CRITICAL ERROR:', err);
+    }
 };
+
+initializeDatabase();
 
 /**
- * STRICT IMAGE CARVER (Discards Base64, Writes Physical File)
+ * 3. IMAGE CARVING UTILITY
  */
 const extractAndSavePhysicalImage = async (base64, isThumbnail = false) => {
-    if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image')) {
-        return base64; // Already a path or not an image
-    }
-
+    if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image')) return base64;
     try {
         const match = base64.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
         if (!match) return base64;
-
         const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-        const data = match[2];
-        const buffer = Buffer.from(data, 'base64');
-        
         const fileName = `${crypto.randomUUID()}.${ext}`;
         const relativePath = isThumbnail ? `thumbnails/${fileName}` : fileName;
-        const fullPath = path.resolve(UPLOADS_ROOT, relativePath);
-
-        await fs.writeFile(fullPath, buffer);
-        console.log(`[Vault] Asset Carved: /uploads/${relativePath}`);
+        await fs.writeFile(path.resolve(UPLOADS_ROOT, relativePath), Buffer.from(match[2], 'base64'));
         return `/uploads/${relativePath}`;
     } catch (err) {
         console.error('[Vault] Image Carving Failure:', err);
-        return base64; // Fallback to prevent data loss
+        return base64;
     }
 };
 
-/**
- * RECURSIVE VAULT CLEANER
- * Scans objects/arrays for Base64 and migrates them to disk.
- */
 const migrateToPhysical = async (data) => {
     if (Array.isArray(data)) {
-        for (let i = 0; i < data.length; i++) {
-            data[i] = await migrateToPhysical(data[i]);
-        }
+        return await Promise.all(data.map(item => migrateToPhysical(item)));
     } else if (data && typeof data === 'object') {
-        for (const key of Object.keys(data)) {
-            if (typeof data[key] === 'string' && data[key].startsWith('data:image')) {
-                const isThumb = key.toLowerCase().includes('thumb');
-                data[key] = await extractAndSavePhysicalImage(data[key], isThumb);
-            } else {
-                data[key] = await migrateToPhysical(data[key]);
+        const clean = { ...data };
+        for (const key of Object.keys(clean)) {
+            if (typeof clean[key] === 'string' && clean[key].startsWith('data:image')) {
+                clean[key] = await extractAndSavePhysicalImage(clean[key], key.toLowerCase().includes('thumb'));
+            } else if (typeof clean[key] === 'object') {
+                clean[key] = await migrateToPhysical(clean[key]);
             }
         }
+        return clean;
     }
     return data;
 };
 
 /**
- * ATOMIC WRITE PROTOCOL (PROTECTION AGAINST DATA LOSS)
- */
-const atomicWrite = async (filePath, data) => {
-    const tempPath = `${filePath}.tmp`;
-    const fileName = path.basename(filePath);
-    const backupPath = path.resolve(BACKUPS_ROOT, `${fileName}.${Date.now()}.bak`);
-    
-    try {
-        const json = JSON.stringify(data, null, 2);
-        
-        // 1. Write Temp
-        await fs.writeFile(tempPath, json, 'utf8');
-        
-        // 2. Verify integrity of temp file
-        const checkContent = await fs.readFile(tempPath, 'utf8');
-        JSON.parse(checkContent); // Will throw if corrupted
-        
-        // 3. Backup existing before commit
-        if (existsSync(filePath)) {
-            await fs.copyFile(filePath, backupPath);
-        }
-        
-        // 4. Atomic Rename (Commit)
-        await fs.rename(tempPath, filePath);
-        
-        // Cleanup old backups (keep last 5)
-        const allBackups = (await fs.readdir(BACKUPS_ROOT))
-            .filter(f => f.startsWith(fileName))
-            .sort();
-        if (allBackups.length > 5) {
-            await fs.unlink(path.resolve(BACKUPS_ROOT, allBackups[0]));
-        }
-    } catch (err) {
-        console.error(`[Vault] CRITICAL: Write failed for ${fileName}. Data preserved in cache.`, err);
-        throw err;
-    }
-};
-
-const loadAllTables = async () => {
-    for (const [key, filePath] of Object.entries(DB_FILES)) {
-        try {
-            if (existsSync(filePath)) {
-                const content = await fs.readFile(filePath, 'utf8');
-                if (content.trim()) {
-                    const data = JSON.parse(content);
-                    // AUTO-MIGRATION: Clean up any base64 that slipped into JSON
-                    cache[key] = await migrateToPhysical(data);
-                    console.log(`[Vault] Synced & Cleaned Table: ${key} (${cache[key].length} records)`);
-                    // If we found and cleaned images, persist the clean JSON immediately
-                    if (content.includes('data:image')) {
-                        console.log(`[Vault] Persisting cleaned JSON for ${key}`);
-                        await saveTable(key);
-                    }
-                }
-            } else {
-                await atomicWrite(filePath, cache[key]);
-                console.log(`[Vault] Initialized Table: ${key}`);
-            }
-        } catch (err) {
-            console.error(`[Vault] Table Initialization Error (${key}):`, err);
-        }
-    }
-};
-
-const saveTable = async (key) => {
-    await atomicWrite(DB_FILES[key], cache[key]);
-};
-
-loadAllTables();
-
-/**
  * 4. API ENDPOINTS
  */
-app.get('/api/health', (req, res) => res.json({ 
-    status: 'online', 
-    vault: 'sanghavi_persistence',
-    integrity: 'atomic-protected',
-    root: DATA_ROOT
-}));
+app.get('/api/health', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        res.json({ status: 'online', database: 'MySQL-Protected', vault: 'sanghavi_persistence' });
+    } catch (e) {
+        res.status(500).json({ status: 'degraded', error: e.message });
+    }
+});
 
-app.get('/api/products', (req, res) => res.json(cache.products));
+app.get('/api/products', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
+    res.json(rows);
+});
 
 app.post('/api/products', async (req, res) => {
     try {
-        const cleanProduct = await migrateToPhysical(req.body);
-        cache.products.push(cleanProduct);
-        await saveTable('products');
-        res.json(cleanProduct);
-    } catch (err) {
-        res.status(500).json({ error: 'Vault entry failed' });
-    }
+        const p = await migrateToPhysical(req.body);
+        const query = `INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        await pool.query(query, [p.id, p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, new Date(p.createdAt), p.dateTaken, JSON.stringify(p.meta)]);
+        res.json(p);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/products/:id', async (req, res) => {
     try {
-        const idx = cache.products.findIndex(p => p.id === req.params.id);
-        if (idx !== -1) {
-            const cleanUpdate = await migrateToPhysical(req.body);
-            cache.products[idx] = cleanUpdate;
-            await saveTable('products');
-            res.json(cleanUpdate);
-        } else {
-            res.status(404).json({ error: 'Not found' });
-        }
-    } catch (err) {
-        res.status(500).json({ error: 'Vault update failed' });
-    }
+        const p = await migrateToPhysical(req.body);
+        const query = `UPDATE products SET title=?, category=?, subCategory=?, weight=?, description=?, tags=?, images=?, thumbnails=?, supplier=?, uploadedBy=?, isHidden=?, dateTaken=?, meta=? WHERE id=?`;
+        await pool.query(query, [p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, p.dateTaken, JSON.stringify(p.meta), req.params.id]);
+        res.json(p);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
-    // Physical files are NOT deleted to ensure no accidental asset loss.
-    cache.products = cache.products.filter(p => p.id !== req.params.id);
-    await saveTable('products');
+    await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
     res.status(204).send();
 });
 
-// Config & Auth
-app.get('/api/config', (req, res) => res.json(cache.config));
-app.post('/api/config', async (req, res) => {
-    cache.config = req.body;
-    await saveTable('config');
-    res.json(cache.config);
+app.get('/api/config', async (req, res) => {
+    const [rows] = await pool.query('SELECT data FROM app_config WHERE id = 1');
+    res.json(rows[0]?.data || {});
 });
 
-app.get('/api/customers', (req, res) => res.json(cache.customers));
+app.post('/api/config', async (req, res) => {
+    await pool.query('INSERT INTO app_config (id, data) VALUES (1, ?) ON DUPLICATE KEY UPDATE data = ?', [JSON.stringify(req.body), JSON.stringify(req.body)]);
+    res.json(req.body);
+});
+
+app.get('/api/customers', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM customers');
+    res.json(rows);
+});
+
 app.post('/api/auth/whatsapp', async (req, res) => {
     const { phone } = req.body;
-    let user = cache.customers.find(c => c.phone === phone);
-    if (!user) {
-        user = { 
-            id: Date.now().toString(), 
-            phone, 
-            name: 'Client ' + phone.slice(-4), 
-            role: 'customer', 
-            createdAt: new Date().toISOString() 
-        };
-        cache.customers.push(user);
-        await saveTable('customers');
-    }
+    const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
+    if (rows.length > 0) return res.json(rows[0]);
+    
+    const user = { id: Date.now().toString(), phone, name: 'Client ' + phone.slice(-4), role: 'customer', createdAt: new Date() };
+    await pool.query('INSERT INTO customers (id, phone, name, role, createdAt) VALUES (?, ?, ?, ?, ?)', [user.id, user.phone, user.name, user.role, user.createdAt]);
     res.json(user);
 });
 
-app.post('/api/auth/staff', (req, res) => {
+app.post('/api/auth/staff', async (req, res) => {
     const { username, password } = req.body;
-    const staff = cache.staff.find(s => s.username === username && s.password === password);
-    if (staff && staff.isActive) res.json(staff);
-    else res.status(401).json({ error: 'Authentication denied' });
+    const [rows] = await pool.query('SELECT * FROM staff WHERE username = ? AND password = ? AND isActive = 1', [username, password]);
+    if (rows.length > 0) res.json(rows[0]);
+    else res.status(401).json({ error: 'Denied' });
 });
 
-app.get('/api/staff', (req, res) => res.json(cache.staff));
+app.get('/api/staff', async (req, res) => {
+    const [rows] = await pool.query('SELECT id, username, role, isActive, name, createdAt FROM staff');
+    res.json(rows);
+});
+
 app.post('/api/staff', async (req, res) => {
-    const staff = { ...req.body, id: Date.now().toString(), createdAt: new Date().toISOString() };
-    cache.staff.push(staff);
-    await saveTable('staff');
-    res.json(staff);
+    const s = { ...req.body, id: Date.now().toString(), createdAt: new Date() };
+    await pool.query('INSERT INTO staff (id, username, password, role, isActive, name, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)', [s.id, s.username, s.password, s.role, s.isActive, s.name, s.createdAt]);
+    res.json(s);
 });
 
-app.get('/api/designs', (req, res) => res.json(cache.designs));
+app.get('/api/designs', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM designs ORDER BY createdAt DESC');
+    res.json(rows);
+});
+
 app.post('/api/designs', async (req, res) => {
-    const cleanDesign = await migrateToPhysical(req.body);
-    cache.designs.push(cleanDesign);
-    await saveTable('designs');
-    res.json(cleanDesign);
+    const clean = await migrateToPhysical(req.body);
+    await pool.query('INSERT INTO designs (id, imageUrl, prompt, aspectRatio, createdAt) VALUES (?, ?, ?, ?, ?)', [clean.id, clean.imageUrl, clean.prompt, clean.aspectRatio, new Date(clean.createdAt)]);
+    res.json(clean);
 });
 
-app.get('/api/analytics', (req, res) => res.json(cache.analytics));
 app.post('/api/analytics', async (req, res) => {
-    cache.analytics.push(req.body);
-    await saveTable('analytics');
+    const e = req.body;
+    await pool.query('INSERT INTO analytics (id, type, productId, productTitle, userId, userName, deviceName, timestamp, imageIndex) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [e.id, e.type, e.productId, e.productTitle, e.userId, e.userName, e.deviceName, new Date(e.timestamp), e.imageIndex]);
     res.status(204).send();
 });
 
-// Production Bundle
+app.get('/api/analytics', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC');
+    res.json(rows);
+});
+
 const distPath = path.resolve(__dirname, 'dist');
 if (existsSync(distPath)) {
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
-            res.sendFile(path.join(distPath, 'index.html'));
-        }
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) res.sendFile(path.join(distPath, 'index.html'));
     });
 }
 
-app.listen(PORT, () => console.log(`[Vault Server] Active on port ${PORT}. Root: ${DATA_ROOT}`));
+app.listen(PORT, () => console.log(`[Vault Server] MySQL Engine active on port ${PORT}.`));
