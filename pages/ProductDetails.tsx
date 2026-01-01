@@ -35,13 +35,13 @@ export const ProductDetails: React.FC = () => {
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Decisive fix for auto-scrolling: Force internal container to top
+  // Force scroll reset when ID changes OR when loading finishes
   useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
-    window.scrollTo(0, 0);
-  }, [id]);
+  }, [id, isLoading]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,7 +85,6 @@ export const ProductDetails: React.FC = () => {
     );
   }
 
-  // Defensive array access
   const productImages = Array.isArray(product.images) ? product.images : [];
   const productThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
   const productTags = Array.isArray(product.tags) ? product.tags : [];
@@ -141,18 +140,13 @@ export const ProductDetails: React.FC = () => {
   const handleManualSave = async (newBase64: string) => {
       const updatedImages = [...productImages];
       const updatedThumbs = [...productThumbnails];
-      
       updatedImages[currentImageIndex] = newBase64;
-      
-      // Generate and sync thumbnail
       try {
         const thumbBase64 = await createThumbnail(newBase64);
         updatedThumbs[currentImageIndex] = thumbBase64;
       } catch (e) {
-        // Fallback to full image if thumbnail generation fails
         updatedThumbs[currentImageIndex] = newBase64;
       }
-      
       handleUpdateProduct({ images: updatedImages, thumbnails: updatedThumbs });
       setIsManualEditing(false);
   };
@@ -237,13 +231,13 @@ export const ProductDetails: React.FC = () => {
       return `${origin}${cleanPath}`;
   };
 
-  // Optimization: Prioritize the high-res image (productImages) over the thumbnail (productThumbnails) for the details hero.
   const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
 
   return (
     <div 
+        key={id} // Force re-mount on ID change
         ref={scrollContainerRef}
-        className="min-h-screen bg-stone-50 overflow-y-auto animate-in fade-in duration-300 pb-20"
+        className="min-h-screen bg-stone-50 animate-in fade-in duration-300 pb-20"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
     >
@@ -295,16 +289,13 @@ export const ProductDetails: React.FC = () => {
                         <button onClick={async () => { 
                             const nextImgs = [...productImages]; 
                             const nextThumbs = [...productThumbnails];
-                            
                             nextImgs[currentImageIndex] = pendingEnhancedImage; 
-                            
                             try {
                               const thumbBase64 = await createThumbnail(pendingEnhancedImage);
                               nextThumbs[currentImageIndex] = thumbBase64;
                             } catch (e) {
                               nextThumbs[currentImageIndex] = pendingEnhancedImage;
                             }
-
                             handleUpdateProduct({ images: nextImgs, thumbnails: nextThumbs }); 
                             setPendingEnhancedImage(null); 
                         }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button>

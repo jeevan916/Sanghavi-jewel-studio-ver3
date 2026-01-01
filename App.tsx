@@ -97,11 +97,11 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Reset scroll position to top on every route change
+  // Reset scroll position to top on every route change with 'instant' behavior
   useLayoutEffect(() => {
-    window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
   }, [location.pathname]);
 
   useEffect(() => {
