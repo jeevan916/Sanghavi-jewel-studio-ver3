@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { storeService } from '../services/storeService';
 import { Product, AnalyticsEvent, User } from '../types';
 import { 
-  Loader2, Users, Settings, Folder, Trash2, Edit2, Plus, Search, 
-  Grid, List as ListIcon, Lock, Unlock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, Save, Smartphone, Download, MessageCircle, LogOut, UserCheck, HardDrive, Database
+  Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
+  Grid, List as ListIcon, Lock, CheckCircle, X, 
+  LayoutDashboard, FolderOpen, Save, Smartphone, MessageCircle, LogOut, UserCheck, HardDrive, Database, RefreshCw
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -22,6 +22,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [analytics, setAnalytics] = useState<AnalyticsEvent[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [healthInfo, setHealthInfo] = useState<{mode?: string, healthy: boolean}>({healthy: false});
 
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
@@ -30,12 +31,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editProduct, setEditProduct] = useState<Product | null>(null);
 
-  useEffect(() => {
-    refreshData();
-  }, []);
-
-  const refreshData = async () => {
-    setLoading(true);
+  const refreshData = async (background = false) => {
+    if (!background) setLoading(true);
+    else setIsSyncing(true);
     try {
         const [p, a, c, h] = await Promise.all([
           storeService.getProducts(),
@@ -49,7 +47,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         setHealthInfo(h);
     } catch (e) {}
     setLoading(false);
+    setIsSyncing(false);
   };
+
+  useEffect(() => {
+    refreshData();
+    const interval = setInterval(() => refreshData(true), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const folders = useMemo(() => {
       const cats = new Set(products.map(p => p.category));
@@ -84,7 +89,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       if (editProduct) {
           await storeService.updateProduct(editProduct);
           setEditProduct(null);
-          refreshData();
+          refreshData(true);
       }
   };
 
@@ -104,7 +109,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               <h2 className="font-serif text-3xl text-stone-900">Vault Administration</h2>
               <div className="flex items-center gap-2 mt-1">
                  <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-green-500' : 'bg-red-500'}`} />
-                 <p className="text-stone-500 text-[10px] uppercase font-bold tracking-widest">{healthInfo.mode || 'Local Vault Mode'}</p>
+                 <p className="text-stone-500 text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
+                    {healthInfo.healthy ? 'Live SQL Synchronized' : 'Vault Offline'}
+                    {isSyncing && <RefreshCw size={10} className="animate-spin text-gold-500" />}
+                 </p>
               </div>
            </div>
            <button onClick={() => storeService.logout()} className="md:hidden p-2 text-stone-400 hover:text-red-500 transition-colors">
@@ -146,7 +154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
                     <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><Database size={24} /></div>
-                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Table Integrity</p><p className="text-2xl font-bold text-stone-800">100%</p></div>
+                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Integrity</p><p className="text-2xl font-bold text-stone-800">100%</p></div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
                     <div className="p-3 bg-green-50 text-green-600 rounded-xl"><UserCheck size={24} /></div>
@@ -160,7 +168,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
             <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
-                    <div className="p-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center"><h3 className="font-serif text-lg text-stone-800">Recent Customer Activity</h3></div>
+                    <div className="p-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center"><h3 className="font-serif text-lg text-stone-800">Live Activity Feed</h3></div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left">
                             <thead className="bg-stone-50 text-stone-400 font-bold uppercase tracking-wider">
@@ -174,7 +182,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                         <td className="p-4 text-right text-stone-400 font-mono">{new Date(e.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                                     </tr>
                                 ))}
-                                {recentInquiries.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-stone-300">No recent inquiries</td></tr>}
+                                {recentInquiries.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-stone-300">No recent activity detected</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -182,8 +190,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 
                 <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 flex flex-col justify-center items-center text-center space-y-4">
                     <div className="p-5 bg-stone-50 rounded-full text-gold-600"><Smartphone size={40} /></div>
-                    <h3 className="font-serif text-xl text-stone-800">Physical Storage Active</h3>
-                    <p className="text-stone-500 text-sm max-w-xs">All jewelry media is being strictly converted to physical files in the /data/uploads folder. Database segmentation is active across 6 independent tables.</p>
+                    <h3 className="font-serif text-xl text-stone-800">Network Discovery Active</h3>
+                    <p className="text-stone-500 text-sm max-w-xs">Other devices can access this studio on your local network using this PC's IP address on port 3000.</p>
                 </div>
             </div>
           </div>

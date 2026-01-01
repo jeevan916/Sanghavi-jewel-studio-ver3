@@ -3,13 +3,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
 import { storeService } from '../services/storeService';
-import { Search, Grid, LayoutGrid, LogOut, Loader2, Filter } from 'lucide-react';
+import { Search, Grid, LayoutGrid, LogOut, Loader2, Filter, RefreshCw } from 'lucide-react';
 import { Product } from '../types';
 
 export const Gallery: React.FC = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'masonry'>('grid');
@@ -17,11 +18,26 @@ export const Gallery: React.FC = () => {
   const user = storeService.getCurrentUser();
   const isAdmin = user?.role === 'admin' || user?.role === 'contributor';
 
-  useEffect(() => {
-    storeService.getProducts().then(data => {
+  const loadProducts = async (isBackground = false) => {
+    if (!isBackground) setIsLoading(true);
+    else setIsRefreshing(true);
+    
+    try {
+        const data = await storeService.getProducts();
         setProducts(data);
+    } catch (e) {
+        console.warn('Live sync failed');
+    } finally {
         setIsLoading(false);
-    });
+        setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProducts();
+    // Live Populate AJAX: Polling every 30 seconds
+    const interval = setInterval(() => loadProducts(true), 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const categories = useMemo(() => {
@@ -37,10 +53,6 @@ export const Gallery: React.FC = () => {
         return matchesCategory && matchesSearch && visible;
       });
   }, [products, activeCategory, search, isAdmin]);
-
-  const handleLogout = () => {
-    storeService.logout();
-  };
 
   if (isLoading) {
       return (
@@ -66,7 +78,7 @@ export const Gallery: React.FC = () => {
             />
           </div>
           
-          <div className="hidden md:flex gap-1 bg-stone-100 p-1 rounded-xl">
+          <div className="hidden lg:flex gap-1 bg-stone-100 p-1 rounded-xl">
             {categories.map(cat => (
               <button
                 key={cat}
@@ -81,11 +93,12 @@ export const Gallery: React.FC = () => {
           </div>
 
           <div className="flex gap-2 items-center">
+             {isRefreshing && <RefreshCw size={14} className="text-gold-500 animate-spin" />}
              <button onClick={() => setViewMode(viewMode === 'grid' ? 'masonry' : 'grid')} className="p-2 text-stone-400 hover:text-gold-600 transition" title="Change View">
                {viewMode === 'grid' ? <LayoutGrid size={20}/> : <Grid size={20}/>}
              </button>
              {user && (
-               <button onClick={handleLogout} className="p-2 text-stone-400 hover:text-red-500 transition" title="Logout">
+               <button onClick={() => storeService.logout()} className="p-2 text-stone-400 hover:text-red-500 transition" title="Logout">
                  <LogOut size={20} />
                </button>
              )}
