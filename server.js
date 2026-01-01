@@ -7,7 +7,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Explicitly load env from the specific path provided: /public_html/.builds/config/.env
-// We use process.cwd() to ensure it resolves correctly from the project root.
 dotenv.config({ path: path.resolve(process.cwd(), '.builds/config/.env') });
 
 import express from 'express';
@@ -27,22 +26,44 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * 1. PHYSICAL PERSISTENCE SETUP
+ * DATA_ROOT is placed one level up (..) to stay in the domain root (sanghavijewellers.com/)
+ * and outside the public_html folder which might be cleared during deployments.
  */
-const DATA_ROOT = path.resolve(process.cwd(), 'sanghavi_persistence');
+const DATA_ROOT = path.resolve(process.cwd(), '..', 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const THUMBS_ROOT = path.resolve(UPLOADS_ROOT, 'thumbnails');
 
 const ensureFolders = async () => {
     try {
-        if (!existsSync(DATA_ROOT)) mkdirSync(DATA_ROOT, { recursive: true, mode: 0o777 });
-        if (!existsSync(UPLOADS_ROOT)) mkdirSync(UPLOADS_ROOT, { recursive: true, mode: 0o777 });
-        if (!existsSync(THUMBS_ROOT)) mkdirSync(THUMBS_ROOT, { recursive: true, mode: 0o777 });
+        if (existsSync(DATA_ROOT)) {
+            console.log(`[Vault] Persistent vault detected and intact at: ${DATA_ROOT}`);
+        } else {
+            console.log(`[Vault] Persistent vault not found. Initializing new storage at: ${DATA_ROOT}`);
+            mkdirSync(DATA_ROOT, { recursive: true, mode: 0o777 });
+        }
+        
+        // Ensure subdirectories exist without recreating or deleting existing content
+        if (!existsSync(UPLOADS_ROOT)) {
+            mkdirSync(UPLOADS_ROOT, { recursive: true, mode: 0o777 });
+        }
+        if (!existsSync(THUMBS_ROOT)) {
+            mkdirSync(THUMBS_ROOT, { recursive: true, mode: 0o777 });
+        }
+        
+        console.log(`[Vault] Media paths verified: ${UPLOADS_ROOT}`);
     } catch (err) {
-        console.error(`[Vault] Initialization failed:`, err.message);
+        console.error(`[Vault] Critical Initialization Error:`, err.message);
+        // Emergency local fallback if parent directory is permission-blocked
+        const fallback = path.resolve(process.cwd(), 'sanghavi_persistence');
+        if (!existsSync(fallback)) {
+            console.warn(`[Vault] Permission denied at domain root. Using local fallback: ${fallback}`);
+            mkdirSync(fallback, { recursive: true });
+        }
     }
 };
 ensureFolders();
 
+// Serve Uploads - Maps the web path to the external persistent folder
 app.use('/uploads', express.static(UPLOADS_ROOT, {
     maxAge: '1d',
     etag: true,
@@ -78,10 +99,9 @@ let dbStatus = { healthy: false, error: 'Database initializing...' };
 
 const initializeDatabase = async () => {
     try {
-        console.log(`[MySQL] Attempting connection to ${dbConfig.host} as ${dbConfig.user}...`);
+        console.log(`[MySQL] Connecting to ${dbConfig.host} (${dbConfig.database})...`);
         pool = mysql.createPool(dbConfig);
         
-        // Immediate test query
         await pool.query('SELECT 1');
         
         console.log(`[MySQL] Connection Established.`);
@@ -128,9 +148,9 @@ const initializeDatabase = async () => {
     } catch (err) {
         let errorMsg = err.message;
         if (err.code === 'ER_ACCESS_DENIED_ERROR') {
-            errorMsg = `DB Access Denied: Check credentials in .builds/config/.env. Current User: ${dbConfig.user}. Host: ${dbConfig.host}`;
+            errorMsg = `DB Access Denied: Check credentials in .env. User: ${dbConfig.user}`;
         } else if (err.code === 'ECONNREFUSED') {
-            errorMsg = `DB Connection Refused: Check if DB_HOST (${dbConfig.host}) is correct and MySQL is reachable.`;
+            errorMsg = `DB Connection Refused: Check if DB_HOST (${dbConfig.host}) is correct.`;
         }
         
         console.error('[MySQL] Init Error:', errorMsg);
@@ -241,6 +261,25 @@ app.post('/api/products', async (req, res) => {
         const query = `INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await pool.query(query, [p.id, p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, new Date(p.createdAt), p.dateTaken, JSON.stringify(p.meta)]);
         res.json(p);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/products/:id', async (req, res) => {
+    if (!dbStatus.healthy) return res.status(503).json({ error: dbStatus.error });
+    try {
+        const p = await processMedia(req.body);
+        const query = `UPDATE products SET title=?, category=?, subCategory=?, weight=?, description=?, tags=?, images=?, thumbnails=?, isHidden=?, dateTaken=?, meta=? WHERE id=?`;
+        await pool.query(query, [p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.isHidden, p.dateTaken, JSON.stringify(p.meta), req.params.id]);
+        res.json({ success: true, product: p });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/products/:id', async (req, res) => {
+    if (!dbStatus.healthy) return res.status(503).json({ error: dbStatus.error });
+    try {
+        // Optionally, we could delete the physical files here, but keeping them for safety (soft delete or persistence)
+        await pool.query('DELETE FROM products WHERE id=?', [req.params.id]);
+        res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
