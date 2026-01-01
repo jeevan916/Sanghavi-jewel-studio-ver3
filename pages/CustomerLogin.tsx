@@ -4,11 +4,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import { storeService } from '../services/storeService';
 import { whatsappService } from '../services/whatsappService';
 import { User } from '../types';
-import { ArrowLeft, Loader2, Info, ShieldCheck, MessageCircle, Phone, ArrowRight, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Loader2, Info, ShieldCheck, MessageCircle, Phone, ArrowRight, CheckCircle2, AlertTriangle, User as UserIcon, MapPin, Locate } from 'lucide-react';
 
 export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ onLoginSuccess }) => {
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [step, setStep] = useState<'details' | 'otp'>('details');
+  const [phone, setPhone] = useState('');
+  const [isCheckingUser, setIsCheckingUser] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [existingUserName, setExistingUserName] = useState('');
+  
+  // Only for new users
+  const [registrationData, setRegistrationData] = useState({ name: '', pincode: '' });
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+
   const [otpValue, setOtpValue] = useState(['', '', '', '', '', '']);
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,31 +34,79 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
     return () => clearInterval(interval);
   }, [timer]);
 
-  const handleSendOtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!phoneNumber || phoneNumber.replace(/\D/g, '').length < 10) {
-      setError('Please enter a valid WhatsApp number with country code (e.g., 91...)');
+  const getLocation = (): Promise<{lat: number, lng: number}> => {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("Geolocation is not supported by this browser."));
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+            (err) => reject(new Error("Location access denied. It is required for secure login.")),
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    });
+  };
+
+  const handleVerifyPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone || phone.replace(/\D/g, '').length < 10) {
+      setError('Please enter a valid WhatsApp number.');
       return;
     }
 
-    setIsLoading(true);
+    setIsCheckingUser(true);
     setError('');
-    setIsDemoMode(false);
-    
-    const otp = whatsappService.generateOTP();
-    const result = await whatsappService.sendOTP(phoneNumber, otp);
 
-    if (result.success) {
-      setGeneratedOtp(otp);
-      setStep('otp');
-      setTimer(60);
-      if (result.isDemo) {
-        setIsDemoMode(true);
-      }
-    } else {
-      setError(result.error || 'WhatsApp delivery failed. Please check your Meta configuration.');
+    try {
+        // 1. Mandate Location
+        const loc = await getLocation();
+        setUserLocation(loc);
+
+        // 2. Check Database
+        const check = await storeService.checkCustomerExistence(phone);
+        
+        if (check.exists) {
+            // Existing user: Skip registration fields
+            setExistingUserName(check.user?.name || '');
+            setIsNewUser(false);
+            initiateOtp();
+        } else {
+            // New user: Reveal registration fields
+            setIsNewUser(true);
+            setIsCheckingUser(false);
+        }
+    } catch (err: any) {
+        setError(err.message || "Unable to verify secure status.");
+        setIsCheckingUser(false);
     }
-    setIsLoading(false);
+  };
+
+  const handleRegisterAndSendOtp = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!registrationData.name.trim()) { setError('Full Name is required for registration.'); return; }
+      if (!registrationData.pincode.trim() || registrationData.pincode.length < 6) { setError('Valid Pincode is required.'); return; }
+      initiateOtp();
+  };
+
+  const initiateOtp = async () => {
+      setIsLoading(true);
+      setError('');
+      setIsDemoMode(false);
+
+      const otp = whatsappService.generateOTP();
+      const result = await whatsappService.sendOTP(phone, otp);
+
+      if (result.success) {
+        setGeneratedOtp(otp);
+        setStep('otp');
+        setTimer(60);
+        if (result.isDemo) setIsDemoMode(true);
+      } else {
+        setError(result.error || 'WhatsApp delivery failed.');
+      }
+      setIsLoading(false);
+      setIsCheckingUser(false);
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -70,113 +126,177 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerifyOtp = async () => {
     const entered = otpValue.join('');
     if (entered.length < 6) return;
 
     if (entered === generatedOtp) {
       setIsLoading(true);
       try {
-        const user = await storeService.loginWithWhatsApp(phoneNumber);
+        const user = await storeService.loginWithWhatsApp(
+            phone, 
+            isNewUser ? registrationData.name : undefined, 
+            isNewUser ? registrationData.pincode : undefined,
+            userLocation
+        );
         if (user) {
+          // Log login event with location
+          storeService.logEvent('login', undefined, user);
           onLoginSuccess(user);
         } else {
-          setError('Session creation failed. Please contact support.');
+          setError('Session creation failed.');
         }
       } catch (err) {
-        setError('Server verification failed. Please try again.');
+        setError('Server verification failed.');
       } finally {
         setIsLoading(false);
       }
     } else {
       setError('Incorrect verification code.');
-      // Vibration for failure
       if (navigator.vibrate) navigator.vibrate(100);
     }
   };
 
   useEffect(() => {
     if (otpValue.every(v => v !== '')) {
-      handleVerify();
+      handleVerifyOtp();
     }
   }, [otpValue]);
 
   return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center p-6 animate-fade-in">
-      <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl border border-stone-100 relative overflow-hidden">
+      <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl border border-stone-100 relative overflow-hidden transition-all duration-500">
         
         {/* Progress indicator */}
         <div className="absolute top-0 left-0 right-0 h-1 flex">
-          <div className={`flex-1 transition-colors duration-500 ${step === 'phone' || step === 'otp' ? 'bg-gold-500' : 'bg-stone-100'}`} />
+          <div className={`flex-1 transition-colors duration-500 ${step === 'details' || step === 'otp' ? 'bg-gold-500' : 'bg-stone-100'}`} />
           <div className={`flex-1 transition-colors duration-500 ${step === 'otp' ? 'bg-gold-500' : 'bg-stone-100'}`} />
         </div>
 
-        <button onClick={() => step === 'otp' ? setStep('phone') : navigate('/')} className="absolute top-6 left-6 text-stone-400 hover:text-stone-900 transition p-2">
+        <button onClick={() => step === 'otp' ? setStep('details') : navigate('/')} className="absolute top-6 left-6 text-stone-400 hover:text-stone-900 transition p-2">
           <ArrowLeft size={24}/>
         </button>
         
-        <div className="text-center mt-4 mb-10">
+        <div className="text-center mt-4 mb-8">
           <div className="bg-gold-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gold-600">
-            {step === 'phone' ? <MessageCircle size={32} /> : <ShieldCheck size={32} />}
+            {step === 'details' ? <MessageCircle size={32} /> : <ShieldCheck size={32} />}
           </div>
           <h2 className="font-serif text-3xl text-stone-800 mb-2">
-            {step === 'phone' ? 'Studio Access' : 'Verify Identity'}
+            {step === 'details' ? 'Studio Access' : 'Verify Identity'}
           </h2>
           <p className="text-stone-500 font-light text-sm">
-            {step === 'phone' 
-              ? 'Enter your registered WhatsApp number for secure access.' 
-              : `A 6-digit code has been dispatched to your WhatsApp.`}
+            {step === 'details' 
+              ? 'Enter your number to check eligibility.' 
+              : `Code sent to ${phone}. Location Secured.`}
           </p>
         </div>
 
-        {step === 'phone' ? (
-          <form onSubmit={handleSendOtp} className="space-y-6">
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 ml-1">International Format</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
-                <input 
-                  type="tel" 
-                  value={phoneNumber}
-                  onChange={e => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. 919876543210"
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
-                  required
-                />
-              </div>
-            </div>
-            
-            {error && (
-              <div className="p-4 bg-red-50 text-red-700 text-xs rounded-2xl flex flex-col gap-2 border border-red-100 animate-in fade-in slide-in-from-top-1">
-                <div className="flex items-start gap-2">
-                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-                    <span className="font-bold">WhatsApp Delivery Error</span>
-                </div>
-                <p className="opacity-80 ml-6">{error}</p>
-                <div className="ml-6 pt-2 border-t border-red-100/50">
-                    <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="text-red-800 underline flex items-center gap-1 hover:text-red-900 transition">
-                        Check Meta Settings <ExternalLink size={10} />
-                    </a>
-                </div>
-              </div>
-            )}
+        {step === 'details' ? (
+          <>
+            {!isNewUser ? (
+                // 1. Initial Phone Entry
+                <form onSubmit={handleVerifyPhone} className="space-y-4">
+                     <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 ml-1">WhatsApp Number</label>
+                        <div className="relative">
+                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                            <input 
+                            type="tel" 
+                            value={phone}
+                            onChange={e => setPhone(e.target.value)}
+                            placeholder="e.g. 919876543210"
+                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
+                            required
+                            />
+                        </div>
+                    </div>
+                    {error && (
+                        <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl flex items-start gap-2 border border-red-100">
+                            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                            <span>{error}</span>
+                        </div>
+                    )}
+                    <button 
+                        type="submit" 
+                        disabled={isCheckingUser}
+                        className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-800 transition-all shadow-xl shadow-stone-200 disabled:opacity-50"
+                    >
+                        {isCheckingUser ? <Loader2 className="animate-spin" size={20}/> : <Locate size={20}/>}
+                        {isCheckingUser ? 'Verifying Secure Location...' : 'Verify Securely'}
+                    </button>
+                    <p className="text-[10px] text-center text-stone-400 mt-2">Location access required for audit compliance.</p>
+                </form>
+            ) : (
+                // 2. New User Registration (Only shown if phone doesn't exist)
+                <form onSubmit={handleRegisterAndSendOtp} className="space-y-4 animate-in slide-in-from-bottom-4">
+                     <div className="p-3 bg-blue-50 text-blue-800 text-xs rounded-xl flex items-center gap-2 border border-blue-100 mb-4">
+                        <Info size={16}/> <span>Welcome! Complete your profile to register.</span>
+                     </div>
+                     
+                     <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 ml-1">Full Name</label>
+                        <div className="relative">
+                            <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                            <input 
+                            type="text" 
+                            value={registrationData.name}
+                            onChange={e => setRegistrationData({...registrationData, name: e.target.value})}
+                            placeholder="e.g. Rahul Sanghavi"
+                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
+                            required
+                            />
+                        </div>
+                    </div>
 
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-800 transition-all shadow-xl shadow-stone-200 disabled:opacity-50"
-            >
-              {isLoading ? <Loader2 className="animate-spin" size={20}/> : <ArrowRight size={20}/>}
-              {isLoading ? 'Requesting Code...' : 'Send Access Code'}
-            </button>
-          </form>
+                    <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 ml-1">Location Pincode</label>
+                        <div className="relative">
+                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                            <input 
+                            type="number" 
+                            value={registrationData.pincode}
+                            onChange={e => setRegistrationData({...registrationData, pincode: e.target.value})}
+                            placeholder="e.g. 400050"
+                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
+                            required
+                            />
+                        </div>
+                    </div>
+
+                    {error && (
+                        <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl flex items-start gap-2 border border-red-100">
+                            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    <div className="flex gap-2">
+                         <button type="button" onClick={() => setIsNewUser(false)} className="px-4 py-4 bg-stone-100 text-stone-500 font-bold rounded-2xl">Back</button>
+                         <button 
+                            type="submit" 
+                            disabled={isLoading}
+                            className="flex-1 bg-gold-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gold-700 transition-all shadow-xl shadow-gold-200 disabled:opacity-50"
+                        >
+                            {isLoading ? <Loader2 className="animate-spin" size={20}/> : <ArrowRight size={20}/>}
+                            Register & Verify
+                        </button>
+                    </div>
+                </form>
+            )}
+          </>
         ) : (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+             {!isNewUser && existingUserName && (
+                 <div className="text-center -mt-4 mb-4">
+                     <span className="text-sm text-stone-500">Welcome back,</span>
+                     <h3 className="font-serif text-xl text-stone-800 font-bold">{existingUserName}</h3>
+                 </div>
+             )}
+
             <div className="flex justify-between gap-2">
               {otpValue.map((digit, idx) => (
                 <input
                   key={idx}
-                  // Fix: Wrapped ref assignment in a block to return void
                   ref={el => { otpRefs.current[idx] = el; }}
                   type="text"
                   maxLength={1}
@@ -212,7 +332,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
             <div className="text-center">
               <p className="text-stone-400 text-xs mb-2">Issue receiving the code?</p>
               <button 
-                onClick={() => handleSendOtp()}
+                onClick={() => initiateOtp()}
                 disabled={timer > 0 || isLoading}
                 className={`text-xs font-bold uppercase tracking-widest ${timer > 0 ? 'text-stone-300' : 'text-gold-600 hover:text-gold-700'}`}
               >
@@ -222,7 +342,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
           </div>
         )}
 
-        <div className="mt-12 pt-8 border-t border-stone-100 text-center space-y-4">
+        <div className="mt-8 pt-6 border-t border-stone-100 text-center space-y-4">
           <p className="text-[10px] uppercase font-bold tracking-widest text-stone-300">Sanghavi Biometric Standard</p>
           <div className="flex justify-center gap-2 text-stone-400">
             <CheckCircle2 size={16} className="text-gold-500" />

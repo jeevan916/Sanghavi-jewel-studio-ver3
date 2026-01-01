@@ -26,8 +26,6 @@ app.use(express.json({ limit: '100mb' }));
 /** 
  * CRITICAL DATA PRESERVATION:
  * DATA_ROOT is moved to the parent directory (..) of the app root.
- * This ensures it is outside the 'public_html' or 'dist' folder.
- * Deployment actions and server resets will NOT touch this folder.
  */
 const DATA_ROOT = path.resolve(process.cwd(), '..', 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
@@ -88,16 +86,26 @@ const initDB = async () => {
                 id VARCHAR(255) PRIMARY KEY, username VARCHAR(100) UNIQUE, password VARCHAR(255),
                 role VARCHAR(50), isActive BOOLEAN DEFAULT TRUE, name VARCHAR(255), createdAt DATETIME
             )`,
+            // Updated customers table with pincode and location
             `CREATE TABLE IF NOT EXISTS customers (
                 id VARCHAR(255) PRIMARY KEY, phone VARCHAR(50) UNIQUE, name VARCHAR(255),
-                role VARCHAR(50), createdAt DATETIME
+                pincode VARCHAR(20), lastLocation JSON, role VARCHAR(50), createdAt DATETIME
             )`,
             `CREATE TABLE IF NOT EXISTS app_config (id INT PRIMARY KEY DEFAULT 1, data JSON, CHECK (id = 1))`,
             `CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`,
             `CREATE TABLE IF NOT EXISTS designs (id VARCHAR(255) PRIMARY KEY, imageUrl LONGTEXT, prompt TEXT, aspectRatio VARCHAR(20), createdAt DATETIME)`,
-            `CREATE TABLE IF NOT EXISTS shared_links (id VARCHAR(255) PRIMARY KEY, targetId VARCHAR(255), type VARCHAR(50), token VARCHAR(255) UNIQUE, expiresAt DATETIME)`
+            `CREATE TABLE IF NOT EXISTS shared_links (id VARCHAR(255) PRIMARY KEY, targetId VARCHAR(255), type VARCHAR(50), token VARCHAR(255) UNIQUE, expiresAt DATETIME)`,
+            `CREATE TABLE IF NOT EXISTS suggestions (
+                id VARCHAR(255) PRIMARY KEY, productId VARCHAR(255), userId VARCHAR(255), 
+                userName VARCHAR(255), userPhone VARCHAR(50), suggestion TEXT, createdAt DATETIME
+            )`
         ];
         for (const query of tables) await pool.query(query);
+
+        // Migrations
+        try { await pool.query(`ALTER TABLE customers ADD COLUMN pincode VARCHAR(20)`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE customers ADD COLUMN lastLocation JSON`); } catch (e) {}
+
     } catch (err) {
         console.error('[Database] Critical Failure:', err.message);
         dbStatus = { healthy: false, error: err.message };
@@ -173,9 +181,16 @@ app.get('/api/customers', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get('/api/customers/check/:phone', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT name, pincode FROM customers WHERE phone=?', [req.params.phone]);
+        res.json({ exists: !!rows[0], user: rows[0] || null });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/analytics', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 200');
+        const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -199,6 +214,24 @@ app.post('/api/designs', async (req, res) => {
     try {
         const d = req.body;
         await pool.query('INSERT INTO designs (id, imageUrl, prompt, aspectRatio, createdAt) VALUES (?,?,?,?,?)', [d.id, d.imageUrl, d.prompt, d.aspectRatio, new Date()]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/suggestions/:productId', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM suggestions WHERE productId=? ORDER BY createdAt DESC', [req.params.productId]);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/suggestions', async (req, res) => {
+    try {
+        const { productId, userId, userName, userPhone, suggestion } = req.body;
+        await pool.query(
+            'INSERT INTO suggestions (id, productId, userId, userName, userPhone, suggestion, createdAt) VALUES (?,?,?,?,?,?,?)', 
+            [crypto.randomUUID(), productId, userId, userName, userPhone, suggestion, new Date()]
+        );
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -245,11 +278,30 @@ app.get('/api/staff', async (req, res) => {
 
 app.post('/api/auth/whatsapp', async (req, res) => {
     try {
-        const { phone } = req.body;
+        const { phone, name, pincode, location } = req.body;
         const [rows] = await pool.query('SELECT * FROM customers WHERE phone=?', [phone]);
-        if (rows[0]) return res.json(rows[0]);
-        const user = { id: crypto.randomUUID(), phone, name: `Client ${phone.slice(-4)}`, role: 'customer', createdAt: new Date() };
-        await pool.query('INSERT INTO customers (id, phone, name, role, createdAt) VALUES (?,?,?,?,?)', [user.id, user.phone, user.name, user.role, user.createdAt]);
+        
+        let user;
+        if (rows[0]) {
+            // Update existing user with new info if provided, AND update location
+            user = rows[0];
+            const updates = [];
+            const values = [];
+
+            if (name) { updates.push('name=?'); values.push(name); user.name = name; }
+            if (pincode) { updates.push('pincode=?'); values.push(pincode); user.pincode = pincode; }
+            if (location) { updates.push('lastLocation=?'); values.push(JSON.stringify(location)); }
+            
+            if (updates.length > 0) {
+                values.push(user.id);
+                await pool.query(`UPDATE customers SET ${updates.join(', ')} WHERE id=?`, values);
+            }
+        } else {
+            // Create new user
+            user = { id: crypto.randomUUID(), phone, name: name || `Client ${phone.slice(-4)}`, pincode: pincode || '', role: 'customer', createdAt: new Date() };
+            await pool.query('INSERT INTO customers (id, phone, name, pincode, lastLocation, role, createdAt) VALUES (?,?,?,?,?,?,?)', 
+                [user.id, user.phone, user.name, user.pincode, JSON.stringify(location || {}), user.role, user.createdAt]);
+        }
         res.json(user);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

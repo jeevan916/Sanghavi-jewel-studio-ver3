@@ -1,5 +1,5 @@
 
-import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent, StaffAccount } from "../types";
+import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent, StaffAccount, ProductSuggestion } from "../types";
 
 const API_BASE = '/api';
 
@@ -16,7 +16,8 @@ const DEFAULT_CONFIG: AppConfig = {
 
 const KEYS = {
   SESSION: 'sanghavi_user_session',
-  LIKES: 'sanghavi_user_likes'
+  LIKES: 'sanghavi_user_likes',
+  DISLIKES: 'sanghavi_user_dislikes'
 };
 
 export interface HealthStatus {
@@ -86,18 +87,10 @@ export const storeService = {
       if (!Array.isArray(data)) return [];
       
       const products = data.map((p: any) => {
-          // Defensive parsing for images and thumbnails
-          if (typeof p.images === 'string') {
-              try { p.images = JSON.parse(p.images); } catch(e) { p.images = []; }
-          }
-          if (typeof p.thumbnails === 'string') {
-              try { p.thumbnails = JSON.parse(p.thumbnails); } catch(e) { p.thumbnails = []; }
-          }
-          if (typeof p.tags === 'string') {
-              try { p.tags = JSON.parse(p.tags); } catch(e) { p.tags = []; }
-          }
+          if (typeof p.images === 'string') { try { p.images = JSON.parse(p.images); } catch(e) { p.images = []; } }
+          if (typeof p.thumbnails === 'string') { try { p.thumbnails = JSON.parse(p.thumbnails); } catch(e) { p.thumbnails = []; } }
+          if (typeof p.tags === 'string') { try { p.tags = JSON.parse(p.tags); } catch(e) { p.tags = []; } }
           
-          // Ensure arrays
           if (!Array.isArray(p.images)) p.images = [];
           if (!Array.isArray(p.thumbnails)) p.thumbnails = [];
           
@@ -106,7 +99,7 @@ export const storeService = {
       return products.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (err) { 
         console.error("StoreService getProducts Error:", err);
-        throw err; // Propagate for UI error handling
+        throw err; 
     }
   },
 
@@ -121,8 +114,17 @@ export const storeService = {
     } catch (e) { return []; }
   },
 
-  loginWithWhatsApp: async (phone: string): Promise<User | null> => {
-    const user = await apiFetch('/auth/whatsapp', { method: 'POST', body: JSON.stringify({ phone }) });
+  checkCustomerExistence: async (phone: string): Promise<{ exists: boolean, user?: any }> => {
+     try {
+         return await apiFetch(`/customers/check/${phone}`);
+     } catch (e) { return { exists: false }; }
+  },
+
+  loginWithWhatsApp: async (phone: string, name?: string, pincode?: string, location?: any): Promise<User | null> => {
+    const user = await apiFetch('/auth/whatsapp', { 
+        method: 'POST', 
+        body: JSON.stringify({ phone, name, pincode, location }) 
+    });
     if (user) localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
     return user;
   },
@@ -149,6 +151,11 @@ export const storeService = {
     return data ? JSON.parse(data) : [];
   },
 
+  getDislikes: (): string[] => {
+    const data = localStorage.getItem(KEYS.DISLIKES);
+    return data ? JSON.parse(data) : [];
+  },
+
   toggleLike: (productId: string) => {
     const likes = storeService.getLikes();
     const index = likes.indexOf(productId);
@@ -156,6 +163,16 @@ export const storeService = {
     if (index === -1) newLikes.push(productId);
     else newLikes.splice(index, 1);
     localStorage.setItem(KEYS.LIKES, JSON.stringify(newLikes));
+    return index === -1;
+  },
+
+  toggleDislike: (productId: string) => {
+    const dislikes = storeService.getDislikes();
+    const index = dislikes.indexOf(productId);
+    let newDislikes = [...dislikes];
+    if (index === -1) newDislikes.push(productId);
+    else newDislikes.splice(index, 1);
+    localStorage.setItem(KEYS.DISLIKES, JSON.stringify(newDislikes));
     return index === -1;
   },
 
@@ -170,8 +187,29 @@ export const storeService = {
         userName: user ? user.name : 'Guest',
         timestamp: new Date().toISOString()
     };
-    // No-wait logging
     fetch(`${API_BASE}/analytics`, { method: 'POST', body: JSON.stringify(event), headers: {'Content-Type': 'application/json'} }).catch(() => {});
+  },
+
+  submitSuggestion: async (productId: string, suggestion: string) => {
+    const user = storeService.getCurrentUser();
+    if (!user) return;
+    await apiFetch('/suggestions', {
+        method: 'POST',
+        body: JSON.stringify({
+            productId,
+            userId: user.id,
+            userName: user.name,
+            userPhone: user.phone,
+            suggestion
+        })
+    });
+  },
+
+  getSuggestions: async (productId: string): Promise<ProductSuggestion[]> => {
+     try {
+         const data = await apiFetch(`/suggestions/${productId}`);
+         return data || [];
+     } catch(e) { return []; }
   },
 
   getConfig: async (): Promise<AppConfig> => {
@@ -197,9 +235,6 @@ I'm interested in: ${product.title} (ID: #${product.id.slice(-6).toUpperCase()})
     window.open(waUrl, '_blank');
   },
 
-  /**
-   * FIX: Added missing methods for Design Studio, Analytics, Staff management, and Shared links.
-   */
   getDesigns: async (): Promise<GeneratedDesign[]> => {
     try {
       const data = await apiFetch('/designs');

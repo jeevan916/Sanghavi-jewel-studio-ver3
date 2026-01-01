@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Product, AppConfig } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone } from 'lucide-react';
+import { Product, AppConfig, ProductSuggestion } from '../types';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ImageEditor } from '../components/ImageEditor';
 import { storeService } from '../services/storeService';
@@ -31,6 +31,14 @@ export const ProductDetails: React.FC = () => {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescValue, setEditDescValue] = useState('');
 
+  // Interactions & Suggestions
+  const [isLiked, setIsLiked] = useState(false);
+  const [isDisliked, setIsDisliked] = useState(false);
+  const [suggestionText, setSuggestionText] = useState('');
+  const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
+  const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -45,10 +53,19 @@ export const ProductDetails: React.FC = () => {
         if (found) {
           setProduct(found);
           setEditDescValue(found.description);
+          setIsLiked(storeService.getLikes().includes(found.id));
+          setIsDisliked(storeService.getDislikes().includes(found.id));
+          if(isAuthorized) {
+             storeService.getSuggestions(found.id).then(setSuggestions);
+          }
         }
         
         const conf = await storeService.getConfig();
         setConfig(conf);
+        
+        if (found) {
+             storeService.logEvent('view', found);
+        }
       } catch (err) {
         console.error("Fetch details error:", err);
       } finally {
@@ -56,7 +73,7 @@ export const ProductDetails: React.FC = () => {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, isAuthorized]);
 
   if (isLoading) {
     return (
@@ -135,12 +152,10 @@ export const ProductDetails: React.FC = () => {
       
       updatedImages[currentImageIndex] = newBase64;
       
-      // Generate and sync thumbnail
       try {
         const thumbBase64 = await createThumbnail(newBase64);
         updatedThumbs[currentImageIndex] = thumbBase64;
       } catch (e) {
-        // Fallback to full image if thumbnail generation fails
         updatedThumbs[currentImageIndex] = newBase64;
       }
       
@@ -188,6 +203,42 @@ export const ProductDetails: React.FC = () => {
       await storeService.shareToWhatsApp(product, currentImageIndex);
   };
 
+  const toggleLike = () => {
+      if (!product) return;
+      if (isDisliked) {
+          storeService.toggleDislike(product.id);
+          setIsDisliked(false);
+      }
+      const liked = storeService.toggleLike(product.id);
+      setIsLiked(liked);
+      if (liked) storeService.logEvent('like', product);
+  };
+
+  const toggleDislike = () => {
+      if (!product) return;
+      if (isLiked) {
+          storeService.toggleLike(product.id);
+          setIsLiked(false);
+      }
+      const disliked = storeService.toggleDislike(product.id);
+      setIsDisliked(disliked);
+      if (disliked) storeService.logEvent('dislike', product);
+  };
+
+  const submitSuggestion = async () => {
+      if (!suggestionText.trim() || !product) return;
+      setIsSubmittingSuggestion(true);
+      try {
+          await storeService.submitSuggestion(product.id, suggestionText);
+          setSuggestionText('');
+          alert("Thank you! Your feedback helps us craft better jewelry.");
+      } catch (e) {
+          alert("Failed to send suggestion.");
+      } finally {
+          setIsSubmittingSuggestion(false);
+      }
+  };
+
   const goToNext = () => { if (hasNext) navigate(`/product/${productList[currentIndex+1].id}`); };
   const goToPrev = () => { if (hasPrev) navigate(`/product/${productList[currentIndex-1].id}`); };
 
@@ -228,7 +279,6 @@ export const ProductDetails: React.FC = () => {
       return `${origin}${cleanPath}`;
   };
 
-  // Optimization: Prioritize the high-res image (productImages) over the thumbnail (productThumbnails) for the details hero.
   const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
 
   return (
@@ -285,16 +335,13 @@ export const ProductDetails: React.FC = () => {
                         <button onClick={async () => { 
                             const nextImgs = [...productImages]; 
                             const nextThumbs = [...productThumbnails];
-                            
                             nextImgs[currentImageIndex] = pendingEnhancedImage; 
-                            
                             try {
                               const thumbBase64 = await createThumbnail(pendingEnhancedImage);
                               nextThumbs[currentImageIndex] = thumbBase64;
                             } catch (e) {
                               nextThumbs[currentImageIndex] = pendingEnhancedImage;
                             }
-
                             handleUpdateProduct({ images: nextImgs, thumbnails: nextThumbs }); 
                             setPendingEnhancedImage(null); 
                         }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button>
@@ -311,6 +358,17 @@ export const ProductDetails: React.FC = () => {
                             className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-6 bg-gold-500 shadow-sm' : 'w-1.5 bg-white/60'}`}
                         />
                     ))}
+                </div>
+            )}
+            
+            {!pendingEnhancedImage && (
+                <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+                    <button onClick={toggleLike} className={`p-3 rounded-full backdrop-blur shadow-sm transition-all ${isLiked ? 'bg-red-500 text-white' : 'bg-white/70 text-stone-400 hover:text-red-500'}`}>
+                         <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
+                    </button>
+                    <button onClick={toggleDislike} className={`p-3 rounded-full backdrop-blur shadow-sm transition-all ${isDisliked ? 'bg-stone-800 text-white' : 'bg-white/70 text-stone-400 hover:text-stone-800'}`}>
+                         <ThumbsDown size={20} fill={isDisliked ? "currentColor" : "none"} />
+                    </button>
                 </div>
             )}
           </div>
@@ -345,12 +403,34 @@ export const ProductDetails: React.FC = () => {
                         </button>
                         <button onClick={() => setIsManualEditing(true)} className="flex-1 py-2 bg-stone-700 rounded text-sm font-medium flex items-center justify-center gap-2"><SlidersHorizontal size={16}/> Edit Image</button>
                      </div>
-
+                     
                      {showAiMenu && (
                         <div className="bg-stone-900 rounded-lg p-1 border border-stone-700 grid grid-cols-2 gap-1">
                              <button onClick={() => handleAiAction('clean')} className="px-3 py-2 text-xs hover:bg-stone-800 rounded flex items-center gap-2"><Eraser size={14}/> Clear Branding</button>
                              <button onClick={() => handleAiAction('enhance')} className="px-3 py-2 text-xs hover:bg-stone-800 rounded flex items-center gap-2"><Wand2 size={14}/> Studio Enhance</button>
                         </div>
+                     )}
+
+                     <button onClick={() => setShowSuggestions(!showSuggestions)} className="w-full py-2 bg-stone-700 rounded text-sm font-medium flex items-center justify-center gap-2">
+                         <MessageSquare size={16} /> View Client Suggestions ({suggestions.length})
+                     </button>
+                     
+                     {showSuggestions && (
+                         <div className="bg-stone-900 rounded-xl p-4 max-h-60 overflow-y-auto space-y-3">
+                             {suggestions.length === 0 ? (
+                                 <p className="text-stone-500 text-xs italic">No suggestions yet.</p>
+                             ) : (
+                                 suggestions.map(s => (
+                                     <div key={s.id} className="bg-stone-800 p-3 rounded-lg text-xs">
+                                         <div className="flex justify-between text-stone-400 mb-1">
+                                             <span className="font-bold">{s.userName} ({s.userPhone})</span>
+                                             <span>{new Date(s.createdAt).toLocaleDateString()}</span>
+                                         </div>
+                                         <p className="text-stone-300">{s.suggestion}</p>
+                                     </div>
+                                 ))
+                             )}
+                         </div>
                      )}
                  </div>
              )}
@@ -361,6 +441,28 @@ export const ProductDetails: React.FC = () => {
                  <h3 className="text-sm font-bold text-stone-400 uppercase tracking-wider flex items-center justify-between gap-2 mb-2"><span className="flex items-center gap-2"><Info size={16} /> Description</span>{isAuthorized && <button onClick={() => { if(isEditingDescription) handleSaveDescription(); else setIsEditingDescription(true); }} className="p-1 hover:bg-stone-100 rounded text-gold-600 transition">{isEditingDescription ? <Check size={16} /> : <Edit2 size={16} />}</button>}</h3>
                  {isEditingDescription ? <div className="space-y-2"><textarea value={editDescValue} onChange={(e) => setEditDescValue(e.target.value)} className="w-full p-4 border border-gold-300 rounded-xl text-stone-700 min-h-[120px]" /><div className="flex justify-end gap-2"><button onClick={() => { setIsEditingDescription(false); setEditDescValue(product.description); }} className="px-4 py-1 text-xs text-stone-400 uppercase">Cancel</button><button onClick={handleSaveDescription} className="px-4 py-1 text-xs text-gold-600 border border-gold-200 rounded-lg">Apply</button></div></div> : <p className="text-stone-600 leading-relaxed text-lg font-light">{product.description}</p>}
              </div>
+             
+             {/* Suggestion Box for Customers */}
+             {!isAuthorized && currentUser && (
+                 <div className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm mt-4">
+                     <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Sparkles size={14} className="text-gold-500" /> Suggest Customization</h4>
+                     <textarea 
+                        value={suggestionText}
+                        onChange={(e) => setSuggestionText(e.target.value)}
+                        placeholder="Love this? Tell us if you'd prefer it in Rose Gold, Diamond cut variations, or other changes..."
+                        className="w-full p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm text-stone-800 focus:border-gold-300 outline-none min-h-[80px]"
+                     />
+                     <div className="flex justify-end mt-2">
+                         <button 
+                            onClick={submitSuggestion}
+                            disabled={isSubmittingSuggestion || !suggestionText.trim()}
+                            className="px-4 py-2 bg-stone-900 text-white text-xs font-bold uppercase tracking-widest rounded-lg flex items-center gap-2 hover:bg-stone-800 disabled:opacity-50 transition"
+                         >
+                             {isSubmittingSuggestion ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send Feedback
+                         </button>
+                     </div>
+                 </div>
+             )}
 
              <div className="bg-stone-50 rounded-xl p-4 border border-stone-100 grid grid-cols-2 gap-4 text-sm">
                  <div><span className="block text-stone-400 text-xs uppercase font-bold mb-1">Date Added</span><div className="flex items-center gap-2 text-stone-700"><Calendar size={14} /> {product.dateTaken || new Date(product.createdAt).toLocaleDateString()}</div></div>

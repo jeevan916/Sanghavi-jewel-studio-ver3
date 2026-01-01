@@ -29,9 +29,9 @@ export type User = {
   name: string;
   role: UserRole;
   phone?: string;
-  location?: string;
+  location?: string; // This can serve as pincode/city
+  pincode?: string;
   lastLogin?: string;
-  // Fix: Added createdAt property to User type
   createdAt?: string;
 };
 
@@ -79,7 +79,7 @@ export interface AppConfig {
 
 export interface AnalyticsEvent {
   id: string;
-  type: 'inquiry' | 'screenshot' | 'view' | 'like' | 'download' | 'login';
+  type: 'inquiry' | 'screenshot' | 'view' | 'like' | 'dislike' | 'download' | 'login';
   productId?: string;
   productTitle?: string;
   userId: string;
@@ -93,6 +93,16 @@ export interface AnalyticsEvent {
   deviceName: string;
   timestamp: string;
   imageIndex?: number;
+}
+
+export interface ProductSuggestion {
+  id: string;
+  productId: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  suggestion: string;
+  createdAt: string;
 }
 
 export interface SharedLink {

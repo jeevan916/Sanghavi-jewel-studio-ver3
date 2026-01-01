@@ -6,14 +6,14 @@ import { Product, AnalyticsEvent, User } from '../types';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, Save, Smartphone, MessageCircle, LogOut, UserCheck, HardDrive, Database, RefreshCw
+  LayoutDashboard, FolderOpen, Save, Smartphone, MessageCircle, LogOut, UserCheck, HardDrive, Database, RefreshCw, TrendingUp
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads';
+type ViewMode = 'overview' | 'files' | 'leads' | 'trends';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
@@ -73,6 +73,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   }, [products, selectedFolder, searchQuery]);
 
   const recentInquiries = useMemo(() => analytics.filter(e => e.type === 'inquiry').slice(0, 10), [analytics]);
+
+  const trendingProducts = useMemo(() => {
+      const scores: Record<string, number> = {};
+      analytics.forEach(e => {
+          if (!e.productId) return;
+          if (!scores[e.productId]) scores[e.productId] = 0;
+          
+          if (e.type === 'inquiry') scores[e.productId] += 10;
+          if (e.type === 'like') scores[e.productId] += 5;
+          if (e.type === 'view') scores[e.productId] += 1;
+          if (e.type === 'dislike') scores[e.productId] -= 3;
+      });
+
+      return Object.entries(scores)
+          .sort(([,scoreA], [,scoreB]) => scoreB - scoreA)
+          .slice(0, 10)
+          .map(([id, score]) => {
+              const product = products.find(p => p.id === id);
+              return product ? { ...product, score } : null;
+          })
+          .filter(Boolean) as (Product & { score: number })[];
+  }, [analytics, products]);
 
   const handleSelect = (id: string, multi: boolean) => {
       if (multi) {
@@ -138,6 +160,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeView === 'leads' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
             >
                 <UserCheck size={16} /> Leads
+            </button>
+            <button 
+                onClick={() => setActiveView('trends')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeView === 'trends' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
+            >
+                <TrendingUp size={16} /> Trends
             </button>
             <button onClick={() => onNavigate?.('settings')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-stone-500 hover:text-stone-700 transition-all whitespace-nowrap">
                 <Settings size={16} /> Settings
@@ -249,6 +277,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           <tr>
                               <th className="p-6">Customer Profile</th>
                               <th className="p-6">WhatsApp Contact</th>
+                              <th className="p-6">Location Pincode</th>
                               <th className="p-6">Signed Up</th>
                               <th className="p-6 text-right">Actions</th>
                           </tr>
@@ -263,6 +292,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                       </div>
                                   </td>
                                   <td className="p-6 font-mono font-medium text-stone-600">+{customer.phone}</td>
+                                  <td className="p-6 font-mono font-medium text-stone-600">{customer.pincode || 'N/A'}</td>
                                   <td className="p-6 text-stone-500">{new Date(customer.createdAt).toLocaleDateString()}</td>
                                   <td className="p-6 text-right">
                                       <button 
@@ -275,10 +305,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                               </tr>
                           ))}
                           {customers.length === 0 && (
-                              <tr><td colSpan={4} className="p-20 text-center text-stone-300 font-serif text-lg">Lead database ready for capture...</td></tr>
+                              <tr><td colSpan={5} className="p-20 text-center text-stone-300 font-serif text-lg">Lead database ready for capture...</td></tr>
                           )}
                       </tbody>
                   </table>
+              </div>
+          </div>
+      )}
+
+      {activeView === 'trends' && (
+          <div className="flex-1 bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+              <div className="p-6 bg-stone-50 border-b border-stone-200">
+                  <h3 className="font-serif text-2xl text-stone-800 flex items-center gap-2"><TrendingUp className="text-gold-600" /> Market Trends</h3>
+                  <p className="text-stone-500 text-sm mt-1">Top performing jewelry based on customer engagement (Views, Likes, Inquiries).</p>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 bg-stone-50/50">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {trendingProducts.map((p, index) => (
+                          <div key={p.id} onClick={() => navigate(`/product/${p.id}`)} className="bg-white rounded-xl shadow-sm border border-stone-100 flex overflow-hidden cursor-pointer hover:shadow-md transition">
+                               <div className="w-24 h-24 shrink-0 bg-stone-200">
+                                   <img src={p.thumbnails[0]} className="w-full h-full object-cover" />
+                               </div>
+                               <div className="p-4 flex-1 flex flex-col justify-center">
+                                   <div className="flex justify-between items-start mb-1">
+                                       <span className="text-[10px] font-bold uppercase tracking-widest text-gold-600">#{index + 1} Trending</span>
+                                       <span className="text-xs font-mono font-bold bg-stone-100 px-2 rounded text-stone-600">Score: {p.score}</span>
+                                   </div>
+                                   <h4 className="font-serif font-bold text-stone-800 truncate">{p.title}</h4>
+                                   <p className="text-xs text-stone-500">{p.category} • {p.weight}g</p>
+                               </div>
+                          </div>
+                      ))}
+                  </div>
+                  {trendingProducts.length === 0 && (
+                      <div className="flex flex-col items-center justify-center h-64 text-stone-400">
+                          <TrendingUp size={48} className="mb-4 opacity-20" />
+                          <p>Insufficient data to determine trends.</p>
+                      </div>
+                  )}
               </div>
           </div>
       )}
