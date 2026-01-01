@@ -49,6 +49,9 @@ export const ProductDetails: React.FC = () => {
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Reset image index immediately when navigating to a new product
+    setCurrentImageIndex(0);
+    
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -420,6 +423,17 @@ export const ProductDetails: React.FC = () => {
                             className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-6 bg-gold-500 shadow-sm' : 'w-1.5 bg-white/60'}`}
                         />
                     ))}
+                </div>
+            )}
+            
+            {!pendingEnhancedImage && (
+                <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+                    <button onClick={toggleLike} className={`p-3 rounded-full backdrop-blur shadow-sm transition-all ${isLiked ? 'bg-red-500 text-white' : 'bg-white/70 text-stone-400 hover:text-red-500'}`}>
+                         <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
+                    </button>
+                    <button onClick={toggleDislike} className={`p-3 rounded-full backdrop-blur shadow-sm transition-all ${isDisliked ? 'bg-stone-800 text-white' : 'bg-white/70 text-stone-400 hover:text-stone-800'}`}>
+                         <ThumbsDown size={20} fill={isDisliked ? "currentColor" : "none"} />
+                    </button>
                 </div>
             )}
           </div>
