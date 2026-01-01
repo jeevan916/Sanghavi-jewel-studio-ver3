@@ -35,6 +35,7 @@ export const ProductDetails: React.FC = () => {
   // Interactions & Suggestions
   const [isLiked, setIsLiked] = useState(false);
   const [isDisliked, setIsDisliked] = useState(false);
+  const [isOwned, setIsOwned] = useState(false);
   const [suggestionText, setSuggestionText] = useState('');
   const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
@@ -59,6 +60,7 @@ export const ProductDetails: React.FC = () => {
           setEditDescValue(found.description);
           setIsLiked(storeService.getLikes().includes(found.id));
           setIsDisliked(storeService.getDislikes().includes(found.id));
+          setIsOwned(storeService.getOwned().includes(found.id));
           
           // Parallel fetch for secondary data
           const [productStats, suggestionsList] = await Promise.all([
@@ -222,7 +224,7 @@ export const ProductDetails: React.FC = () => {
 
   const handleMarkAsSold = async () => {
       if (!product) return;
-      if (confirm("Mark this item as Sold? This will update the public counter.")) {
+      if (confirm("Record a new manual sale? This increments the global 'Purchased' counter.")) {
           await storeService.logEvent('sold', product);
           setStats(prev => ({...prev, purchase: prev.purchase + 1}));
       }
@@ -258,6 +260,21 @@ export const ProductDetails: React.FC = () => {
       setStats(prev => ({...prev, dislike: disliked ? prev.dislike + 1 : Math.max(0, prev.dislike - 1)}));
       
       if (disliked) storeService.logEvent('dislike', product);
+  };
+
+  const toggleOwned = () => {
+      if (!product || isGuest) {
+        if(isGuest && confirm("Login to add this to your collection?")) navigate('/login');
+        return;
+      }
+      
+      const owned = storeService.toggleOwned(product.id);
+      setIsOwned(owned);
+      
+      // Update stats locally
+      setStats(prev => ({...prev, purchase: owned ? prev.purchase + 1 : Math.max(0, prev.purchase - 1)}));
+      
+      if (owned) storeService.logEvent('sold', product);
   };
 
   const submitSuggestion = async () => {
@@ -426,33 +443,33 @@ export const ProductDetails: React.FC = () => {
 
              {/* Live Market Sentiment Stats */}
              <div className="grid grid-cols-4 gap-2 md:gap-4 mb-4">
-                 <div className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
-                     <Heart size={18} className="text-red-500 mb-1" fill="currentColor"/>
+                 <button onClick={toggleLike} className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm hover:bg-stone-50 transition-colors">
+                     <Heart size={18} className="text-red-500 mb-1" fill={isLiked ? "currentColor" : "none"}/>
                      <span className="font-bold text-lg text-stone-800 leading-none">{stats.like}</span>
                      <span className="text-[9px] uppercase font-bold text-stone-400">Likes</span>
-                 </div>
-                 <div className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
-                     <ThumbsDown size={18} className="text-stone-400 mb-1" />
+                 </button>
+                 <button onClick={toggleDislike} className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm hover:bg-stone-50 transition-colors">
+                     <ThumbsDown size={18} className="text-stone-400 mb-1" fill={isDisliked ? "currentColor" : "none"}/>
                      <span className="font-bold text-lg text-stone-800 leading-none">{stats.dislike}</span>
                      <span className="text-[9px] uppercase font-bold text-stone-400">Dislikes</span>
-                 </div>
-                 <div className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
+                 </button>
+                 <button onClick={handleInquiry} className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm hover:bg-stone-50 transition-colors">
                      <ShoppingBag size={18} className="text-gold-600 mb-1" />
                      <span className="font-bold text-lg text-stone-800 leading-none">{stats.inquiry}</span>
                      <span className="text-[9px] uppercase font-bold text-stone-400">Will Buy</span>
-                 </div>
-                 <div className="bg-white/60 backdrop-blur border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
-                     <Gem size={18} className="text-blue-500 mb-1" />
+                 </button>
+                 <button onClick={toggleOwned} className={`bg-white/60 backdrop-blur border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm hover:bg-stone-50 transition-colors ${isOwned ? 'border-blue-300 bg-blue-50/50' : 'border-stone-200'}`}>
+                     <Gem size={18} className="text-blue-500 mb-1" fill={isOwned ? "currentColor" : "none"} />
                      <span className="font-bold text-lg text-stone-800 leading-none">{stats.purchase}</span>
-                     <span className="text-[9px] uppercase font-bold text-stone-400">Purchased</span>
-                 </div>
+                     <span className="text-[9px] uppercase font-bold text-stone-400">{isOwned ? 'Owned' : 'Purchased'}</span>
+                 </button>
              </div>
 
              {isAuthorized && (
                  <div className="bg-stone-800 p-4 rounded-xl text-white space-y-4">
                      <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2"><Lock size={12} /> Authorized Control</h3><button onClick={handleDeleteProduct} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase flex items-center gap-1"><Trash2 size={12}/> Delete</button></div>
                      
-                     <button onClick={handleMarkAsSold} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium flex items-center justify-center gap-2 transition"><DollarSign size={16}/> Mark as Sold (Increment Counter)</button>
+                     <button onClick={handleMarkAsSold} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium flex items-center justify-center gap-2 transition"><DollarSign size={16}/> Record Manual Sale (+1)</button>
 
                      <div className="flex gap-2 relative">
                         <button onClick={() => handleUpdateProduct({isHidden: !product.isHidden})} className={`flex-1 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 ${product.isHidden ? 'bg-red-500/20 text-red-200' : 'bg-stone-700'}`}>{product.isHidden ? <EyeOff size={16}/> : <Eye size={16}/>} {product.isHidden ? 'Private' : 'Public'}</button>

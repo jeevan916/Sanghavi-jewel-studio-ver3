@@ -17,7 +17,8 @@ const DEFAULT_CONFIG: AppConfig = {
 const KEYS = {
   SESSION: 'sanghavi_user_session',
   LIKES: 'sanghavi_user_likes',
-  DISLIKES: 'sanghavi_user_dislikes'
+  DISLIKES: 'sanghavi_user_dislikes',
+  OWNED: 'sanghavi_user_owned'
 };
 
 export interface HealthStatus {
@@ -172,6 +173,11 @@ export const storeService = {
     return data ? JSON.parse(data) : [];
   },
 
+  getOwned: (): string[] => {
+    const data = localStorage.getItem(KEYS.OWNED);
+    return data ? JSON.parse(data) : [];
+  },
+
   toggleLike: (productId: string) => {
     const likes = storeService.getLikes();
     const index = likes.indexOf(productId);
@@ -189,6 +195,16 @@ export const storeService = {
     if (index === -1) newDislikes.push(productId);
     else newDislikes.splice(index, 1);
     localStorage.setItem(KEYS.DISLIKES, JSON.stringify(newDislikes));
+    return index === -1;
+  },
+
+  toggleOwned: (productId: string) => {
+    const owned = storeService.getOwned();
+    const index = owned.indexOf(productId);
+    let newOwned = [...owned];
+    if (index === -1) newOwned.push(productId);
+    else newOwned.splice(index, 1);
+    localStorage.setItem(KEYS.OWNED, JSON.stringify(newOwned));
     return index === -1;
   },
 
