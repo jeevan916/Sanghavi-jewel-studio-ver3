@@ -1,16 +1,11 @@
 
-import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode, useLayoutEffect } from 'react';
+import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
 import { User } from './types';
 import { UploadProvider } from './contexts/UploadContext';
 import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
-
-// Force scroll restoration to manual globally
-if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
-  window.history.scrollRestoration = 'manual';
-}
 
 // Error Boundary Implementation
 interface ErrorBoundaryProps {
@@ -22,6 +17,7 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
+// Fixed: Explicitly extend Component from react and use named generic parameters to ensure 'props' is properly typed
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false
@@ -97,27 +93,10 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Robust Global Scroll Reset on every navigation event
-  useLayoutEffect(() => {
-    const performReset = () => {
-      window.scrollTo(0, 0);
-      document.body.scrollTop = 0;
-      if (document.documentElement) document.documentElement.scrollTop = 0;
-    };
-
-    performReset();
-    
-    // Catch-all for async content loading or layout shifts
-    const rafId = requestAnimationFrame(performReset);
-    const timeoutId = setTimeout(performReset, 0);
-    const timeoutId2 = setTimeout(performReset, 50);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      clearTimeout(timeoutId);
-      clearTimeout(timeoutId2);
-    };
-  }, [location.pathname, location.search, location.hash]);
+  // Fix: Reset scroll position to top on every route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   useEffect(() => {
     setUser(storeService.getCurrentUser());

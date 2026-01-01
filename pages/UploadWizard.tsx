@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2, Cpu, Eye, ImagePlus, ArrowRight, Tag } from 'lucide-react';
+import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2, Cpu, Eye, ImagePlus } from 'lucide-react';
 import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
 import { Product, AppConfig, CategoryConfig } from '../types';
@@ -103,6 +103,11 @@ export const UploadWizard: React.FC = () => {
   };
 
   const handleSingleSave = async () => {
+    if (!analysisData.title && !useAI) {
+      // If AI is off, title might be empty initially, fallback to timestamp
+      setAnalysisData(prev => ({...prev, title: prev.title || `SJ-${Date.now().toString().slice(-6)}`}));
+    }
+    
     setIsSaving(true);
     try {
       const newProduct: Product = {
@@ -135,8 +140,7 @@ export const UploadWizard: React.FC = () => {
     }
   };
 
-  // Critical fix: Optional chaining to prevent find() crash on undefined categories
-  const activeSubCategories = config?.categories?.find(c => c.name === selectedCategory)?.subCategories || [];
+  const activeSubCategories = config?.categories.find(c => c.name === selectedCategory)?.subCategories || [];
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 pb-24 animate-fade-in text-stone-800">
@@ -292,7 +296,7 @@ export const UploadWizard: React.FC = () => {
                             <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1.5 ml-1">Description & Marketing Copy</label>
                             <textarea 
                               value={analysisData.description || ''} 
-                              onChange={(e) => setAnalysisData({...analysisData, description: e.target.value})} 
+                              onChange={e => setAnalysisData({...analysisData, description: e.target.value})} 
                               className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-sm min-h-[140px] focus:border-gold-500 outline-none transition-all" 
                               placeholder="Describe the jewelry craftsmanship..." 
                             />
@@ -331,7 +335,7 @@ export const UploadWizard: React.FC = () => {
                         disabled={isSaving} 
                         className="flex-1 py-4 bg-stone-900 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 hover:bg-black transition-all active:scale-[0.98]"
                       >
-                        {isSaving ? <Loader2 className="animate-spin" /> : <Save size={18} />} 
+                        {isSaving ? <Loader2 className="animate-spin" /> : <Save />} 
                         {isSaving ? 'Committing to Vault...' : 'Confirm & Commit to Storage'}
                       </button>
                     </div>
@@ -353,3 +357,15 @@ export const UploadWizard: React.FC = () => {
     </div>
   );
 };
+
+const Tag = ({ size = 12, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l4.71-4.71c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>
+  </svg>
+);
+
+const ArrowRight = ({ size = 18, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+  </svg>
+);

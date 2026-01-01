@@ -1,7 +1,6 @@
 {
   "requestFramePermissions": [
     "camera",
-    "microphone",
     "geolocation"
   ],
   "name": "Sanghavi Jewel Studio v3.5",

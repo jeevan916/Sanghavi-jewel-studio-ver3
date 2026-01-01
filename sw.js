@@ -27,20 +27,13 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  
-  let url;
-  try {
-    url = new URL(request.url);
-  } catch (e) {
-    // If request URL is invalid (e.g. chrome-extension://), skip caching
-    return;
-  }
+  const url = new URL(request.url);
 
   // Skip API calls for SW caching
   if (url.pathname.startsWith('/api/')) return;
 
   // Optimized for 3G: Stale-While-Revalidate for UI and Images
-  if (CDN_IMAGE_REGEX.test(request.url) || STATIC_ASSETS.includes(url.pathname) || STATIC_ASSETS.includes('./' + url.pathname)) {
+  if (CDN_IMAGE_REGEX.test(request.url) || STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
         const fetchPromise = fetch(request).then((networkResponse) => {

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, AppConfig } from '../types';
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone } from 'lucide-react';
@@ -33,37 +33,6 @@ export const ProductDetails: React.FC = () => {
 
   const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // DECISIVE SCROLL LOCKING
-  const forceScrollTop = () => {
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      document.body.scrollTop = 0;
-      if (document.documentElement) document.documentElement.scrollTop = 0;
-      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-    }
-  };
-
-  // Immediate reset on ID change OR whenever the component mounts
-  useLayoutEffect(() => {
-    forceScrollTop();
-  }, [id]);
-
-  // Reset after loading finishes and at key rendering steps to fight browser scroll restoration
-  useEffect(() => {
-    if (!isLoading) {
-      forceScrollTop();
-      // Use multiple RAFs and timeouts to ensure we win the race against the browser's "helpful" scroll jumping
-      const rafId = requestAnimationFrame(() => {
-        forceScrollTop();
-        setTimeout(forceScrollTop, 20);
-        setTimeout(forceScrollTop, 100);
-        setTimeout(forceScrollTop, 300); // Final check for late layout shifts
-      });
-      return () => cancelAnimationFrame(rafId);
-    }
-  }, [isLoading]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -107,6 +76,7 @@ export const ProductDetails: React.FC = () => {
     );
   }
 
+  // Defensive array access
   const productImages = Array.isArray(product.images) ? product.images : [];
   const productThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
   const productTags = Array.isArray(product.tags) ? product.tags : [];
@@ -162,13 +132,18 @@ export const ProductDetails: React.FC = () => {
   const handleManualSave = async (newBase64: string) => {
       const updatedImages = [...productImages];
       const updatedThumbs = [...productThumbnails];
+      
       updatedImages[currentImageIndex] = newBase64;
+      
+      // Generate and sync thumbnail
       try {
         const thumbBase64 = await createThumbnail(newBase64);
         updatedThumbs[currentImageIndex] = thumbBase64;
       } catch (e) {
+        // Fallback to full image if thumbnail generation fails
         updatedThumbs[currentImageIndex] = newBase64;
       }
+      
       handleUpdateProduct({ images: updatedImages, thumbnails: updatedThumbs });
       setIsManualEditing(false);
   };
@@ -184,9 +159,8 @@ export const ProductDetails: React.FC = () => {
           if (newBase64) {
               setPendingEnhancedImage(`data:image/jpeg;base64,${newBase64}`);
           }
-      } catch (error: any) {
-          console.error("AI Action Error:", error);
-          alert(`AI Processing Failed: ${error.message || 'Check connection or key'}`);
+      } catch (error) {
+          alert("AI Processing Failed.");
       } finally { setIsProcessingImage(false); }
   };
 
@@ -254,13 +228,12 @@ export const ProductDetails: React.FC = () => {
       return `${origin}${cleanPath}`;
   };
 
+  // Optimization: Prioritize the high-res image (productImages) over the thumbnail (productThumbnails) for the details hero.
   const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
 
   return (
     <div 
-        key={id} 
-        ref={scrollContainerRef}
-        className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden"
+        className="min-h-screen bg-stone-50 overflow-y-auto animate-in fade-in duration-300 pb-20"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
     >
@@ -281,7 +254,7 @@ export const ProductDetails: React.FC = () => {
         </div>
       </div>
 
-      <div className="transition-all duration-300 ease-out animate-in fade-in">
+      <div className="transition-all duration-300 ease-out">
           <div 
             ref={imageContainerRef} 
             className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none image-nav-container" 
@@ -312,13 +285,16 @@ export const ProductDetails: React.FC = () => {
                         <button onClick={async () => { 
                             const nextImgs = [...productImages]; 
                             const nextThumbs = [...productThumbnails];
+                            
                             nextImgs[currentImageIndex] = pendingEnhancedImage; 
+                            
                             try {
                               const thumbBase64 = await createThumbnail(pendingEnhancedImage);
                               nextThumbs[currentImageIndex] = thumbBase64;
                             } catch (e) {
                               nextThumbs[currentImageIndex] = pendingEnhancedImage;
                             }
+
                             handleUpdateProduct({ images: nextImgs, thumbnails: nextThumbs }); 
                             setPendingEnhancedImage(null); 
                         }} className="flex-1 py-3 bg-gold-600/90 backdrop-blur text-white rounded-xl border border-gold-500 font-medium">Save</button>
