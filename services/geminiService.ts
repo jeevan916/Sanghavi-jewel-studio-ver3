@@ -4,7 +4,7 @@ import { AspectRatio } from "../types";
 
 /**
  * AI Service for Sanghavi Jewel Studio.
- * Strictly uses Gemini 3.0 for Photo Analysis and 2.5/3.0 for Generation.
+ * Strictly uses Gemini 3.0 for Photo Analysis and 2.5/3.0 for Generation/Editing.
  */
 
 export const analyzeJewelryImage = async (base64Image: string) => {
@@ -79,7 +79,7 @@ export const enhanceJewelryImage = async (base64Image: string) => {
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Gemini 3.0 for enhancement processing
+      model: "gemini-2.5-flash-image", // Correct model for image editing
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
@@ -100,7 +100,7 @@ export const removeWatermark = async (base64Image: string) => {
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Gemini 3.0 for text/logo removal
+      model: "gemini-2.5-flash-image", // Correct model for image editing
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },

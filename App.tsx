@@ -7,7 +7,7 @@ import { User } from './types';
 import { UploadProvider } from './contexts/UploadContext';
 import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
-// Disable browser's automatic scroll restoration globally as early as possible
+// Force scroll restoration to manual globally
 if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual';
 }
@@ -97,22 +97,23 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Robust Global Scroll Reset
+  // Robust Global Scroll Reset on every navigation event
   useLayoutEffect(() => {
     const performReset = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
       if (document.documentElement) document.documentElement.scrollTop = 0;
-      if (document.body) document.body.scrollTop = 0;
     };
 
-    // 1. Immediate reset
     performReset();
-
-    // 2. Scheduled reset (catches layout engine adjustments)
+    
+    // Catch-all for async content loading or layout shifts
+    const rafId = requestAnimationFrame(performReset);
     const timeoutId = setTimeout(performReset, 0);
-    const timeoutId2 = setTimeout(performReset, 100);
+    const timeoutId2 = setTimeout(performReset, 50);
 
     return () => {
+      cancelAnimationFrame(rafId);
       clearTimeout(timeoutId);
       clearTimeout(timeoutId2);
     };

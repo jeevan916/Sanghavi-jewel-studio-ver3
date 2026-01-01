@@ -35,33 +35,31 @@ export const ProductDetails: React.FC = () => {
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // ULTIMATE SCROLL RESET: Fires repeatedly during state transitions
+  // DECISIVE SCROLL LOCKING: Ensures the page starts at the top
   const forceScrollTop = () => {
     if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
       if (document.documentElement) document.documentElement.scrollTop = 0;
-      if (document.body) document.body.scrollTop = 0;
       if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     }
   };
 
-  // Reset when ID changes
+  // Immediate reset on ID change
   useLayoutEffect(() => {
     forceScrollTop();
   }, [id]);
 
-  // Reset when content is finally rendered (isLoading false)
-  // This is the most critical fix for the "autoscrolled" issue
+  // Reset after loading finishes and at key rendering steps
   useEffect(() => {
     if (!isLoading) {
       forceScrollTop();
-      // Use requestAnimationFrame to ensure the browser has finished the paint cycle
-      const raf = requestAnimationFrame(() => {
+      const rafId = requestAnimationFrame(() => {
         forceScrollTop();
-        // One final check after a tiny delay to defeat aggressive browser restoration
         setTimeout(forceScrollTop, 50);
+        setTimeout(forceScrollTop, 150);
       });
-      return () => cancelAnimationFrame(raf);
+      return () => cancelAnimationFrame(rafId);
     }
   }, [isLoading]);
 
@@ -185,7 +183,8 @@ export const ProductDetails: React.FC = () => {
               setPendingEnhancedImage(`data:image/jpeg;base64,${newBase64}`);
           }
       } catch (error) {
-          alert("AI Processing Failed.");
+          console.error("AI Action Error:", error);
+          alert("AI Processing Failed. This can happen if the AI key is invalid or quota is exceeded.");
       } finally { setIsProcessingImage(false); }
   };
 
