@@ -37,21 +37,24 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
   const getLocation = (): Promise<{lat: number, lng: number}> => {
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
-            reject(new Error("Geolocation is not supported by this browser."));
+            // Non-blocking reject: allow login but warn
+            resolve({ lat: 0, lng: 0 });
             return;
         }
         navigator.geolocation.getCurrentPosition(
             (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
-            (err) => reject(new Error("Location access denied. It is required for secure login.")),
-            { enableHighAccuracy: true, timeout: 10000 }
+            (err) => resolve({ lat: 0, lng: 0 }), // Graceful fallback
+            { enableHighAccuracy: true, timeout: 5000 }
         );
     });
   };
 
   const handleVerifyPhone = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || phone.replace(/\D/g, '').length < 10) {
-      setError('Please enter a valid WhatsApp number.');
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setError('Please enter a valid 10-digit WhatsApp number.');
       return;
     }
 
@@ -59,12 +62,12 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
     setError('');
 
     try {
-        // 1. Mandate Location
+        // 1. Get Location (Best Effort)
         const loc = await getLocation();
         setUserLocation(loc);
 
-        // 2. Check Database
-        const check = await storeService.checkCustomerExistence(phone);
+        // 2. Check Database with sanitized phone
+        const check = await storeService.checkCustomerExistence(cleanPhone);
         
         // Ensure name is updated if it's a default "Client XXX" name
         const hasDefaultName = check.user?.name?.startsWith('Client ') || false;
@@ -84,7 +87,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
             setIsCheckingUser(false);
         }
     } catch (err: any) {
-        setError(err.message || "Unable to verify secure status.");
+        setError("Network Error: Unable to verify account status. Please check connection.");
         setIsCheckingUser(false);
     }
   };
@@ -101,8 +104,9 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
       setError('');
       setIsDemoMode(false);
 
+      const cleanPhone = phone.replace(/\D/g, '');
       const otp = whatsappService.generateOTP();
-      const result = await whatsappService.sendOTP(phone, otp);
+      const result = await whatsappService.sendOTP(cleanPhone, otp);
 
       if (result.success) {
         setGeneratedOtp(otp);
@@ -140,8 +144,9 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
     if (entered === generatedOtp) {
       setIsLoading(true);
       try {
+        const cleanPhone = phone.replace(/\D/g, '');
         const user = await storeService.loginWithWhatsApp(
-            phone, 
+            cleanPhone, 
             isNewUser ? registrationData.name : undefined, 
             isNewUser ? registrationData.pincode : undefined,
             userLocation
@@ -210,10 +215,11 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                             <input 
                             type="tel" 
                             value={phone}
-                            onChange={e => setPhone(e.target.value)}
+                            onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
                             placeholder="e.g. 919876543210"
-                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
+                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium tracking-wider"
                             required
+                            maxLength={15}
                             />
                         </div>
                     </div>
@@ -278,7 +284,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                     )}
 
                     <div className="flex gap-2">
-                         <button type="button" onClick={() => setIsNewUser(false)} className="px-4 py-4 bg-stone-100 text-stone-500 font-bold rounded-2xl">Back</button>
+                         <button type="button" onClick={() => { setIsNewUser(false); setRegistrationData({name: '', pincode: ''}); }} className="px-4 py-4 bg-stone-100 text-stone-500 font-bold rounded-2xl">Back</button>
                          <button 
                             type="submit" 
                             disabled={isLoading}

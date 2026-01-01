@@ -133,9 +133,8 @@ export const storeService = {
   },
 
   checkCustomerExistence: async (phone: string): Promise<{ exists: boolean, user?: any }> => {
-     try {
-         return await apiFetch(`/customers/check/${phone}`);
-     } catch (e) { return { exists: false }; }
+     // Do not catch errors here; allow UI to handle network failures instead of assuming 'false' (New User)
+     return await apiFetch(`/customers/check/${phone}`);
   },
 
   loginWithWhatsApp: async (phone: string, name?: string, pincode?: string, location?: any): Promise<User | null> => {

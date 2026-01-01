@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, AppConfig, ProductSuggestion } from '../types';
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Calendar, ChevronLeft, ChevronRight, Camera, Edit2, Lock, Check, Eye, EyeOff, Sparkles, Eraser, Wand2, Loader2, SlidersHorizontal, Download, Trash2, Cpu, Smartphone, Heart, ThumbsDown, Send, MessageSquare, LogIn, ShoppingBag, Gem, BarChart2, DollarSign } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
@@ -11,6 +11,7 @@ import { removeWatermark, enhanceJewelryImage } from '../services/geminiService'
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [productList, setProductList] = useState<Product[]>([]);
@@ -217,7 +218,7 @@ export const ProductDetails: React.FC = () => {
   const handleInquiry = async () => {
       if (isGuest) {
           if(confirm("To inquire about pricing and customization, please login.")) {
-              navigate('/login');
+              navigate('/login', { state: { from: location.pathname } });
           }
           return;
       }
@@ -277,7 +278,9 @@ export const ProductDetails: React.FC = () => {
 
   const toggleOwned = () => {
       if (!product || isGuest) {
-        if(isGuest && confirm("Login to add this to your collection?")) navigate('/login');
+        if(isGuest && confirm("Login to add this to your collection?")) {
+            navigate('/login', { state: { from: location.pathname } });
+        }
         return;
       }
       
