@@ -2,7 +2,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs/promises';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
@@ -19,8 +19,7 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * 1. PERSISTENCE VAULT SETUP
- * Renamed to match your existing server folder: sanghavi_persistence
- * All paths are absolute to ensure stability across different execution contexts.
+ * Root folder: sanghavi_persistence
  */
 const DATA_ROOT = path.resolve(__dirname, 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
@@ -31,17 +30,17 @@ const initializeDirectories = () => {
     [DATA_ROOT, UPLOADS_ROOT, THUMBS_ROOT, BACKUPS_ROOT].forEach(dir => {
         if (!existsSync(dir)) {
             mkdirSync(dir, { recursive: true });
-            console.log(`[Persistence] Initialized secure directory: ${dir}`);
+            console.log(`[Vault] Created Secure Directory: ${dir}`);
         }
     });
 };
 initializeDirectories();
 
+// Serve physical assets
 app.use('/uploads', express.static(UPLOADS_ROOT));
 
 /**
- * 2. SEGMENTED DATABASE ARCHITECTURE
- * These files represent the primary state of the studio.
+ * 2. DATABASE ARCHITECTURE
  */
 const DB_FILES = {
     products: path.resolve(DATA_ROOT, 'products.db.json'),
@@ -70,44 +69,39 @@ let cache = {
 };
 
 /**
- * ATOMIC WRITE PROTOCOL
- * Prevents data loss during server crashes or concurrent writes.
- * 1. Write to temporary file.
- * 2. Create timestamped backup.
- * 3. Verify integrity.
- * 4. Rename temp to final.
+ * ATOMIC WRITE PROTOCOL (PROTECTION AGAINST DATA LOSS)
  */
 const atomicWrite = async (filePath, data) => {
     const tempPath = `${filePath}.tmp`;
     const fileName = path.basename(filePath);
-    const backupPath = path.resolve(BACKUPS_ROOT, `${fileName}.${new Date().toISOString().replace(/[:.]/g, '-')}.bak`);
+    const backupPath = path.resolve(BACKUPS_ROOT, `${fileName}.${Date.now()}.bak`);
     
     try {
         const json = JSON.stringify(data, null, 2);
-        // Step 1: Write temporary file
+        
+        // 1. Write Temp
         await fs.writeFile(tempPath, json, 'utf8');
         
-        // Step 2: Verification (Check if file actually exists and has size)
-        const stats = await fs.stat(tempPath);
-        if (stats.size === 0 && data.length > 0) {
-            throw new Error(`[Persistence] Guard blocked zero-byte write for ${fileName}`);
-        }
-
-        // Step 3: Create backup of current file
+        // 2. Verify Temp is valid JSON
+        const check = JSON.parse(await fs.readFile(tempPath, 'utf8'));
+        
+        // 3. Backup existing
         if (existsSync(filePath)) {
             await fs.copyFile(filePath, backupPath);
-            // Limit backups: Keep only last 10 versions
-            const allFiles = await fs.readdir(BACKUPS_ROOT);
-            const tableBackups = allFiles.filter(f => f.startsWith(fileName)).sort();
-            if (tableBackups.length > 10) {
-                await fs.unlink(path.resolve(BACKUPS_ROOT, tableBackups[0]));
-            }
         }
         
-        // Step 4: Finalize
+        // 4. Commit
         await fs.rename(tempPath, filePath);
+        
+        // Cleanup old backups (keep last 5)
+        const allBackups = (await fs.readdir(BACKUPS_ROOT))
+            .filter(f => f.startsWith(fileName))
+            .sort();
+        if (allBackups.length > 5) {
+            await fs.unlink(path.resolve(BACKUPS_ROOT, allBackups[0]));
+        }
     } catch (err) {
-        console.error(`[Persistence] CRITICAL ERROR WRITING ${fileName}:`, err);
+        console.error(`[Vault] CRITICAL: Write failed for ${fileName}. Data preserved in memory.`, err);
         throw err;
     }
 };
@@ -119,128 +113,120 @@ const loadAllTables = async () => {
                 const content = await fs.readFile(filePath, 'utf8');
                 if (content.trim()) {
                     cache[key] = JSON.parse(content);
+                    console.log(`[Vault] Synchronized Table: ${key} (${cache[key].length} records)`);
                 }
             } else {
                 await atomicWrite(filePath, cache[key]);
             }
         } catch (err) {
-            console.error(`[Persistence] Error loading ${key}:`, err);
+            console.error(`[Vault] Table Load Error (${key}):`, err);
         }
     }
-    console.log(`[Persistence] Vault synchronization complete at: ${DATA_ROOT}`);
 };
 
 const saveTable = async (key) => {
-    try {
-        await atomicWrite(DB_FILES[key], cache[key]);
-    } catch (err) {
-        console.error(`[Persistence] Failed to persist ${key} table!`, err);
-    }
+    await atomicWrite(DB_FILES[key], cache[key]);
 };
 
 loadAllTables();
 
 /**
- * 3. INTELLIGENT IMAGE PROCESSOR
- * Converts Base64 from the client into physical files on the server disk.
- * Skips processing if the image is already a physical path to prevent redundancy.
+ * 3. STRICT IMAGE CARVER
+ * This function is the primary protector. It strips base64 and writes to disk.
  */
-const processIncomingImages = async (product) => {
-    const updatedProduct = { ...product };
-    
-    const writeBase64ToFile = async (base64, isThumbnail = false) => {
-        // If it's already a relative path (/uploads/...), do not touch it.
-        if (!base64 || !base64.startsWith('data:')) return base64; 
-        
-        try {
-            const [meta, data] = base64.split('base64,');
-            const extensionMatch = meta.match(/\/(.*?);/);
-            const extension = extensionMatch ? extensionMatch[1] : 'jpg';
-            const buffer = Buffer.from(data, 'base64');
-            
-            // Use unique filenames to prevent collisions
-            const fileName = `${crypto.randomUUID()}.${extension}`;
-            const relativePath = isThumbnail ? `thumbnails/${fileName}` : fileName;
-            const fullPath = path.resolve(UPLOADS_ROOT, relativePath);
-            
-            await fs.writeFile(fullPath, buffer);
-            return `/uploads/${relativePath}`;
-        } catch (err) {
-            console.error('[Persistence] Image Write Failure:', err);
-            return null; // Keep original if write fails to prevent data loss
-        }
-    };
+const extractAndSavePhysicalImage = async (base64, isThumbnail = false) => {
+    if (!base64 || !base64.startsWith('data:image')) {
+        return base64; // Already a path or invalid
+    }
 
-    // Protect main assets
-    if (updatedProduct.images && Array.isArray(updatedProduct.images)) {
-        const physicalPaths = [];
-        for (const img of updatedProduct.images) {
-            const saved = await writeBase64ToFile(img, false);
-            if (saved) physicalPaths.push(saved);
-            else physicalPaths.push(img); // Fallback to original if save failed
-        }
-        updatedProduct.images = physicalPaths;
+    try {
+        const match = base64.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+        if (!match) return base64;
+
+        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+        const data = match[2];
+        const buffer = Buffer.from(data, 'base64');
+        
+        const fileName = `${crypto.randomUUID()}.${ext}`;
+        const relativePath = isThumbnail ? `thumbnails/${fileName}` : fileName;
+        const fullPath = path.resolve(UPLOADS_ROOT, relativePath);
+
+        await fs.writeFile(fullPath, buffer);
+        console.log(`[Vault] Asset Carved to Disk: /uploads/${relativePath}`);
+        return `/uploads/${relativePath}`;
+    } catch (err) {
+        console.error('[Vault] Image Carving Failed:', err);
+        return base64; // Fallback to base64 to prevent loss, though not ideal
     }
-    
-    // Protect thumbnails
-    if (updatedProduct.thumbnails && Array.isArray(updatedProduct.thumbnails)) {
-        const physicalThumbPaths = [];
-        for (const thumb of updatedProduct.thumbnails) {
-            const saved = await writeBase64ToFile(thumb, true);
-            if (saved) physicalThumbPaths.push(saved);
-            else physicalThumbPaths.push(thumb); // Fallback
-        }
-        updatedProduct.thumbnails = physicalThumbPaths;
-    }
-    
-    return updatedProduct;
 };
 
-// 4. API ENDPOINTS
+const processProductAssets = async (product) => {
+    const updated = { ...product };
+    
+    if (updated.images) {
+        const paths = [];
+        for (const img of updated.images) {
+            paths.push(await extractAndSavePhysicalImage(img, false));
+        }
+        updated.images = paths;
+    }
+
+    if (updated.thumbnails) {
+        const tPaths = [];
+        for (const thumb of updated.thumbnails) {
+            tPaths.push(await extractAndSavePhysicalImage(thumb, true));
+        }
+        updated.thumbnails = tPaths;
+    }
+    
+    return updated;
+};
+
+/**
+ * 4. API ENDPOINTS
+ */
 app.get('/api/health', (req, res) => res.json({ 
     status: 'online', 
-    mode: 'sanghavi-biometric-secure',
-    storagePath: DATA_ROOT 
+    vault: 'sanghavi_persistence',
+    integrity: 'atomic-protected'
 }));
 
 app.get('/api/products', (req, res) => res.json(cache.products));
 
 app.post('/api/products', async (req, res) => {
     try {
-        const processedProduct = await processIncomingImages(req.body);
-        cache.products.push(processedProduct);
+        const productWithPaths = await processProductAssets(req.body);
+        cache.products.push(productWithPaths);
         await saveTable('products');
-        res.json(processedProduct);
+        res.json(productWithPaths);
     } catch (err) {
-        res.status(500).json({ error: 'Asset processing failed.' });
+        res.status(500).json({ error: 'Vault entry failed' });
     }
 });
 
 app.put('/api/products/:id', async (req, res) => {
     try {
-        const index = cache.products.findIndex(p => p.id === req.params.id);
-        if (index !== -1) {
-            const processedUpdate = await processIncomingImages(req.body);
-            cache.products[index] = { ...cache.products[index], ...processedUpdate };
+        const idx = cache.products.findIndex(p => p.id === req.params.id);
+        if (idx !== -1) {
+            const updatedWithPaths = await processProductAssets(req.body);
+            cache.products[idx] = updatedWithPaths;
             await saveTable('products');
-            res.json(cache.products[index]);
+            res.json(updatedWithPaths);
         } else {
-            res.status(404).json({ error: 'Item not found in vault.' });
+            res.status(404).json({ error: 'Not found' });
         }
     } catch (err) {
-        res.status(500).json({ error: 'Update protocol failure.' });
+        res.status(500).json({ error: 'Vault update failed' });
     }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
-    // Note: This only removes the record from the database. 
-    // It does not delete physical files to ensure absolute auditability and recovery.
     cache.products = cache.products.filter(p => p.id !== req.params.id);
     await saveTable('products');
     res.status(204).send();
 });
 
-// REMAINING ENDPOINTS
+// Auth & Config Endpoints
 app.get('/api/config', (req, res) => res.json(cache.config));
 app.post('/api/config', async (req, res) => {
     cache.config = req.body;
@@ -253,42 +239,41 @@ app.post('/api/auth/whatsapp', async (req, res) => {
     const { phone } = req.body;
     let user = cache.customers.find(c => c.phone === phone);
     if (!user) {
-        user = { id: Date.now().toString(), phone, name: 'Guest ' + phone.slice(-4), role: 'customer', createdAt: new Date().toISOString() };
+        user = { 
+            id: Date.now().toString(), 
+            phone, 
+            name: 'Client ' + phone.slice(-4), 
+            role: 'customer', 
+            createdAt: new Date().toISOString() 
+        };
         cache.customers.push(user);
         await saveTable('customers');
     }
     res.json(user);
 });
 
-app.get('/api/designs', (req, res) => res.json(cache.designs));
-app.post('/api/designs', async (req, res) => {
-    cache.designs.push(req.body);
-    await saveTable('designs');
-    res.json(req.body);
-});
-
 app.post('/api/auth/staff', (req, res) => {
     const { username, password } = req.body;
     const staff = cache.staff.find(s => s.username === username && s.password === password);
     if (staff && staff.isActive) res.json(staff);
-    else res.status(401).json({ error: 'Auth failed' });
+    else res.status(401).json({ error: 'Authentication denied' });
 });
 
 app.get('/api/staff', (req, res) => res.json(cache.staff));
 app.post('/api/staff', async (req, res) => {
-    const staff = { ...req.body, id: Date.now().toString() };
+    const staff = { ...req.body, id: Date.now().toString(), createdAt: new Date().toISOString() };
     cache.staff.push(staff);
     await saveTable('staff');
     res.json(staff);
 });
 
-app.put('/api/staff/:id', async (req, res) => {
-    const index = cache.staff.findIndex(s => s.id === req.params.id);
-    if (index !== -1) {
-        cache.staff[index] = { ...cache.staff[index], ...req.body };
-        await saveTable('staff');
-        res.json(cache.staff[index]);
-    } else res.status(404).json({ error: 'Staff not found' });
+app.get('/api/designs', (req, res) => res.json(cache.designs));
+app.post('/api/designs', async (req, res) => {
+    const design = await processProductAssets({ images: [req.body.imageUrl], thumbnails: [req.body.imageUrl] });
+    const finalDesign = { ...req.body, imageUrl: design.images[0] };
+    cache.designs.push(finalDesign);
+    await saveTable('designs');
+    res.json(finalDesign);
 });
 
 app.get('/api/analytics', (req, res) => res.json(cache.analytics));
@@ -298,7 +283,7 @@ app.post('/api/analytics', async (req, res) => {
     res.status(204).send();
 });
 
-// Production Bundle Delivery
+// Production Bundle
 const distPath = path.resolve(__dirname, 'dist');
 if (existsSync(distPath)) {
     app.use(express.static(distPath));
@@ -309,4 +294,4 @@ if (existsSync(distPath)) {
     });
 }
 
-app.listen(PORT, () => console.log(`[Persistence Server] Sanghavi Studio active on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`[Vault Server] Active on port ${PORT}. Persistence Root: ${DATA_ROOT}`));

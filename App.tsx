@@ -1,4 +1,5 @@
-import React, { useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
+
+import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
@@ -16,8 +17,8 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-// Fix: Use React.Component specifically to ensure the compiler correctly identifies the props and state members as part of the class instance.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Use Component explicitly from named imports to ensure the compiler correctly identifies the props and state members as part of the class instance.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {
     hasError: false
   };
