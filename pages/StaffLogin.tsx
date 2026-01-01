@@ -18,9 +18,12 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
     const checkStatus = async () => {
         const status = await storeService.checkServerHealth();
         setHealth(status);
+        if (!status.healthy && status.reason) {
+            setError(`System Alert: ${status.reason}`);
+        }
     };
     checkStatus();
-    const timer = setInterval(checkStatus, 10000);
+    const timer = setInterval(checkStatus, 15000);
     return () => clearInterval(timer);
   }, []);
 
@@ -78,6 +81,7 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
                 className="w-full bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 focus:ring-teal-500/50 outline-none placeholder:text-slate-600 transition-all"
                 placeholder="Username"
                 required
+                disabled={health !== null && !health.healthy}
               />
             </div>
           </div>
@@ -94,6 +98,7 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
                 className="w-full bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 focus:ring-teal-500/50 outline-none placeholder:text-slate-600 transition-all"
                 placeholder="••••••••"
                 required
+                disabled={health !== null && !health.healthy}
               />
             </div>
           </div>
@@ -101,7 +106,10 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3 text-red-400 text-xs animate-in slide-in-from-top-2">
               <AlertCircle size={16} className="shrink-0 mt-0.5" />
-              <span>{error}</span>
+              <div className="flex flex-col gap-1">
+                <span className="font-bold">Authentication Blocked</span>
+                <span>{error}</span>
+              </div>
             </div>
           )}
 
@@ -131,7 +139,11 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
         </div>
         
         {!health?.healthy && health?.reason && (
-            <p className="mt-2 text-[10px] text-slate-700 text-center italic">Reason: {health.reason}</p>
+            <div className="mt-4 p-3 bg-red-950/30 rounded-xl border border-red-900/50">
+               <p className="text-[10px] text-red-300 text-center font-mono">
+                 Diagnostic: {health.reason}
+               </p>
+            </div>
         )}
       </div>
     </div>

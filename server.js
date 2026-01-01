@@ -38,7 +38,6 @@ const ensureFolders = async () => {
 };
 ensureFolders();
 
-// Serve Uploads - Explicitly set headers for speed and CORS
 app.use('/uploads', express.static(UPLOADS_ROOT, {
     maxAge: '1d',
     etag: true,
@@ -50,8 +49,16 @@ app.use('/uploads', express.static(UPLOADS_ROOT, {
 /**
  * 2. MYSQL CONNECTION CONFIG
  */
+const getSafeDbHost = () => {
+    const host = process.env.DB_HOST || 'localhost';
+    // On many shared hosts (Hostinger/Bluehost), 'localhost' resolves to '::1' (IPv6).
+    // MySQL often expects '127.0.0.1' (IPv4) for local connections.
+    if (host.toLowerCase() === 'localhost') return '127.0.0.1';
+    return host;
+};
+
 const dbConfig = {
-    host: process.env.DB_HOST || '127.0.0.1',
+    host: getSafeDbHost(),
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
@@ -59,16 +66,23 @@ const dbConfig = {
     connectionLimit: 10,
     queueLimit: 0,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 10000
+    keepAliveInitialDelay: 10000,
+    connectTimeout: 20000
 };
 
 let pool;
+let dbStatus = { healthy: false, error: 'Database initializing...' };
 
 const initializeDatabase = async () => {
     try {
+        console.log(`[MySQL] Attempting connection to ${dbConfig.host} as ${dbConfig.user}...`);
         pool = mysql.createPool(dbConfig);
+        
+        // Immediate test query
         await pool.query('SELECT 1');
+        
         console.log(`[MySQL] Connection Established.`);
+        dbStatus = { healthy: true, error: null };
 
         const tables = [
             `CREATE TABLE IF NOT EXISTS products (
@@ -109,7 +123,15 @@ const initializeDatabase = async () => {
             );
         }
     } catch (err) {
-        console.error('[MySQL] Init Error:', err.message);
+        let errorMsg = err.message;
+        if (err.code === 'ER_ACCESS_DENIED_ERROR') {
+            errorMsg = `DB Access Denied: Check DB_USER, DB_PASSWORD, and DB_NAME in .env. Current User: ${dbConfig.user}`;
+        } else if (err.code === 'ECONNREFUSED') {
+            errorMsg = `DB Connection Refused: Check if DB_HOST (${dbConfig.host}) is correct and MySQL is running.`;
+        }
+        
+        console.error('[MySQL] Init Error:', errorMsg);
+        dbStatus = { healthy: false, error: errorMsg };
     }
 };
 
@@ -117,7 +139,6 @@ initializeDatabase();
 
 /**
  * Helper to ensure JSON fields are parsed correctly
- * Crucial for MariaDB/MySQL drivers that might return JSON as strings
  */
 const parseJsonFields = (row, fields) => {
     if (!row) return row;
@@ -126,17 +147,14 @@ const parseJsonFields = (row, fields) => {
         let val = clean[field];
         if (val && typeof val === 'string') {
             try {
-                // Handle double stringification
                 if (val.startsWith('"') && val.endsWith('"')) {
                     val = JSON.parse(val);
                 }
                 clean[field] = JSON.parse(val);
             } catch (e) {
-                console.error(`Failed to parse field ${field}:`, e);
                 clean[field] = field === 'meta' ? {} : [];
             }
         }
-        // Fallback for arrays
         if (['images', 'thumbnails', 'tags'].includes(field) && !Array.isArray(clean[field])) {
             clean[field] = [];
         }
@@ -197,10 +215,15 @@ const processMedia = async (data) => {
  * 4. API ENGINE
  */
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'online', database: pool ? 'connected' : 'connecting' });
+    res.json({ 
+        status: dbStatus.healthy ? 'online' : 'offline', 
+        database: dbStatus.healthy ? 'connected' : 'error',
+        error: dbStatus.error
+    });
 });
 
 app.get('/api/products', async (req, res) => {
+    if (!dbStatus.healthy) return res.status(503).json({ error: dbStatus.error });
     try {
         const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
         const parsed = rows.map(r => parseJsonFields(r, ['tags', 'images', 'thumbnails', 'meta']));
@@ -209,6 +232,7 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', async (req, res) => {
+    if (!dbStatus.healthy) return res.status(503).json({ error: dbStatus.error });
     try {
         const p = await processMedia(req.body);
         const query = `INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -217,24 +241,31 @@ app.post('/api/products', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/products/:id', async (req, res) => {
+app.post('/api/auth/staff', async (req, res) => {
+    if (!dbStatus.healthy) {
+        return res.status(503).json({ error: `Database Connection Failure: ${dbStatus.error}` });
+    }
     try {
-        const p = await processMedia(req.body);
-        const query = `UPDATE products SET title=?, category=?, subCategory=?, weight=?, description=?, tags=?, images=?, thumbnails=?, supplier=?, uploadedBy=?, isHidden=?, dateTaken=?, meta=? WHERE id=?`;
-        await pool.query(query, [p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, p.dateTaken, JSON.stringify(p.meta), req.params.id]);
-        res.json(p);
+        const { username, password } = req.body;
+        const [rows] = await pool.query('SELECT * FROM staff WHERE username = ? AND password = ? AND isActive = 1', [username, password]);
+        if (rows.length > 0) res.json(rows[0]);
+        else res.status(401).json({ error: 'Invalid Staff Credentials' });
+    } catch (err) { 
+        console.error('[Auth Error]', err.message);
+        res.status(500).json({ error: `System Error: ${err.message}` }); 
+    }
+});
+
+app.get('/api/staff', async (req, res) => {
+    if (!dbStatus.healthy) return res.status(503).json({ error: dbStatus.error });
+    try {
+        const [rows] = await pool.query('SELECT id, username, role, isActive, name, createdAt FROM staff');
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/products/:id', async (req, res) => {
-    try {
-        await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
-        res.status(204).send();
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Auth & Config Endpoints...
 app.get('/api/config', async (req, res) => {
+    if (!dbStatus.healthy) return res.status(503).json({ error: dbStatus.error });
     try {
         const [rows] = await pool.query('SELECT data FROM app_config WHERE id = 1');
         res.json(parseJsonFields(rows[0], ['data'])?.data || {});
@@ -242,6 +273,7 @@ app.get('/api/config', async (req, res) => {
 });
 
 app.post('/api/config', async (req, res) => {
+    if (!dbStatus.healthy) return res.status(503).json({ error: dbStatus.error });
     try {
         await pool.query('INSERT INTO app_config (id, data) VALUES (1, ?) ON DUPLICATE KEY UPDATE data = ?', [JSON.stringify(req.body), JSON.stringify(req.body)]);
         res.json(req.body);
@@ -249,6 +281,7 @@ app.post('/api/config', async (req, res) => {
 });
 
 app.post('/api/auth/whatsapp', async (req, res) => {
+    if (!dbStatus.healthy) return res.status(503).json({ error: dbStatus.error });
     try {
         const { phone } = req.body;
         const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
@@ -259,29 +292,13 @@ app.post('/api/auth/whatsapp', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/auth/staff', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        const [rows] = await pool.query('SELECT * FROM staff WHERE username = ? AND password = ? AND isActive = 1', [username, password]);
-        if (rows.length > 0) res.json(rows[0]);
-        else res.status(401).json({ error: 'Invalid Credentials' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 /**
  * 5. STATIC FILES & SPA ROUTING
- * Critical: Static files (dist) must be served BEFORE the catch-all
  */
 const distPath = path.resolve(process.cwd(), 'dist');
 if (existsSync(distPath)) {
-    // Serve static files (manifest.json, images, js, css)
-    app.use(express.static(distPath, {
-        index: false // Prevent serving index.html automatically for /
-    }));
-
-    // Handle SPA routing: Everything else serves index.html
+    app.use(express.static(distPath, { index: false }));
     app.get('*', (req, res) => {
-        // Skip API and uploads
         if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
             return res.status(404).json({ error: 'Not found' });
         }
