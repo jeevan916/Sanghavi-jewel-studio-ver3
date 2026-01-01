@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load env from build config
+// Load env from the designated config path
 dotenv.config({ path: path.resolve(process.cwd(), '.builds/config/.env') });
 
 import express from 'express';
@@ -25,8 +25,9 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * CRITICAL DATA PRESERVATION:
- * Relocated to '..' to stay in the domain root and avoid deletion during builds/deployments.
- * This folder is PERMANENT and will never be touched by the build process.
+ * DATA_ROOT is moved to the parent directory (..) of the app root.
+ * This ensures it is outside the 'public_html' or 'dist' folder.
+ * Deployment actions and server resets will NOT touch this folder.
  */
 const DATA_ROOT = path.resolve(process.cwd(), '..', 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
@@ -35,32 +36,27 @@ const THUMBS_ROOT = path.resolve(UPLOADS_ROOT, 'thumbnails');
 const ensureFolders = async () => {
     try {
         if (!existsSync(DATA_ROOT)) {
-            console.log(`[Vault] Creating persistent vault at: ${DATA_ROOT}`);
             mkdirSync(DATA_ROOT, { recursive: true, mode: 0o777 });
+            console.log(`[Vault] Initialized secure vault at: ${DATA_ROOT}`);
         }
         if (!existsSync(UPLOADS_ROOT)) mkdirSync(UPLOADS_ROOT, { recursive: true, mode: 0o777 });
         if (!existsSync(THUMBS_ROOT)) mkdirSync(THUMBS_ROOT, { recursive: true, mode: 0o777 });
-        console.log(`[Vault] Persistence verified at domain root.`);
+        console.log(`[Vault] Connection to permanent storage verified.`);
     } catch (err) {
-        console.error(`[Vault] Init failed. Falling back to local...`, err.message);
-        const fallback = path.resolve(process.cwd(), 'sanghavi_persistence');
-        if (!existsSync(fallback)) mkdirSync(fallback, { recursive: true });
+        console.error(`[Vault] Initialization failed:`, err.message);
     }
 };
 ensureFolders();
 
 app.use('/uploads', express.static(UPLOADS_ROOT, {
-    maxAge: '30d', // High cache for 3G performance
+    maxAge: '30d',
     etag: true,
     setHeaders: (res) => {
         res.set('Access-Control-Allow-Origin', '*');
-        res.set('Cache-Control', 'public, max-age=2592000');
+        res.set('Cache-Control', 'public, max-age=2592000, immutable');
     }
 }));
 
-/**
- * MYSQL CONFIG
- */
 const dbConfig = {
     host: (process.env.DB_HOST || 'localhost').toLowerCase() === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -68,8 +64,7 @@ const dbConfig = {
     database: process.env.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
-    enableKeepAlive: true,
-    connectTimeout: 30000
+    enableKeepAlive: true
 };
 
 let pool;
@@ -97,11 +92,14 @@ const initDB = async () => {
                 id VARCHAR(255) PRIMARY KEY, phone VARCHAR(50) UNIQUE, name VARCHAR(255),
                 role VARCHAR(50), createdAt DATETIME
             )`,
-            `CREATE TABLE IF NOT EXISTS app_config (id INT PRIMARY KEY DEFAULT 1, data JSON, CHECK (id = 1))`
+            `CREATE TABLE IF NOT EXISTS app_config (id INT PRIMARY KEY DEFAULT 1, data JSON, CHECK (id = 1))`,
+            `CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`,
+            `CREATE TABLE IF NOT EXISTS designs (id VARCHAR(255) PRIMARY KEY, imageUrl LONGTEXT, prompt TEXT, aspectRatio VARCHAR(20), createdAt DATETIME)`,
+            `CREATE TABLE IF NOT EXISTS shared_links (id VARCHAR(255) PRIMARY KEY, targetId VARCHAR(255), type VARCHAR(50), token VARCHAR(255) UNIQUE, expiresAt DATETIME)`
         ];
-        for (const query of tables) { await pool.query(query); }
+        for (const query of tables) await pool.query(query);
     } catch (err) {
-        console.error('[Database] Init Error:', err.message);
+        console.error('[Database] Critical Failure:', err.message);
         dbStatus = { healthy: false, error: err.message };
     }
 };
@@ -110,8 +108,7 @@ initDB();
 const saveFile = async (base64, isThumb = false) => {
     if (!base64 || !base64.startsWith('data:image')) return base64;
     try {
-        const match = base64.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
-        const data = match[2];
+        const data = base64.split(';base64,').pop();
         const fileName = `${crypto.randomUUID()}.jpg`;
         const relPath = isThumb ? `thumbnails/${fileName}` : fileName;
         const absPath = path.resolve(UPLOADS_ROOT, relPath);
@@ -129,7 +126,9 @@ const parseJson = (row, fields) => {
     return row;
 };
 
-app.get('/api/health', (req, res) => res.json(dbStatus));
+// --- CORE API ENDPOINTS ---
+
+app.get('/api/health', (req, res) => res.json({ status: dbStatus.healthy ? 'online' : 'error', ...dbStatus }));
 
 app.get('/api/products', async (req, res) => {
     try {
@@ -143,7 +142,6 @@ app.post('/api/products', async (req, res) => {
         const p = req.body;
         const savedImgs = await Promise.all((p.images || []).map(img => saveFile(img, false)));
         const savedThumbs = await Promise.all((p.thumbnails || []).map(img => saveFile(img, true)));
-        
         const q = `INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await pool.query(q, [p.id, p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(savedImgs), JSON.stringify(savedThumbs), p.supplier, p.uploadedBy, p.isHidden, new Date(), p.dateTaken, JSON.stringify(p.meta)]);
         res.json({ success: true });
@@ -163,25 +161,55 @@ app.put('/api/products/:id', async (req, res) => {
 
 app.delete('/api/products/:id', async (req, res) => {
     try {
-        // ADMIN ONLY: Delete record. Files persist in vault for audit/safety.
         await pool.query('DELETE FROM products WHERE id=?', [req.params.id]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/auth/staff', async (req, res) => {
+app.get('/api/customers', async (req, res) => {
     try {
-        const { username, password } = req.body;
-        const [rows] = await pool.query('SELECT * FROM staff WHERE username=? AND password=? AND isActive=1', [username, password]);
-        if (rows[0]) res.json(rows[0]);
-        else res.status(401).json({ error: 'Unauthorized' });
+        const [rows] = await pool.query('SELECT * FROM customers ORDER BY createdAt DESC');
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/staff', async (req, res) => {
+app.get('/api/analytics', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT id, username, role, isActive, name, createdAt FROM staff');
+        const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 200');
         res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/analytics', async (req, res) => {
+    try {
+        const e = req.body;
+        await pool.query('INSERT INTO analytics (id, type, productId, productTitle, userId, userName, timestamp) VALUES (?,?,?,?,?,?,?)', [crypto.randomUUID(), e.type, e.productId, e.productTitle, e.userId, e.userName, new Date()]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/designs', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM designs ORDER BY createdAt DESC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/designs', async (req, res) => {
+    try {
+        const d = req.body;
+        await pool.query('INSERT INTO designs (id, imageUrl, prompt, aspectRatio, createdAt) VALUES (?,?,?,?,?)', [d.id, d.imageUrl, d.prompt, d.aspectRatio, new Date()]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/shared-links', async (req, res) => {
+    try {
+        const { targetId, type } = req.body;
+        const token = crypto.randomBytes(16).toString('hex');
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); 
+        await pool.query('INSERT INTO shared_links (id, targetId, type, token, expiresAt) VALUES (?,?,?,?,?)', [crypto.randomUUID(), targetId, type, token, expiresAt]);
+        res.json({ token });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -196,6 +224,22 @@ app.post('/api/config', async (req, res) => {
     try {
         await pool.query('INSERT INTO app_config (id, data) VALUES (1, ?) ON DUPLICATE KEY UPDATE data=?', [JSON.stringify(req.body), JSON.stringify(req.body)]);
         res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/auth/staff', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const [rows] = await pool.query('SELECT * FROM staff WHERE username=? AND password=? AND isActive=1', [username, password]);
+        if (rows[0]) res.json(rows[0]);
+        else res.status(401).json({ error: 'Invalid credentials' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/staff', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT id, username, role, isActive, name, createdAt FROM staff');
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -219,4 +263,4 @@ if (existsSync(dist)) {
     });
 }
 
-app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Permanent Storage Active on ${PORT}`));
+app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Live at port ${PORT}`));

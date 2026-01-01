@@ -1,0 +1,25 @@
+
+{
+  "short_name": "Sanghavi",
+  "name": "Sanghavi Jewel Studio",
+  "description": "Bespoke Luxury Jewelry powered by Gemini AI",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2611/2611152.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2611/2611152.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "./",
+  "display": "standalone",
+  "theme_color": "#c68a36",
+  "background_color": "#fbf8f1",
+  "orientation": "portrait-primary",
+  "categories": ["lifestyle", "shopping"]
+}

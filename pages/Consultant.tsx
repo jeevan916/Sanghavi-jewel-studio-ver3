@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
-import { Mic, MicOff, Loader2, Volume2, History, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, Loader2, Volume2, History, MessageSquare, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const Consultant: React.FC = () => {
@@ -21,6 +21,7 @@ export const Consultant: React.FC = () => {
   const startSession = async () => {
     setIsConnecting(true);
     try {
+      // Create fresh instance for the call
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -56,7 +57,6 @@ export const Consultant: React.FC = () => {
             scriptProcessor.connect(audioContextRef.current!.destination);
           },
           onmessage: async (message: LiveServerMessage) => {
-            // Handle Transcription
             if (message.serverContent?.outputTranscription) {
               setCurrentOutput(prev => prev + message.serverContent!.outputTranscription!.text);
             } else if (message.serverContent?.inputTranscription) {
@@ -73,7 +73,6 @@ export const Consultant: React.FC = () => {
               setCurrentOutput('');
             }
 
-            // Handle Audio Output
             const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             if (base64Audio) {
               const ctx = outputAudioContextRef.current!;
@@ -101,6 +100,7 @@ export const Consultant: React.FC = () => {
           onerror: (e) => {
             console.error("Live API Error:", e);
             setIsActive(false);
+            setIsConnecting(false);
           }
         }
       });
@@ -160,11 +160,8 @@ export const Consultant: React.FC = () => {
       </header>
 
       <div className="flex-1 w-full max-w-lg flex flex-col items-center justify-center space-y-12">
-        {/* Animated Visualizer Circle */}
         <div className={`relative w-64 h-64 rounded-full flex items-center justify-center transition-all duration-700 ${isActive ? 'bg-gold-500/5' : 'bg-stone-800'}`}>
           <div className={`absolute inset-0 rounded-full border-2 border-gold-500/20 ${isActive ? 'animate-ping' : ''}`} />
-          <div className={`absolute inset-4 rounded-full border border-gold-500/10 ${isActive ? 'animate-pulse' : ''}`} />
-          
           <button 
             onClick={isActive ? stopSession : startSession}
             disabled={isConnecting}
@@ -178,14 +175,10 @@ export const Consultant: React.FC = () => {
 
         <div className="text-center space-y-4">
           <h3 className="text-xl font-serif text-stone-200">
-            {isActive ? "I'm listening, how can I assist you?" : isConnecting ? "Establishing link..." : "Talk to our Jewelry Expert"}
+            {isActive ? "I'm listening..." : isConnecting ? "Establishing link..." : "Talk to our Jewelry Expert"}
           </h3>
-          <p className="text-stone-500 text-sm max-w-xs mx-auto">
-            Our AI consultant is ready to discuss metal types, gemstone quality, and your next bespoke masterpiece.
-          </p>
         </div>
 
-        {/* Live Transcription Overlay */}
         {(currentInput || currentOutput) && (
           <div className="w-full bg-white/5 backdrop-blur border border-white/10 p-6 rounded-3xl space-y-4 animate-in fade-in slide-in-from-bottom-4">
             {currentInput && (
@@ -225,9 +218,3 @@ export const Consultant: React.FC = () => {
     </div>
   );
 };
-
-const ShieldCheck = ({ size = 20, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 11 11 13 15 9"/>
-  </svg>
-);
