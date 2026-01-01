@@ -4,12 +4,23 @@ import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App';
 
-// Relative path registration for PWA functionality
+// Explicitly disable browser's scroll restoration before any rendering happens
+if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
+
+// Relative path registration for PWA functionality with origin check
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(err => {
-      console.log('SW registration failed: ', err);
-    });
+    // Only attempt registration if we are on the same origin to avoid sandbox errors
+    const swUrl = new URL('./sw.js', window.location.href);
+    if (swUrl.origin === window.location.origin) {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.warn('SW registration bypassed or failed: ', err.message);
+      });
+    } else {
+      console.debug('SW registration skipped: Origin mismatch in sandbox environment.');
+    }
   });
 }
 

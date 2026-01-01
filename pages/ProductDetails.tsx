@@ -35,29 +35,31 @@ export const ProductDetails: React.FC = () => {
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // DECISIVE SCROLL LOCKING: Ensures the page starts at the top
+  // DECISIVE SCROLL LOCKING
   const forceScrollTop = () => {
     if (typeof window !== 'undefined') {
-      window.scrollTo(0, 0);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       document.body.scrollTop = 0;
       if (document.documentElement) document.documentElement.scrollTop = 0;
       if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     }
   };
 
-  // Immediate reset on ID change
+  // Immediate reset on ID change OR whenever the component mounts
   useLayoutEffect(() => {
     forceScrollTop();
   }, [id]);
 
-  // Reset after loading finishes and at key rendering steps
+  // Reset after loading finishes and at key rendering steps to fight browser scroll restoration
   useEffect(() => {
     if (!isLoading) {
       forceScrollTop();
+      // Use multiple RAFs and timeouts to ensure we win the race against the browser's "helpful" scroll jumping
       const rafId = requestAnimationFrame(() => {
         forceScrollTop();
-        setTimeout(forceScrollTop, 50);
-        setTimeout(forceScrollTop, 150);
+        setTimeout(forceScrollTop, 20);
+        setTimeout(forceScrollTop, 100);
+        setTimeout(forceScrollTop, 300); // Final check for late layout shifts
       });
       return () => cancelAnimationFrame(rafId);
     }
@@ -182,9 +184,9 @@ export const ProductDetails: React.FC = () => {
           if (newBase64) {
               setPendingEnhancedImage(`data:image/jpeg;base64,${newBase64}`);
           }
-      } catch (error) {
+      } catch (error: any) {
           console.error("AI Action Error:", error);
-          alert("AI Processing Failed. This can happen if the AI key is invalid or quota is exceeded.");
+          alert(`AI Processing Failed: ${error.message || 'Check connection or key'}`);
       } finally { setIsProcessingImage(false); }
   };
 
@@ -258,7 +260,7 @@ export const ProductDetails: React.FC = () => {
     <div 
         key={id} 
         ref={scrollContainerRef}
-        className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden scroll-mt-0"
+        className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
     >

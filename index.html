@@ -71,16 +71,21 @@
       }
     </script>
     <style>
-      /* Global Scroll Fixes */
+      /* Decisive Scroll Fixes */
       html, body { 
         -webkit-tap-highlight-color: transparent; 
         background-color: #fbf8f1; 
         margin: 0; 
         padding: 0; 
-        scroll-behavior: auto !important; /* Disable smooth scroll which often causes jumps back to previous positions */
-        overflow-anchor: none; /* Disable scroll anchoring */
+        scroll-behavior: auto !important; 
+        overflow-anchor: none !important; /* Disable scroll anchoring */
+        scroll-padding-top: 0 !important;
       }
       
+      #root {
+        overflow-x: hidden;
+      }
+
       #initial-loader {
         position: fixed; inset: 0; background: #fbf8f1;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
