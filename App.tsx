@@ -22,6 +22,11 @@ interface ErrorBoundaryState {
  * Handles UI failures gracefully by showing a fallback screen.
  */
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly defining the constructor ensures 'this.props' is correctly typed and available in all class methods
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+  }
+
   // Fix: Property initialization ensures the compiler recognizes 'state' on this class
   public state: ErrorBoundaryState = {
     hasError: false

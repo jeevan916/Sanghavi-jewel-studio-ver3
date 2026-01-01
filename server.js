@@ -14,7 +14,6 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-// In production/Hostinger, we bind to 0.0.0.0 to be accessible via the assigned port
 const HOST = '0.0.0.0';
 
 app.use(cors());
@@ -22,15 +21,26 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * 1. PHYSICAL PERSISTENCE SETUP
- * Using a dedicated folder for uploads to ensure they survive deployments
+ * On Hostinger, we use the process.cwd() to ensure we are in a writable app directory.
  */
-const DATA_ROOT = path.resolve(__dirname, 'sanghavi_persistence');
+const DATA_ROOT = path.resolve(process.cwd(), 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const THUMBS_ROOT = path.resolve(UPLOADS_ROOT, 'thumbnails');
 
-if (!existsSync(UPLOADS_ROOT)) mkdirSync(UPLOADS_ROOT, { recursive: true });
-if (!existsSync(THUMBS_ROOT)) mkdirSync(THUMBS_ROOT, { recursive: true });
+// Ensure directories exist on startup
+const ensureFolders = () => {
+    try {
+        if (!existsSync(DATA_ROOT)) mkdirSync(DATA_ROOT, { recursive: true });
+        if (!existsSync(UPLOADS_ROOT)) mkdirSync(UPLOADS_ROOT, { recursive: true });
+        if (!existsSync(THUMBS_ROOT)) mkdirSync(THUMBS_ROOT, { recursive: true });
+        console.log(`[Vault] Persistence paths verified at: ${DATA_ROOT}`);
+    } catch (err) {
+        console.error(`[Vault] FATAL: Could not create persistence folders:`, err.message);
+    }
+};
+ensureFolders();
 
+// Serve the uploaded assets
 app.use('/uploads', express.static(UPLOADS_ROOT));
 
 /**
@@ -38,8 +48,6 @@ app.use('/uploads', express.static(UPLOADS_ROOT));
  */
 const getDbHost = () => {
     const rawHost = process.env.DB_HOST || 'localhost';
-    // CRITICAL: Hostinger/Linux environments often resolve 'localhost' to IPv6 '::1'.
-    // If we see 'localhost', we force '127.0.0.1' to ensure IPv4 connection matching MySQL user grants.
     if (rawHost.toLowerCase() === 'localhost') return '127.0.0.1';
     return rawHost;
 };
@@ -60,13 +68,10 @@ let pool;
 
 const initializeDatabase = async () => {
     try {
-        console.log(`[Production] Connecting to Vault at ${dbConfig.host}...`);
-        
+        console.log(`[MySQL] Connecting to ${dbConfig.host}...`);
         pool = mysql.createPool(dbConfig);
-        
-        // Test connection immediately
         await pool.query('SELECT 1');
-        console.log(`[Production] Vault Synchronized Successfully.`);
+        console.log(`[MySQL] Database Connected.`);
 
         const tables = [
             `CREATE TABLE IF NOT EXISTS products (
@@ -127,9 +132,7 @@ const initializeDatabase = async () => {
             )`
         ];
 
-        for (const query of tables) { 
-            await pool.query(query); 
-        }
+        for (const query of tables) { await pool.query(query); }
 
         const [rows] = await pool.query('SELECT count(*) as count FROM staff');
         if (rows[0].count === 0) {
@@ -138,13 +141,8 @@ const initializeDatabase = async () => {
                 ['staff-root', 'admin', 'admin', 'admin', true, 'Sanghavi Admin', new Date()]
             );
         }
-
-        console.log('[Production] Database Schema Verified.');
     } catch (err) {
-        console.error('[Production] Database Initialization Failed:', err.message);
-        if (err.code === 'ER_ACCESS_DENIED_ERROR') {
-            console.error('TIP: On Hostinger, ensure the MySQL user has permissions for 127.0.0.1.');
-        }
+        console.error('[MySQL] Init Error:', err.message);
     }
 };
 
@@ -154,16 +152,27 @@ initializeDatabase();
  * 3. ASSET UTILITY
  */
 const saveToVault = async (base64, isThumb = false) => {
-    if (!base64 || !base64.startsWith('data:image')) return base64;
+    // Only process base64 strings
+    if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image')) return base64;
+    
     try {
-        const match = base64.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+        const match = base64.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
         if (!match) return base64;
-        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-        const fileName = `${crypto.randomUUID()}.${ext}`;
-        const rel = isThumb ? `thumbnails/${fileName}` : fileName;
-        await fs.writeFile(path.resolve(UPLOADS_ROOT, rel), Buffer.from(match[2], 'base64'));
-        return `/uploads/${rel}`;
-    } catch (err) { return base64; }
+        
+        const extension = match[1] === 'jpeg' ? 'jpg' : match[1];
+        const fileName = `${crypto.randomUUID()}.${extension}`;
+        const relativePath = isThumb ? `thumbnails/${fileName}` : fileName;
+        const absolutePath = path.resolve(UPLOADS_ROOT, relativePath);
+
+        const buffer = Buffer.from(match[2], 'base64');
+        await fs.writeFile(absolutePath, buffer);
+        
+        return `/uploads/${relativePath}`;
+    } catch (err) {
+        console.error(`[Vault] Image Write Failed:`, err.message);
+        // Fallback: return base64 so data isn't lost, though it creates a heavy DB record
+        return base64;
+    }
 };
 
 const processMedia = async (data) => {
@@ -171,10 +180,18 @@ const processMedia = async (data) => {
     if (data && typeof data === 'object') {
         const clean = { ...data };
         for (const key of Object.keys(clean)) {
-            if (typeof clean[key] === 'string' && clean[key].startsWith('data:image')) {
-                clean[key] = await saveToVault(clean[key], key.toLowerCase().includes('thumb'));
-            } else if (typeof clean[key] === 'object') {
-                clean[key] = await processMedia(clean[key]);
+            const val = clean[key];
+            if (typeof val === 'string' && val.startsWith('data:image')) {
+                const isThumb = key.toLowerCase().includes('thumb');
+                clean[key] = await saveToVault(val, isThumb);
+            } else if (Array.isArray(val)) {
+                clean[key] = await Promise.all(val.map(v => 
+                    (typeof v === 'string' && v.startsWith('data:image')) 
+                    ? saveToVault(v, key.toLowerCase().includes('thumb')) 
+                    : processMedia(v)
+                ));
+            } else if (val && typeof val === 'object') {
+                clean[key] = await processMedia(val);
             }
         }
         return clean;
@@ -187,9 +204,14 @@ const processMedia = async (data) => {
  */
 app.get('/api/health', async (req, res) => {
     try {
-        if (!pool) throw new Error('Database not initialized');
+        if (!pool) throw new Error('Database pool not ready');
         await pool.query('SELECT 1');
-        res.json({ status: 'online', database: 'connected' });
+        res.json({ 
+            status: 'online', 
+            database: 'connected', 
+            uploads_dir: existsSync(UPLOADS_ROOT),
+            path: UPLOADS_ROOT 
+        });
     } catch (e) { 
         res.status(503).json({ status: 'offline', error: e.message }); 
     }
@@ -204,11 +226,15 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/products', async (req, res) => {
     try {
+        console.log(`[API] Processing new product: ${req.body.title}`);
         const p = await processMedia(req.body);
         const query = `INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await pool.query(query, [p.id, p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, new Date(p.createdAt), p.dateTaken, JSON.stringify(p.meta)]);
         res.json(p);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('[API] Product Save Error:', err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.put('/api/products/:id', async (req, res) => {
@@ -305,8 +331,7 @@ app.get('/api/customers', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Serve frontend in production
-const distPath = path.resolve(__dirname, 'dist');
+const distPath = path.resolve(process.cwd(), 'dist');
 if (existsSync(distPath)) {
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -316,4 +341,4 @@ if (existsSync(distPath)) {
     });
 }
 
-app.listen(PORT, HOST, () => console.log(`[Production Server] Listening on http://${HOST}:${PORT}`));
+app.listen(PORT, HOST, () => console.log(`[Server] Active on http://${HOST}:${PORT}`));
