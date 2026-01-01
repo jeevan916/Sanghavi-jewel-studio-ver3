@@ -36,11 +36,18 @@ export const ProductDetails: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Force scroll reset when ID changes OR when loading finishes
+  // We use multiple methods and a small timeout to ensure the scroll stick at the top
+  const resetToTop = () => {
+    window.scrollTo(0, 0);
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+  };
+
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-    }
+    resetToTop();
+    const timer = setTimeout(resetToTop, 50); // Aggressive catch for delayed layout shifts
+    return () => clearTimeout(timer);
   }, [id, isLoading]);
 
   useEffect(() => {
@@ -62,6 +69,8 @@ export const ProductDetails: React.FC = () => {
         console.error("Fetch details error:", err);
       } finally {
         setIsLoading(false);
+        // Additional immediate reset after state change
+        requestAnimationFrame(resetToTop);
       }
     };
     fetchData();

@@ -7,8 +7,8 @@ import { User } from './types';
 import { UploadProvider } from './contexts/UploadContext';
 import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
-// Disable browser's automatic scroll restoration globally
-if ('scrollRestoration' in window.history) {
+// Disable browser's automatic scroll restoration globally as early as possible
+if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual';
 }
 
@@ -98,11 +98,19 @@ function AppContent() {
   const navigate = useNavigate();
 
   // Reset scroll position to top on every route change with 'instant' behavior
+  // We use both location.pathname and location.search to capture all navigations
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    if (document.documentElement) document.documentElement.scrollTop = 0;
-    if (document.body) document.body.scrollTop = 0;
-  }, [location.pathname]);
+    const resetScroll = () => {
+      window.scrollTo(0, 0);
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    };
+    
+    resetScroll();
+    // Some browsers need a tiny delay if navigation triggers layout shifts
+    const timeoutId = setTimeout(resetScroll, 0);
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname, location.search, location.hash]);
 
   useEffect(() => {
     setUser(storeService.getCurrentUser());
