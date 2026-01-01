@@ -97,19 +97,25 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Reset scroll position to top on every route change with 'instant' behavior
-  // We use both location.pathname and location.search to capture all navigations
+  // Robust Global Scroll Reset
   useLayoutEffect(() => {
-    const resetScroll = () => {
-      window.scrollTo(0, 0);
+    const performReset = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       if (document.documentElement) document.documentElement.scrollTop = 0;
       if (document.body) document.body.scrollTop = 0;
     };
-    
-    resetScroll();
-    // Some browsers need a tiny delay if navigation triggers layout shifts
-    const timeoutId = setTimeout(resetScroll, 0);
-    return () => clearTimeout(timeoutId);
+
+    // 1. Immediate reset
+    performReset();
+
+    // 2. Scheduled reset (catches layout engine adjustments)
+    const timeoutId = setTimeout(performReset, 0);
+    const timeoutId2 = setTimeout(performReset, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+    };
   }, [location.pathname, location.search, location.hash]);
 
   useEffect(() => {

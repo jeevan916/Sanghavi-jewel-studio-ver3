@@ -35,19 +35,31 @@ export const ProductDetails: React.FC = () => {
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Force scroll reset when ID changes OR when loading finishes
-  // We use multiple methods and a small timeout to ensure the scroll stick at the top
-  const resetToTop = () => {
-    window.scrollTo(0, 0);
+  // Decisive Scroll Reset logic
+  const forceScrollTop = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     if (document.documentElement) document.documentElement.scrollTop = 0;
     if (document.body) document.body.scrollTop = 0;
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   };
 
+  // Run on mount, on ID change, AND after loading state transitions to false
   useLayoutEffect(() => {
-    resetToTop();
-    const timer = setTimeout(resetToTop, 50); // Aggressive catch for delayed layout shifts
-    return () => clearTimeout(timer);
+    forceScrollTop();
+    
+    // Perform multiple resets in succession to catch browser re-renders
+    const rafId = requestAnimationFrame(() => {
+        forceScrollTop();
+    });
+
+    const timeoutId = setTimeout(forceScrollTop, 10);
+    const timeoutId2 = setTimeout(forceScrollTop, 100);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+    };
   }, [id, isLoading]);
 
   useEffect(() => {
@@ -69,8 +81,8 @@ export const ProductDetails: React.FC = () => {
         console.error("Fetch details error:", err);
       } finally {
         setIsLoading(false);
-        // Additional immediate reset after state change
-        requestAnimationFrame(resetToTop);
+        // Additional immediate reset after state change triggers render
+        requestAnimationFrame(forceScrollTop);
       }
     };
     fetchData();
@@ -244,9 +256,9 @@ export const ProductDetails: React.FC = () => {
 
   return (
     <div 
-        key={id} // Force re-mount on ID change
+        key={id} // Force re-mount on ID change to ensure clean state
         ref={scrollContainerRef}
-        className="min-h-screen bg-stone-50 animate-in fade-in duration-300 pb-20"
+        className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
     >
@@ -267,7 +279,7 @@ export const ProductDetails: React.FC = () => {
         </div>
       </div>
 
-      <div className="transition-all duration-300 ease-out">
+      <div className="transition-all duration-300 ease-out animate-in fade-in">
           <div 
             ref={imageContainerRef} 
             className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none image-nav-container" 
