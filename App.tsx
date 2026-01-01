@@ -1,4 +1,3 @@
-
 import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
@@ -17,15 +16,11 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-// Fix: Use Component explicitly from named imports to ensure the compiler correctly identifies the props and state members as part of the class instance.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Explicitly use React.Component to ensure props and state are correctly inherited and recognized by the TypeScript compiler
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {
     hasError: false
   };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -37,7 +32,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Correctly accessing state inherited from Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
@@ -56,7 +50,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
     
-    // Correctly accessing props inherited from Component
+    // Fix: Ensure props.children is accessed from the inherited React.Component class instance
     return this.props.children;
   }
 }

@@ -2,7 +2,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs/promises';
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
@@ -19,7 +19,7 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * 1. PERSISTENCE VAULT SETUP
- * Root folder: sanghavi_persistence
+ * Root folder: sanghavi_persistence (protected directory)
  */
 const DATA_ROOT = path.resolve(__dirname, 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
@@ -30,7 +30,7 @@ const initializeDirectories = () => {
     [DATA_ROOT, UPLOADS_ROOT, THUMBS_ROOT, BACKUPS_ROOT].forEach(dir => {
         if (!existsSync(dir)) {
             mkdirSync(dir, { recursive: true });
-            console.log(`[Vault] Created Secure Directory: ${dir}`);
+            console.log(`[Vault] Initializing secure directory: ${dir}`);
         }
     });
 };
@@ -69,74 +69,11 @@ let cache = {
 };
 
 /**
- * ATOMIC WRITE PROTOCOL (PROTECTION AGAINST DATA LOSS)
- */
-const atomicWrite = async (filePath, data) => {
-    const tempPath = `${filePath}.tmp`;
-    const fileName = path.basename(filePath);
-    const backupPath = path.resolve(BACKUPS_ROOT, `${fileName}.${Date.now()}.bak`);
-    
-    try {
-        const json = JSON.stringify(data, null, 2);
-        
-        // 1. Write Temp
-        await fs.writeFile(tempPath, json, 'utf8');
-        
-        // 2. Verify Temp is valid JSON
-        const check = JSON.parse(await fs.readFile(tempPath, 'utf8'));
-        
-        // 3. Backup existing
-        if (existsSync(filePath)) {
-            await fs.copyFile(filePath, backupPath);
-        }
-        
-        // 4. Commit
-        await fs.rename(tempPath, filePath);
-        
-        // Cleanup old backups (keep last 5)
-        const allBackups = (await fs.readdir(BACKUPS_ROOT))
-            .filter(f => f.startsWith(fileName))
-            .sort();
-        if (allBackups.length > 5) {
-            await fs.unlink(path.resolve(BACKUPS_ROOT, allBackups[0]));
-        }
-    } catch (err) {
-        console.error(`[Vault] CRITICAL: Write failed for ${fileName}. Data preserved in memory.`, err);
-        throw err;
-    }
-};
-
-const loadAllTables = async () => {
-    for (const [key, filePath] of Object.entries(DB_FILES)) {
-        try {
-            if (existsSync(filePath)) {
-                const content = await fs.readFile(filePath, 'utf8');
-                if (content.trim()) {
-                    cache[key] = JSON.parse(content);
-                    console.log(`[Vault] Synchronized Table: ${key} (${cache[key].length} records)`);
-                }
-            } else {
-                await atomicWrite(filePath, cache[key]);
-            }
-        } catch (err) {
-            console.error(`[Vault] Table Load Error (${key}):`, err);
-        }
-    }
-};
-
-const saveTable = async (key) => {
-    await atomicWrite(DB_FILES[key], cache[key]);
-};
-
-loadAllTables();
-
-/**
- * 3. STRICT IMAGE CARVER
- * This function is the primary protector. It strips base64 and writes to disk.
+ * STRICT IMAGE CARVER (Discards Base64, Writes Physical File)
  */
 const extractAndSavePhysicalImage = async (base64, isThumbnail = false) => {
-    if (!base64 || !base64.startsWith('data:image')) {
-        return base64; // Already a path or invalid
+    if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image')) {
+        return base64; // Already a path or not an image
     }
 
     try {
@@ -152,35 +89,106 @@ const extractAndSavePhysicalImage = async (base64, isThumbnail = false) => {
         const fullPath = path.resolve(UPLOADS_ROOT, relativePath);
 
         await fs.writeFile(fullPath, buffer);
-        console.log(`[Vault] Asset Carved to Disk: /uploads/${relativePath}`);
+        console.log(`[Vault] Asset Carved: /uploads/${relativePath}`);
         return `/uploads/${relativePath}`;
     } catch (err) {
-        console.error('[Vault] Image Carving Failed:', err);
-        return base64; // Fallback to base64 to prevent loss, though not ideal
+        console.error('[Vault] Image Carving Failure:', err);
+        return base64; // Fallback to prevent data loss
     }
 };
 
-const processProductAssets = async (product) => {
-    const updated = { ...product };
-    
-    if (updated.images) {
-        const paths = [];
-        for (const img of updated.images) {
-            paths.push(await extractAndSavePhysicalImage(img, false));
+/**
+ * RECURSIVE VAULT CLEANER
+ * Scans objects/arrays for Base64 and migrates them to disk.
+ */
+const migrateToPhysical = async (data) => {
+    if (Array.isArray(data)) {
+        for (let i = 0; i < data.length; i++) {
+            data[i] = await migrateToPhysical(data[i]);
         }
-        updated.images = paths;
-    }
-
-    if (updated.thumbnails) {
-        const tPaths = [];
-        for (const thumb of updated.thumbnails) {
-            tPaths.push(await extractAndSavePhysicalImage(thumb, true));
+    } else if (data && typeof data === 'object') {
+        for (const key of Object.keys(data)) {
+            if (typeof data[key] === 'string' && data[key].startsWith('data:image')) {
+                const isThumb = key.toLowerCase().includes('thumb');
+                data[key] = await extractAndSavePhysicalImage(data[key], isThumb);
+            } else {
+                data[key] = await migrateToPhysical(data[key]);
+            }
         }
-        updated.thumbnails = tPaths;
     }
-    
-    return updated;
+    return data;
 };
+
+/**
+ * ATOMIC WRITE PROTOCOL (PROTECTION AGAINST DATA LOSS)
+ */
+const atomicWrite = async (filePath, data) => {
+    const tempPath = `${filePath}.tmp`;
+    const fileName = path.basename(filePath);
+    const backupPath = path.resolve(BACKUPS_ROOT, `${fileName}.${Date.now()}.bak`);
+    
+    try {
+        const json = JSON.stringify(data, null, 2);
+        
+        // 1. Write Temp
+        await fs.writeFile(tempPath, json, 'utf8');
+        
+        // 2. Verify integrity of temp file
+        const checkContent = await fs.readFile(tempPath, 'utf8');
+        JSON.parse(checkContent); // Will throw if corrupted
+        
+        // 3. Backup existing before commit
+        if (existsSync(filePath)) {
+            await fs.copyFile(filePath, backupPath);
+        }
+        
+        // 4. Atomic Rename (Commit)
+        await fs.rename(tempPath, filePath);
+        
+        // Cleanup old backups (keep last 5)
+        const allBackups = (await fs.readdir(BACKUPS_ROOT))
+            .filter(f => f.startsWith(fileName))
+            .sort();
+        if (allBackups.length > 5) {
+            await fs.unlink(path.resolve(BACKUPS_ROOT, allBackups[0]));
+        }
+    } catch (err) {
+        console.error(`[Vault] CRITICAL: Write failed for ${fileName}. Data preserved in cache.`, err);
+        throw err;
+    }
+};
+
+const loadAllTables = async () => {
+    for (const [key, filePath] of Object.entries(DB_FILES)) {
+        try {
+            if (existsSync(filePath)) {
+                const content = await fs.readFile(filePath, 'utf8');
+                if (content.trim()) {
+                    const data = JSON.parse(content);
+                    // AUTO-MIGRATION: Clean up any base64 that slipped into JSON
+                    cache[key] = await migrateToPhysical(data);
+                    console.log(`[Vault] Synced & Cleaned Table: ${key} (${cache[key].length} records)`);
+                    // If we found and cleaned images, persist the clean JSON immediately
+                    if (content.includes('data:image')) {
+                        console.log(`[Vault] Persisting cleaned JSON for ${key}`);
+                        await saveTable(key);
+                    }
+                }
+            } else {
+                await atomicWrite(filePath, cache[key]);
+                console.log(`[Vault] Initialized Table: ${key}`);
+            }
+        } catch (err) {
+            console.error(`[Vault] Table Initialization Error (${key}):`, err);
+        }
+    }
+};
+
+const saveTable = async (key) => {
+    await atomicWrite(DB_FILES[key], cache[key]);
+};
+
+loadAllTables();
 
 /**
  * 4. API ENDPOINTS
@@ -188,17 +196,18 @@ const processProductAssets = async (product) => {
 app.get('/api/health', (req, res) => res.json({ 
     status: 'online', 
     vault: 'sanghavi_persistence',
-    integrity: 'atomic-protected'
+    integrity: 'atomic-protected',
+    root: DATA_ROOT
 }));
 
 app.get('/api/products', (req, res) => res.json(cache.products));
 
 app.post('/api/products', async (req, res) => {
     try {
-        const productWithPaths = await processProductAssets(req.body);
-        cache.products.push(productWithPaths);
+        const cleanProduct = await migrateToPhysical(req.body);
+        cache.products.push(cleanProduct);
         await saveTable('products');
-        res.json(productWithPaths);
+        res.json(cleanProduct);
     } catch (err) {
         res.status(500).json({ error: 'Vault entry failed' });
     }
@@ -208,10 +217,10 @@ app.put('/api/products/:id', async (req, res) => {
     try {
         const idx = cache.products.findIndex(p => p.id === req.params.id);
         if (idx !== -1) {
-            const updatedWithPaths = await processProductAssets(req.body);
-            cache.products[idx] = updatedWithPaths;
+            const cleanUpdate = await migrateToPhysical(req.body);
+            cache.products[idx] = cleanUpdate;
             await saveTable('products');
-            res.json(updatedWithPaths);
+            res.json(cleanUpdate);
         } else {
             res.status(404).json({ error: 'Not found' });
         }
@@ -221,12 +230,13 @@ app.put('/api/products/:id', async (req, res) => {
 });
 
 app.delete('/api/products/:id', async (req, res) => {
+    // Physical files are NOT deleted to ensure no accidental asset loss.
     cache.products = cache.products.filter(p => p.id !== req.params.id);
     await saveTable('products');
     res.status(204).send();
 });
 
-// Auth & Config Endpoints
+// Config & Auth
 app.get('/api/config', (req, res) => res.json(cache.config));
 app.post('/api/config', async (req, res) => {
     cache.config = req.body;
@@ -269,11 +279,10 @@ app.post('/api/staff', async (req, res) => {
 
 app.get('/api/designs', (req, res) => res.json(cache.designs));
 app.post('/api/designs', async (req, res) => {
-    const design = await processProductAssets({ images: [req.body.imageUrl], thumbnails: [req.body.imageUrl] });
-    const finalDesign = { ...req.body, imageUrl: design.images[0] };
-    cache.designs.push(finalDesign);
+    const cleanDesign = await migrateToPhysical(req.body);
+    cache.designs.push(cleanDesign);
     await saveTable('designs');
-    res.json(finalDesign);
+    res.json(cleanDesign);
 });
 
 app.get('/api/analytics', (req, res) => res.json(cache.analytics));
@@ -294,4 +303,4 @@ if (existsSync(distPath)) {
     });
 }
 
-app.listen(PORT, () => console.log(`[Vault Server] Active on port ${PORT}. Persistence Root: ${DATA_ROOT}`));
+app.listen(PORT, () => console.log(`[Vault Server] Active on port ${PORT}. Root: ${DATA_ROOT}`));
