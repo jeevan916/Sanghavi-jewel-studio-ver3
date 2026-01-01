@@ -35,32 +35,35 @@ export const ProductDetails: React.FC = () => {
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Decisive Scroll Reset logic
+  // ULTIMATE SCROLL RESET: Fires repeatedly during state transitions
   const forceScrollTop = () => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    if (document.documentElement) document.documentElement.scrollTop = 0;
-    if (document.body) document.body.scrollTop = 0;
-    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+    }
   };
 
-  // Run on mount, on ID change, AND after loading state transitions to false
+  // Reset when ID changes
   useLayoutEffect(() => {
     forceScrollTop();
-    
-    // Perform multiple resets in succession to catch browser re-renders
-    const rafId = requestAnimationFrame(() => {
+  }, [id]);
+
+  // Reset when content is finally rendered (isLoading false)
+  // This is the most critical fix for the "autoscrolled" issue
+  useEffect(() => {
+    if (!isLoading) {
+      forceScrollTop();
+      // Use requestAnimationFrame to ensure the browser has finished the paint cycle
+      const raf = requestAnimationFrame(() => {
         forceScrollTop();
-    });
-
-    const timeoutId = setTimeout(forceScrollTop, 10);
-    const timeoutId2 = setTimeout(forceScrollTop, 100);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      clearTimeout(timeoutId);
-      clearTimeout(timeoutId2);
-    };
-  }, [id, isLoading]);
+        // One final check after a tiny delay to defeat aggressive browser restoration
+        setTimeout(forceScrollTop, 50);
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,8 +84,6 @@ export const ProductDetails: React.FC = () => {
         console.error("Fetch details error:", err);
       } finally {
         setIsLoading(false);
-        // Additional immediate reset after state change triggers render
-        requestAnimationFrame(forceScrollTop);
       }
     };
     fetchData();
@@ -256,9 +257,9 @@ export const ProductDetails: React.FC = () => {
 
   return (
     <div 
-        key={id} // Force re-mount on ID change to ensure clean state
+        key={id} 
         ref={scrollContainerRef}
-        className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden"
+        className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden scroll-mt-0"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
     >

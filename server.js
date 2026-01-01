@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Synchronized with Vite's env loading path
 dotenv.config({ path: path.resolve(process.cwd(), '.builds/config/.env') });
 
 import express from 'express';
@@ -22,6 +23,7 @@ const HOST = '0.0.0.0';
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 
+// Persistence Root
 const DATA_ROOT = path.resolve(process.cwd(), '..', 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const THUMBS_ROOT = path.resolve(UPLOADS_ROOT, 'thumbnails');
@@ -60,8 +62,8 @@ const initDB = async () => {
 };
 initDB();
 
-// --- API ENDPOINTS (STAY THE SAME) ---
 app.get('/api/health', (req, res) => res.json({ status: dbStatus.healthy ? 'online' : 'error', ...dbStatus }));
+
 app.get('/api/products', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
@@ -74,9 +76,8 @@ app.get('/api/products', async (req, res) => {
         }));
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-// ... (rest of API endpoints)
 
-// --- MPA STATIC ROUTING ---
+// MPA Static Routing for Production
 const dist = path.resolve(process.cwd(), 'dist');
 if (existsSync(dist)) {
     app.use(express.static(dist, { index: false }));
@@ -84,19 +85,11 @@ if (existsSync(dist)) {
     const serve = (file) => (req, res) => res.sendFile(path.join(dist, file));
 
     app.get('/', serve('index.html'));
-    app.get('/collection', serve('gallery.html'));
-    app.get('/studio', serve('studio.html'));
-    app.get('/consultant', serve('consultant.html'));
-    app.get('/admin', serve('admin.html'));
-    app.get('/admin/*', serve('admin.html'));
-    app.get('/login', serve('login.html'));
-    app.get('/staff', serve('staff.html'));
-    app.get('/product/:id', serve('product.html'));
-
+    
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return res.status(404).end();
         res.sendFile(path.join(dist, 'index.html'));
     });
 }
 
-app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] MPA Environment at port ${PORT}`));
+app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Server ready at http://${HOST}:${PORT}`));
