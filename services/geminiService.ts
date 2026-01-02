@@ -79,11 +79,11 @@ export const enhanceJewelryImage = async (base64Image: string) => {
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Gemini 3.0 for enhancement processing
+      model: "gemini-2.5-flash-image", // Gemini 2.5 Flash Image for enhancement processing
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
-          { text: "Enhance this jewelry photo for a luxury catalog. Sharpen the facets of any gemstones, balance the studio lighting, and ensure the background is perfectly clean." },
+          { text: "Jewelry Studio Retouching: Simulate a professional photo box environment. Apply soft, diffused studio lighting with a warm, rich color temperature to enhance the metal's aesthetic. Correct overexposure and remove harsh shadows. Balance the contrast for a high-end Instagram/E-commerce look. CRITICAL: Strictly preserve the original shape, size, and surface texture of the jewelry. DO NOT ADD SPARKLES, starbursts, or artificial glints. Maintain a clean, neutral background." },
         ],
       },
     });
@@ -100,11 +100,11 @@ export const removeWatermark = async (base64Image: string) => {
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Gemini 3.0 for text/logo removal
+      model: "gemini-2.5-flash-image", // Gemini 2.5 Flash Image for text/logo removal
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
-          { text: "Digitally remove any watermarks, text, or branding logos from this jewelry image while preserving the intricate details of the metal and gemstones." },
+          { text: "Seamlessly remove any watermarks, text, or branding logos from this jewelry image. CRITICAL: Do not blur or distort the jewelry. Keep the metal texture and gemstone facets 100% sharp and original." },
         ],
       },
     });
