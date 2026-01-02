@@ -91,7 +91,12 @@ export const enhanceJewelryImage = async (base64Image: string) => {
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return part.inlineData.data;
     }
-    throw new Error("Studio enhancement failed");
+    
+    // Fallback: If no image, log text if available to understand why
+    const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text);
+    if (textPart) console.warn("Gemini returned text instead of image:", textPart.text);
+    
+    throw new Error("Studio enhancement failed - No image returned");
   } catch (error) { throw error; }
 };
 
@@ -112,6 +117,11 @@ export const removeWatermark = async (base64Image: string) => {
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return part.inlineData.data;
     }
-    throw new Error("Cleanup failed");
+    
+    // Fallback: If no image, log text if available to understand why
+    const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text);
+    if (textPart) console.warn("Gemini returned text instead of image:", textPart.text);
+
+    throw new Error("Cleanup failed - No image returned");
   } catch (error) { throw error; }
 };

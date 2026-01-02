@@ -165,6 +165,14 @@ export const ProductDetails: React.FC = () => {
   const hasNext = currentIndex < productList.length - 1;
   const hasPrev = currentIndex > 0;
 
+  const getFullUrl = (path: string) => {
+      if (!path) return '';
+      if (path.startsWith('data:') || path.startsWith('http')) return path;
+      const origin = window.location.origin;
+      const cleanPath = path.startsWith('/') ? path : `/${path}`;
+      return `${origin}${cleanPath}`;
+  };
+
   const createThumbnail = (base64: string, size = 1000): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -232,13 +240,35 @@ export const ProductDetails: React.FC = () => {
       setShowAiMenu(false);
       try {
           const currentImg = productImages[currentImageIndex];
-          const base64Data = currentImg.includes(',') ? currentImg.split(',')[1] : currentImg;
+          let base64Data = '';
+          
+          if (currentImg.startsWith('data:')) {
+             base64Data = currentImg.split(',')[1];
+          } else {
+             // It is a URL, fetch it and convert to base64
+             const fullUrl = getFullUrl(currentImg);
+             const response = await fetch(fullUrl);
+             if (!response.ok) throw new Error("Failed to fetch image source");
+             
+             const blob = await response.blob();
+             base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const res = reader.result as string;
+                    resolve(res.split(',')[1]);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+             });
+          }
+
           let newBase64 = action === 'clean' ? await removeWatermark(base64Data) : await enhanceJewelryImage(base64Data);
           if (newBase64) {
               setPendingEnhancedImage(`data:image/jpeg;base64,${newBase64}`);
           }
       } catch (error) {
-          alert("AI Processing Failed.");
+          console.error("AI Action Failed:", error);
+          alert("AI Processing Failed. Ensure the image is loaded and accessible.");
       } finally { setIsProcessingImage(false); }
   };
 
@@ -392,14 +422,6 @@ export const ProductDetails: React.FC = () => {
         }
     }
     touchStart.current = null;
-  };
-
-  const getFullUrl = (path: string) => {
-      if (!path) return '';
-      if (path.startsWith('data:') || path.startsWith('http')) return path;
-      const origin = window.location.origin;
-      const cleanPath = path.startsWith('/') ? path : `/${path}`;
-      return `${origin}${cleanPath}`;
   };
 
   const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
