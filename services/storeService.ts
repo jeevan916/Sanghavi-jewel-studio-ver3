@@ -68,6 +68,27 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeo
     }
 }
 
+// Helper to scrape deeper device info
+const getDeepDeviceInfo = () => {
+    const ua = navigator.userAgent;
+    let os = 'Unknown';
+    if (ua.indexOf("Win") !== -1) os = "Windows";
+    if (ua.indexOf("Mac") !== -1) os = "MacOS";
+    if (ua.indexOf("Linux") !== -1) os = "Linux";
+    if (ua.indexOf("Android") !== -1) os = "Android";
+    if (ua.indexOf("like Mac") !== -1) os = "iOS";
+
+    return {
+        userAgent: ua,
+        os: os,
+        screenRes: `${window.screen.width}x${window.screen.height}`,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        pixelRatio: window.devicePixelRatio,
+        touchPoints: navigator.maxTouchPoints,
+        connection: (navigator as any).connection ? (navigator as any).connection.effectiveType : 'unknown'
+    };
+};
+
 export const storeService = {
   getIsOnline: () => navigator.onLine,
   
@@ -133,7 +154,6 @@ export const storeService = {
   },
 
   checkCustomerExistence: async (phone: string): Promise<{ exists: boolean, user?: any }> => {
-     // Do not catch errors here; allow UI to handle network failures instead of assuming 'false' (New User)
      return await apiFetch(`/customers/check/${phone}`);
   },
 
@@ -223,18 +243,23 @@ export const storeService = {
     return index === -1;
   },
 
-  logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number) => {
+  logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number, duration?: number) => {
     try {
         const user = userOverride || storeService.getCurrentUser();
+        const deviceInfo = getDeepDeviceInfo();
         
-        // Construct event without client-side ID generation (Server handles ID to prevent crypto crashes)
         const event = {
             type,
             productId: product?.id,
             productTitle: product?.title,
+            category: product?.category,
+            weight: product?.weight,
             userId: user ? user.id : 'Guest',
             userName: user ? user.name : 'Guest',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            imageIndex,
+            duration,
+            meta: deviceInfo
         };
         
         await fetch(`${API_BASE}/analytics`, { 
@@ -245,6 +270,14 @@ export const storeService = {
     } catch (e) {
         console.warn("Analytics logging failed:", e);
     }
+  },
+
+  getBusinessIntelligence: async (): Promise<any> => {
+      try {
+          return await apiFetch('/analytics/intelligence');
+      } catch (e) {
+          return { spendingPower: [], regionalDemand: [], engagement: [], devices: [] };
+      }
   },
 
   submitSuggestion: async (productId: string, suggestion: string) => {

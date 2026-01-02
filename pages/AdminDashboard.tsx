@@ -6,14 +6,14 @@ import { Product, AnalyticsEvent, User } from '../types';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, Save, Smartphone, MessageCircle, LogOut, UserCheck, HardDrive, Database, RefreshCw, TrendingUp
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'trends';
+type ViewMode = 'overview' | 'files' | 'leads' | 'trends' | 'intelligence';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
@@ -24,6 +24,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [healthInfo, setHealthInfo] = useState<{mode?: string, healthy: boolean}>({healthy: false});
+  const [intelligence, setIntelligence] = useState<any>(null);
 
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,16 +36,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     if (!background) setLoading(true);
     else setIsSyncing(true);
     try {
-        const [p, a, c, h] = await Promise.all([
+        const [p, a, c, h, intel] = await Promise.all([
           storeService.getProducts(),
           storeService.getAnalytics(),
           storeService.getCustomers(),
-          storeService.checkServerHealth()
+          storeService.checkServerHealth(),
+          storeService.getBusinessIntelligence()
         ]);
         setProducts(p);
         setAnalytics(a);
         setCustomers(c);
         setHealthInfo(h);
+        setIntelligence(intel);
     } catch (e) {}
     setLoading(false);
     setIsSyncing(false);
@@ -137,36 +140,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                  </p>
               </div>
            </div>
-           <button onClick={() => storeService.logout()} className="md:hidden p-2 text-stone-400 hover:text-red-500 transition-colors">
-              <LogOut size={22} />
-           </button>
         </div>
         
         <div className="flex bg-stone-100 p-1 rounded-xl items-center overflow-x-auto">
-            <button 
-                onClick={() => setActiveView('overview')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeView === 'overview' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
-            >
-                <LayoutDashboard size={16} /> Overview
-            </button>
-            <button 
-                onClick={() => setActiveView('files')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeView === 'files' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
-            >
-                <FolderOpen size={16} /> Assets
-            </button>
-            <button 
-                onClick={() => setActiveView('leads')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeView === 'leads' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
-            >
-                <UserCheck size={16} /> Leads
-            </button>
-            <button 
-                onClick={() => setActiveView('trends')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeView === 'trends' ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
-            >
-                <TrendingUp size={16} /> Trends
-            </button>
+            {[
+              { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
+              { id: 'files', icon: FolderOpen, label: 'Assets' },
+              { id: 'leads', icon: UserCheck, label: 'Leads' },
+              { id: 'trends', icon: TrendingUp, label: 'Trends' },
+              { id: 'intelligence', icon: BrainCircuit, label: 'AI Intel' },
+            ].map(tab => (
+              <button 
+                key={tab.id}
+                onClick={() => setActiveView(tab.id as ViewMode)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeView === tab.id ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
+              >
+                  <tab.icon size={16} /> {tab.label}
+              </button>
+            ))}
             <button onClick={() => onNavigate?.('settings')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-stone-500 hover:text-stone-700 transition-all whitespace-nowrap">
                 <Settings size={16} /> Settings
             </button>
@@ -189,40 +180,103 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Leads</p><p className="text-2xl font-bold text-stone-800">{customers.length}</p></div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
-                    <div className="p-3 bg-gold-50 text-gold-600 rounded-xl"><MessageCircle size={24} /></div>
+                    <div className="p-3 bg-gold-50 text-gold-600 rounded-xl"><TrendingUp size={24} /></div>
                     <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Inquiries</p><p className="text-2xl font-bold text-stone-800">{recentInquiries.length}</p></div>
                 </div>
             </div>
+          </div>
+      )}
 
+      {activeView === 'intelligence' && intelligence && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            {/* 1. Spending Power Prediction */}
             <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
-                    <div className="p-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center"><h3 className="font-serif text-lg text-stone-800">Live Activity Feed</h3></div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left">
-                            <thead className="bg-stone-50 text-stone-400 font-bold uppercase tracking-wider">
-                                <tr><th className="p-4">Item</th><th className="p-4">Customer</th><th className="p-4 text-right">Time</th></tr>
-                            </thead>
-                            <tbody>
-                                {recentInquiries.map(e => (
-                                    <tr key={e.id} className="border-b border-stone-50 hover:bg-stone-50 cursor-pointer" onClick={() => navigate(`/product/${e.productId}`)}>
-                                        <td className="p-4 font-bold text-stone-800 truncate max-w-[120px]">{e.productTitle}</td>
-                                        <td className="p-4 font-medium text-stone-600">{e.userName}</td>
-                                        <td className="p-4 text-right text-stone-400 font-mono">{new Date(e.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                                    </tr>
-                                ))}
-                                {recentInquiries.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-stone-300">No recent activity detected</td></tr>}
-                            </tbody>
-                        </table>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+                    <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2 mb-4">
+                        <DollarSign className="text-green-600" size={20} /> Spending Power Prediction
+                    </h3>
+                    <p className="text-stone-500 text-xs mb-4">Predicting high-net-worth regions based on average gold weight of engaged items.</p>
+                    <div className="space-y-3">
+                        {intelligence.spendingPower.map((area: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-green-100 text-green-700 font-bold p-2 rounded-lg text-xs">#{idx+1}</div>
+                                    <div>
+                                        <p className="font-bold text-stone-800">Pincode {area.pincode || 'Unknown'}</p>
+                                        <p className="text-xs text-stone-500">{area.interaction_count} High-Intent Signals</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-mono font-bold text-green-700">{parseFloat(area.avg_weight_interest).toFixed(1)}g</p>
+                                    <p className="text-[10px] uppercase font-bold text-stone-400">Avg. Interest</p>
+                                </div>
+                            </div>
+                        ))}
+                        {intelligence.spendingPower.length === 0 && <p className="text-stone-400 italic text-sm">Insufficient data to predict spending power.</p>}
                     </div>
                 </div>
-                
-                <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 flex flex-col justify-center items-center text-center space-y-4">
-                    <div className="p-5 bg-stone-50 rounded-full text-gold-600"><Smartphone size={40} /></div>
-                    <h3 className="font-serif text-xl text-stone-800">Network Discovery Active</h3>
-                    <p className="text-stone-500 text-sm max-w-xs">Other devices can access this studio on your local network using this PC's IP address on port 3000.</p>
+
+                {/* 2. Device Demographics */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+                     <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2 mb-4">
+                        <Smartphone className="text-blue-600" size={20} /> Client Tech Demographics
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                         {intelligence.devices.map((dev: any, idx: number) => (
+                             <div key={idx} className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex flex-col items-center justify-center text-center">
+                                 <p className="font-bold text-lg text-blue-900">{dev.user_count}</p>
+                                 <p className="text-xs font-bold uppercase tracking-widest text-blue-400">{dev.os}</p>
+                             </div>
+                         ))}
+                    </div>
                 </div>
             </div>
-          </div>
+
+            {/* 3. Regional Category Heatmap */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+                 <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2 mb-4">
+                    <MapPin className="text-red-500" size={20} /> Regional Category Demand
+                </h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-stone-50 text-stone-500 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-stone-200">
+                            <tr><th className="p-4">Region (Pincode)</th><th className="p-4">Dominant Category</th><th className="p-4">Demand Score</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-100">
+                             {intelligence.regionalDemand.map((row: any, idx: number) => (
+                                 <tr key={idx}>
+                                     <td className="p-4 font-mono font-bold text-stone-700">{row.pincode || 'General'}</td>
+                                     <td className="p-4"><span className="px-2 py-1 bg-gold-50 text-gold-700 rounded text-xs font-bold border border-gold-100">{row.category}</span></td>
+                                     <td className="p-4">
+                                         <div className="w-full bg-stone-100 rounded-full h-2 max-w-[100px]">
+                                             <div className="bg-red-500 h-2 rounded-full" style={{width: `${Math.min(100, row.demand_score * 10)}%`}}></div>
+                                         </div>
+                                     </td>
+                                 </tr>
+                             ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            {/* 4. Engagement Quality */}
+            <div className="bg-stone-900 text-white p-6 rounded-2xl shadow-lg">
+                 <h3 className="font-serif text-xl flex items-center gap-2 mb-4">
+                    <BrainCircuit className="text-purple-400" size={20} /> Deep Engagement Metrics
+                </h3>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {intelligence.engagement.map((item: any, idx: number) => (
+                        <div key={idx} className="bg-white/5 p-4 rounded-xl border border-white/10">
+                            <h4 className="font-bold truncate text-gold-200 mb-2">{item.productTitle}</h4>
+                            <div className="flex justify-between text-xs">
+                                <span className="text-stone-400">Avg. Time: <span className="text-white font-mono">{Math.round(item.avg_time_seconds)}s</span></span>
+                                <span className="text-stone-400">Screenshots: <span className="text-white font-mono">{item.screenshot_count || 0}</span></span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
       )}
 
       {activeView === 'files' && (
@@ -237,13 +291,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                      ))}
                  </div>
              </div>
-
              <div className="flex-1 flex flex-col h-full min-h-0">
                  <div className="p-4 border-b border-stone-200 flex items-center justify-between gap-4 bg-white">
                      <div className="flex-1 max-w-md relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} /><input type="text" placeholder="Filter jewelry..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-100 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-gold-400" /></div>
                      <div className="flex items-center gap-2"><button onClick={() => setViewStyle('grid')} className={`p-2 rounded ${viewStyle === 'grid' ? 'bg-stone-100 text-stone-900' : 'text-stone-400'}`}><Grid size={18}/></button><button onClick={() => setViewStyle('list')} className={`p-2 rounded ${viewStyle === 'list' ? 'bg-stone-100 text-stone-900' : 'text-stone-400'}`}><ListIcon size={18}/></button></div>
                  </div>
-
                  <div className="flex-1 overflow-y-auto p-4 bg-stone-50/50">
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                         {filteredProducts.map(product => (
@@ -304,9 +356,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                   </td>
                               </tr>
                           ))}
-                          {customers.length === 0 && (
-                              <tr><td colSpan={5} className="p-20 text-center text-stone-300 font-serif text-lg">Lead database ready for capture...</td></tr>
-                          )}
                       </tbody>
                   </table>
               </div>
@@ -337,12 +386,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           </div>
                       ))}
                   </div>
-                  {trendingProducts.length === 0 && (
-                      <div className="flex flex-col items-center justify-center h-64 text-stone-400">
-                          <TrendingUp size={48} className="mb-4 opacity-20" />
-                          <p>Insufficient data to determine trends.</p>
-                      </div>
-                  )}
               </div>
           </div>
       )}

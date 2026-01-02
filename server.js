@@ -86,13 +86,18 @@ const initDB = async () => {
                 id VARCHAR(255) PRIMARY KEY, username VARCHAR(100) UNIQUE, password VARCHAR(255),
                 role VARCHAR(50), isActive BOOLEAN DEFAULT TRUE, name VARCHAR(255), createdAt DATETIME
             )`,
-            // Updated customers table with pincode and location
             `CREATE TABLE IF NOT EXISTS customers (
                 id VARCHAR(255) PRIMARY KEY, phone VARCHAR(50) UNIQUE, name VARCHAR(255),
                 pincode VARCHAR(20), lastLocation JSON, role VARCHAR(50), createdAt DATETIME
             )`,
             `CREATE TABLE IF NOT EXISTS app_config (id INT PRIMARY KEY DEFAULT 1, data JSON, CHECK (id = 1))`,
-            `CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`,
+            // Analytics table updated for deep tracking
+            `CREATE TABLE IF NOT EXISTS analytics (
+                id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), 
+                productTitle VARCHAR(255), category VARCHAR(100), weight DECIMAL(10,3),
+                userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME,
+                duration INT DEFAULT 0, meta JSON
+            )`,
             `CREATE TABLE IF NOT EXISTS designs (id VARCHAR(255) PRIMARY KEY, imageUrl LONGTEXT, prompt TEXT, aspectRatio VARCHAR(20), createdAt DATETIME)`,
             `CREATE TABLE IF NOT EXISTS shared_links (id VARCHAR(255) PRIMARY KEY, targetId VARCHAR(255), type VARCHAR(50), token VARCHAR(255) UNIQUE, expiresAt DATETIME)`,
             `CREATE TABLE IF NOT EXISTS suggestions (
@@ -103,8 +108,10 @@ const initDB = async () => {
         for (const query of tables) await pool.query(query);
 
         // Migrations
-        try { await pool.query(`ALTER TABLE customers ADD COLUMN pincode VARCHAR(20)`); } catch (e) {}
-        try { await pool.query(`ALTER TABLE customers ADD COLUMN lastLocation JSON`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE analytics ADD COLUMN duration INT DEFAULT 0`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE analytics ADD COLUMN meta JSON`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE analytics ADD COLUMN category VARCHAR(100)`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE analytics ADD COLUMN weight DECIMAL(10,3)`); } catch (e) {}
 
     } catch (err) {
         console.error('[Database] Critical Failure:', err.message);
@@ -191,14 +198,86 @@ app.get('/api/customers/check/:phone', async (req, res) => {
 app.get('/api/analytics', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
-        res.json(rows);
+        res.json(rows.map(r => parseJson(r, ['meta'])));
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// INTELLIGENCE ENGINE: Predictive & Collaborative Data
+app.get('/api/analytics/intelligence', async (req, res) => {
+    try {
+        // 1. Spending Power Prediction (Avg Weight Interacted With)
+        const [spendingRows] = await pool.query(`
+            SELECT 
+                c.pincode, 
+                AVG(a.weight) as avg_weight_interest,
+                COUNT(*) as interaction_count
+            FROM analytics a
+            JOIN customers c ON a.userId = c.id
+            WHERE a.type IN ('like', 'inquiry', 'screenshot') AND a.weight > 0
+            GROUP BY c.pincode
+            HAVING interaction_count > 2
+            ORDER BY avg_weight_interest DESC
+        `);
+
+        // 2. Category Demand by Region
+        const [categoryRows] = await pool.query(`
+            SELECT 
+                c.pincode,
+                a.category,
+                COUNT(*) as demand_score
+            FROM analytics a
+            JOIN customers c ON a.userId = c.id
+            WHERE a.type IN ('view', 'like', 'inquiry')
+            GROUP BY c.pincode, a.category
+            ORDER BY c.pincode, demand_score DESC
+        `);
+
+        // 3. Time Spent / Engagement Quality
+        const [engagementRows] = await pool.query(`
+            SELECT 
+                a.productTitle,
+                AVG(a.duration) as avg_time_seconds,
+                SUM(CASE WHEN a.type = 'screenshot' THEN 1 ELSE 0 END) as screenshot_count
+            FROM analytics a
+            WHERE a.duration > 0 OR a.type = 'screenshot'
+            GROUP BY a.productTitle
+            ORDER BY avg_time_seconds DESC
+            LIMIT 20
+        `);
+
+        // 4. Device Demographics (Wealth Proxy)
+        const [deviceRows] = await pool.query(`
+            SELECT 
+                JSON_UNQUOTE(JSON_EXTRACT(meta, '$.os')) as os,
+                COUNT(DISTINCT userId) as user_count
+            FROM analytics 
+            WHERE meta IS NOT NULL
+            GROUP BY os
+        `);
+
+        res.json({
+            spendingPower: spendingRows,
+            regionalDemand: categoryRows,
+            engagement: engagementRows,
+            devices: deviceRows
+        });
+
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/analytics', async (req, res) => {
     try {
         const e = req.body;
-        await pool.query('INSERT INTO analytics (id, type, productId, productTitle, userId, userName, timestamp) VALUES (?,?,?,?,?,?,?)', [crypto.randomUUID(), e.type, e.productId, e.productTitle, e.userId, e.userName, new Date()]);
+        await pool.query(
+            'INSERT INTO analytics (id, type, productId, productTitle, category, weight, userId, userName, timestamp, duration, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?)', 
+            [
+                crypto.randomUUID(), e.type, e.productId, e.productTitle, e.category, e.weight, 
+                e.userId, e.userName, new Date(), e.duration || 0, JSON.stringify(e.meta || {})
+            ]
+        );
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

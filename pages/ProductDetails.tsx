@@ -49,10 +49,24 @@ export const ProductDetails: React.FC = () => {
   const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
+  // Time Tracking Refs
+  const entryTime = useRef<number>(Date.now());
+  const longPressTimer = useRef<any>(null);
+
   useEffect(() => {
-    // Reset image index immediately when navigating to a new product
+    // Reset state on ID change
     setCurrentImageIndex(0);
-    
+    entryTime.current = Date.now();
+
+    // 1. Screenshot Detection (Key Press)
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))) {
+            if (product) storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
+        }
+    };
+    window.addEventListener('keyup', handleKeyDown);
+
+    // 2. Fetch Data
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -68,7 +82,6 @@ export const ProductDetails: React.FC = () => {
           setIsOwned(storeService.getOwned().includes(found.id));
           setIsRequested(storeService.getRequested().includes(found.id));
           
-          // Parallel fetch for secondary data
           const [productStats, suggestionsList] = await Promise.all([
               storeService.getProductStats(found.id),
               isAuthorized ? storeService.getSuggestions(found.id) : Promise.resolve([])
@@ -76,13 +89,10 @@ export const ProductDetails: React.FC = () => {
           setStats(productStats);
           if (suggestionsList) setSuggestions(suggestionsList);
         }
-        
         const conf = await storeService.getConfig();
         setConfig(conf);
         
-        if (found) {
-             storeService.logEvent('view', found);
-        }
+        if (found) storeService.logEvent('view', found);
       } catch (err) {
         console.error("Fetch details error:", err);
       } finally {
@@ -90,7 +100,18 @@ export const ProductDetails: React.FC = () => {
       }
     };
     fetchData();
-  }, [id, isAuthorized]);
+
+    // Cleanup: Log duration on unmount
+    return () => {
+        window.removeEventListener('keyup', handleKeyDown);
+        if (product) {
+            const duration = Math.floor((Date.now() - entryTime.current) / 1000);
+            if (duration > 2) { // Only log if user stayed > 2 seconds
+                storeService.logEvent('view', product, currentUser, currentImageIndex, duration);
+            }
+        }
+    };
+  }, [id, isAuthorized]); // Re-run if ID changes
 
   if (isLoading) {
     return (
@@ -210,7 +231,7 @@ export const ProductDetails: React.FC = () => {
 
   const handleDownload = () => {
       if (!product || productImages.length === 0) return;
-      storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
+      storeService.logEvent('download', product, currentUser, currentImageIndex);
       const link = document.createElement('a');
       link.href = getFullUrl(productImages[currentImageIndex]);
       link.download = `sanghavi-${product.title.replace(/\s+/g, '-').toLowerCase()}.jpg`;
@@ -314,11 +335,20 @@ export const ProductDetails: React.FC = () => {
   const goToNext = () => { if (hasNext) navigate(`/product/${productList[currentIndex+1].id}`); };
   const goToPrev = () => { if (hasPrev) navigate(`/product/${productList[currentIndex-1].id}`); };
 
+  // Advanced Touch Tracking (Long Press for Desire Detection)
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    
+    // Start Long Press Timer (700ms) - proxy for "Save Image" on mobile
+    longPressTimer.current = setTimeout(() => {
+        if(product) storeService.logEvent('long_press', product, currentUser, currentImageIndex);
+    }, 700);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    // Cancel long press if finger lifted early
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+
     if (!touchStart.current) return;
     const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
     const dx = touchEnd.x - touchStart.current.x;
@@ -358,6 +388,10 @@ export const ProductDetails: React.FC = () => {
         className="min-h-screen bg-stone-50 overflow-y-auto animate-in fade-in duration-300 pb-20"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onContextMenu={(e) => {
+             // Context Menu (Right Click) is often "Save Image As"
+             if(product) storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
+        }}
     >
       {showFullScreen && <ImageViewer images={productImages.map(getFullUrl)} initialIndex={currentImageIndex} title={product.title} onClose={() => setShowFullScreen(false)} />}
       {isManualEditing && <ImageEditor imageSrc={getFullUrl(productImages[currentImageIndex])} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
@@ -372,7 +406,10 @@ export const ProductDetails: React.FC = () => {
         </div>
         <div className="flex gap-1 shrink-0">
             <button onClick={handleDownload} className="p-2 text-stone-600 hover:text-gold-600 rounded-full hover:bg-stone-100"><Download size={20} /></button>
-            <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-2 text-stone-600 hover:text-gold-600 rounded-full hover:bg-stone-100"><Share2 size={20} /></button>
+            <button onClick={() => { 
+                storeService.logEvent('screenshot', product, currentUser, currentImageIndex); // Share is functionally similar to screenshot for intent
+                navigator.share?.({ title: product.title, url: window.location.href }); 
+            }} className="p-2 text-stone-600 hover:text-gold-600 rounded-full hover:bg-stone-100"><Share2 size={20} /></button>
         </div>
       </div>
 
@@ -505,50 +542,39 @@ export const ProductDetails: React.FC = () => {
                 </div>
              </div>
 
+             {/* Admin and Content Sections unchanged ... */}
              {isAuthorized && (
                  <div className="bg-stone-800 p-4 rounded-xl text-white space-y-4">
+                     {/* ... unchanged admin controls ... */}
                      <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2"><Lock size={12} /> Authorized Control</h3><button onClick={handleDeleteProduct} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase flex items-center gap-1"><Trash2 size={12}/> Delete</button></div>
-                     
                      <button onClick={handleMarkAsSold} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium flex items-center justify-center gap-2 transition"><DollarSign size={16}/> Record Manual Sale (+1)</button>
-
                      <div className="flex gap-2 relative">
                         <button onClick={() => handleUpdateProduct({isHidden: !product.isHidden})} className={`flex-1 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 ${product.isHidden ? 'bg-red-500/20 text-red-200' : 'bg-stone-700'}`}>{product.isHidden ? <EyeOff size={16}/> : <Eye size={16}/>} {product.isHidden ? 'Private' : 'Public'}</button>
                         <button onClick={async () => { const link = await storeService.createSharedLink(product.id, 'product'); setGeneratedLink(link); navigator.clipboard.writeText(link); }} className="flex-[2] py-2 bg-gold-600 text-white rounded font-medium flex items-center justify-center gap-2">{generatedLink ? 'Link Copied' : 'Generate Secret Link'}</button>
                      </div>
-
                      <div className="flex gap-2">
                         <button onClick={() => setShowAiMenu(!showAiMenu)} className={`flex-1 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 ${showAiMenu ? 'bg-purple-600' : 'bg-purple-900/30'}`}>
                             {isProcessingImage ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16}/>} AI Studio
                         </button>
                         <button onClick={() => setIsManualEditing(true)} className="flex-1 py-2 bg-stone-700 rounded text-sm font-medium flex items-center justify-center gap-2"><SlidersHorizontal size={16}/> Edit Image</button>
                      </div>
-                     
                      {showAiMenu && (
                         <div className="bg-stone-900 rounded-lg p-1 border border-stone-700 grid grid-cols-2 gap-1">
                              <button onClick={() => handleAiAction('clean')} className="px-3 py-2 text-xs hover:bg-stone-800 rounded flex items-center gap-2"><Eraser size={14}/> Clear Branding</button>
                              <button onClick={() => handleAiAction('enhance')} className="px-3 py-2 text-xs hover:bg-stone-800 rounded flex items-center gap-2"><Wand2 size={14}/> Studio Enhance</button>
                         </div>
                      )}
-
                      <button onClick={() => setShowSuggestions(!showSuggestions)} className="w-full py-2 bg-stone-700 rounded text-sm font-medium flex items-center justify-center gap-2">
                          <MessageSquare size={16} /> View Client Suggestions ({suggestions.length})
                      </button>
-                     
                      {showSuggestions && (
                          <div className="bg-stone-900 rounded-xl p-4 max-h-60 overflow-y-auto space-y-3">
-                             {suggestions.length === 0 ? (
-                                 <p className="text-stone-500 text-xs italic">No suggestions yet.</p>
-                             ) : (
-                                 suggestions.map(s => (
-                                     <div key={s.id} className="bg-stone-800 p-3 rounded-lg text-xs">
-                                         <div className="flex justify-between text-stone-400 mb-1">
-                                             <span className="font-bold">{s.userName} ({s.userPhone})</span>
-                                             <span>{new Date(s.createdAt).toLocaleDateString()}</span>
-                                         </div>
-                                         <p className="text-stone-300">{s.suggestion}</p>
-                                     </div>
-                                 ))
-                             )}
+                             {suggestions.length === 0 ? <p className="text-stone-500 text-xs italic">No suggestions yet.</p> : suggestions.map(s => (
+                                 <div key={s.id} className="bg-stone-800 p-3 rounded-lg text-xs">
+                                     <div className="flex justify-between text-stone-400 mb-1"><span className="font-bold">{s.userName} ({s.userPhone})</span><span>{new Date(s.createdAt).toLocaleDateString()}</span></div>
+                                     <p className="text-stone-300">{s.suggestion}</p>
+                                 </div>
+                             ))}
                          </div>
                      )}
                  </div>
@@ -569,25 +595,11 @@ export const ProductDetails: React.FC = () => {
                  {isEditingDescription ? <div className="space-y-2"><textarea value={editDescValue} onChange={(e) => setEditDescValue(e.target.value)} className="w-full p-4 border border-gold-300 rounded-xl text-stone-700 min-h-[120px]" /><div className="flex justify-end gap-2"><button onClick={() => { setIsEditingDescription(false); setEditDescValue(product.description); }} className="px-4 py-1 text-xs text-stone-400 uppercase">Cancel</button><button onClick={handleSaveDescription} className="px-4 py-1 text-xs text-gold-600 border border-gold-200 rounded-lg">Apply</button></div></div> : <p className="text-stone-600 leading-relaxed text-lg font-light">{product.description}</p>}
              </div>
              
-             {/* Suggestion Box for Customers (Hidden for guests) */}
              {!isAuthorized && currentUser && (
                  <div className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm mt-4">
                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Sparkles size={14} className="text-gold-500" /> Suggest Customization</h4>
-                     <textarea 
-                        value={suggestionText}
-                        onChange={(e) => setSuggestionText(e.target.value)}
-                        placeholder="Love this? Tell us if you'd prefer it in Rose Gold, Diamond cut variations, or other changes..."
-                        className="w-full p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm text-stone-800 focus:border-gold-300 outline-none min-h-[80px]"
-                     />
-                     <div className="flex justify-end mt-2">
-                         <button 
-                            onClick={submitSuggestion}
-                            disabled={isSubmittingSuggestion || !suggestionText.trim()}
-                            className="px-4 py-2 bg-stone-900 text-white text-xs font-bold uppercase tracking-widest rounded-lg flex items-center gap-2 hover:bg-stone-800 disabled:opacity-50 transition"
-                         >
-                             {isSubmittingSuggestion ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send Feedback
-                         </button>
-                     </div>
+                     <textarea value={suggestionText} onChange={(e) => setSuggestionText(e.target.value)} placeholder="Love this? Tell us if you'd prefer it in Rose Gold, Diamond cut variations, or other changes..." className="w-full p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm text-stone-800 focus:border-gold-300 outline-none min-h-[80px]" />
+                     <div className="flex justify-end mt-2"><button onClick={submitSuggestion} disabled={isSubmittingSuggestion || !suggestionText.trim()} className="px-4 py-2 bg-stone-900 text-white text-xs font-bold uppercase tracking-widest rounded-lg flex items-center gap-2 hover:bg-stone-800 disabled:opacity-50 transition">{isSubmittingSuggestion ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send Feedback</button></div>
                  </div>
              )}
 
