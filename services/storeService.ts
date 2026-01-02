@@ -35,6 +35,11 @@ export interface ProductStats {
     purchase: number;
 }
 
+// Global Cache State
+let _productsCache: Product[] | null = null;
+let _lastFetchTime: number = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 Minutes
+
 // Increased timeout to 45s for production robustness
 async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 45000) {
     const controller = new AbortController();
@@ -111,8 +116,14 @@ export const storeService = {
     };
   },
 
-  getProducts: async (): Promise<Product[]> => {
+  getProducts: async (forceRefresh = false): Promise<Product[]> => {
     try {
+      // Return cached data if valid and not forced
+      const now = Date.now();
+      if (!forceRefresh && _productsCache && (now - _lastFetchTime < CACHE_TTL)) {
+          return _productsCache;
+      }
+
       const data = await apiFetch('/products');
       if (!Array.isArray(data)) return [];
       
@@ -126,9 +137,18 @@ export const storeService = {
           
           return p as Product;
       });
-      return products.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      const sorted = products.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // Update Cache
+      _productsCache = sorted;
+      _lastFetchTime = now;
+      
+      return sorted;
     } catch (err) { 
         console.error("StoreService getProducts Error:", err);
+        // Fallback to cache on error if available
+        if (_productsCache) return _productsCache;
         throw err; 
     }
   },
@@ -142,9 +162,20 @@ export const storeService = {
       }
   },
 
-  addProduct: (product: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }),
-  updateProduct: (product: Product) => apiFetch(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) }),
-  deleteProduct: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
+  addProduct: async (product: Product) => {
+      await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) });
+      _productsCache = null; // Invalidate cache
+  },
+  
+  updateProduct: async (product: Product) => {
+      await apiFetch(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) });
+      _productsCache = null; // Invalidate cache
+  },
+  
+  deleteProduct: async (id: string) => {
+      await apiFetch(`/products/${id}`, { method: 'DELETE' });
+      _productsCache = null; // Invalidate cache
+  },
 
   getCustomers: async (): Promise<User[]> => {
     try {

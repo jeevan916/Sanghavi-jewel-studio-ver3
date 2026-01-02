@@ -57,6 +57,24 @@ export const ProductDetails: React.FC = () => {
     // Reset state on ID change
     setCurrentImageIndex(0);
     entryTime.current = Date.now();
+    
+    // Optimistic Reset: If we have the list, find and set product immediately to avoid flash
+    let foundOptimistic: Product | undefined;
+    if (productList.length > 0) {
+        foundOptimistic = productList.find(p => p.id === id);
+        if (foundOptimistic) {
+            setProduct(foundOptimistic);
+            setEditDescValue(foundOptimistic.description);
+            // Don't set isLoading(true) here, transitions should be instant
+            // Just update interaction states
+            setIsLiked(storeService.getLikes().includes(foundOptimistic.id));
+            setIsDisliked(storeService.getDislikes().includes(foundOptimistic.id));
+            setIsOwned(storeService.getOwned().includes(foundOptimistic.id));
+            setIsRequested(storeService.getRequested().includes(foundOptimistic.id));
+        }
+    }
+
+    if (!foundOptimistic) setIsLoading(true);
 
     // 1. Screenshot Detection (Key Press)
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,10 +84,10 @@ export const ProductDetails: React.FC = () => {
     };
     window.addEventListener('keyup', handleKeyDown);
 
-    // 2. Fetch Data
+    // 2. Fetch Data (Silent update if optimistic worked)
     const fetchData = async () => {
-      setIsLoading(true);
       try {
+        // Fetch from store (Cached)
         const allProducts = await storeService.getProducts();
         setProductList(allProducts);
         
@@ -82,17 +100,20 @@ export const ProductDetails: React.FC = () => {
           setIsOwned(storeService.getOwned().includes(found.id));
           setIsRequested(storeService.getRequested().includes(found.id));
           
+          // Fetch secondary data concurrently
           const [productStats, suggestionsList] = await Promise.all([
               storeService.getProductStats(found.id),
               isAuthorized ? storeService.getSuggestions(found.id) : Promise.resolve([])
           ]);
           setStats(productStats);
           if (suggestionsList) setSuggestions(suggestionsList);
+          
+          storeService.logEvent('view', found);
         }
+        
         const conf = await storeService.getConfig();
         setConfig(conf);
         
-        if (found) storeService.logEvent('view', found);
       } catch (err) {
         console.error("Fetch details error:", err);
       } finally {
