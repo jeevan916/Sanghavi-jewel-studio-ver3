@@ -29,15 +29,22 @@ export const Gallery: React.FC = () => {
   const isGuest = !user;
 
   // Handle Shared Link Access (from location OR session storage)
+  // restrictedCategory: Forces the view to this category if user is Guest (Jail Mode)
   const sharedCategoryState = (location.state as any)?.sharedCategory;
+  const restrictedCategory = isGuest ? sharedCategoryState : null;
+  
   const unlockedCategories = storeService.getUnlockedCategories();
-  const sharedCategory = sharedCategoryState || (unlockedCategories.includes(activeCategory) ? activeCategory : null);
+  const sharedCategory = restrictedCategory || (unlockedCategories.includes(activeCategory) ? activeCategory : null);
 
   useEffect(() => {
-    if (sharedCategoryState) {
+    // If restricted, force the category active
+    if (restrictedCategory) {
+        setActiveCategory(restrictedCategory);
+    } else if (sharedCategoryState) {
+        // If logged in but following a link, just switch to it once
         setActiveCategory(sharedCategoryState);
     }
-  }, [sharedCategoryState]);
+  }, [restrictedCategory, sharedCategoryState]);
 
   const loadData = async (isBackground = false) => {
     if (!isBackground) setIsLoading(true);
@@ -68,12 +75,17 @@ export const Gallery: React.FC = () => {
 
   // Compute available categories from Config (preferred) or Products (fallback)
   const categoryList = useMemo(() => {
+    // If Restricted (Guest via Link), only show that category
+    if (restrictedCategory) {
+        return [restrictedCategory];
+    }
+
     if (config?.categories && config.categories.length > 0) {
         return ['All', ...config.categories.map(c => c.name)];
     }
     const cats = new Set(products.map(p => p.category));
     return ['All', ...Array.from(cats)];
-  }, [products, config]);
+  }, [products, config, restrictedCategory]);
 
   // Compute sub-categories for active category
   const subCategoryList = useMemo(() => {
@@ -120,6 +132,9 @@ export const Gallery: React.FC = () => {
     // Helper to filter hidden/private unless admin OR unlocked by share
     // We check if the product category matches any unlocked category
     const availableProducts = products.filter(p => {
+        // Strict Filter: If restricted, ONLY show restricted category
+        if (restrictedCategory && p.category !== restrictedCategory) return false;
+
         const isUnlocked = unlockedCategories.includes(p.category) || (sharedCategoryState && p.category === sharedCategoryState);
         return !p.isHidden || isAdmin || isUnlocked;
     });
@@ -158,17 +173,20 @@ export const Gallery: React.FC = () => {
         purchased: purchasedList,
         browseAll: remaining
     };
-  }, [products, analytics, isAdmin, sharedCategoryState, unlockedCategories]);
+  }, [products, analytics, isAdmin, sharedCategoryState, unlockedCategories, restrictedCategory]);
 
 
   // Determine if we are in "Search/Filter Mode" or "Dashboard Mode"
-  // If we arrived via a shared link, we treat it as filtering mode if the category is set
-  const isFiltering = search.length > 0 || activeCategory !== 'All' || activeSubCategory !== 'All';
+  // If we arrived via a shared link (restricted), we force filtering mode
+  const isFiltering = search.length > 0 || activeCategory !== 'All' || activeSubCategory !== 'All' || !!restrictedCategory;
 
   // Get current viewable products based on mode
   const currentViewProducts = useMemo(() => {
       if (isFiltering) {
           return products.filter(p => {
+            // If restricted, force category match
+            if (restrictedCategory && p.category !== restrictedCategory) return false;
+
             const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
             const matchesSubCategory = activeSubCategory === 'All' || !p.subCategory || p.subCategory === activeSubCategory;
             const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
@@ -181,7 +199,7 @@ export const Gallery: React.FC = () => {
           });
       }
       return []; // Not used in dashboard mode
-  }, [isFiltering, products, activeCategory, activeSubCategory, search, isAdmin, sharedCategoryState, unlockedCategories]);
+  }, [isFiltering, products, activeCategory, activeSubCategory, search, isAdmin, sharedCategoryState, unlockedCategories, restrictedCategory]);
 
   // Guest Logic
   const handleGuestInteraction = () => {
@@ -190,13 +208,15 @@ export const Gallery: React.FC = () => {
       }
   };
 
-  // Scroll to top on page change
-  useEffect(() => {
-    if (!isFiltering) {
-        // window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); // Optional: auto scroll
-    }
-  }, [browsePage]);
-
+  // Clear Filter Handler
+  const handleClearFilters = () => {
+      setSearch('');
+      setActiveSubCategory('All');
+      // If restricted, DO NOT reset category to All
+      if (!restrictedCategory) {
+          setActiveCategory('All');
+      }
+  };
 
   if (isLoading) {
       return (
@@ -334,9 +354,18 @@ export const Gallery: React.FC = () => {
                         {activeCategory === 'All' ? (search ? 'Search Results' : 'All Products') : activeCategory}
                         {activeSubCategory !== 'All' && <span className="text-stone-400 font-light"> / {activeSubCategory}</span>}
                     </h2>
-                    <button onClick={() => { setSearch(''); setActiveCategory('All'); setActiveSubCategory('All'); }} className="text-xs text-red-400 font-bold uppercase hover:text-red-600 flex items-center gap-1">
-                        <X size={14}/> Clear
-                    </button>
+                    {/* Hide clear button if restricted and no other filters active, or modify behavior */}
+                    {(search || activeSubCategory !== 'All') && (
+                        <button onClick={handleClearFilters} className="text-xs text-red-400 font-bold uppercase hover:text-red-600 flex items-center gap-1">
+                            <X size={14}/> Clear
+                        </button>
+                    )}
+                    {/* Standard Clear for non-restricted */}
+                    {!restrictedCategory && !search && activeSubCategory === 'All' && activeCategory !== 'All' && (
+                         <button onClick={handleClearFilters} className="text-xs text-red-400 font-bold uppercase hover:text-red-600 flex items-center gap-1">
+                            <X size={14}/> Show All
+                        </button>
+                    )}
                 </div>
 
                 <div className={`grid gap-6 ${
@@ -351,7 +380,7 @@ export const Gallery: React.FC = () => {
                     <div className="col-span-full h-64 flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-stone-200 rounded-3xl bg-white m-4">
                         <Filter size={48} className="mb-4 opacity-20" />
                         <p className="font-serif text-xl">No items found</p>
-                        <button onClick={() => { setSearch(''); setActiveCategory('All'); setActiveSubCategory('All'); }} className="mt-4 text-gold-600 font-bold uppercase text-xs tracking-widest hover:underline">Clear Filters</button>
+                        <button onClick={handleClearFilters} className="mt-4 text-gold-600 font-bold uppercase text-xs tracking-widest hover:underline">Clear Filters</button>
                     </div>
                 )}
                 </div>
