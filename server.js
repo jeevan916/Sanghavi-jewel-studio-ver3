@@ -348,6 +348,18 @@ app.post('/api/shared-links', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// VALIDATE SHARED LINK
+app.get('/api/shared-links/:token', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM shared_links WHERE token=? AND expiresAt > NOW()', [req.params.token]);
+        if (rows[0]) {
+            res.json(rows[0]);
+        } else {
+            res.status(404).json({ error: 'Link expired or invalid' });
+        }
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/config', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT data FROM app_config WHERE id=1');

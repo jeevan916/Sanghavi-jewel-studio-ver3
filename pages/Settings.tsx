@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
 import { AppConfig, Supplier, CategoryConfig, StaffAccount } from '../types';
-import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw } from 'lucide-react';
+import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon } from 'lucide-react';
 
 interface SettingsProps {
   onBack?: () => void;
@@ -129,6 +129,16 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       ...config,
       categories: config.categories.map(c => c.id === id ? {...c, isPrivate: !c.isPrivate} : c)
     });
+  };
+
+  const shareCategory = async (categoryName: string) => {
+      try {
+          const link = await storeService.createSharedLink(categoryName, 'category');
+          navigator.clipboard.writeText(link);
+          alert(`Secure link for "${categoryName}" copied to clipboard!`);
+      } catch (e) {
+          alert('Failed to generate shared link.');
+      }
   };
 
   if (isInitializing || !config) {
@@ -293,7 +303,12 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                         <div key={c.id} className="border border-stone-200 rounded-xl overflow-hidden shadow-sm">
                             <div className="bg-stone-50 p-3 flex justify-between items-center border-b border-stone-200">
                                 <span className="font-bold text-stone-700 flex items-center gap-2">{c.name} {c.isPrivate && <Lock size={12} className="text-red-400"/>}</span>
-                                <button onClick={() => toggleCategoryPrivacy(c.id)} className="text-[10px] text-stone-400 hover:text-stone-600 uppercase font-bold tracking-widest">{c.isPrivate ? 'Make Public' : 'Make Private'}</button>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => shareCategory(c.name)} className="p-1.5 bg-white border border-stone-200 rounded hover:bg-gold-50 hover:border-gold-200 text-stone-500 hover:text-gold-600 transition" title="Share Category">
+                                        <LinkIcon size={14} />
+                                    </button>
+                                    <button onClick={() => toggleCategoryPrivacy(c.id)} className="text-[10px] text-stone-400 hover:text-stone-600 uppercase font-bold tracking-widest ml-2">{c.isPrivate ? 'Make Public' : 'Make Private'}</button>
+                                </div>
                             </div>
                             <div className="p-4 bg-white">
                                 <div className="flex flex-wrap gap-2 mb-3">

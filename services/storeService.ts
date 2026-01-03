@@ -387,6 +387,10 @@ I'm interested in: ${product.title} (ID: #${product.id.slice(-6).toUpperCase()})
     return `${window.location.origin}${window.location.pathname}#/shared/${response.token}`;
   },
 
+  getSharedLinkDetails: async (token: string): Promise<SharedLink> => {
+      return await apiFetch(`/shared-links/${token}`);
+  },
+
   getStaff: async (): Promise<StaffAccount[]> => {
     try {
       const data = await apiFetch('/staff');

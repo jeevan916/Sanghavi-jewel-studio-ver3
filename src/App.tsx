@@ -1,4 +1,4 @@
-import React, { Component, useState, Suspense, lazy, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { storeService } from './services/storeService';
@@ -8,7 +8,7 @@ import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
 // Error Boundary Implementation
 interface ErrorBoundaryProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -16,14 +16,14 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Sanghavi Studio Exception:", error, errorInfo);
     document.body.classList.add('loaded');
   }
@@ -73,7 +73,7 @@ const PageLoader = () => (
 );
 
 interface AuthGuardProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
   allowedRoles: string[];
   user: User | null;
 }
