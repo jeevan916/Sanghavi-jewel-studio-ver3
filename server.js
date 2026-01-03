@@ -62,7 +62,8 @@ const dbConfig = {
     database: process.env.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
-    enableKeepAlive: true
+    enableKeepAlive: true,
+    timezone: 'Z' // Force UTC to avoid timezone drift
 };
 
 let pool;
@@ -342,7 +343,7 @@ app.post('/api/shared-links', async (req, res) => {
     try {
         const { targetId, type } = req.body;
         const token = crypto.randomBytes(16).toString('hex');
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); 
+        const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 Hours window
         await pool.query('INSERT INTO shared_links (id, targetId, type, token, expiresAt) VALUES (?,?,?,?,?)', [crypto.randomUUID(), targetId, type, token, expiresAt]);
         res.json({ token });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -351,13 +352,24 @@ app.post('/api/shared-links', async (req, res) => {
 // VALIDATE SHARED LINK
 app.get('/api/shared-links/:token', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM shared_links WHERE token=? AND expiresAt > NOW()', [req.params.token]);
-        if (rows[0]) {
-            res.json(rows[0]);
-        } else {
-            res.status(404).json({ error: 'Link expired or invalid' });
+        // Select without checking expiresAt in SQL to avoid timezone mismatch
+        const [rows] = await pool.query('SELECT * FROM shared_links WHERE token=?', [req.params.token]);
+        
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ error: 'Link invalid or not found' });
         }
-    } catch (err) { res.status(500).json({ error: err.message }); }
+
+        const link = rows[0];
+        // Perform expiration check in application logic (Node.js) where Timezone is consistent
+        if (new Date() > new Date(link.expiresAt)) {
+            return res.status(410).json({ error: 'Link expired' });
+        }
+
+        res.json(link);
+    } catch (err) { 
+        console.error("Shared Link Error:", err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.get('/api/config', async (req, res) => {

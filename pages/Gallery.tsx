@@ -28,14 +28,16 @@ export const Gallery: React.FC = () => {
   const isAdmin = user?.role === 'admin' || user?.role === 'contributor';
   const isGuest = !user;
 
-  // Handle Shared Link Access
-  const sharedCategory = (location.state as any)?.sharedCategory;
+  // Handle Shared Link Access (from location OR session storage)
+  const sharedCategoryState = (location.state as any)?.sharedCategory;
+  const unlockedCategories = storeService.getUnlockedCategories();
+  const sharedCategory = sharedCategoryState || (unlockedCategories.includes(activeCategory) ? activeCategory : null);
 
   useEffect(() => {
-    if (sharedCategory) {
-        setActiveCategory(sharedCategory);
+    if (sharedCategoryState) {
+        setActiveCategory(sharedCategoryState);
     }
-  }, [sharedCategory]);
+  }, [sharedCategoryState]);
 
   const loadData = async (isBackground = false) => {
     if (!isBackground) setIsLoading(true);
@@ -116,8 +118,11 @@ export const Gallery: React.FC = () => {
     });
 
     // Helper to filter hidden/private unless admin OR unlocked by share
-    // We check if the product category matches the sharedCategory name
-    const availableProducts = products.filter(p => !p.isHidden || isAdmin || (sharedCategory && p.category === sharedCategory));
+    // We check if the product category matches any unlocked category
+    const availableProducts = products.filter(p => {
+        const isUnlocked = unlockedCategories.includes(p.category) || (sharedCategoryState && p.category === sharedCategoryState);
+        return !p.isHidden || isAdmin || isUnlocked;
+    });
     const featuredIds = new Set<string>();
 
     // 2. Define Groups
@@ -153,7 +158,7 @@ export const Gallery: React.FC = () => {
         purchased: purchasedList,
         browseAll: remaining
     };
-  }, [products, analytics, isAdmin, sharedCategory]);
+  }, [products, analytics, isAdmin, sharedCategoryState, unlockedCategories]);
 
 
   // Determine if we are in "Search/Filter Mode" or "Dashboard Mode"
@@ -167,13 +172,16 @@ export const Gallery: React.FC = () => {
             const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
             const matchesSubCategory = activeSubCategory === 'All' || !p.subCategory || p.subCategory === activeSubCategory;
             const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
+            
             // Visibility Rule: Visible if Public OR Admin OR (Private AND Category is Shared/Unlocked)
-            const visible = !p.isHidden || isAdmin || (sharedCategory && p.category === sharedCategory);
+            const isUnlocked = unlockedCategories.includes(p.category) || (sharedCategoryState && p.category === sharedCategoryState);
+            const visible = !p.isHidden || isAdmin || isUnlocked;
+            
             return matchesCategory && matchesSubCategory && matchesSearch && visible;
           });
       }
       return []; // Not used in dashboard mode
-  }, [isFiltering, products, activeCategory, activeSubCategory, search, isAdmin, sharedCategory]);
+  }, [isFiltering, products, activeCategory, activeSubCategory, search, isAdmin, sharedCategoryState, unlockedCategories]);
 
   // Guest Logic
   const handleGuestInteraction = () => {

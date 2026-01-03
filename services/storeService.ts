@@ -19,7 +19,8 @@ const KEYS = {
   LIKES: 'sanghavi_user_likes',
   DISLIKES: 'sanghavi_user_dislikes',
   OWNED: 'sanghavi_user_owned',
-  REQUESTED: 'sanghavi_user_requested'
+  REQUESTED: 'sanghavi_user_requested',
+  UNLOCKED_CATS: 'sanghavi_unlocked_cats'
 };
 
 export interface HealthStatus {
@@ -272,6 +273,18 @@ export const storeService = {
     else newRequested.splice(index, 1);
     localStorage.setItem(KEYS.REQUESTED, JSON.stringify(newRequested));
     return index === -1;
+  },
+
+  unlockCategory: (categoryId: string) => {
+      const current = JSON.parse(sessionStorage.getItem(KEYS.UNLOCKED_CATS) || '[]');
+      if(!current.includes(categoryId)) {
+          current.push(categoryId);
+          sessionStorage.setItem(KEYS.UNLOCKED_CATS, JSON.stringify(current));
+      }
+  },
+
+  getUnlockedCategories: (): string[] => {
+      return JSON.parse(sessionStorage.getItem(KEYS.UNLOCKED_CATS) || '[]');
   },
 
   logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number, duration?: number) => {

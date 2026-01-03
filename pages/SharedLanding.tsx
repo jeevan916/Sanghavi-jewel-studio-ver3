@@ -25,7 +25,10 @@ export const SharedLanding: React.FC = () => {
         if (data.type === 'product') {
             navigate(`/product/${data.targetId}`, { replace: true });
         } else if (data.type === 'category') {
-            // Navigate to gallery with the category unlocked
+            // Unlock the category persistently in this session
+            storeService.unlockCategory(data.targetId);
+            
+            // Navigate to gallery with the category active
             navigate('/collection', { 
                 replace: true, 
                 state: { sharedCategory: data.targetId } 
