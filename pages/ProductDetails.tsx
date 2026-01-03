@@ -134,6 +134,29 @@ export const ProductDetails: React.FC = () => {
     };
   }, [id, isAuthorized]); // Re-run if ID changes
 
+  // Smart Back Navigation to preserve "Jail Mode" context
+  const handleBack = () => {
+    // 1. Explicit State passed from Gallery (best reliability)
+    if (location.state?.sharedCategory) {
+        navigate('/collection', { state: { sharedCategory: location.state.sharedCategory } });
+        return;
+    }
+    
+    // 2. Implicit Inference (Fallback)
+    // If the user is a guest, and the current product's category is unlocked in the session,
+    // we assume they should go back to that private category view.
+    if (isGuest && product) {
+        const unlocked = storeService.getUnlockedCategories();
+        if (unlocked.includes(product.category)) {
+            navigate('/collection', { state: { sharedCategory: product.category } });
+            return;
+        }
+    }
+
+    // 3. Default Fallback
+    navigate('/collection');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
@@ -147,7 +170,7 @@ export const ProductDetails: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center">
         <h2 className="font-serif text-2xl text-stone-800 mb-4">Product Not Found</h2>
-        <button onClick={() => navigate('/collection')} className="px-6 py-2 bg-stone-900 text-white rounded-xl">Back to Collection</button>
+        <button onClick={handleBack} className="px-6 py-2 bg-stone-900 text-white rounded-xl">Back to Collection</button>
       </div>
     );
   }
@@ -383,8 +406,8 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  const goToNext = () => { if (hasNext) navigate(`/product/${productList[currentIndex+1].id}`); };
-  const goToPrev = () => { if (hasPrev) navigate(`/product/${productList[currentIndex-1].id}`); };
+  const goToNext = () => { if (hasNext) navigate(`/product/${productList[currentIndex+1].id}`, { state: { sharedCategory: location.state?.sharedCategory } }); };
+  const goToPrev = () => { if (hasPrev) navigate(`/product/${productList[currentIndex-1].id}`, { state: { sharedCategory: location.state?.sharedCategory } }); };
 
   // Advanced Touch Tracking (Long Press for Desire Detection)
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -440,7 +463,7 @@ export const ProductDetails: React.FC = () => {
       {isManualEditing && <ImageEditor imageSrc={getFullUrl(productImages[currentImageIndex])} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
 
       <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30">
-        <button onClick={() => navigate('/collection')} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24} /></button>
+        <button onClick={handleBack} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24} /></button>
         <div className="flex-1 flex items-center gap-2 px-2 overflow-hidden">
             {product.isHidden && <Lock size={14} className="text-red-500 shrink-0" />}
             <h2 className="font-serif font-bold text-stone-800 text-lg truncate break-words">

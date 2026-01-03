@@ -218,6 +218,13 @@ export const Gallery: React.FC = () => {
       }
   };
 
+  // Smart Navigation Handler to preserve restricted context
+  const navigateToProduct = (productId: string) => {
+      navigate(`/product/${productId}`, { 
+          state: { sharedCategory: restrictedCategory } 
+      });
+  };
+
   if (isLoading) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
@@ -243,7 +250,7 @@ export const Gallery: React.FC = () => {
       <div className="flex overflow-x-auto gap-4 pb-6 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
           {items.map(product => (
               <div key={product.id} className="min-w-[280px] w-[280px] snap-center">
-                  <ProductCard product={product} isAdmin={isAdmin} onClick={() => navigate(`/product/${product.id}`)} />
+                  <ProductCard product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />
               </div>
           ))}
           {items.length === 0 && (
@@ -374,7 +381,7 @@ export const Gallery: React.FC = () => {
                 : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                 }`}>
                 {currentViewProducts.map(product => (
-                    <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigate(`/product/${product.id}`)} />
+                    <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />
                 ))}
                 {currentViewProducts.length === 0 && (
                     <div className="col-span-full h-64 flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-stone-200 rounded-3xl bg-white m-4">
@@ -463,7 +470,7 @@ export const Gallery: React.FC = () => {
                                 {browseAll
                                     .slice((browsePage - 1) * ITEMS_PER_PAGE, browsePage * ITEMS_PER_PAGE)
                                     .map(product => (
-                                        <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigate(`/product/${product.id}`)} />
+                                        <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />
                                 ))}
                             </div>
 
