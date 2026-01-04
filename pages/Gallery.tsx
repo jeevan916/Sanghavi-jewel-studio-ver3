@@ -43,6 +43,9 @@ export const Gallery: React.FC = () => {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'masonry'>('grid');
   
+  // Race Condition Handling
+  const requestRef = useRef<number>(0);
+  
   // Infinite Scroll Observer
   const observer = useRef<IntersectionObserver | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -86,14 +89,22 @@ export const Gallery: React.FC = () => {
       });
   }, []);
 
-  // Fetch Products with Server-Side Filtering
+  // Filter Change Handler: Reset state immediately
   useEffect(() => {
+      setPage(1);
+      setProducts([]); // Clear strictly to show loading and prevent mixed content
+      setHasMore(true);
+  }, [activeCategory, activeSubCategory, search]);
+
+  // Main Fetch Effect with Race Condition Guard
+  useEffect(() => {
+    const requestId = ++requestRef.current;
+    
     const fetchProducts = async () => {
         setIsLoading(true);
         try {
-            // Apply filtering at the database level to ensure full pages of content
             const filters = {
-                publicOnly: !isAdmin, // Critical fix for guest view
+                publicOnly: !isAdmin, 
                 category: activeCategory !== 'All' ? activeCategory : undefined,
                 subCategory: activeSubCategory !== 'All' ? activeSubCategory : undefined,
                 search: search || undefined
@@ -101,8 +112,13 @@ export const Gallery: React.FC = () => {
 
             const response = await storeService.getProducts(page, 20, filters);
             
+            // Critical: Discard results if a newer request has started
+            if (requestId !== requestRef.current) return;
+
             setProducts(prev => {
+                // If this is page 1, strictly replace. If we scrolled, append.
                 if (page === 1) return response.items;
+                
                 // Deduplicate items based on ID
                 const existingIds = new Set(prev.map(p => p.id));
                 const newItems = response.items.filter(p => !existingIds.has(p.id));
@@ -111,23 +127,18 @@ export const Gallery: React.FC = () => {
             
             setHasMore(page < response.meta.totalPages);
         } catch (error) {
-            console.error("Gallery Load Error", error);
+            if (requestId === requestRef.current) console.error("Gallery Load Error", error);
         } finally {
-            setIsLoading(false);
-            setIsInitialLoad(false);
+            if (requestId === requestRef.current) {
+                setIsLoading(false);
+                setIsInitialLoad(false);
+            }
         }
     };
 
     const timeout = setTimeout(fetchProducts, 300); // Debounce search
     return () => clearTimeout(timeout);
   }, [page, activeCategory, activeSubCategory, search, isAdmin]);
-
-  // Reset pagination when filters change
-  useEffect(() => {
-      setPage(1);
-      setProducts([]); // Clear to show loading state
-      setHasMore(true);
-  }, [activeCategory, activeSubCategory, search]);
 
   // Compute available categories from Config
   const categoryList = useMemo(() => {

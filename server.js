@@ -275,21 +275,23 @@ app.get('/api/products', async (req, res) => {
         const subCategory = req.query.subCategory;
         const search = req.query.search;
 
+        console.log(`[API] Fetch Products: Page ${page}, Public: ${publicOnly}, Cat: ${category || 'All'}, Sub: ${subCategory || 'All'}`);
+
         let whereClauses = [];
         let params = [];
 
         if (publicOnly) {
             whereClauses.push('isHidden = FALSE');
         }
-        if (category && category !== 'All') {
+        if (category && category !== 'All' && category !== 'undefined') {
             whereClauses.push('category = ?');
             params.push(category);
         }
-        if (subCategory && subCategory !== 'All') {
+        if (subCategory && subCategory !== 'All' && subCategory !== 'undefined') {
             whereClauses.push('subCategory = ?');
             params.push(subCategory);
         }
-        if (search) {
+        if (search && search !== 'undefined') {
             whereClauses.push('(title LIKE ? OR description LIKE ?)');
             params.push(`%${search}%`, `%${search}%`);
         }
@@ -325,7 +327,10 @@ app.get('/api/products', async (req, res) => {
                 totalPages: Math.ceil(totalItems / limit)
             }
         });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error("API Error:", err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.get('/api/products/:id', async (req, res) => {
