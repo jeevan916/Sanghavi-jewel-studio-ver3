@@ -68,6 +68,13 @@ export interface PaginatedResponse<T> {
     };
 }
 
+export interface ProductFilters {
+    publicOnly?: boolean;
+    category?: string;
+    subCategory?: string;
+    search?: string;
+}
+
 let _lastFetchTime: number = 0;
 
 async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 45000) {
@@ -144,9 +151,15 @@ export const storeService = {
     };
   },
 
-  getProducts: async (page = 1, limit = 20): Promise<PaginatedResponse<Product>> => {
+  getProducts: async (page = 1, limit = 20, filters: ProductFilters = {}): Promise<PaginatedResponse<Product>> => {
     try {
-      const data = await apiFetch(`/products?page=${page}&limit=${limit}`);
+      const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
+      if (filters.publicOnly) params.append('publicOnly', 'true');
+      if (filters.category) params.append('category', filters.category);
+      if (filters.subCategory) params.append('subCategory', filters.subCategory);
+      if (filters.search) params.append('search', filters.search);
+
+      const data = await apiFetch(`/products?${params.toString()}`);
       
       const items = (data.items || []).map((p: any) => {
           if (!Array.isArray(p.images)) p.images = [];

@@ -201,7 +201,7 @@ app.post('/api/reconnect', async (req, res) => {
     res.json(dbStatus);
 });
 
-// OPTIMIZED LIST ENDPOINT
+// OPTIMIZED LIST ENDPOINT WITH SERVER-SIDE FILTERING
 app.get('/api/products', async (req, res) => {
     try {
         if (!dbStatus.healthy) throw new Error('Database disconnected');
@@ -210,16 +210,46 @@ app.get('/api/products', async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
         
-        const [countResult] = await pool.query('SELECT COUNT(*) as total FROM products');
+        // Filtering Params
+        const publicOnly = req.query.publicOnly === 'true';
+        const category = req.query.category;
+        const subCategory = req.query.subCategory;
+        const search = req.query.search;
+
+        let whereClauses = [];
+        let params = [];
+
+        if (publicOnly) {
+            whereClauses.push('isHidden = FALSE');
+        }
+        if (category && category !== 'All') {
+            whereClauses.push('category = ?');
+            params.push(category);
+        }
+        if (subCategory && subCategory !== 'All') {
+            whereClauses.push('subCategory = ?');
+            params.push(subCategory);
+        }
+        if (search) {
+            whereClauses.push('(title LIKE ? OR description LIKE ?)');
+            params.push(`%${search}%`, `%${search}%`);
+        }
+
+        const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+        // Get Total Count for Pagination
+        const [countResult] = await pool.query(`SELECT COUNT(*) as total FROM products ${whereSql}`, params);
         const totalItems = countResult[0].total;
 
-        const [rows] = await pool.query(
-            `SELECT id, title, category, subCategory, weight, thumbnails, isHidden, createdAt, dateTaken 
-             FROM products 
-             ORDER BY createdAt DESC 
-             LIMIT ? OFFSET ?`, 
-            [limit, offset]
-        );
+        // Fetch Items
+        const query = `
+            SELECT id, title, category, subCategory, weight, thumbnails, isHidden, createdAt, dateTaken 
+            FROM products 
+            ${whereSql}
+            ORDER BY createdAt DESC 
+            LIMIT ? OFFSET ?`;
+            
+        const [rows] = await pool.query(query, [...params, limit, offset]);
 
         const products = rows.map(r => {
             const p = parseJson(r, ['thumbnails']);

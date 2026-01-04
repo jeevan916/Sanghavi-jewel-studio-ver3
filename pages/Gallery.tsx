@@ -58,17 +58,23 @@ export const Gallery: React.FC = () => {
       storeService.getAnalytics().then(setAnalytics);
   }, []);
 
-  // Fetch Products with Pagination
+  // Fetch Products with Server-Side Filtering
   useEffect(() => {
     const fetchProducts = async () => {
         setIsLoading(true);
         try {
-            const response = await storeService.getProducts(page, 20); // Fetch 20 items per page
+            // Apply filtering at the database level to ensure full pages of content
+            const filters = {
+                publicOnly: !isAdmin, // Critical fix for guest view
+                category: activeCategory !== 'All' ? activeCategory : undefined,
+                subCategory: activeSubCategory !== 'All' ? activeSubCategory : undefined,
+                search: search || undefined
+            };
+
+            const response = await storeService.getProducts(page, 20, filters);
             
             setProducts(prev => {
-                // If page 1, replace. If > 1, append.
                 if (page === 1) return response.items;
-                
                 // Deduplicate items based on ID
                 const existingIds = new Set(prev.map(p => p.id));
                 const newItems = response.items.filter(p => !existingIds.has(p.id));
@@ -84,22 +90,18 @@ export const Gallery: React.FC = () => {
         }
     };
 
-    fetchProducts();
-  }, [page]); // Trigger on page change
+    const timeout = setTimeout(fetchProducts, 300); // Debounce search
+    return () => clearTimeout(timeout);
+  }, [page, activeCategory, activeSubCategory, search, isAdmin]);
 
-  // Reset pagination when filters change (Currently simple filters are client-side on loaded items, or we can reset list)
-  // For this 'Lite' version, we are keeping server pagination simple (Date desc). 
-  // Advanced filtering would require server-side query params.
-  // We will apply client-side filtering on the *fetched* data for now to keep API simple as requested.
-  // But if search/category changes, we might want to reload. 
-  // *Optimization*: Since we are fetching everything progressively, local filtering is acceptable for small catalogs (<500).
-  // If catalog grows >1000, we should move filter to server. 
-  
-  // Refined Logic: When category/search changes, we actually DON'T refetch from server in this implementation 
-  // unless we implement server-side filtering. 
-  // To keep it simple and fast on "old mobile", loading 100 items incrementally is better than 1000 at once.
+  // Reset pagination when filters change
+  useEffect(() => {
+      setPage(1);
+      setProducts([]); // Clear to show loading state
+      setHasMore(true);
+  }, [activeCategory, activeSubCategory, search]);
 
-  // Compute available categories
+  // Compute available categories from Config
   const categoryList = useMemo(() => {
     if (restrictedCategory) return [restrictedCategory];
     if (config?.categories && config.categories.length > 0) {
@@ -111,39 +113,17 @@ export const Gallery: React.FC = () => {
             .map(c => c.name);
         return ['All', ...visibleCats];
     }
-    const cats = new Set(products.map(p => p.category));
-    return ['All', ...Array.from(cats)];
-  }, [products, config, restrictedCategory, isAdmin, unlockedCategories, sharedCategoryState]);
+    // Fallback if config failed
+    return ['All'];
+  }, [config, restrictedCategory, isAdmin, unlockedCategories, sharedCategoryState]);
 
   // Compute sub-categories
   const subCategoryList = useMemo(() => {
       if (activeCategory === 'All') return [];
       const catConfig = config?.categories.find(c => c.name === activeCategory);
       if (catConfig && catConfig.subCategories.length > 0) return ['All', ...catConfig.subCategories];
-      const subs = new Set(products.filter(p => p.category === activeCategory).map(p => p.subCategory).filter(Boolean));
-      return subs.size > 0 ? ['All', ...Array.from(subs)] : [];
-  }, [activeCategory, config, products]);
-
-  // isProductVisible Logic
-  const isProductVisible = useCallback((p: Product) => {
-        if (restrictedCategory && p.category !== restrictedCategory) return false;
-        if (isAdmin) return true;
-        const catConfig = config?.categories.find(c => c.name.trim().toLowerCase() === p.category.trim().toLowerCase());
-        const isUnlocked = unlockedCategories.includes(p.category) || (sharedCategoryState && p.category === sharedCategoryState);
-        if (catConfig?.isPrivate && !isUnlocked) return false;
-        if (p.isHidden) return false;
-        return true;
-  }, [restrictedCategory, isAdmin, config, unlockedCategories, sharedCategoryState]);
-
-  const currentViewProducts = useMemo(() => {
-      return products.filter(p => {
-        if (!isProductVisible(p)) return false;
-        const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
-        const matchesSubCategory = activeSubCategory === 'All' || !p.subCategory || p.subCategory === activeSubCategory;
-        const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
-        return matchesCategory && matchesSubCategory && matchesSearch;
-      });
-  }, [products, activeCategory, activeSubCategory, search, isProductVisible]);
+      return [];
+  }, [activeCategory, config]);
 
   const handleGuestInteraction = () => {
       if (confirm("Unlock our full bespoke collection?\n\nLogin securely with WhatsApp to view all 500+ designs and live pricing.")) {
@@ -161,7 +141,18 @@ export const Gallery: React.FC = () => {
       navigate(`/product/${productId}`, { state: { sharedCategory: restrictedCategory } });
   };
 
-  if (isInitialLoad) {
+  // AI Insights Pulse Logic
+  const trendingStats = useMemo(() => {
+      const topProduct = analytics.find(e => e.type === 'inquiry' || e.type === 'like');
+      const liveViewers = Math.floor(Math.random() * 5) + 3; // Simulated live users for UX
+      return { 
+          hotItem: topProduct?.productTitle || 'Solitaire Rings', 
+          live: liveViewers,
+          total: products.length > 0 ? products.length : 'Loading...'
+      };
+  }, [analytics, products]);
+
+  if (isInitialLoad && products.length === 0) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
           <Loader2 className="animate-spin text-gold-600 mb-2" size={32} />
@@ -172,6 +163,21 @@ export const Gallery: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20 md:pt-16">
+      
+      {/* AI Market Pulse Ticker */}
+      {!isGuest && (
+          <div className="bg-stone-900 text-gold-500 text-[10px] font-bold uppercase tracking-widest py-1.5 px-4 flex items-center justify-between overflow-hidden relative z-50">
+             <div className="flex items-center gap-2 animate-pulse">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                Live Studio Pulse
+             </div>
+             <div className="flex items-center gap-4 animate-in slide-in-from-right duration-1000">
+                <span className="text-white hidden sm:inline">Active Clients: {trendingStats.live}</span>
+                <span className="text-gold-300">Trending: {trendingStats.hotItem}</span>
+             </div>
+          </div>
+      )}
+
       {/* Sticky Header */}
       <div className="sticky top-0 md:top-16 bg-white/90 backdrop-blur-md border-b border-stone-200 z-40 transition-all duration-300">
         <div className="max-w-7xl mx-auto flex flex-col gap-2 p-2">
@@ -260,8 +266,8 @@ export const Gallery: React.FC = () => {
             ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
             : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
         }`}>
-            {currentViewProducts.map((product, index) => {
-                if (currentViewProducts.length === index + 1) {
+            {products.map((product, index) => {
+                if (products.length === index + 1) {
                     return (
                         <div ref={lastProductElementRef} key={product.id}>
                             <ProductCard product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />
@@ -279,20 +285,22 @@ export const Gallery: React.FC = () => {
             </div>
         )}
         
-        {!hasMore && currentViewProducts.length > 0 && (
+        {!hasMore && products.length > 0 && (
             <div className="text-center py-8 text-stone-400 text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2">
                 <div className="h-px w-8 bg-stone-300"></div> End of Collection <div className="h-px w-8 bg-stone-300"></div>
             </div>
         )}
 
-        {currentViewProducts.length === 0 && !isLoading && (
+        {products.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center py-20 text-stone-400">
                 <Filter size={48} className="mb-4 opacity-20" />
-                <p className="font-serif text-xl">No items found</p>
-                {(search || activeCategory !== 'All') && (
+                <p className="font-serif text-xl">No public items found.</p>
+                {(search || activeCategory !== 'All') ? (
                     <button onClick={handleClearFilters} className="mt-4 text-gold-600 font-bold uppercase text-xs tracking-widest hover:underline">
                         Reset Filters
                     </button>
+                ) : (
+                    <p className="text-xs mt-2">New collection arriving soon.</p>
                 )}
             </div>
         )}

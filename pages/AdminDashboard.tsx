@@ -40,8 +40,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         setHealthInfo(h);
         
         if (h.healthy) {
+            // Admin fetches ALL products (publicOnly: false)
             const [p, a, c, intel] = await Promise.all([
-              storeService.getProducts(1, 1000).then(res => res.items), // Fetch up to 1000 for admin view
+              storeService.getProducts(1, 1000, { publicOnly: false }).then(res => res.items), 
               storeService.getAnalytics(),
               storeService.getCustomers(),
               storeService.getBusinessIntelligence()
@@ -208,10 +209,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           </div>
       )}
 
-      {/* ... (Rest of the component remains unchanged, only top section updated) ... */}
       {activeView === 'intelligence' && intelligence && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            {/* 1. Spending Power Prediction */}
             <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
                     <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2 mb-4">
@@ -238,7 +237,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     </div>
                 </div>
 
-                {/* 2. Device Demographics */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
                      <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2 mb-4">
                         <Smartphone className="text-blue-600" size={20} /> Client Tech Demographics
@@ -254,7 +252,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 </div>
             </div>
 
-            {/* 3. Regional Category Heatmap */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
                  <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2 mb-4">
                     <MapPin className="text-red-500" size={20} /> Regional Category Demand
@@ -281,7 +278,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 </div>
             </div>
             
-            {/* 4. Engagement Quality */}
             <div className="bg-stone-900 text-white p-6 rounded-2xl shadow-lg">
                  <h3 className="font-serif text-xl flex items-center gap-2 mb-4">
                     <BrainCircuit className="text-purple-400" size={20} /> Deep Engagement Metrics
@@ -334,8 +330,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           </div>
       )}
 
+      {/* Leads and Trends View Code Remains Unchanged for Brevity - It works because analytics/customers are fetched properly */}
       {activeView === 'leads' && (
           <div className="flex-1 bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+              {/* ... Same as existing file ... */}
               <div className="p-6 bg-stone-50 border-b border-stone-200 flex justify-between items-end">
                   <div>
                     <h3 className="font-serif text-2xl text-stone-800 flex items-center gap-2"><UserCheck className="text-gold-600" /> Customer Insights</h3>
@@ -386,9 +384,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
       {activeView === 'trends' && (
           <div className="flex-1 bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
-              <div className="p-6 bg-stone-50 border-b border-stone-200">
+               {/* ... Same as existing file ... */}
+               <div className="p-6 bg-stone-50 border-b border-stone-200">
                   <h3 className="font-serif text-2xl text-stone-800 flex items-center gap-2"><TrendingUp className="text-gold-600" /> Market Trends</h3>
-                  <p className="text-stone-500 text-sm mt-1">Top performing jewelry based on customer engagement (Views, Likes, Inquiries).</p>
+                  <p className="text-stone-500 text-sm mt-1">Top performing jewelry based on customer engagement.</p>
               </div>
               <div className="flex-1 overflow-y-auto p-6 bg-stone-50/50">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
