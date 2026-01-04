@@ -24,6 +24,8 @@ export const ProductDetails: React.FC = () => {
   
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
@@ -56,6 +58,7 @@ export const ProductDetails: React.FC = () => {
   useEffect(() => {
     // Reset state on ID change
     setCurrentImageIndex(0);
+    setSlideDirection(null);
     entryTime.current = Date.now();
     
     // Check for FullScreen navigation intent (Reels style browsing)
@@ -450,37 +453,28 @@ export const ProductDetails: React.FC = () => {
     if (!touchStart.current) return;
     const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
     const dx = touchEnd.x - touchStart.current.x;
-    const dy = touchEnd.y - touchStart.current.y;
 
     // Minimum swipe threshold
-    if (Math.abs(dx) > 50 || Math.abs(dy) > 50) {
+    if (Math.abs(dx) > 50) {
         if (pendingEnhancedImage) return; 
         
-        // Check if swipe is horizontal (Image Nav) or vertical (Product Nav)
-        if (Math.abs(dx) > Math.abs(dy)) {
-            // Horizontal Swipe
-            const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
-            if (isOnImage && productImages.length > 1) {
-                if (dx > 0) {
-                    // Swipe Right -> Prev Image
-                    if (currentImageIndex > 0) setCurrentImageIndex(prev => prev - 1);
-                } else {
-                    // Swipe Left -> Next Image
-                    if (currentImageIndex < productImages.length - 1) setCurrentImageIndex(prev => prev + 1);
+        // Horizontal Swipe logic only for images (removed vertical product nav)
+        const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
+        if (isOnImage && productImages.length > 1) {
+            if (dx > 0) {
+                // Swipe Right -> Prev Image
+                if (currentImageIndex > 0) {
+                    setSlideDirection('right');
+                    setCurrentImageIndex(prev => prev - 1);
+                    if (navigator.vibrate) navigator.vibrate(10);
                 }
-            }
-        } else {
-            // Vertical Swipe (Reels Style Product Nav)
-            // Ensure this only triggers on the image area to avoid scrolling page issues
-            const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
-            if (isOnImage) {
-                 if (dy < 0) {
-                    // Swipe Up -> Next Product
-                    if (hasNext) goToNext();
-                 } else {
-                    // Swipe Down -> Prev Product
-                    if (hasPrev) goToPrev();
-                 }
+            } else {
+                // Swipe Left -> Next Image
+                if (currentImageIndex < productImages.length - 1) {
+                    setSlideDirection('left');
+                    setCurrentImageIndex(prev => prev + 1);
+                    if (navigator.vibrate) navigator.vibrate(10);
+                }
             }
         }
     }
@@ -538,8 +532,9 @@ export const ProductDetails: React.FC = () => {
           >
             {displayPreview && (
               <img 
+                key={currentImageIndex} // Trigger animation on change
                 src={displayPreview} 
-                className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''}`} 
+                className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''} ${slideDirection === 'left' ? 'animate-in slide-in-from-right duration-300' : slideDirection === 'right' ? 'animate-in slide-in-from-left duration-300' : ''}`} 
                 style={{ imageRendering: '-webkit-optimize-contrast' }}
                 onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} 
                 onError={(e) => {
@@ -592,7 +587,11 @@ export const ProductDetails: React.FC = () => {
                             {productImages.map((_, idx) => (
                                 <button
                                     key={idx}
-                                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setSlideDirection(idx > currentImageIndex ? 'left' : 'right');
+                                        setCurrentImageIndex(idx); 
+                                    }}
                                     className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-6 bg-gold-500 shadow-sm' : 'w-1.5 bg-white/60'}`}
                                 />
                             ))}
