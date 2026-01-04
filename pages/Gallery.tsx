@@ -29,7 +29,6 @@ export const Gallery: React.FC = () => {
   const isGuest = !user;
 
   // Handle Shared Link Access (from location OR session storage)
-  // restrictedCategory: Forces the view to this category if user is Guest (Jail Mode)
   const sharedCategoryState = (location.state as any)?.sharedCategory;
   const restrictedCategory = isGuest ? sharedCategoryState : null;
   
@@ -37,11 +36,9 @@ export const Gallery: React.FC = () => {
   const sharedCategory = restrictedCategory || (unlockedCategories.includes(activeCategory) ? activeCategory : null);
 
   useEffect(() => {
-    // If restricted, force the category active
     if (restrictedCategory) {
         setActiveCategory(restrictedCategory);
     } else if (sharedCategoryState) {
-        // If logged in but following a link, just switch to it once
         setActiveCategory(sharedCategoryState);
     }
   }, [restrictedCategory, sharedCategoryState]);
@@ -73,31 +70,65 @@ export const Gallery: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Compute available categories from Config (preferred) or Products (fallback)
+  // Compute available categories based on Privacy Config
   const categoryList = useMemo(() => {
-    // If Restricted (Guest via Link), only show that category
     if (restrictedCategory) {
         return [restrictedCategory];
     }
 
     if (config?.categories && config.categories.length > 0) {
-        return ['All', ...config.categories.map(c => c.name)];
+        const visibleCats = config.categories
+            .filter(c => {
+                 // Check privacy with strict unlock logic
+                 const isUnlocked = unlockedCategories.includes(c.name) || (sharedCategoryState === c.name);
+                 if (c.isPrivate) {
+                     return isAdmin || isUnlocked;
+                 }
+                 return true;
+            })
+            .map(c => c.name);
+            
+        return ['All', ...visibleCats];
     }
+    
+    // Fallback only if config is completely missing (should rarely happen)
+    // If config loaded but empty, it means no categories defined, so fallback is valid.
     const cats = new Set(products.map(p => p.category));
     return ['All', ...Array.from(cats)];
-  }, [products, config, restrictedCategory]);
+  }, [products, config, restrictedCategory, isAdmin, unlockedCategories, sharedCategoryState]);
+
+  // Helper to check product visibility
+  const isProductVisible = (p: Product) => {
+        // 1. Strict Category Restriction (Guest Link)
+        if (restrictedCategory && p.category !== restrictedCategory) return false;
+
+        // 2. Admin Superuser
+        if (isAdmin) return true;
+
+        // 3. Category Privacy Check
+        // Normalize comparison to prevent case/whitespace bypass
+        const catConfig = config?.categories.find(c => c.name.trim().toLowerCase() === p.category.trim().toLowerCase());
+        const isCatPrivate = catConfig?.isPrivate || false;
+        
+        const isUnlocked = unlockedCategories.includes(p.category) || (sharedCategoryState && p.category === sharedCategoryState);
+
+        if (isCatPrivate && !isUnlocked) return false;
+        
+        // 4. Individual Product Hiding
+        if (p.isHidden) return false;
+
+        return true;
+  };
 
   // Compute sub-categories for active category
   const subCategoryList = useMemo(() => {
       if (activeCategory === 'All') return [];
       
-      // Try finding in config
       const catConfig = config?.categories.find(c => c.name === activeCategory);
       if (catConfig && catConfig.subCategories.length > 0) {
           return ['All', ...catConfig.subCategories];
       }
 
-      // Fallback to products
       const subs = new Set(products.filter(p => p.category === activeCategory).map(p => p.subCategory).filter(Boolean));
       if (subs.size > 0) return ['All', ...Array.from(subs)];
       
@@ -107,9 +138,7 @@ export const Gallery: React.FC = () => {
   // --- Segmentation Logic ---
 
   const { trending, recent, desired, purchased, browseAll } = useMemo(() => {
-    // 1. Calculate Scores
     const scores: Record<string, { views: number, likes: number, inquiries: number, sold: number, score: number }> = {};
-    
     products.forEach(p => {
         scores[p.id] = { views: 0, likes: 0, inquiries: 0, sold: 0, score: 0 };
     });
@@ -122,48 +151,31 @@ export const Gallery: React.FC = () => {
         if (e.type === 'sold') scores[e.productId].sold++;
     });
 
-    // Calculate composite score for Trending
     Object.keys(scores).forEach(id => {
         const s = scores[id];
-        // Weighting: Sold(10) > Inquiry(5) > Like(2) > View(0.5)
         s.score = (s.sold * 10) + (s.inquiries * 5) + (s.likes * 2) + (s.views * 0.5);
     });
 
-    // Helper to filter hidden/private unless admin OR unlocked by share
-    // We check if the product category matches any unlocked category
-    const availableProducts = products.filter(p => {
-        // Strict Filter: If restricted, ONLY show restricted category
-        if (restrictedCategory && p.category !== restrictedCategory) return false;
-
-        const isUnlocked = unlockedCategories.includes(p.category) || (sharedCategoryState && p.category === sharedCategoryState);
-        return !p.isHidden || isAdmin || isUnlocked;
-    });
+    // Apply Visibility Filter
+    const availableProducts = products.filter(isProductVisible);
     const featuredIds = new Set<string>();
 
-    // 2. Define Groups
-    
-    // A. Trending (Top 10 by Score)
     const sortedByTrend = [...availableProducts].sort((a, b) => scores[b.id].score - scores[a.id].score);
     const trendingList = sortedByTrend.slice(0, 10);
     trendingList.forEach(p => featuredIds.add(p.id));
 
-    // B. Recently Added (Top 10 by Date)
     const sortedByDate = [...availableProducts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const recentList = sortedByDate.slice(0, 10);
     recentList.forEach(p => featuredIds.add(p.id));
 
-    // C. Most Desire (Top 10 by Inquiry)
     const sortedByDesire = [...availableProducts].sort((a, b) => scores[b.id].inquiries - scores[a.id].inquiries);
     const desiredList = sortedByDesire.filter(p => scores[p.id].inquiries > 0).slice(0, 10);
     desiredList.forEach(p => featuredIds.add(p.id));
 
-    // D. Most Purchased (Top 10 by Sold)
     const sortedBySold = [...availableProducts].sort((a, b) => scores[b.id].sold - scores[a.id].sold);
     const purchasedList = sortedBySold.filter(p => scores[p.id].sold > 0).slice(0, 10);
     purchasedList.forEach(p => featuredIds.add(p.id));
 
-    // E. Browse All (Remaining)
-    // Filter out ANY product that appeared in the lists above
     const remaining = sortedByDate.filter(p => !featuredIds.has(p.id));
 
     return {
@@ -173,56 +185,41 @@ export const Gallery: React.FC = () => {
         purchased: purchasedList,
         browseAll: remaining
     };
-  }, [products, analytics, isAdmin, sharedCategoryState, unlockedCategories, restrictedCategory]);
+  }, [products, analytics, config, restrictedCategory, isAdmin, unlockedCategories, sharedCategoryState]); // Dependency on isProductVisible (which depends on config/isAdmin)
 
 
-  // Determine if we are in "Search/Filter Mode" or "Dashboard Mode"
-  // If we arrived via a shared link (restricted), we force filtering mode
   const isFiltering = search.length > 0 || activeCategory !== 'All' || activeSubCategory !== 'All' || !!restrictedCategory;
 
-  // Get current viewable products based on mode
   const currentViewProducts = useMemo(() => {
       if (isFiltering) {
           return products.filter(p => {
-            // If restricted, force category match
-            if (restrictedCategory && p.category !== restrictedCategory) return false;
+            // Apply Base Visibility First
+            if (!isProductVisible(p)) return false;
 
             const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
             const matchesSubCategory = activeSubCategory === 'All' || !p.subCategory || p.subCategory === activeSubCategory;
             const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
             
-            // Visibility Rule: Visible if Public OR Admin OR (Private AND Category is Shared/Unlocked)
-            const isUnlocked = unlockedCategories.includes(p.category) || (sharedCategoryState && p.category === sharedCategoryState);
-            const visible = !p.isHidden || isAdmin || isUnlocked;
-            
-            return matchesCategory && matchesSubCategory && matchesSearch && visible;
+            return matchesCategory && matchesSubCategory && matchesSearch;
           });
       }
-      return []; // Not used in dashboard mode
-  }, [isFiltering, products, activeCategory, activeSubCategory, search, isAdmin, sharedCategoryState, unlockedCategories, restrictedCategory]);
+      return []; 
+  }, [isFiltering, products, activeCategory, activeSubCategory, search, config, isAdmin, restrictedCategory]);
 
-  // Guest Logic
   const handleGuestInteraction = () => {
       if (confirm("Unlock our full bespoke collection?\n\nLogin securely with WhatsApp to view all 500+ designs and live pricing.")) {
           navigate('/login');
       }
   };
 
-  // Clear Filter Handler
   const handleClearFilters = () => {
       setSearch('');
       setActiveSubCategory('All');
-      // If restricted, DO NOT reset category to All
-      if (!restrictedCategory) {
-          setActiveCategory('All');
-      }
+      if (!restrictedCategory) setActiveCategory('All');
   };
 
-  // Smart Navigation Handler to preserve restricted context
   const navigateToProduct = (productId: string) => {
-      navigate(`/product/${productId}`, { 
-          state: { sharedCategory: restrictedCategory } 
-      });
+      navigate(`/product/${productId}`, { state: { sharedCategory: restrictedCategory } });
   };
 
   if (isLoading) {
@@ -255,7 +252,7 @@ export const Gallery: React.FC = () => {
           ))}
           {items.length === 0 && (
               <div className="w-full text-center py-10 text-stone-400 text-sm italic bg-stone-100/50 rounded-xl border border-dashed border-stone-200">
-                  Coming soon...
+                  {isAdmin ? "No items found in this section." : "Restricted or Empty Collection"}
               </div>
           )}
       </div>
@@ -263,7 +260,7 @@ export const Gallery: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20 md:pt-16">
-      {/* Sticky Header with Search and Navigation */}
+      {/* Sticky Header */}
       <div className="sticky top-0 md:top-16 bg-white/80 backdrop-blur-md border-b border-stone-200 z-40">
         <div className="max-w-7xl mx-auto flex flex-col gap-2 p-2">
             <div className="px-2 md:px-6 h-12 flex items-center justify-between gap-4">
@@ -294,7 +291,6 @@ export const Gallery: React.FC = () => {
                 </div>
             </div>
 
-            {/* Category Navigation (Visible on Mobile & Desktop) */}
             <div className={`flex gap-2 overflow-x-auto scrollbar-hide px-2 md:px-6 pb-2 transition-opacity ${isGuest && !sharedCategory ? 'opacity-50 pointer-events-none' : ''}`}>
                 {categoryList.map(cat => (
                 <button
@@ -309,7 +305,6 @@ export const Gallery: React.FC = () => {
                 ))}
             </div>
 
-            {/* Sub-Category Navigation (Conditional) */}
             {activeCategory !== 'All' && subCategoryList.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto scrollbar-hide px-2 md:px-6 pb-2 border-t border-stone-100 pt-2 bg-stone-50/50">
                     <span className="text-[10px] uppercase font-bold text-stone-400 self-center mr-2">Filter:</span>
@@ -332,8 +327,6 @@ export const Gallery: React.FC = () => {
       </div>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
-        
-        {/* Guest/Shared Banner */}
         {isGuest && (
             <div className={`mb-8 p-4 rounded-2xl flex items-center justify-between shadow-xl animate-in fade-in slide-in-from-top-4 ${sharedCategory ? 'bg-green-800 text-white' : 'bg-stone-900 text-white'}`}>
                 <div className="flex items-center gap-3">
@@ -354,23 +347,15 @@ export const Gallery: React.FC = () => {
         )}
 
         {isFiltering ? (
-            /* --- FILTERED GRID VIEW --- */
             <>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="font-serif text-xl text-stone-800">
                         {activeCategory === 'All' ? (search ? 'Search Results' : 'All Products') : activeCategory}
                         {activeSubCategory !== 'All' && <span className="text-stone-400 font-light"> / {activeSubCategory}</span>}
                     </h2>
-                    {/* Hide clear button if restricted and no other filters active, or modify behavior */}
-                    {(search || activeSubCategory !== 'All') && (
+                    {(search || activeSubCategory !== 'All' || activeCategory !== 'All') && !restrictedCategory && (
                         <button onClick={handleClearFilters} className="text-xs text-red-400 font-bold uppercase hover:text-red-600 flex items-center gap-1">
                             <X size={14}/> Clear
-                        </button>
-                    )}
-                    {/* Standard Clear for non-restricted */}
-                    {!restrictedCategory && !search && activeSubCategory === 'All' && activeCategory !== 'All' && (
-                         <button onClick={handleClearFilters} className="text-xs text-red-400 font-bold uppercase hover:text-red-600 flex items-center gap-1">
-                            <X size={14}/> Show All
                         </button>
                     )}
                 </div>
@@ -393,16 +378,12 @@ export const Gallery: React.FC = () => {
                 </div>
             </>
         ) : (
-            /* --- DASHBOARD SECTIONS VIEW --- */
             <div className="space-y-8 animate-in fade-in duration-500">
-                
-                {/* 1. Trending (Limited for Guests) */}
                 <section>
                     <SectionHeader icon={TrendingUp} title="Trending Now" subtitle="Most Engaged Designs" />
                     <HorizontalScroll items={isGuest && !sharedCategory ? trending.slice(0, 4) : trending} />
                 </section>
                 
-                {/* GUEST LOCK WALL: Hides all other sections if not unlocked */}
                 {isGuest && !sharedCategory ? (
                    <div className="relative mt-8 py-16 text-center border-t border-stone-200 overflow-hidden rounded-3xl bg-stone-100/50">
                        <div className="absolute inset-0 bg-white/40 backdrop-blur-md z-10 flex flex-col items-center justify-center p-6">
@@ -421,16 +402,9 @@ export const Gallery: React.FC = () => {
                            <p className="mt-6 text-[10px] text-stone-400 uppercase tracking-widest font-bold">Verified by WhatsApp</p>
                        </div>
                        
-                       {/* Fake Blurred Background Content to simulate depth */}
                        <div className="opacity-30 pointer-events-none filter blur-sm select-none grayscale flex flex-col gap-8">
                            <div>
                                <SectionHeader icon={Clock} title="Fresh Arrivals" subtitle="Just Added" />
-                               <div className="flex gap-4 px-4 overflow-hidden">
-                                   {[1,2,3,4].map(i => <div key={i} className="min-w-[280px] h-[350px] bg-stone-300 rounded-xl" />)}
-                               </div>
-                           </div>
-                           <div>
-                               <SectionHeader icon={Gem} title="Royal Collection" subtitle="Premium Sets" />
                                <div className="flex gap-4 px-4 overflow-hidden">
                                    {[1,2,3,4].map(i => <div key={i} className="min-w-[280px] h-[350px] bg-stone-300 rounded-xl" />)}
                                </div>
@@ -439,25 +413,21 @@ export const Gallery: React.FC = () => {
                    </div>
                 ) : (
                     <>
-                        {/* 2. Recently Added */}
                         <section>
                             <SectionHeader icon={Clock} title="Fresh Arrivals" subtitle="Just Added to Vault" />
                             <HorizontalScroll items={recent} />
                         </section>
 
-                        {/* 3. Most Desired */}
                         <section>
                             <SectionHeader icon={ShoppingBag} title="Most Desired" subtitle="High Inquiry Volume" />
                             <HorizontalScroll items={desired} />
                         </section>
 
-                        {/* 4. Most Purchased */}
                         <section>
                             <SectionHeader icon={Gem} title="Sanghavi Icons" subtitle="Most Purchased Collections" />
                             <HorizontalScroll items={purchased} />
                         </section>
 
-                        {/* 5. Browse All (Paginated) */}
                         <section id="browse-all" className="pt-8 border-t border-stone-200 mt-8">
                             <div className="flex items-center justify-between mb-6">
                                 <SectionHeader icon={Grid} title="Browse Collection" subtitle="Explore Full Catalog" />
@@ -474,7 +444,6 @@ export const Gallery: React.FC = () => {
                                 ))}
                             </div>
 
-                            {/* Pagination Controls */}
                             {browseAll.length > ITEMS_PER_PAGE && (
                                 <div className="flex justify-center gap-4 mt-12">
                                     <button 
@@ -499,29 +468,9 @@ export const Gallery: React.FC = () => {
                         </section>
                     </>
                 )}
-
             </div>
         )}
       </main>
-
-      {/* Sticky Bottom CTA for Guests (Hidden if Shared View active) */}
-      {isGuest && !sharedCategory && (
-          <div className="fixed bottom-[70px] md:bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-auto z-50">
-              <button 
-                onClick={() => navigate('/login')}
-                className="w-full md:w-auto bg-stone-900/95 backdrop-blur text-white pl-4 pr-6 py-3 rounded-full shadow-2xl flex items-center justify-between md:justify-center gap-4 border border-stone-700 animate-in slide-in-from-bottom-10"
-              >
-                  <div className="flex items-center gap-3">
-                      <div className="bg-green-500 p-1.5 rounded-full"><UserPlus size={14} className="text-white"/></div>
-                      <div className="text-left">
-                          <p className="text-xs font-bold text-gold-500">Don't miss out</p>
-                          <p className="text-[10px] text-stone-400">Join 1,200+ clients viewing live collections.</p>
-                      </div>
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-widest bg-white text-stone-900 px-3 py-1 rounded-lg">Register</span>
-              </button>
-          </div>
-      )}
     </div>
   );
 };
