@@ -6,7 +6,7 @@ import { Product, AnalyticsEvent, User } from '../types';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -36,19 +36,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     if (!background) setLoading(true);
     else setIsSyncing(true);
     try {
-        const [p, a, c, h, intel] = await Promise.all([
-          storeService.getProducts(),
-          storeService.getAnalytics(),
-          storeService.getCustomers(),
-          storeService.checkServerHealth(),
-          storeService.getBusinessIntelligence()
-        ]);
-        setProducts(p);
-        setAnalytics(a);
-        setCustomers(c);
+        const h = await storeService.checkServerHealth();
         setHealthInfo(h);
-        setIntelligence(intel);
-    } catch (e) {}
+        
+        if (h.healthy) {
+            const [p, a, c, intel] = await Promise.all([
+              storeService.getProducts(1, 1000).then(res => res.items), // Fetch up to 1000 for admin view
+              storeService.getAnalytics(),
+              storeService.getCustomers(),
+              storeService.getBusinessIntelligence()
+            ]);
+            setProducts(p);
+            setAnalytics(a);
+            setCustomers(c);
+            setIntelligence(intel);
+        }
+    } catch (e) {
+        console.error("Dashboard Sync Failed", e);
+    }
     setLoading(false);
     setIsSyncing(false);
   };
@@ -118,10 +123,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       }
   };
 
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
-      <div className="h-screen flex items-center justify-center bg-stone-50">
-        <Loader2 className="animate-spin text-gold-500" size={32} />
+      <div className="h-screen flex flex-col items-center justify-center bg-stone-50">
+        <Loader2 className="animate-spin text-gold-500 mb-4" size={32} />
+        <p className="text-stone-400 text-xs uppercase tracking-widest">Connecting to Vault...</p>
       </div>
     );
   }
@@ -133,11 +139,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
            <div>
               <h2 className="font-serif text-3xl text-stone-900">Vault Administration</h2>
               <div className="flex items-center gap-2 mt-1">
-                 <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-green-500' : 'bg-red-500'}`} />
+                 <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
                  <p className="text-stone-500 text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
-                    {healthInfo.healthy ? 'Live SQL Synchronized' : 'Vault Offline'}
+                    {healthInfo.healthy ? 'Live SQL Synchronized' : 'DB Disconnected - Retrying...'}
                     {isSyncing && <RefreshCw size={10} className="animate-spin text-gold-500" />}
                  </p>
+                 {!healthInfo.healthy && (
+                     <button onClick={() => refreshData()} className="ml-2 text-[10px] text-red-500 hover:text-red-700 font-bold underline flex items-center gap-1">
+                         <RefreshCw size={10} /> Force Reconnect
+                     </button>
+                 )}
               </div>
            </div>
         </div>
@@ -164,6 +175,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         </div>
       </header>
 
+      {!healthInfo.healthy && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+              <AlertTriangle size={20} />
+              <div>
+                  <p className="font-bold text-sm">Connection Lost</p>
+                  <p className="text-xs">The application cannot reach the MySQL database. We are attempting to reconnect automatically. If this persists, please check your network or server logs.</p>
+              </div>
+          </div>
+      )}
+
       {activeView === 'overview' && (
           <div className="flex-1 space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
@@ -173,7 +194,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
                     <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><Database size={24} /></div>
-                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Integrity</p><p className="text-2xl font-bold text-stone-800">100%</p></div>
+                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Integrity</p><p className="text-2xl font-bold text-stone-800">{healthInfo.healthy ? '100%' : 'Offline'}</p></div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
                     <div className="p-3 bg-green-50 text-green-600 rounded-xl"><UserCheck size={24} /></div>
@@ -187,6 +208,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           </div>
       )}
 
+      {/* ... (Rest of the component remains unchanged, only top section updated) ... */}
       {activeView === 'intelligence' && intelligence && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             {/* 1. Spending Power Prediction */}

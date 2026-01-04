@@ -23,6 +23,28 @@ const KEYS = {
   UNLOCKED_CATS: 'sanghavi_unlocked_cats'
 };
 
+// Helper for safe local storage parsing
+const safeJsonParse = <T>(key: string, fallback: T): T => {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : fallback;
+    } catch (e) {
+        console.warn(`[Store] Corrupted data for ${key}, resetting.`, e);
+        localStorage.removeItem(key);
+        return fallback;
+    }
+};
+
+const safeSessionParse = <T>(key: string, fallback: T): T => {
+    try {
+        const item = sessionStorage.getItem(key);
+        return item ? JSON.parse(item) : fallback;
+    } catch (e) {
+        sessionStorage.removeItem(key);
+        return fallback;
+    }
+}
+
 export interface HealthStatus {
     healthy: boolean;
     reason?: string;
@@ -46,10 +68,8 @@ export interface PaginatedResponse<T> {
     };
 }
 
-// Global Cache State removed for products to support pagination and lightweight fetches
 let _lastFetchTime: number = 0;
 
-// Increased timeout to 45s for production robustness
 async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 45000) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), customTimeout);
@@ -82,7 +102,6 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeo
     }
 }
 
-// Helper to scrape deeper device info
 const getDeepDeviceInfo = () => {
     const ua = navigator.userAgent;
     let os = 'Unknown';
@@ -125,13 +144,11 @@ export const storeService = {
     };
   },
 
-  // OPTIMIZED: Supports Pagination logic
   getProducts: async (page = 1, limit = 20): Promise<PaginatedResponse<Product>> => {
     try {
       const data = await apiFetch(`/products?page=${page}&limit=${limit}`);
       
       const items = (data.items || []).map((p: any) => {
-          // Normalize Lite Data
           if (!Array.isArray(p.images)) p.images = [];
           if (!Array.isArray(p.thumbnails)) p.thumbnails = [];
           return p as Product;
@@ -147,7 +164,6 @@ export const storeService = {
     }
   },
 
-  // NEW: Fetch single product details
   getProductById: async (id: string): Promise<Product | null> => {
       try {
           const data = await apiFetch(`/products/${id}`);
@@ -212,8 +228,7 @@ export const storeService = {
   },
 
   getCurrentUser: (): User | null => {
-    const data = localStorage.getItem(KEYS.SESSION);
-    return data ? JSON.parse(data) : null;
+    return safeJsonParse<User | null>(KEYS.SESSION, null);
   },
 
   logout: () => {
@@ -223,23 +238,19 @@ export const storeService = {
   },
 
   getLikes: (): string[] => {
-    const data = localStorage.getItem(KEYS.LIKES);
-    return data ? JSON.parse(data) : [];
+    return safeJsonParse<string[]>(KEYS.LIKES, []);
   },
 
   getDislikes: (): string[] => {
-    const data = localStorage.getItem(KEYS.DISLIKES);
-    return data ? JSON.parse(data) : [];
+    return safeJsonParse<string[]>(KEYS.DISLIKES, []);
   },
 
   getOwned: (): string[] => {
-    const data = localStorage.getItem(KEYS.OWNED);
-    return data ? JSON.parse(data) : [];
+    return safeJsonParse<string[]>(KEYS.OWNED, []);
   },
 
   getRequested: (): string[] => {
-    const data = localStorage.getItem(KEYS.REQUESTED);
-    return data ? JSON.parse(data) : [];
+    return safeJsonParse<string[]>(KEYS.REQUESTED, []);
   },
 
   toggleLike: (productId: string) => {
@@ -283,7 +294,7 @@ export const storeService = {
   },
 
   unlockCategory: (categoryId: string) => {
-      const current = JSON.parse(sessionStorage.getItem(KEYS.UNLOCKED_CATS) || '[]');
+      const current = safeSessionParse<string[]>(KEYS.UNLOCKED_CATS, []);
       if(!current.includes(categoryId)) {
           current.push(categoryId);
           sessionStorage.setItem(KEYS.UNLOCKED_CATS, JSON.stringify(current));
@@ -291,7 +302,7 @@ export const storeService = {
   },
 
   getUnlockedCategories: (): string[] => {
-      return JSON.parse(sessionStorage.getItem(KEYS.UNLOCKED_CATS) || '[]');
+      return safeSessionParse<string[]>(KEYS.UNLOCKED_CATS, []);
   },
 
   logEvent: async (type: AnalyticsEvent['type'], product?: Product, userOverride?: User | null, imageIndex?: number, duration?: number) => {

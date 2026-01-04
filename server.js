@@ -62,20 +62,18 @@ const dbConfig = {
     database: process.env.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
+    queueLimit: 0,
     enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
     timezone: 'Z' // Force UTC to avoid timezone drift
 };
 
 let pool;
 let dbStatus = { healthy: false, error: 'Initializing...' };
 
-const initDB = async () => {
+const createTables = async () => {
+    if (!pool) return;
     try {
-        pool = mysql.createPool(dbConfig);
-        await pool.query('SELECT 1');
-        dbStatus = { healthy: true, error: null };
-        console.log(`[Database] Secured connection to ${dbConfig.database}`);
-
         const tables = [
             `CREATE TABLE IF NOT EXISTS products (
                 id VARCHAR(255) PRIMARY KEY, title VARCHAR(255) NOT NULL, category VARCHAR(100),
@@ -92,7 +90,6 @@ const initDB = async () => {
                 pincode VARCHAR(20), lastLocation JSON, role VARCHAR(50), createdAt DATETIME
             )`,
             `CREATE TABLE IF NOT EXISTS app_config (id INT PRIMARY KEY DEFAULT 1, data JSON, CHECK (id = 1))`,
-            // Analytics table updated for deep tracking
             `CREATE TABLE IF NOT EXISTS analytics (
                 id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), 
                 productTitle VARCHAR(255), category VARCHAR(100), weight DECIMAL(10,3),
@@ -113,13 +110,50 @@ const initDB = async () => {
         try { await pool.query(`ALTER TABLE analytics ADD COLUMN meta JSON`); } catch (e) {}
         try { await pool.query(`ALTER TABLE analytics ADD COLUMN category VARCHAR(100)`); } catch (e) {}
         try { await pool.query(`ALTER TABLE analytics ADD COLUMN weight DECIMAL(10,3)`); } catch (e) {}
+        
+        console.log(`[Database] Schema synchronization complete.`);
+    } catch (err) {
+        console.error('[Database] Schema Error:', err.message);
+    }
+};
+
+const initDB = async () => {
+    try {
+        if (pool) await pool.end().catch(() => {}); // Close existing if retrying
+        
+        pool = mysql.createPool(dbConfig);
+        
+        // Test connection
+        await pool.query('SELECT 1');
+        
+        dbStatus = { healthy: true, error: null };
+        console.log(`[Database] Secured connection to ${dbConfig.database}`);
+        
+        await createTables();
 
     } catch (err) {
         console.error('[Database] Critical Failure:', err.message);
         dbStatus = { healthy: false, error: err.message };
+        
+        // Retry logic for unstable startups
+        setTimeout(initDB, 10000); 
     }
 };
+
+// Start DB
 initDB();
+
+// Keep-Alive Mechanism to prevent hostinger timeouts
+setInterval(async () => {
+    if (pool && dbStatus.healthy) {
+        try {
+            await pool.query('SELECT 1');
+        } catch (e) {
+            console.warn('[Database] Keep-alive failed, reconnecting...');
+            initDB();
+        }
+    }
+}, 60000); // Ping every minute
 
 const saveFile = async (base64, isThumb = false) => {
     if (!base64 || !base64.startsWith('data:image')) return base64;
@@ -144,23 +178,41 @@ const parseJson = (row, fields) => {
 
 // --- CORE API ENDPOINTS ---
 
-app.get('/api/health', (req, res) => res.json({ status: dbStatus.healthy ? 'online' : 'error', ...dbStatus }));
+// Dynamic Health Check
+app.get('/api/health', async (req, res) => {
+    try {
+        if (!pool) throw new Error('Pool not initialized');
+        await pool.query('SELECT 1');
+        dbStatus = { healthy: true, error: null }; // Update global status on success
+        res.json({ status: 'online', healthy: true });
+    } catch (err) {
+        dbStatus = { healthy: false, error: err.message };
+        // Try to trigger reconnect if it's down
+        if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.message.includes('Pool')) {
+            initDB(); 
+        }
+        res.json({ status: 'error', healthy: false, error: err.message });
+    }
+});
 
-// OPTIMIZED LIST ENDPOINT (Pagination & Lite Data)
+// Force Reconnect Endpoint (Admin util)
+app.post('/api/reconnect', async (req, res) => {
+    await initDB();
+    res.json(dbStatus);
+});
+
+// OPTIMIZED LIST ENDPOINT
 app.get('/api/products', async (req, res) => {
     try {
+        if (!dbStatus.healthy) throw new Error('Database disconnected');
+        
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
         
-        // Count total for pagination metadata
         const [countResult] = await pool.query('SELECT COUNT(*) as total FROM products');
         const totalItems = countResult[0].total;
 
-        // Fetch Lite Data (Exclude heavy 'images' and 'description' to save bandwidth)
-        // We select 'images' but will only return the first one if thumbnails are empty in application logic, 
-        // OR better, we select substring if it was text, but here it's JSON. 
-        // Ideally we select specific columns.
         const [rows] = await pool.query(
             `SELECT id, title, category, subCategory, weight, thumbnails, isHidden, createdAt, dateTaken 
              FROM products 
@@ -171,7 +223,6 @@ app.get('/api/products', async (req, res) => {
 
         const products = rows.map(r => {
             const p = parseJson(r, ['thumbnails']);
-            // Ensure thumbnails is array
             if (!Array.isArray(p.thumbnails)) p.thumbnails = [];
             return p;
         });
@@ -188,9 +239,9 @@ app.get('/api/products', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// SINGLE PRODUCT ENDPOINT (Full Data)
 app.get('/api/products/:id', async (req, res) => {
     try {
+        if (!dbStatus.healthy) throw new Error('Database disconnected');
         const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
         if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
         
@@ -249,70 +300,30 @@ app.get('/api/analytics', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// INTELLIGENCE ENGINE: Predictive & Collaborative Data
 app.get('/api/analytics/intelligence', async (req, res) => {
     try {
-        // 1. Spending Power Prediction (Avg Weight Interacted With)
         const [spendingRows] = await pool.query(`
-            SELECT 
-                c.pincode, 
-                AVG(a.weight) as avg_weight_interest,
-                COUNT(*) as interaction_count
-            FROM analytics a
-            JOIN customers c ON a.userId = c.id
+            SELECT c.pincode, AVG(a.weight) as avg_weight_interest, COUNT(*) as interaction_count
+            FROM analytics a JOIN customers c ON a.userId = c.id
             WHERE a.type IN ('like', 'inquiry', 'screenshot') AND a.weight > 0
-            GROUP BY c.pincode
-            HAVING interaction_count > 2
-            ORDER BY avg_weight_interest DESC
+            GROUP BY c.pincode HAVING interaction_count > 2 ORDER BY avg_weight_interest DESC
         `);
-
-        // 2. Category Demand by Region
         const [categoryRows] = await pool.query(`
-            SELECT 
-                c.pincode,
-                a.category,
-                COUNT(*) as demand_score
-            FROM analytics a
-            JOIN customers c ON a.userId = c.id
+            SELECT c.pincode, a.category, COUNT(*) as demand_score
+            FROM analytics a JOIN customers c ON a.userId = c.id
             WHERE a.type IN ('view', 'like', 'inquiry')
-            GROUP BY c.pincode, a.category
-            ORDER BY c.pincode, demand_score DESC
+            GROUP BY c.pincode, a.category ORDER BY c.pincode, demand_score DESC
         `);
-
-        // 3. Time Spent / Engagement Quality
         const [engagementRows] = await pool.query(`
-            SELECT 
-                a.productTitle,
-                AVG(a.duration) as avg_time_seconds,
-                SUM(CASE WHEN a.type = 'screenshot' THEN 1 ELSE 0 END) as screenshot_count
-            FROM analytics a
-            WHERE a.duration > 0 OR a.type = 'screenshot'
-            GROUP BY a.productTitle
-            ORDER BY avg_time_seconds DESC
-            LIMIT 20
+            SELECT productTitle, AVG(duration) as avg_time_seconds, SUM(CASE WHEN type = 'screenshot' THEN 1 ELSE 0 END) as screenshot_count
+            FROM analytics WHERE duration > 0 OR type = 'screenshot' GROUP BY productTitle ORDER BY avg_time_seconds DESC LIMIT 20
         `);
-
-        // 4. Device Demographics (Wealth Proxy)
         const [deviceRows] = await pool.query(`
-            SELECT 
-                JSON_UNQUOTE(JSON_EXTRACT(meta, '$.os')) as os,
-                COUNT(DISTINCT userId) as user_count
-            FROM analytics 
-            WHERE meta IS NOT NULL
-            GROUP BY os
+            SELECT JSON_UNQUOTE(JSON_EXTRACT(meta, '$.os')) as os, COUNT(DISTINCT userId) as user_count
+            FROM analytics WHERE meta IS NOT NULL GROUP BY os
         `);
-
-        res.json({
-            spendingPower: spendingRows,
-            regionalDemand: categoryRows,
-            engagement: engagementRows,
-            devices: deviceRows
-        });
-
-    } catch (err) { 
-        console.error(err);
-        res.status(500).json({ error: err.message }); 
-    }
+        res.json({ spendingPower: spendingRows, regionalDemand: categoryRows, engagement: engagementRows, devices: deviceRows });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/analytics', async (req, res) => {
@@ -320,34 +331,17 @@ app.post('/api/analytics', async (req, res) => {
         const e = req.body;
         await pool.query(
             'INSERT INTO analytics (id, type, productId, productTitle, category, weight, userId, userName, timestamp, duration, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?)', 
-            [
-                crypto.randomUUID(), e.type, e.productId, e.productTitle, e.category, e.weight, 
-                e.userId, e.userName, new Date(), e.duration || 0, JSON.stringify(e.meta || {})
-            ]
+            [crypto.randomUUID(), e.type, e.productId, e.productTitle, e.category, e.weight, e.userId, e.userName, new Date(), e.duration || 0, JSON.stringify(e.meta || {})]
         );
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// New Endpoint: Aggregated Stats per Product
 app.get('/api/stats/:productId', async (req, res) => {
     try {
-        const [rows] = await pool.query(
-            'SELECT type, COUNT(*) as count FROM analytics WHERE productId = ? GROUP BY type', 
-            [req.params.productId]
-        );
-        
-        const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0, sold: 0 };
-        // Map rows to object
-        rows.forEach(r => {
-            if (stats.hasOwnProperty(r.type)) {
-                stats[r.type] = r.count;
-            }
-            // Map legacy or specific events if needed
-            if (r.type === 'inquiry') stats.inquiry = r.count; // "Will Buy"
-            if (r.type === 'sold') stats.purchase = r.count;   // "Purchased"
-        });
-        
+        const [rows] = await pool.query('SELECT type, COUNT(*) as count FROM analytics WHERE productId = ? GROUP BY type', [req.params.productId]);
+        const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
+        rows.forEach(r => { if (stats.hasOwnProperty(r.type)) stats[r.type] = r.count; if (r.type === 'inquiry') stats.inquiry = r.count; if (r.type === 'sold') stats.purchase = r.count; });
         res.json(stats);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -377,10 +371,7 @@ app.get('/api/suggestions/:productId', async (req, res) => {
 app.post('/api/suggestions', async (req, res) => {
     try {
         const { productId, userId, userName, userPhone, suggestion } = req.body;
-        await pool.query(
-            'INSERT INTO suggestions (id, productId, userId, userName, userPhone, suggestion, createdAt) VALUES (?,?,?,?,?,?,?)', 
-            [crypto.randomUUID(), productId, userId, userName, userPhone, suggestion, new Date()]
-        );
+        await pool.query('INSERT INTO suggestions (id, productId, userId, userName, userPhone, suggestion, createdAt) VALUES (?,?,?,?,?,?,?)', [crypto.randomUUID(), productId, userId, userName, userPhone, suggestion, new Date()]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -388,56 +379,26 @@ app.post('/api/suggestions', async (req, res) => {
 app.post('/api/shared-links', async (req, res) => {
     try {
         const { targetId, type } = req.body;
-        
-        // Fetch expiry configuration from app_config
         const [configRows] = await pool.query('SELECT data FROM app_config WHERE id=1');
-        let expiryHours = 24; // Default to 24 hours
-        
-        if (configRows && configRows.length > 0) {
-            const rawData = configRows[0].data;
-            // Parse JSON if returned as string (mysql2 behavior depends on version/config)
-            const configData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-            
-            if (configData && configData.linkExpiryHours) {
-                const configuredHours = parseFloat(configData.linkExpiryHours);
-                if (!isNaN(configuredHours) && configuredHours > 0) {
-                    expiryHours = configuredHours;
-                }
-            }
+        let expiryHours = 24;
+        if (configRows?.[0]?.data) {
+            const d = typeof configRows[0].data === 'string' ? JSON.parse(configRows[0].data) : configRows[0].data;
+            if (d.linkExpiryHours) expiryHours = d.linkExpiryHours;
         }
-
         const token = crypto.randomBytes(16).toString('hex');
         const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
-        
         await pool.query('INSERT INTO shared_links (id, targetId, type, token, expiresAt) VALUES (?,?,?,?,?)', [crypto.randomUUID(), targetId, type, token, expiresAt]);
         res.json({ token, expiresAt });
-    } catch (err) { 
-        console.error("Link Generation Error:", err);
-        res.status(500).json({ error: err.message }); 
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// VALIDATE SHARED LINK
 app.get('/api/shared-links/:token', async (req, res) => {
     try {
-        // Select without checking expiresAt in SQL to avoid timezone mismatch
         const [rows] = await pool.query('SELECT * FROM shared_links WHERE token=?', [req.params.token]);
-        
-        if (!rows || rows.length === 0) {
-            return res.status(404).json({ error: 'Link invalid or not found' });
-        }
-
-        const link = rows[0];
-        // Perform expiration check in application logic (Node.js) where Timezone is consistent
-        if (new Date() > new Date(link.expiresAt)) {
-            return res.status(410).json({ error: 'Link expired' });
-        }
-
-        res.json(link);
-    } catch (err) { 
-        console.error("Shared Link Error:", err);
-        res.status(500).json({ error: err.message }); 
-    }
+        if (!rows[0]) return res.status(404).json({ error: 'Link invalid' });
+        if (new Date() > new Date(rows[0].expiresAt)) return res.status(410).json({ error: 'Link expired' });
+        res.json(rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/config', async (req, res) => {
@@ -474,27 +435,17 @@ app.post('/api/auth/whatsapp', async (req, res) => {
     try {
         const { phone, name, pincode, location } = req.body;
         const [rows] = await pool.query('SELECT * FROM customers WHERE phone=?', [phone]);
-        
         let user;
         if (rows[0]) {
-            // Update existing user with new info if provided, AND update location
             user = rows[0];
-            const updates = [];
-            const values = [];
-
+            const updates = []; const values = [];
             if (name) { updates.push('name=?'); values.push(name); user.name = name; }
             if (pincode) { updates.push('pincode=?'); values.push(pincode); user.pincode = pincode; }
             if (location) { updates.push('lastLocation=?'); values.push(JSON.stringify(location)); }
-            
-            if (updates.length > 0) {
-                values.push(user.id);
-                await pool.query(`UPDATE customers SET ${updates.join(', ')} WHERE id=?`, values);
-            }
+            if (updates.length > 0) { values.push(user.id); await pool.query(`UPDATE customers SET ${updates.join(', ')} WHERE id=?`, values); }
         } else {
-            // Create new user
             user = { id: crypto.randomUUID(), phone, name: name || `Client ${phone.slice(-4)}`, pincode: pincode || '', role: 'customer', createdAt: new Date() };
-            await pool.query('INSERT INTO customers (id, phone, name, pincode, lastLocation, role, createdAt) VALUES (?,?,?,?,?,?,?)', 
-                [user.id, user.phone, user.name, user.pincode, JSON.stringify(location || {}), user.role, user.createdAt]);
+            await pool.query('INSERT INTO customers (id, phone, name, pincode, lastLocation, role, createdAt) VALUES (?,?,?,?,?,?,?)', [user.id, user.phone, user.name, user.pincode, JSON.stringify(location || {}), user.role, user.createdAt]);
         }
         res.json(user);
     } catch (err) { res.status(500).json({ error: err.message }); }
