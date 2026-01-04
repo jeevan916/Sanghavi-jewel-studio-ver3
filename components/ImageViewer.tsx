@@ -64,6 +64,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation(); // Prevent bubbling to parent Page
     if (e.touches.length === 2) {
       // Pinch start
       initialPinchDistance.current = getDistance(e.touches);
@@ -78,6 +79,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation(); // Prevent bubbling to parent Page
     if (e.touches.length === 2 && initialPinchDistance.current !== null) {
       // Handle Pinch
       e.preventDefault();
@@ -104,6 +106,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation(); // Prevent bubbling to parent Page
     if (e.touches.length < 2) {
       initialPinchDistance.current = null;
     }
@@ -248,7 +251,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             </button>
             <div className="flex flex-col items-center justify-center min-w-[60px]">
                 <span className="text-xs font-mono font-bold">{Math.round(scale * 100)}%</span>
-                <div className="w-8 h-0.5 bg-gold-500 rounded-full mt-0.5"></div>
+                <div className="w-8 h-0.5 bg-gold-50 rounded-full mt-0.5"></div>
             </div>
             <button 
               onClick={() => setScale(s => Math.min(5, s + 0.5))} 

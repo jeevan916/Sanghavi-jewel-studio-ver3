@@ -48,12 +48,15 @@ export const ProductDetails: React.FC = () => {
   // Live Stats
   const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, purchase: 0 });
 
-  const touchStart = useRef<{ x: number, y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
-  // Time Tracking Refs
+  // Time Tracking & Touch Refs
   const entryTime = useRef<number>(Date.now());
   const longPressTimer = useRef<any>(null);
+  
+  // Separate touch trackers to avoid collisions
+  const pageTouchStart = useRef<{ x: number, y: number } | null>(null);
+  const imageTouchStart = useRef<{ x: number, y: number } | null>(null);
 
   // Navigation Direction State for Page Transition
   const navDirection = location.state?.direction || 'none';
@@ -477,67 +480,88 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  // Advanced Touch Tracking (Long Press for Desire Detection & Global Page Swipe)
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    
-    // Start Long Press Timer (700ms) - proxy for "Save Image" on mobile
-    longPressTimer.current = setTimeout(() => {
-        if(product) storeService.logEvent('long_press', product, currentUser, currentImageIndex);
-    }, 700);
+  // --- SPLIT TOUCH HANDLERS START ---
+
+  // 1. IMAGE TOUCH HANDLERS (Stop Propagation to prevent page navigation)
+  const handleImageTouchStart = (e: React.TouchEvent) => {
+      e.stopPropagation(); // CRITICAL: Prevents Page Swipe
+      imageTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      
+      // Start Long Press Timer (700ms) - proxy for "Save Image" on mobile
+      longPressTimer.current = setTimeout(() => {
+          if(product) storeService.logEvent('long_press', product, currentUser, currentImageIndex);
+      }, 700);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    // Cancel long press if finger lifted early
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  const handleImageTouchEnd = (e: React.TouchEvent) => {
+      e.stopPropagation(); // CRITICAL: Prevents Page Swipe
+      
+      // Cancel long press if finger lifted early
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
 
-    if (!touchStart.current) return;
+      if (!imageTouchStart.current) return;
+      const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+      const dx = touchEnd.x - imageTouchStart.current.x;
+      const dy = touchEnd.y - imageTouchStart.current.y;
+
+      // Minimum swipe threshold && Horizontal dominance check
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+          if (pendingEnhancedImage) return; 
+          
+          if (productImages.length > 1) {
+              if (dx > 0) {
+                  // Swipe Right -> Prev Image
+                  if (currentImageIndex > 0) {
+                      setImageSlideDirection('right');
+                      setCurrentImageIndex(prev => prev - 1);
+                      if (navigator.vibrate) navigator.vibrate(10);
+                  }
+              } else {
+                  // Swipe Left -> Next Image
+                  if (currentImageIndex < productImages.length - 1) {
+                      setImageSlideDirection('left');
+                      setCurrentImageIndex(prev => prev + 1);
+                      if (navigator.vibrate) navigator.vibrate(10);
+                  }
+              }
+          }
+      }
+      imageTouchStart.current = null;
+  };
+
+  // 2. PAGE TOUCH HANDLERS (Handles Product Navigation)
+  const handlePageTouchStart = (e: React.TouchEvent) => {
+    pageTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handlePageTouchEnd = (e: React.TouchEvent) => {
+    if (!pageTouchStart.current) return;
     const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-    const dx = touchEnd.x - touchStart.current.x;
-    const dy = touchEnd.y - touchStart.current.y;
+    const dx = touchEnd.x - pageTouchStart.current.x;
+    const dy = touchEnd.y - pageTouchStart.current.y;
 
     // Minimum swipe threshold && Horizontal dominance check
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
         if (pendingEnhancedImage) return; 
         
-        const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
-        
-        // Priority: If swiping ON image, and multiple images exist, scroll images.
-        if (isOnImage && productImages.length > 1) {
-            if (dx > 0) {
-                // Swipe Right -> Prev Image
-                if (currentImageIndex > 0) {
-                    setImageSlideDirection('right');
-                    setCurrentImageIndex(prev => prev - 1);
-                    if (navigator.vibrate) navigator.vibrate(10);
-                }
-            } else {
-                // Swipe Left -> Next Image
-                if (currentImageIndex < productImages.length - 1) {
-                    setImageSlideDirection('left');
-                    setCurrentImageIndex(prev => prev + 1);
-                    if (navigator.vibrate) navigator.vibrate(10);
-                }
+        // Only Global Page Swipe -> Navigate Products
+        if (dx > 0) {
+            // Swipe Right -> Go Prev Product
+            if (hasPrev) {
+                goToPrev();
+                if (navigator.vibrate) navigator.vibrate(15);
             }
         } else {
-            // Otherwise: Global Page Swipe -> Navigate Products
-            if (dx > 0) {
-                // Swipe Right -> Go Prev Product
-                if (hasPrev) {
-                    goToPrev();
-                    if (navigator.vibrate) navigator.vibrate(15);
-                }
-            } else {
-                // Swipe Left -> Go Next Product
-                if (hasNext) {
-                    goToNext();
-                    if (navigator.vibrate) navigator.vibrate(15);
-                }
+            // Swipe Left -> Go Next Product
+            if (hasNext) {
+                goToNext();
+                if (navigator.vibrate) navigator.vibrate(15);
             }
         }
     }
-    touchStart.current = null;
+    pageTouchStart.current = null;
   };
+  // --- SPLIT TOUCH HANDLERS END ---
 
   const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
 
@@ -551,8 +575,8 @@ export const ProductDetails: React.FC = () => {
   return (
     <div 
         className="min-h-screen bg-stone-50 overflow-y-auto pb-20 overflow-x-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={handlePageTouchStart} // Root Page Swipe
+        onTouchEnd={handlePageTouchEnd}     // Root Page Swipe
         onContextMenu={(e) => {
              // Context Menu (Right Click) is often "Save Image As"
              if(product) storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
@@ -606,8 +630,13 @@ export const ProductDetails: React.FC = () => {
           <div 
             ref={imageContainerRef} 
             className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none image-nav-container" 
+            onTouchStart={handleImageTouchStart} // Isolated Image Swipe
+            onTouchEnd={handleImageTouchEnd}     // Isolated Image Swipe
             onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}
-            onTouchMove={(e) => pendingEnhancedImage && handleSliderMove(e.touches[0].clientX)}
+            onTouchMove={(e) => {
+                if(pendingEnhancedImage) handleSliderMove(e.touches[0].clientX);
+                // No need to stop propagation here unless pendingEnhancedImage, let default behavior happen for scroll etc
+            }}
           >
             {displayPreview && (
               <img 
