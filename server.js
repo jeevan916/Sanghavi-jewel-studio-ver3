@@ -342,11 +342,33 @@ app.post('/api/suggestions', async (req, res) => {
 app.post('/api/shared-links', async (req, res) => {
     try {
         const { targetId, type } = req.body;
+        
+        // Fetch expiry configuration from app_config
+        const [configRows] = await pool.query('SELECT data FROM app_config WHERE id=1');
+        let expiryHours = 24; // Default to 24 hours
+        
+        if (configRows && configRows.length > 0) {
+            const rawData = configRows[0].data;
+            // Parse JSON if returned as string (mysql2 behavior depends on version/config)
+            const configData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+            
+            if (configData && configData.linkExpiryHours) {
+                const configuredHours = parseFloat(configData.linkExpiryHours);
+                if (!isNaN(configuredHours) && configuredHours > 0) {
+                    expiryHours = configuredHours;
+                }
+            }
+        }
+
         const token = crypto.randomBytes(16).toString('hex');
-        const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 Hours window
+        const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
+        
         await pool.query('INSERT INTO shared_links (id, targetId, type, token, expiresAt) VALUES (?,?,?,?,?)', [crypto.randomUUID(), targetId, type, token, expiresAt]);
-        res.json({ token });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        res.json({ token, expiresAt });
+    } catch (err) { 
+        console.error("Link Generation Error:", err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // VALIDATE SHARED LINK
