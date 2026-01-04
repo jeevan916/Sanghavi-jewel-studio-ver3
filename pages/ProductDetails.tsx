@@ -58,6 +58,11 @@ export const ProductDetails: React.FC = () => {
     setCurrentImageIndex(0);
     entryTime.current = Date.now();
     
+    // Check for FullScreen navigation intent (Reels style browsing)
+    if (location.state?.startFullScreen) {
+        setShowFullScreen(true);
+    }
+
     // Optimistic Reset: If we have the list, find and set product immediately to avoid flash
     let foundOptimistic: Product | undefined;
     if (productList.length > 0) {
@@ -406,10 +411,29 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  const goToNext = () => { if (hasNext) navigate(`/product/${productList[currentIndex+1].id}`, { state: { sharedCategory: location.state?.sharedCategory } }); };
-  const goToPrev = () => { if (hasPrev) navigate(`/product/${productList[currentIndex-1].id}`, { state: { sharedCategory: location.state?.sharedCategory } }); };
+  const goToNext = (keepFullScreen = false) => { 
+      if (hasNext) {
+          navigate(`/product/${productList[currentIndex+1].id}`, { 
+              state: { 
+                  sharedCategory: location.state?.sharedCategory,
+                  startFullScreen: keepFullScreen
+              } 
+          });
+      }
+  };
+  
+  const goToPrev = (keepFullScreen = false) => { 
+      if (hasPrev) {
+          navigate(`/product/${productList[currentIndex-1].id}`, { 
+              state: { 
+                  sharedCategory: location.state?.sharedCategory,
+                  startFullScreen: keepFullScreen
+              } 
+          });
+      }
+  };
 
-  // Advanced Touch Tracking (Long Press for Desire Detection)
+  // Advanced Touch Tracking (Long Press for Desire Detection & Reels Swipe)
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     
@@ -428,20 +452,36 @@ export const ProductDetails: React.FC = () => {
     const dx = touchEnd.x - touchStart.current.x;
     const dy = touchEnd.y - touchStart.current.y;
 
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+    // Minimum swipe threshold
+    if (Math.abs(dx) > 50 || Math.abs(dy) > 50) {
         if (pendingEnhancedImage) return; 
-        const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
-        if (isOnImage && productImages.length > 1) {
-            if (dx > 0) {
-                if (currentImageIndex > 0) setCurrentImageIndex(prev => prev - 1);
-                else if (hasPrev) goToPrev();
-            } else {
-                if (currentImageIndex < productImages.length - 1) setCurrentImageIndex(prev => prev + 1);
-                else if (hasNext) goToNext();
+        
+        // Check if swipe is horizontal (Image Nav) or vertical (Product Nav)
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // Horizontal Swipe
+            const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
+            if (isOnImage && productImages.length > 1) {
+                if (dx > 0) {
+                    // Swipe Right -> Prev Image
+                    if (currentImageIndex > 0) setCurrentImageIndex(prev => prev - 1);
+                } else {
+                    // Swipe Left -> Next Image
+                    if (currentImageIndex < productImages.length - 1) setCurrentImageIndex(prev => prev + 1);
+                }
             }
         } else {
-            if (dx > 0) goToPrev();
-            else goToNext();
+            // Vertical Swipe (Reels Style Product Nav)
+            // Ensure this only triggers on the image area to avoid scrolling page issues
+            const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
+            if (isOnImage) {
+                 if (dy < 0) {
+                    // Swipe Up -> Next Product
+                    if (hasNext) goToNext();
+                 } else {
+                    // Swipe Down -> Prev Product
+                    if (hasPrev) goToPrev();
+                 }
+            }
         }
     }
     touchStart.current = null;
@@ -459,7 +499,17 @@ export const ProductDetails: React.FC = () => {
              if(product) storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
         }}
     >
-      {showFullScreen && <ImageViewer images={productImages.map(getFullUrl)} initialIndex={currentImageIndex} title={product.title} onClose={() => setShowFullScreen(false)} />}
+      {showFullScreen && (
+          <ImageViewer 
+              images={productImages.map(getFullUrl)} 
+              initialIndex={currentImageIndex} 
+              title={product.title} 
+              onClose={() => setShowFullScreen(false)}
+              onNextProduct={hasNext ? () => goToNext(true) : undefined}
+              onPrevProduct={hasPrev ? () => goToPrev(true) : undefined}
+          />
+      )}
+      
       {isManualEditing && <ImageEditor imageSrc={getFullUrl(productImages[currentImageIndex])} onSave={handleManualSave} onCancel={() => setIsManualEditing(false)} />}
 
       <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30">
@@ -473,7 +523,7 @@ export const ProductDetails: React.FC = () => {
         <div className="flex gap-1 shrink-0">
             <button onClick={handleDownload} className="p-2 text-stone-600 hover:text-gold-600 rounded-full hover:bg-stone-100"><Download size={20} /></button>
             <button onClick={() => { 
-                storeService.logEvent('screenshot', product, currentUser, currentImageIndex); // Share is functionally similar to screenshot for intent
+                storeService.logEvent('screenshot', product, currentUser, currentImageIndex); 
                 navigator.share?.({ title: product.title, url: window.location.href }); 
             }} className="p-2 text-stone-600 hover:text-gold-600 rounded-full hover:bg-stone-100"><Share2 size={20} /></button>
         </div>
@@ -536,6 +586,7 @@ export const ProductDetails: React.FC = () => {
                        </button>
                     )}
 
+                    {/* Image Nav Dots (Only if multiple images) */}
                     {!isGuest && productImages.length > 1 && (
                         <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
                             {productImages.map((_, idx) => (
@@ -563,6 +614,7 @@ export const ProductDetails: React.FC = () => {
           </div>
           
           <div className="max-w-3xl mx-auto p-6 space-y-6">
+             {/* ... (Rest of the component remains unchanged, logic for swipe is above) ... */}
              <div className="flex flex-col md:flex-row md:justify-between items-start gap-4">
                  <div className="flex-1 min-w-0">
                      <span className="text-gold-600 text-xs font-bold tracking-wider uppercase">{product.category}</span>
@@ -608,10 +660,9 @@ export const ProductDetails: React.FC = () => {
                 </div>
              </div>
 
-             {/* Admin and Content Sections unchanged ... */}
+             {/* Admin and Content Sections */}
              {isAuthorized && (
                  <div className="bg-stone-800 p-4 rounded-xl text-white space-y-4">
-                     {/* ... unchanged admin controls ... */}
                      <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2"><Lock size={12} /> Authorized Control</h3><button onClick={handleDeleteProduct} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase flex items-center gap-1"><Trash2 size={12}/> Delete</button></div>
                      <button onClick={handleMarkAsSold} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium flex items-center justify-center gap-2 transition"><DollarSign size={16}/> Record Manual Sale (+1)</button>
                      <div className="flex gap-2 relative">
