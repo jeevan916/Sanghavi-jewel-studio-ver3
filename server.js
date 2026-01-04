@@ -146,10 +146,56 @@ const parseJson = (row, fields) => {
 
 app.get('/api/health', (req, res) => res.json({ status: dbStatus.healthy ? 'online' : 'error', ...dbStatus }));
 
+// OPTIMIZED LIST ENDPOINT (Pagination & Lite Data)
 app.get('/api/products', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
-        res.json(rows.map(r => parseJson(r, ['tags', 'images', 'thumbnails', 'meta'])));
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = (page - 1) * limit;
+        
+        // Count total for pagination metadata
+        const [countResult] = await pool.query('SELECT COUNT(*) as total FROM products');
+        const totalItems = countResult[0].total;
+
+        // Fetch Lite Data (Exclude heavy 'images' and 'description' to save bandwidth)
+        // We select 'images' but will only return the first one if thumbnails are empty in application logic, 
+        // OR better, we select substring if it was text, but here it's JSON. 
+        // Ideally we select specific columns.
+        const [rows] = await pool.query(
+            `SELECT id, title, category, subCategory, weight, thumbnails, isHidden, createdAt, dateTaken 
+             FROM products 
+             ORDER BY createdAt DESC 
+             LIMIT ? OFFSET ?`, 
+            [limit, offset]
+        );
+
+        const products = rows.map(r => {
+            const p = parseJson(r, ['thumbnails']);
+            // Ensure thumbnails is array
+            if (!Array.isArray(p.thumbnails)) p.thumbnails = [];
+            return p;
+        });
+
+        res.json({
+            items: products,
+            meta: {
+                page,
+                limit,
+                totalItems,
+                totalPages: Math.ceil(totalItems / limit)
+            }
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// SINGLE PRODUCT ENDPOINT (Full Data)
+app.get('/api/products/:id', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+        if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
+        
+        const product = parseJson(rows[0], ['tags', 'images', 'thumbnails', 'meta']);
+        res.json(product);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

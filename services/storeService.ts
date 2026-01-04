@@ -36,10 +36,18 @@ export interface ProductStats {
     purchase: number;
 }
 
-// Global Cache State
-let _productsCache: Product[] | null = null;
+export interface PaginatedResponse<T> {
+    items: T[];
+    meta: {
+        page: number;
+        limit: number;
+        totalItems: number;
+        totalPages: number;
+    };
+}
+
+// Global Cache State removed for products to support pagination and lightweight fetches
 let _lastFetchTime: number = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 Minutes
 
 // Increased timeout to 45s for production robustness
 async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 45000) {
@@ -117,41 +125,43 @@ export const storeService = {
     };
   },
 
-  getProducts: async (forceRefresh = false): Promise<Product[]> => {
+  // OPTIMIZED: Supports Pagination logic
+  getProducts: async (page = 1, limit = 20): Promise<PaginatedResponse<Product>> => {
     try {
-      // Return cached data if valid and not forced
-      const now = Date.now();
-      if (!forceRefresh && _productsCache && (now - _lastFetchTime < CACHE_TTL)) {
-          return _productsCache;
-      }
-
-      const data = await apiFetch('/products');
-      if (!Array.isArray(data)) return [];
+      const data = await apiFetch(`/products?page=${page}&limit=${limit}`);
       
-      const products = data.map((p: any) => {
-          if (typeof p.images === 'string') { try { p.images = JSON.parse(p.images); } catch(e) { p.images = []; } }
-          if (typeof p.thumbnails === 'string') { try { p.thumbnails = JSON.parse(p.thumbnails); } catch(e) { p.thumbnails = []; } }
-          if (typeof p.tags === 'string') { try { p.tags = JSON.parse(p.tags); } catch(e) { p.tags = []; } }
-          
+      const items = (data.items || []).map((p: any) => {
+          // Normalize Lite Data
           if (!Array.isArray(p.images)) p.images = [];
           if (!Array.isArray(p.thumbnails)) p.thumbnails = [];
-          
           return p as Product;
       });
       
-      const sorted = products.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
-      // Update Cache
-      _productsCache = sorted;
-      _lastFetchTime = now;
-      
-      return sorted;
+      return {
+          items,
+          meta: data.meta || { page, limit, totalItems: 0, totalPages: 0 }
+      };
     } catch (err) { 
         console.error("StoreService getProducts Error:", err);
-        // Fallback to cache on error if available
-        if (_productsCache) return _productsCache;
-        throw err; 
+        return { items: [], meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 } };
     }
+  },
+
+  // NEW: Fetch single product details
+  getProductById: async (id: string): Promise<Product | null> => {
+      try {
+          const data = await apiFetch(`/products/${id}`);
+          if (!data) return null;
+          
+          if (typeof data.images === 'string') { try { data.images = JSON.parse(data.images); } catch(e) { data.images = []; } }
+          if (typeof data.thumbnails === 'string') { try { data.thumbnails = JSON.parse(data.thumbnails); } catch(e) { data.thumbnails = []; } }
+          if (typeof data.tags === 'string') { try { data.tags = JSON.parse(data.tags); } catch(e) { data.tags = []; } }
+          
+          return data as Product;
+      } catch (err) {
+          console.error("Fetch Product Detail Error:", err);
+          return null;
+      }
   },
 
   getProductStats: async (productId: string): Promise<ProductStats> => {
@@ -165,17 +175,14 @@ export const storeService = {
 
   addProduct: async (product: Product) => {
       await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) });
-      _productsCache = null; // Invalidate cache
   },
   
   updateProduct: async (product: Product) => {
       await apiFetch(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) });
-      _productsCache = null; // Invalidate cache
   },
   
   deleteProduct: async (id: string) => {
       await apiFetch(`/products/${id}`, { method: 'DELETE' });
-      _productsCache = null; // Invalidate cache
   },
 
   getCustomers: async (): Promise<User[]> => {

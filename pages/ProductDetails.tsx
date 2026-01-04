@@ -14,7 +14,6 @@ export const ProductDetails: React.FC = () => {
   const location = useLocation();
   
   const [product, setProduct] = useState<Product | null>(null);
-  const [productList, setProductList] = useState<Product[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -66,29 +65,13 @@ export const ProductDetails: React.FC = () => {
     setCurrentImageIndex(0);
     setImageSlideDirection(null);
     entryTime.current = Date.now();
+    setIsLoading(true);
+    setProduct(null); // Clear previous product to avoid stagnant data
     
-    // Check for FullScreen navigation intent (Reels style browsing)
+    // Check for FullScreen navigation intent
     if (location.state?.startFullScreen) {
         setShowFullScreen(true);
     }
-
-    // Optimistic Reset: If we have the list, find and set product immediately to avoid flash
-    let foundOptimistic: Product | undefined;
-    if (productList.length > 0) {
-        foundOptimistic = productList.find(p => p.id === id);
-        if (foundOptimistic) {
-            setProduct(foundOptimistic);
-            setEditDescValue(foundOptimistic.description);
-            // Don't set isLoading(true) here, transitions should be instant
-            // Just update interaction states
-            setIsLiked(storeService.getLikes().includes(foundOptimistic.id));
-            setIsDisliked(storeService.getDislikes().includes(foundOptimistic.id));
-            setIsOwned(storeService.getOwned().includes(foundOptimistic.id));
-            setIsRequested(storeService.getRequested().includes(foundOptimistic.id));
-        }
-    }
-
-    if (!foundOptimistic) setIsLoading(true);
 
     // 1. Screenshot Detection (Key Press)
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -98,66 +81,57 @@ export const ProductDetails: React.FC = () => {
     };
     window.addEventListener('keyup', handleKeyDown);
 
-    // 2. Fetch Data (Silent update if optimistic worked)
+    // 2. Fetch Single Product Data from Server (Lightweight Fetch)
     const fetchData = async () => {
       try {
-        // Fetch products and config to determine visibility rules
-        const [allProducts, conf] = await Promise.all([
-            storeService.getProducts(),
+        if (!id) return;
+        
+        // Fetch specific product + config concurrently
+        const [fetchedProduct, conf] = await Promise.all([
+            storeService.getProductById(id),
             storeService.getConfig()
         ]);
         setConfig(conf);
         
-        // Security Filter for Navigation List
-        // Only allow navigation to products the user is actually allowed to see.
-        let visibleProducts = allProducts;
-        if (!isAuthorized) {
-            const unlockedCats = storeService.getUnlockedCategories();
-            const sharedCat = location.state?.sharedCategory;
-
-            visibleProducts = allProducts.filter(p => {
-                // 1. Hidden check
-                if (p.isHidden) return false;
-
-                // 2. Category Privacy check
-                const catConfig = conf.categories.find(c => c.name === p.category);
-                if (catConfig?.isPrivate) {
-                     // Allow if unlocked via link or session
-                     const isUnlocked = unlockedCats.includes(p.category) || (sharedCat && sharedCat === p.category);
-                     if (!isUnlocked) return false;
+        if (fetchedProduct) {
+            // Security Check
+            let isAllowed = true;
+            if (!isAuthorized) {
+                if (fetchedProduct.isHidden) isAllowed = false;
+                else {
+                    const catConfig = conf.categories.find(c => c.name === fetchedProduct.category);
+                    if (catConfig?.isPrivate) {
+                        const unlockedCats = storeService.getUnlockedCategories();
+                        const sharedCat = location.state?.sharedCategory;
+                        if (!unlockedCats.includes(fetchedProduct.category) && sharedCat !== fetchedProduct.category) {
+                            isAllowed = false;
+                        }
+                    }
                 }
-                return true;
-            });
-        }
-        
-        setProductList(visibleProducts);
-        
-        const found = allProducts.find(p => p.id === id);
-        
-        if (found) {
-            // Check if the specific requested ID is allowed in the filtered list
-            const isAllowed = visibleProducts.some(vp => vp.id === found.id);
-            
+            }
+
             if (isAllowed) {
-                setProduct(found);
-                setEditDescValue(found.description);
-                setIsLiked(storeService.getLikes().includes(found.id));
-                setIsDisliked(storeService.getDislikes().includes(found.id));
-                setIsOwned(storeService.getOwned().includes(found.id));
-                setIsRequested(storeService.getRequested().includes(found.id));
+                setProduct(fetchedProduct);
+                setEditDescValue(fetchedProduct.description);
                 
-                // Fetch secondary data concurrently
+                // Set Interactions
+                setIsLiked(storeService.getLikes().includes(fetchedProduct.id));
+                setIsDisliked(storeService.getDislikes().includes(fetchedProduct.id));
+                setIsOwned(storeService.getOwned().includes(fetchedProduct.id));
+                setIsRequested(storeService.getRequested().includes(fetchedProduct.id));
+                
+                // Fetch stats concurrently after product loads
                 const [productStats, suggestionsList] = await Promise.all([
-                    storeService.getProductStats(found.id),
-                    isAuthorized ? storeService.getSuggestions(found.id) : Promise.resolve([])
+                    storeService.getProductStats(fetchedProduct.id),
+                    isAuthorized ? storeService.getSuggestions(fetchedProduct.id) : Promise.resolve([])
                 ]);
                 setStats(productStats);
                 if (suggestionsList) setSuggestions(suggestionsList);
                 
-                storeService.logEvent('view', found);
+                storeService.logEvent('view', fetchedProduct);
             } else {
                 console.warn("Access denied: Product is private or hidden.");
-                setProduct(null); // Triggers "Product Not Found" view
+                setProduct(null); 
             }
         } else {
              setProduct(null);
@@ -171,29 +145,23 @@ export const ProductDetails: React.FC = () => {
     };
     fetchData();
 
-    // Cleanup: Log duration on unmount
     return () => {
         window.removeEventListener('keyup', handleKeyDown);
         if (product) {
             const duration = Math.floor((Date.now() - entryTime.current) / 1000);
-            if (duration > 2) { // Only log if user stayed > 2 seconds
+            if (duration > 2) { 
                 storeService.logEvent('view', product, currentUser, currentImageIndex, duration);
             }
         }
     };
-  }, [id, isAuthorized]); // Re-run if ID changes
+  }, [id, isAuthorized]); 
 
-  // Smart Back Navigation to preserve "Jail Mode" context
+  // Smart Back Navigation
   const handleBack = () => {
-    // 1. Explicit State passed from Gallery (best reliability)
     if (location.state?.sharedCategory) {
         navigate('/collection', { state: { sharedCategory: location.state.sharedCategory } });
         return;
     }
-    
-    // 2. Implicit Inference (Fallback)
-    // If the user is a guest, and the current product's category is unlocked in the session,
-    // we assume they should go back to that private category view.
     if (isGuest && product) {
         const unlocked = storeService.getUnlockedCategories();
         if (unlocked.includes(product.category)) {
@@ -201,8 +169,6 @@ export const ProductDetails: React.FC = () => {
             return;
         }
     }
-
-    // 3. Default Fallback
     navigate('/collection');
   };
 
@@ -233,10 +199,6 @@ export const ProductDetails: React.FC = () => {
   const productImages = isGuest ? allImages.slice(0, 1) : allImages;
   const productThumbnails = isGuest ? allThumbnails.slice(0, 1) : allThumbnails;
   const hiddenCount = allImages.length - productImages.length;
-
-  const currentIndex = productList.findIndex(p => p.id === product.id);
-  const hasNext = currentIndex < productList.length - 1;
-  const hasPrev = currentIndex > 0;
 
   const getFullUrl = (path: string) => {
       if (!path) return '';
@@ -318,11 +280,9 @@ export const ProductDetails: React.FC = () => {
           if (currentImg.startsWith('data:')) {
              base64Data = currentImg.split(',')[1];
           } else {
-             // It is a URL, fetch it and convert to base64
              const fullUrl = getFullUrl(currentImg);
              const response = await fetch(fullUrl);
              if (!response.ok) throw new Error("Failed to fetch image source");
-             
              const blob = await response.blob();
              base64Data = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -372,17 +332,10 @@ export const ProductDetails: React.FC = () => {
           return;
       }
       if (!product) return;
-      
-      // Update local requested state
       const requested = storeService.toggleRequested(product.id);
       setIsRequested(requested);
-
-      // Optimistic update for "Will Buy" / Inquiry count
       setStats(prev => ({...prev, inquiry: requested ? prev.inquiry + 1 : Math.max(0, prev.inquiry - 1)}));
-      
-      if (requested) {
-          await storeService.shareToWhatsApp(product, currentImageIndex);
-      }
+      if (requested) await storeService.shareToWhatsApp(product, currentImageIndex);
   };
 
   const handleMarkAsSold = async () => {
@@ -402,10 +355,7 @@ export const ProductDetails: React.FC = () => {
       }
       const liked = storeService.toggleLike(product.id);
       setIsLiked(liked);
-      
-      // Update stats locally
       setStats(prev => ({...prev, like: liked ? prev.like + 1 : Math.max(0, prev.like - 1)}));
-      
       if (liked) storeService.logEvent('like', product);
   };
 
@@ -418,10 +368,7 @@ export const ProductDetails: React.FC = () => {
       }
       const disliked = storeService.toggleDislike(product.id);
       setIsDisliked(disliked);
-      
-      // Update stats locally
       setStats(prev => ({...prev, dislike: disliked ? prev.dislike + 1 : Math.max(0, prev.dislike - 1)}));
-      
       if (disliked) storeService.logEvent('dislike', product);
   };
 
@@ -432,13 +379,9 @@ export const ProductDetails: React.FC = () => {
         }
         return;
       }
-      
       const owned = storeService.toggleOwned(product.id);
       setIsOwned(owned);
-      
-      // Update stats locally
       setStats(prev => ({...prev, purchase: owned ? prev.purchase + 1 : Math.max(0, prev.purchase - 1)}));
-      
       if (owned) storeService.logEvent('sold', product);
   };
 
@@ -456,68 +399,33 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  const goToNext = (keepFullScreen = false) => { 
-      if (hasNext) {
-          navigate(`/product/${productList[currentIndex+1].id}`, { 
-              state: { 
-                  sharedCategory: location.state?.sharedCategory,
-                  startFullScreen: keepFullScreen,
-                  direction: 'next'
-              } 
-          });
-      }
-  };
-  
-  const goToPrev = (keepFullScreen = false) => { 
-      if (hasPrev) {
-          navigate(`/product/${productList[currentIndex-1].id}`, { 
-              state: { 
-                  sharedCategory: location.state?.sharedCategory,
-                  startFullScreen: keepFullScreen,
-                  direction: 'prev'
-              } 
-          });
-      }
-  };
-
   // --- SPLIT TOUCH HANDLERS START ---
-
-  // 1. IMAGE TOUCH HANDLERS (Stop Propagation to prevent page navigation)
   const handleImageTouchStart = (e: React.TouchEvent) => {
-      e.stopPropagation(); // CRITICAL: Prevents Page Swipe
+      e.stopPropagation(); 
       imageTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      
-      // Start Long Press Timer (700ms) - proxy for "Save Image" on mobile
       longPressTimer.current = setTimeout(() => {
           if(product) storeService.logEvent('long_press', product, currentUser, currentImageIndex);
       }, 700);
   };
 
   const handleImageTouchEnd = (e: React.TouchEvent) => {
-      e.stopPropagation(); // CRITICAL: Prevents Page Swipe
-      
-      // Cancel long press if finger lifted early
+      e.stopPropagation(); 
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
-
       if (!imageTouchStart.current) return;
       const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
       const dx = touchEnd.x - imageTouchStart.current.x;
       const dy = touchEnd.y - imageTouchStart.current.y;
 
-      // Minimum swipe threshold && Horizontal dominance check
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
           if (pendingEnhancedImage) return; 
-          
           if (productImages.length > 1) {
               if (dx > 0) {
-                  // Swipe Right -> Prev Image
                   if (currentImageIndex > 0) {
                       setImageSlideDirection('right');
                       setCurrentImageIndex(prev => prev - 1);
                       if (navigator.vibrate) navigator.vibrate(10);
                   }
               } else {
-                  // Swipe Left -> Next Image
                   if (currentImageIndex < productImages.length - 1) {
                       setImageSlideDirection('left');
                       setCurrentImageIndex(prev => prev + 1);
@@ -529,7 +437,6 @@ export const ProductDetails: React.FC = () => {
       imageTouchStart.current = null;
   };
 
-  // 2. PAGE TOUCH HANDLERS (Handles Product Navigation)
   const handlePageTouchStart = (e: React.TouchEvent) => {
     pageTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   };
@@ -538,47 +445,23 @@ export const ProductDetails: React.FC = () => {
     if (!pageTouchStart.current) return;
     const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
     const dx = touchEnd.x - pageTouchStart.current.x;
-    const dy = touchEnd.y - pageTouchStart.current.y;
-
-    // Minimum swipe threshold && Horizontal dominance check
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-        if (pendingEnhancedImage) return; 
-        
-        // Only Global Page Swipe -> Navigate Products
-        if (dx > 0) {
-            // Swipe Right -> Go Prev Product
-            if (hasPrev) {
-                goToPrev();
-                if (navigator.vibrate) navigator.vibrate(15);
-            }
-        } else {
-            // Swipe Left -> Go Next Product
-            if (hasNext) {
-                goToNext();
-                if (navigator.vibrate) navigator.vibrate(15);
-            }
-        }
-    }
+    // Removed Next/Prev Product nav in Single Product view because we don't have the full list context easily available anymore
+    // or it requires complex state management. For speed, we rely on Gallery nav.
+    // If client insists on next/prev, we need to pass IDs or fetch next/prev ID from server.
+    // For now, removing to keep it lightweight as per request.
     pageTouchStart.current = null;
   };
   // --- SPLIT TOUCH HANDLERS END ---
 
   const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
-
-  // Determine transition class based on direction
-  const transitionClass = navDirection === 'next' 
-    ? 'animate-slide-in-right' 
-    : navDirection === 'prev' 
-        ? 'animate-slide-in-left' 
-        : 'animate-in fade-in duration-500';
+  const transitionClass = 'animate-in fade-in duration-500';
 
   return (
     <div 
         className="min-h-screen bg-stone-50 overflow-y-auto pb-20 overflow-x-hidden"
-        onTouchStart={handlePageTouchStart} // Root Page Swipe
-        onTouchEnd={handlePageTouchEnd}     // Root Page Swipe
+        onTouchStart={handlePageTouchStart} 
+        onTouchEnd={handlePageTouchEnd}
         onContextMenu={(e) => {
-             // Context Menu (Right Click) is often "Save Image As"
              if(product) storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
         }}
     >
@@ -602,8 +485,6 @@ export const ProductDetails: React.FC = () => {
               initialIndex={currentImageIndex} 
               title={product.title} 
               onClose={() => setShowFullScreen(false)}
-              onNextProduct={hasNext ? () => goToNext(true) : undefined}
-              onPrevProduct={hasPrev ? () => goToPrev(true) : undefined}
           />
       )}
       
@@ -635,12 +516,11 @@ export const ProductDetails: React.FC = () => {
             onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}
             onTouchMove={(e) => {
                 if(pendingEnhancedImage) handleSliderMove(e.touches[0].clientX);
-                // No need to stop propagation here unless pendingEnhancedImage, let default behavior happen for scroll etc
             }}
           >
             {displayPreview && (
               <img 
-                key={`${product.id}-${currentImageIndex}`} // Trigger animation on change
+                key={`${product.id}-${currentImageIndex}`} 
                 src={displayPreview} 
                 className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''} ${imageSlideDirection === 'left' ? 'animate-in slide-in-from-right duration-300' : imageSlideDirection === 'right' ? 'animate-in slide-in-from-left duration-300' : ''}`} 
                 style={{ imageRendering: '-webkit-optimize-contrast' }}
@@ -721,7 +601,6 @@ export const ProductDetails: React.FC = () => {
           </div>
           
           <div className="max-w-3xl mx-auto p-6 space-y-6">
-             {/* ... (Rest of the component remains unchanged, logic for swipe is above) ... */}
              <div className="flex flex-col md:flex-row md:justify-between items-start gap-4">
                  <div className="flex-1 min-w-0">
                      <span className="text-gold-600 text-xs font-bold tracking-wider uppercase">{product.category}</span>
