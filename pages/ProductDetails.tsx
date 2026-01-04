@@ -95,32 +95,67 @@ export const ProductDetails: React.FC = () => {
     // 2. Fetch Data (Silent update if optimistic worked)
     const fetchData = async () => {
       try {
-        // Fetch from store (Cached)
-        const allProducts = await storeService.getProducts();
-        setProductList(allProducts);
+        // Fetch products and config to determine visibility rules
+        const [allProducts, conf] = await Promise.all([
+            storeService.getProducts(),
+            storeService.getConfig()
+        ]);
+        setConfig(conf);
         
-        const found = allProducts.find(p => p.id === id);
-        if (found) {
-          setProduct(found);
-          setEditDescValue(found.description);
-          setIsLiked(storeService.getLikes().includes(found.id));
-          setIsDisliked(storeService.getDislikes().includes(found.id));
-          setIsOwned(storeService.getOwned().includes(found.id));
-          setIsRequested(storeService.getRequested().includes(found.id));
-          
-          // Fetch secondary data concurrently
-          const [productStats, suggestionsList] = await Promise.all([
-              storeService.getProductStats(found.id),
-              isAuthorized ? storeService.getSuggestions(found.id) : Promise.resolve([])
-          ]);
-          setStats(productStats);
-          if (suggestionsList) setSuggestions(suggestionsList);
-          
-          storeService.logEvent('view', found);
+        // Security Filter for Navigation List
+        // Only allow navigation to products the user is actually allowed to see.
+        let visibleProducts = allProducts;
+        if (!isAuthorized) {
+            const unlockedCats = storeService.getUnlockedCategories();
+            const sharedCat = location.state?.sharedCategory;
+
+            visibleProducts = allProducts.filter(p => {
+                // 1. Hidden check
+                if (p.isHidden) return false;
+
+                // 2. Category Privacy check
+                const catConfig = conf.categories.find(c => c.name === p.category);
+                if (catConfig?.isPrivate) {
+                     // Allow if unlocked via link or session
+                     const isUnlocked = unlockedCats.includes(p.category) || (sharedCat && sharedCat === p.category);
+                     if (!isUnlocked) return false;
+                }
+                return true;
+            });
         }
         
-        const conf = await storeService.getConfig();
-        setConfig(conf);
+        setProductList(visibleProducts);
+        
+        const found = allProducts.find(p => p.id === id);
+        
+        if (found) {
+            // Check if the specific requested ID is allowed in the filtered list
+            const isAllowed = visibleProducts.some(vp => vp.id === found.id);
+            
+            if (isAllowed) {
+                setProduct(found);
+                setEditDescValue(found.description);
+                setIsLiked(storeService.getLikes().includes(found.id));
+                setIsDisliked(storeService.getDislikes().includes(found.id));
+                setIsOwned(storeService.getOwned().includes(found.id));
+                setIsRequested(storeService.getRequested().includes(found.id));
+                
+                // Fetch secondary data concurrently
+                const [productStats, suggestionsList] = await Promise.all([
+                    storeService.getProductStats(found.id),
+                    isAuthorized ? storeService.getSuggestions(found.id) : Promise.resolve([])
+                ]);
+                setStats(productStats);
+                if (suggestionsList) setSuggestions(suggestionsList);
+                
+                storeService.logEvent('view', found);
+            } else {
+                console.warn("Access denied: Product is private or hidden.");
+                setProduct(null); // Triggers "Product Not Found" view
+            }
+        } else {
+             setProduct(null);
+        }
         
       } catch (err) {
         console.error("Fetch details error:", err);
@@ -178,6 +213,7 @@ export const ProductDetails: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center">
         <h2 className="font-serif text-2xl text-stone-800 mb-4">Product Not Found</h2>
+        <p className="text-stone-500 mb-6 max-w-xs mx-auto">This item may be private, deleted, or you do not have the required access permissions.</p>
         <button onClick={handleBack} className="px-6 py-2 bg-stone-900 text-white rounded-xl">Back to Collection</button>
       </div>
     );
