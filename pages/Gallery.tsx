@@ -2,14 +2,33 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
-import { storeService } from '../services/storeService';
+import { storeService, CuratedCollections } from '../services/storeService';
 import { Search, Grid, LayoutGrid, LogOut, Loader2, Filter, RefreshCw, Lock, Sparkles, UserPlus, TrendingUp, Clock, Heart, ShoppingBag, Gem, ChevronLeft, ChevronRight, Unlock, X, ArrowDown } from 'lucide-react';
 import { Product, AnalyticsEvent, AppConfig } from '../types';
+
+const CuratedSection: React.FC<{ title: string, products: Product[], icon: React.ElementType, accent: string, onProductClick: (id: string) => void }> = ({ title, products, icon: Icon, accent, onProductClick }) => {
+    if (!products || products.length === 0) return null;
+    return (
+        <div className="mb-8 pl-4 md:pl-8">
+            <h3 className={`font-serif text-lg md:text-xl font-bold mb-3 flex items-center gap-2 ${accent}`}>
+                <Icon size={20} /> {title}
+            </h3>
+            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pr-4">
+                {products.map(p => (
+                    <div key={p.id} className="w-40 md:w-48 shrink-0">
+                        <ProductCard product={p} isAdmin={false} onClick={() => onProductClick(p.id)} />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 export const Gallery: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
+  const [curated, setCurated] = useState<CuratedCollections>({ latest: [], loved: [], trending: [], ideal: [] });
   const [analytics, setAnalytics] = useState<AnalyticsEvent[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
   
@@ -26,6 +45,8 @@ export const Gallery: React.FC = () => {
   
   // Infinite Scroll Observer
   const observer = useRef<IntersectionObserver | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
   const lastProductElementRef = useCallback((node: HTMLDivElement) => {
     if (isLoading) return;
     if (observer.current) observer.current.disconnect();
@@ -52,10 +73,17 @@ export const Gallery: React.FC = () => {
     else if (sharedCategoryState) setActiveCategory(sharedCategoryState);
   }, [restrictedCategory, sharedCategoryState]);
 
-  // Initial Configuration Fetch
+  // Initial Configuration & Curated Data Fetch
   useEffect(() => {
-      storeService.getConfig().then(setConfig);
-      storeService.getAnalytics().then(setAnalytics);
+      Promise.all([
+          storeService.getConfig(),
+          storeService.getAnalytics(),
+          storeService.getCuratedProducts()
+      ]).then(([conf, ana, cur]) => {
+          setConfig(conf);
+          setAnalytics(ana);
+          setCurated(cur);
+      });
   }, []);
 
   // Fetch Products with Server-Side Filtering
@@ -141,6 +169,10 @@ export const Gallery: React.FC = () => {
       navigate(`/product/${productId}`, { state: { sharedCategory: restrictedCategory } });
   };
 
+  const scrollToGrid = () => {
+      gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   // AI Insights Pulse Logic
   const trendingStats = useMemo(() => {
       const topProduct = analytics.find(e => e.type === 'inquiry' || e.type === 'like');
@@ -160,6 +192,9 @@ export const Gallery: React.FC = () => {
         </div>
       );
   }
+
+  // Helper to check if we are in "Main Catalog" mode (no filters applied)
+  const isMainCatalogView = activeCategory === 'All' && activeSubCategory === 'All' && !search;
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20 md:pt-16">
@@ -241,9 +276,31 @@ export const Gallery: React.FC = () => {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-8">
+      <main className="max-w-7xl mx-auto md:p-8">
+        
+        {/* Curated Sections (Only show on main view) */}
+        {isMainCatalogView && (
+            <div className="py-6 space-y-2">
+                <CuratedSection title="Latest Arrivals" products={curated.latest} icon={Clock} accent="text-stone-800" onProductClick={navigateToProduct} />
+                <CuratedSection title="Most Loved" products={curated.loved} icon={Heart} accent="text-red-500" onProductClick={navigateToProduct} />
+                <CuratedSection title="Trending Now" products={curated.trending} icon={TrendingUp} accent="text-gold-600" onProductClick={navigateToProduct} />
+                <CuratedSection title="Sanghavi Ideal (Most Sold)" products={curated.ideal} icon={Gem} accent="text-blue-600" onProductClick={navigateToProduct} />
+                
+                <div className="flex justify-center px-6 py-8">
+                    <button 
+                        onClick={scrollToGrid}
+                        className="group relative px-8 py-4 bg-gradient-to-r from-gold-500 to-gold-700 text-white rounded-full font-serif font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-3 overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 skew-x-12"></div>
+                        <Sparkles className="animate-pulse" /> Browse Whole Collection
+                    </button>
+                </div>
+                <div className="h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent w-full mb-8"></div>
+            </div>
+        )}
+
         {isGuest && (
-            <div className={`mb-8 p-4 rounded-2xl flex items-center justify-between shadow-xl animate-in fade-in slide-in-from-top-4 ${sharedCategory ? 'bg-green-800 text-white' : 'bg-stone-900 text-white'}`}>
+            <div className={`mx-4 mb-8 p-4 rounded-2xl flex items-center justify-between shadow-xl animate-in fade-in slide-in-from-top-4 ${sharedCategory ? 'bg-green-800 text-white' : 'bg-stone-900 text-white'}`}>
                 <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-full animate-pulse ${sharedCategory ? 'bg-green-500' : 'bg-gold-500'}`}>
                         {sharedCategory ? <Unlock size={16} /> : <Sparkles size={16} />}
@@ -261,7 +318,7 @@ export const Gallery: React.FC = () => {
             </div>
         )}
 
-        <div className={`grid gap-4 ${
+        <div ref={gridRef} className={`grid gap-4 px-4 pb-8 ${
             viewMode === 'grid' 
             ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
             : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'

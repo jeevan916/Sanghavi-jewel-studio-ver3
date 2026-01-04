@@ -75,6 +75,13 @@ export interface ProductFilters {
     search?: string;
 }
 
+export interface CuratedCollections {
+    latest: Product[];
+    loved: Product[];
+    trending: Product[];
+    ideal: Product[];
+}
+
 let _lastFetchTime: number = 0;
 
 async function apiFetch(endpoint: string, options: RequestInit = {}, customTimeout = 45000) {
@@ -175,6 +182,21 @@ export const storeService = {
         console.error("StoreService getProducts Error:", err);
         return { items: [], meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 } };
     }
+  },
+
+  getCuratedProducts: async (): Promise<CuratedCollections> => {
+      try {
+          const data = await apiFetch('/products/curated');
+          return {
+              latest: data.latest || [],
+              loved: data.loved || [],
+              trending: data.trending || [],
+              ideal: data.ideal || []
+          };
+      } catch (e) {
+          console.error("Failed to fetch curated collections", e);
+          return { latest: [], loved: [], trending: [], ideal: [] };
+      }
   },
 
   getProductById: async (id: string): Promise<Product | null> => {

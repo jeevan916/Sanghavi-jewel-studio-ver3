@@ -201,6 +201,65 @@ app.post('/api/reconnect', async (req, res) => {
     res.json(dbStatus);
 });
 
+// CURATED COLLECTIONS ENDPOINT
+app.get('/api/products/curated', async (req, res) => {
+    try {
+        if (!dbStatus.healthy) throw new Error('Database disconnected');
+
+        const formatProducts = (rows) => rows.map(r => {
+            const p = parseJson(r, ['thumbnails', 'images']);
+            if (!Array.isArray(p.thumbnails)) p.thumbnails = [];
+            return p;
+        });
+
+        // 1. Latest Arrivals
+        const latestQuery = `SELECT id, title, category, weight, thumbnails, images, createdAt FROM products WHERE isHidden = FALSE ORDER BY createdAt DESC LIMIT 8`;
+        
+        // 2. Most Loved (Likes)
+        const lovedQuery = `
+            SELECT p.id, p.title, p.category, p.weight, p.thumbnails, p.images, COUNT(a.id) as score 
+            FROM products p 
+            JOIN analytics a ON p.id = a.productId 
+            WHERE p.isHidden = FALSE AND a.type = 'like' 
+            GROUP BY p.id 
+            ORDER BY score DESC LIMIT 8`;
+
+        // 3. Trending (Views + Likes + Inquiries in last 30 days)
+        const trendingQuery = `
+            SELECT p.id, p.title, p.category, p.weight, p.thumbnails, p.images, COUNT(a.id) as score 
+            FROM products p 
+            JOIN analytics a ON p.id = a.productId 
+            WHERE p.isHidden = FALSE AND a.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY p.id 
+            ORDER BY score DESC LIMIT 8`;
+
+        // 4. Sanghavi Ideal (Most Sold/Purchased)
+        const idealQuery = `
+            SELECT p.id, p.title, p.category, p.weight, p.thumbnails, p.images, COUNT(a.id) as score 
+            FROM products p 
+            JOIN analytics a ON p.id = a.productId 
+            WHERE p.isHidden = FALSE AND a.type = 'sold' 
+            GROUP BY p.id 
+            ORDER BY score DESC LIMIT 8`;
+
+        const [latest] = await pool.query(latestQuery);
+        const [loved] = await pool.query(lovedQuery);
+        const [trending] = await pool.query(trendingQuery);
+        const [ideal] = await pool.query(idealQuery);
+
+        res.json({
+            latest: formatProducts(latest),
+            loved: formatProducts(loved),
+            trending: formatProducts(trending),
+            ideal: formatProducts(ideal)
+        });
+
+    } catch (err) {
+        console.error("Curated Fetch Error:", err);
+        res.status(500).json({ error: err.message, latest: [], loved: [], trending: [], ideal: [] });
+    }
+});
+
 // OPTIMIZED LIST ENDPOINT WITH SERVER-SIDE FILTERING
 app.get('/api/products', async (req, res) => {
     try {
