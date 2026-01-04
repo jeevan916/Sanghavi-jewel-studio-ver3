@@ -24,7 +24,7 @@ export const ProductDetails: React.FC = () => {
   
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [imageSlideDirection, setImageSlideDirection] = useState<'left' | 'right' | null>(null);
   
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -55,10 +55,13 @@ export const ProductDetails: React.FC = () => {
   const entryTime = useRef<number>(Date.now());
   const longPressTimer = useRef<any>(null);
 
+  // Navigation Direction State for Page Transition
+  const navDirection = location.state?.direction || 'none';
+
   useEffect(() => {
     // Reset state on ID change
     setCurrentImageIndex(0);
-    setSlideDirection(null);
+    setImageSlideDirection(null);
     entryTime.current = Date.now();
     
     // Check for FullScreen navigation intent (Reels style browsing)
@@ -455,7 +458,8 @@ export const ProductDetails: React.FC = () => {
           navigate(`/product/${productList[currentIndex+1].id}`, { 
               state: { 
                   sharedCategory: location.state?.sharedCategory,
-                  startFullScreen: keepFullScreen
+                  startFullScreen: keepFullScreen,
+                  direction: 'next'
               } 
           });
       }
@@ -466,13 +470,14 @@ export const ProductDetails: React.FC = () => {
           navigate(`/product/${productList[currentIndex-1].id}`, { 
               state: { 
                   sharedCategory: location.state?.sharedCategory,
-                  startFullScreen: keepFullScreen
+                  startFullScreen: keepFullScreen,
+                  direction: 'prev'
               } 
           });
       }
   };
 
-  // Advanced Touch Tracking (Long Press for Desire Detection & Reels Swipe)
+  // Advanced Touch Tracking (Long Press for Desire Detection & Global Page Swipe)
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     
@@ -489,27 +494,44 @@ export const ProductDetails: React.FC = () => {
     if (!touchStart.current) return;
     const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
     const dx = touchEnd.x - touchStart.current.x;
+    const dy = touchEnd.y - touchStart.current.y;
 
-    // Minimum swipe threshold
-    if (Math.abs(dx) > 50) {
+    // Minimum swipe threshold && Horizontal dominance check
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
         if (pendingEnhancedImage) return; 
         
-        // Horizontal Swipe logic only for images (removed vertical product nav)
         const isOnImage = (e.target as HTMLElement).closest('.image-nav-container');
+        
+        // Priority: If swiping ON image, and multiple images exist, scroll images.
         if (isOnImage && productImages.length > 1) {
             if (dx > 0) {
                 // Swipe Right -> Prev Image
                 if (currentImageIndex > 0) {
-                    setSlideDirection('right');
+                    setImageSlideDirection('right');
                     setCurrentImageIndex(prev => prev - 1);
                     if (navigator.vibrate) navigator.vibrate(10);
                 }
             } else {
                 // Swipe Left -> Next Image
                 if (currentImageIndex < productImages.length - 1) {
-                    setSlideDirection('left');
+                    setImageSlideDirection('left');
                     setCurrentImageIndex(prev => prev + 1);
                     if (navigator.vibrate) navigator.vibrate(10);
+                }
+            }
+        } else {
+            // Otherwise: Global Page Swipe -> Navigate Products
+            if (dx > 0) {
+                // Swipe Right -> Go Prev Product
+                if (hasPrev) {
+                    goToPrev();
+                    if (navigator.vibrate) navigator.vibrate(15);
+                }
+            } else {
+                // Swipe Left -> Go Next Product
+                if (hasNext) {
+                    goToNext();
+                    if (navigator.vibrate) navigator.vibrate(15);
                 }
             }
         }
@@ -519,9 +541,16 @@ export const ProductDetails: React.FC = () => {
 
   const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
 
+  // Determine transition class based on direction
+  const transitionClass = navDirection === 'next' 
+    ? 'animate-slide-in-right' 
+    : navDirection === 'prev' 
+        ? 'animate-slide-in-left' 
+        : 'animate-in fade-in duration-500';
+
   return (
     <div 
-        className="min-h-screen bg-stone-50 overflow-y-auto animate-in fade-in duration-300 pb-20"
+        className="min-h-screen bg-stone-50 overflow-y-auto pb-20 overflow-x-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onContextMenu={(e) => {
@@ -529,6 +558,20 @@ export const ProductDetails: React.FC = () => {
              if(product) storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
         }}
     >
+      {/* Custom Styles for Apple-like Slide Transitions */}
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(30px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideInLeft {
+          from { transform: translateX(-30px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide-in-right { animation: slideInRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .animate-slide-in-left { animation: slideInLeft 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+      `}</style>
+
       {showFullScreen && (
           <ImageViewer 
               images={productImages.map(getFullUrl)} 
@@ -559,7 +602,7 @@ export const ProductDetails: React.FC = () => {
         </div>
       </div>
 
-      <div className="transition-all duration-300 ease-out">
+      <div key={product.id} className={transitionClass}>
           <div 
             ref={imageContainerRef} 
             className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none image-nav-container" 
@@ -568,9 +611,9 @@ export const ProductDetails: React.FC = () => {
           >
             {displayPreview && (
               <img 
-                key={currentImageIndex} // Trigger animation on change
+                key={`${product.id}-${currentImageIndex}`} // Trigger animation on change
                 src={displayPreview} 
-                className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''} ${slideDirection === 'left' ? 'animate-in slide-in-from-right duration-300' : slideDirection === 'right' ? 'animate-in slide-in-from-left duration-300' : ''}`} 
+                className={`w-full h-full object-cover ${isProcessingImage ? 'opacity-50 blur-sm' : ''} ${imageSlideDirection === 'left' ? 'animate-in slide-in-from-right duration-300' : imageSlideDirection === 'right' ? 'animate-in slide-in-from-left duration-300' : ''}`} 
                 style={{ imageRendering: '-webkit-optimize-contrast' }}
                 onClick={() => !pendingEnhancedImage && setShowFullScreen(true)} 
                 onError={(e) => {
@@ -625,7 +668,7 @@ export const ProductDetails: React.FC = () => {
                                     key={idx}
                                     onClick={(e) => { 
                                         e.stopPropagation(); 
-                                        setSlideDirection(idx > currentImageIndex ? 'left' : 'right');
+                                        setImageSlideDirection(idx > currentImageIndex ? 'left' : 'right');
                                         setCurrentImageIndex(idx); 
                                     }}
                                     className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-6 bg-gold-500 shadow-sm' : 'w-1.5 bg-white/60'}`}
