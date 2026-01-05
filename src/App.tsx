@@ -26,8 +26,7 @@ interface ErrorBoundaryState {
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
-  // Explicitly declare props to ensure TS availability in strict contexts
-  declare props: Readonly<ErrorBoundaryProps>;
+  // explicit props declaration removed to avoid TS conflict with Component
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };

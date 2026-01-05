@@ -57,23 +57,19 @@ export const ProductDetails: React.FC = () => {
   const pageTouchStart = useRef<{ x: number, y: number } | null>(null);
   const imageTouchStart = useRef<{ x: number, y: number } | null>(null);
 
-  // Navigation Direction State for Page Transition
-  const navDirection = location.state?.direction || 'none';
+  // Swipe Navigation Context
+  const productContext = (location.state as any)?.productContext || [];
+  const currentContextIndex = productContext.indexOf(id || '');
 
   useEffect(() => {
-    // Reset state on ID change
     setCurrentImageIndex(0);
     setImageSlideDirection(null);
     entryTime.current = Date.now();
     setIsLoading(true);
-    setProduct(null); // Clear previous product to avoid stagnant data
+    setProduct(null); 
     
-    // Check for FullScreen navigation intent
-    if (location.state?.startFullScreen) {
-        setShowFullScreen(true);
-    }
+    if (location.state?.startFullScreen) setShowFullScreen(true);
 
-    // 1. Screenshot Detection (Key Press)
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))) {
             if (product) storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
@@ -81,12 +77,10 @@ export const ProductDetails: React.FC = () => {
     };
     window.addEventListener('keyup', handleKeyDown);
 
-    // 2. Fetch Single Product Data from Server (Lightweight Fetch)
     const fetchData = async () => {
       try {
         if (!id) return;
         
-        // Fetch specific product + config concurrently
         const [fetchedProduct, conf] = await Promise.all([
             storeService.getProductById(id),
             storeService.getConfig()
@@ -94,7 +88,6 @@ export const ProductDetails: React.FC = () => {
         setConfig(conf);
         
         if (fetchedProduct) {
-            // Security Check
             let isAllowed = true;
             if (!isAuthorized) {
                 if (fetchedProduct.isHidden) isAllowed = false;
@@ -114,13 +107,11 @@ export const ProductDetails: React.FC = () => {
                 setProduct(fetchedProduct);
                 setEditDescValue(fetchedProduct.description);
                 
-                // Set Interactions
                 setIsLiked(storeService.getLikes().includes(fetchedProduct.id));
                 setIsDisliked(storeService.getDislikes().includes(fetchedProduct.id));
                 setIsOwned(storeService.getOwned().includes(fetchedProduct.id));
                 setIsRequested(storeService.getRequested().includes(fetchedProduct.id));
                 
-                // Fetch stats concurrently after product loads
                 const [productStats, suggestionsList] = await Promise.all([
                     storeService.getProductStats(fetchedProduct.id),
                     isAuthorized ? storeService.getSuggestions(fetchedProduct.id) : Promise.resolve([])
@@ -130,7 +121,6 @@ export const ProductDetails: React.FC = () => {
                 
                 storeService.logEvent('view', fetchedProduct);
             } else {
-                console.warn("Access denied: Product is private or hidden.");
                 setProduct(null); 
             }
         } else {
@@ -156,8 +146,8 @@ export const ProductDetails: React.FC = () => {
     };
   }, [id, isAuthorized]); 
 
-  // Smart Back Navigation
   const handleBack = () => {
+    if (navigator.vibrate) navigator.vibrate(10);
     if (location.state?.sharedCategory) {
         navigate('/collection', { state: { sharedCategory: location.state.sharedCategory } });
         return;
@@ -170,6 +160,23 @@ export const ProductDetails: React.FC = () => {
         }
     }
     navigate('/collection');
+  };
+
+  const navigateToSibling = (direction: 'next' | 'prev') => {
+      if (currentContextIndex === -1) return;
+      const targetId = direction === 'next' 
+          ? productContext[currentContextIndex + 1] 
+          : productContext[currentContextIndex - 1];
+      
+      if (targetId) {
+          if (navigator.vibrate) navigator.vibrate(15);
+          navigate(`/product/${targetId}`, { 
+              state: { 
+                  ...location.state,
+                  productContext // Preserve context for continuous swipe
+              } 
+          });
+      }
   };
 
   if (isLoading) {
@@ -191,7 +198,6 @@ export const ProductDetails: React.FC = () => {
     );
   }
 
-  // Defensive array access & Guest Logic
   const allImages = Array.isArray(product.images) ? product.images : [];
   const allThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
   const productTags = Array.isArray(product.tags) ? product.tags : [];
@@ -255,16 +261,13 @@ export const ProductDetails: React.FC = () => {
   const handleManualSave = async (newBase64: string) => {
       const updatedImages = [...allImages];
       const updatedThumbs = [...allThumbnails];
-      
       updatedImages[currentImageIndex] = newBase64;
-      
       try {
         const thumbBase64 = await createThumbnail(newBase64);
         updatedThumbs[currentImageIndex] = thumbBase64;
       } catch (e) {
         updatedThumbs[currentImageIndex] = newBase64;
       }
-      
       handleUpdateProduct({ images: updatedImages, thumbnails: updatedThumbs });
       setIsManualEditing(false);
   };
@@ -276,7 +279,6 @@ export const ProductDetails: React.FC = () => {
       try {
           const currentImg = productImages[currentImageIndex];
           let base64Data = '';
-          
           if (currentImg.startsWith('data:')) {
              base64Data = currentImg.split(',')[1];
           } else {
@@ -294,7 +296,6 @@ export const ProductDetails: React.FC = () => {
                 reader.readAsDataURL(blob);
              });
           }
-
           let newBase64 = action === 'clean' ? await removeWatermark(base64Data) : await enhanceJewelryImage(base64Data);
           if (newBase64) {
               setPendingEnhancedImage(`data:image/jpeg;base64,${newBase64}`);
@@ -348,6 +349,7 @@ export const ProductDetails: React.FC = () => {
 
   const toggleLike = () => {
       if (!product) return;
+      if (navigator.vibrate) navigator.vibrate(10);
       if (isDisliked) {
           storeService.toggleDislike(product.id);
           setIsDisliked(false);
@@ -361,6 +363,7 @@ export const ProductDetails: React.FC = () => {
 
   const toggleDislike = () => {
       if (!product) return;
+      if (navigator.vibrate) navigator.vibrate(10);
       if (isLiked) {
           storeService.toggleLike(product.id);
           setIsLiked(false);
@@ -399,7 +402,6 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  // --- SPLIT TOUCH HANDLERS START ---
   const handleImageTouchStart = (e: React.TouchEvent) => {
       e.stopPropagation(); 
       imageTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -445,27 +447,30 @@ export const ProductDetails: React.FC = () => {
     if (!pageTouchStart.current) return;
     const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
     const dx = touchEnd.x - pageTouchStart.current.x;
-    // Removed Next/Prev Product nav in Single Product view because we don't have the full list context easily available anymore
-    // or it requires complex state management. For speed, we rely on Gallery nav.
-    // If client insists on next/prev, we need to pass IDs or fetch next/prev ID from server.
-    // For now, removing to keep it lightweight as per request.
+    
+    // Swipe for Next/Prev Product Logic restored
+    if (Math.abs(dx) > 70) {
+        if (dx > 0 && currentContextIndex > 0) {
+            navigateToSibling('prev');
+        } else if (dx < 0 && currentContextIndex < productContext.length - 1) {
+            navigateToSibling('next');
+        }
+    }
+    
     pageTouchStart.current = null;
   };
-  // --- SPLIT TOUCH HANDLERS END ---
 
   const displayPreview = getFullUrl(productImages[currentImageIndex] || productThumbnails[currentImageIndex]);
-  const transitionClass = 'animate-in fade-in duration-500';
 
   return (
     <div 
-        className="min-h-screen bg-stone-50 overflow-y-auto pb-20 overflow-x-hidden"
+        className="min-h-screen bg-stone-50 overflow-y-auto pb-20 overflow-x-hidden animate-in slide-in-from-right duration-500"
         onTouchStart={handlePageTouchStart} 
         onTouchEnd={handlePageTouchEnd}
         onContextMenu={(e) => {
              if(product) storeService.logEvent('screenshot', product, currentUser, currentImageIndex);
         }}
     >
-      {/* Custom Styles for Apple-like Slide Transitions */}
       <style>{`
         @keyframes slideInRight {
           from { transform: translateX(30px); opacity: 0; }
@@ -485,6 +490,8 @@ export const ProductDetails: React.FC = () => {
               initialIndex={currentImageIndex} 
               title={product.title} 
               onClose={() => setShowFullScreen(false)}
+              onNextProduct={() => navigateToSibling('next')}
+              onPrevProduct={() => navigateToSibling('prev')}
           />
       )}
       
@@ -507,12 +514,12 @@ export const ProductDetails: React.FC = () => {
         </div>
       </div>
 
-      <div key={product.id} className={transitionClass}>
+      <div key={product.id} className="animate-in fade-in duration-500">
           <div 
             ref={imageContainerRef} 
             className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden group select-none image-nav-container" 
-            onTouchStart={handleImageTouchStart} // Isolated Image Swipe
-            onTouchEnd={handleImageTouchEnd}     // Isolated Image Swipe
+            onTouchStart={handleImageTouchStart}
+            onTouchEnd={handleImageTouchEnd}
             onMouseMove={(e) => pendingEnhancedImage && handleSliderMove(e.clientX)}
             onTouchMove={(e) => {
                 if(pendingEnhancedImage) handleSliderMove(e.touches[0].clientX);
@@ -537,7 +544,7 @@ export const ProductDetails: React.FC = () => {
             {pendingEnhancedImage && (
                 <>
                     <img src={pendingEnhancedImage} className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" style={{ clipPath: `inset(0 ${100 - compareSliderPos}% 0 0)`, imageRendering: '-webkit-optimize-contrast' }} />
-                    <div className="absolute inset-y-0 w-1 bg-white z-20 cursor-col-resize shadow-lg flex items-center justify-center pointer-events-none" style={{ left: `${compareSliderPos}%` }}><div className="bg-white rounded-full p-1 shadow text-stone-900"><MoveHorizontal size={16} /></div></div>
+                    <div className="absolute inset-y-0 w-1 bg-white z-20 cursor-col-resize shadow-lg flex items-center justify-center pointer-events-none" style={{ left: `${compareSliderPos}%` }}><div className="bg-white rounded-full p-1 shadow text-stone-900"><SlidersHorizontal size={16} /></div></div>
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30 w-full max-w-sm px-4">
                         <button onClick={() => setPendingEnhancedImage(null)} className="flex-1 py-3 bg-stone-900/90 backdrop-blur text-white rounded-xl border border-stone-700 font-medium">Discard</button>
                         <button onClick={async () => { 
@@ -559,7 +566,6 @@ export const ProductDetails: React.FC = () => {
 
             {!pendingEnhancedImage && (
                 <>
-                    {/* Guest Locked Badge */}
                     {isGuest && hiddenCount > 0 && (
                        <button 
                          onClick={() => navigate('/login', { state: { from: location.pathname } })}
@@ -569,7 +575,6 @@ export const ProductDetails: React.FC = () => {
                        </button>
                     )}
 
-                    {/* Image Nav Dots (Only if multiple images) */}
                     {!isGuest && productImages.length > 1 && (
                         <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
                             {productImages.map((_, idx) => (
@@ -616,7 +621,6 @@ export const ProductDetails: React.FC = () => {
                  <div className="bg-stone-100 px-3 py-1 rounded text-[10px] font-mono text-stone-500 uppercase shrink-0">ID: {product.id.slice(-6)}</div>
              </div>
 
-             {/* Live Market Sentiment Stats */}
              <div className="mb-4">
                 <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-2"><BarChart2 size={12}/> Live Market Insights</h3>
                 <div className="grid grid-cols-4 gap-2 md:gap-4">
@@ -646,7 +650,6 @@ export const ProductDetails: React.FC = () => {
                 </div>
              </div>
 
-             {/* Admin and Content Sections */}
              {isAuthorized && (
                  <div className="bg-stone-800 p-4 rounded-xl text-white space-y-4">
                      <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2"><Lock size={12} /> Authorized Control</h3><button onClick={handleDeleteProduct} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase flex items-center gap-1"><Trash2 size={12}/> Delete</button></div>
@@ -718,5 +721,3 @@ export const ProductDetails: React.FC = () => {
     </div>
   );
 };
-
-const MoveHorizontal = ({ size = 20 }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" y1="12" x2="22" y2="12"/></svg>);

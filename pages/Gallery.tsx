@@ -3,13 +3,13 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
 import { storeService, CuratedCollections } from '../services/storeService';
-import { Search, Grid, LayoutGrid, LogOut, Loader2, Filter, RefreshCw, Lock, Sparkles, UserPlus, TrendingUp, Clock, Heart, ShoppingBag, Gem, ChevronLeft, ChevronRight, Unlock, X, ArrowDown } from 'lucide-react';
+import { Search, Grid, LayoutGrid, LogOut, Loader2, Filter, Sparkles, TrendingUp, Clock, Heart, Gem, Unlock } from 'lucide-react';
 import { Product, AnalyticsEvent, AppConfig } from '../types';
 
 const CuratedSection: React.FC<{ title: string, products: Product[], icon: React.ElementType, accent: string, onProductClick: (id: string) => void }> = ({ title, products, icon: Icon, accent, onProductClick }) => {
     if (!products || products.length === 0) return null;
     return (
-        <div className="mb-8 pl-4 md:pl-8">
+        <div className="mb-8 pl-4 md:pl-8 animate-in fade-in slide-in-from-right-8 duration-700">
             <h3 className={`font-serif text-lg md:text-xl font-bold mb-3 flex items-center gap-2 ${accent}`}>
                 <Icon size={20} /> {title}
             </h3>
@@ -92,7 +92,7 @@ export const Gallery: React.FC = () => {
   // Filter Change Handler: Reset state immediately
   useEffect(() => {
       setPage(1);
-      setProducts([]); // Clear strictly to show loading and prevent mixed content
+      setProducts([]); 
       setHasMore(true);
   }, [activeCategory, activeSubCategory, search]);
 
@@ -112,14 +112,10 @@ export const Gallery: React.FC = () => {
 
             const response = await storeService.getProducts(page, 20, filters);
             
-            // Critical: Discard results if a newer request has started
             if (requestId !== requestRef.current) return;
 
             setProducts(prev => {
-                // If this is page 1, strictly replace. If we scrolled, append.
                 if (page === 1) return response.items;
-                
-                // Deduplicate items based on ID
                 const existingIds = new Set(prev.map(p => p.id));
                 const newItems = response.items.filter(p => !existingIds.has(p.id));
                 return [...prev, ...newItems];
@@ -136,11 +132,10 @@ export const Gallery: React.FC = () => {
         }
     };
 
-    const timeout = setTimeout(fetchProducts, 300); // Debounce search
+    const timeout = setTimeout(fetchProducts, 300);
     return () => clearTimeout(timeout);
   }, [page, activeCategory, activeSubCategory, search, isAdmin]);
 
-  // Compute available categories from Config
   const categoryList = useMemo(() => {
     if (restrictedCategory) return [restrictedCategory];
     if (config?.categories && config.categories.length > 0) {
@@ -152,11 +147,9 @@ export const Gallery: React.FC = () => {
             .map(c => c.name);
         return ['All', ...visibleCats];
     }
-    // Fallback if config failed
     return ['All'];
   }, [config, restrictedCategory, isAdmin, unlockedCategories, sharedCategoryState]);
 
-  // Compute sub-categories
   const subCategoryList = useMemo(() => {
       if (activeCategory === 'All') return [];
       const catConfig = config?.categories.find(c => c.name === activeCategory);
@@ -177,17 +170,29 @@ export const Gallery: React.FC = () => {
   };
 
   const navigateToProduct = (productId: string) => {
-      navigate(`/product/${productId}`, { state: { sharedCategory: restrictedCategory } });
+      if (navigator.vibrate) navigator.vibrate(10);
+      
+      // Build context list for swipe navigation in ProductDetails
+      const contextIds = products.map(p => p.id);
+      
+      // If the clicked product isn't in main list (e.g. from Curated), add it loosely
+      if (!contextIds.includes(productId)) contextIds.unshift(productId);
+
+      navigate(`/product/${productId}`, { 
+          state: { 
+              sharedCategory: restrictedCategory,
+              productContext: contextIds // Pass list for swipe nav
+          } 
+      });
   };
 
   const scrollToGrid = () => {
       gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // AI Insights Pulse Logic
   const trendingStats = useMemo(() => {
       const topProduct = analytics.find(e => e.type === 'inquiry' || e.type === 'like');
-      const liveViewers = Math.floor(Math.random() * 5) + 3; // Simulated live users for UX
+      const liveViewers = Math.floor(Math.random() * 5) + 3; 
       return { 
           hotItem: topProduct?.productTitle || 'Solitaire Rings', 
           live: liveViewers,
@@ -204,13 +209,11 @@ export const Gallery: React.FC = () => {
       );
   }
 
-  // Helper to check if we are in "Main Catalog" mode (no filters applied)
   const isMainCatalogView = activeCategory === 'All' && activeSubCategory === 'All' && !search;
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-20 md:pt-16">
+    <div className="min-h-screen bg-stone-50 pb-20 md:pt-16 animate-in fade-in duration-500">
       
-      {/* AI Market Pulse Ticker */}
       {!isGuest && (
           <div className="bg-stone-900 text-gold-500 text-[10px] font-bold uppercase tracking-widest py-1.5 px-4 flex items-center justify-between overflow-hidden relative z-50">
              <div className="flex items-center gap-2 animate-pulse">
@@ -224,7 +227,6 @@ export const Gallery: React.FC = () => {
           </div>
       )}
 
-      {/* Sticky Header */}
       <div className="sticky top-0 md:top-16 bg-white/90 backdrop-blur-md border-b border-stone-200 z-40 transition-all duration-300">
         <div className="max-w-7xl mx-auto flex flex-col gap-2 p-2">
             <div className="px-2 md:px-6 h-12 flex items-center justify-between gap-4">
@@ -289,7 +291,6 @@ export const Gallery: React.FC = () => {
 
       <main className="max-w-7xl mx-auto md:p-8">
         
-        {/* Curated Sections (Only show on main view) */}
         {isMainCatalogView && (
             <div className="py-6 space-y-2">
                 <CuratedSection title="Latest Arrivals" products={curated.latest} icon={Clock} accent="text-stone-800" onProductClick={navigateToProduct} />
@@ -329,21 +330,18 @@ export const Gallery: React.FC = () => {
             </div>
         )}
 
-        <div ref={gridRef} className={`grid gap-4 px-4 pb-8 ${
+        <div ref={gridRef} className={`grid gap-4 px-4 pb-8 animate-in slide-in-from-bottom-8 duration-700 ${
             viewMode === 'grid' 
             ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
             : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
         }`}>
             {products.map((product, index) => {
-                if (products.length === index + 1) {
-                    return (
-                        <div ref={lastProductElementRef} key={product.id}>
-                            <ProductCard product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />
-                        </div>
-                    );
-                } else {
-                    return <ProductCard key={product.id} product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />;
-                }
+                const isLast = products.length === index + 1;
+                return (
+                    <div ref={isLast ? lastProductElementRef : undefined} key={product.id}>
+                        <ProductCard product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />
+                    </div>
+                );
             })}
         </div>
 

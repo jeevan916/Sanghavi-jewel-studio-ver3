@@ -22,6 +22,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
 
   const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (navigator.vibrate) navigator.vibrate(10);
     const liked = storeService.toggleLike(product.id);
     setIsLiked(liked);
     if (liked) {
@@ -31,13 +32,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
 
   const handleInquiry = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (navigator.vibrate) navigator.vibrate(10);
     await storeService.shareToWhatsApp(product, currentImageIndex);
   };
 
   const allImages = Array.isArray(product.images) ? product.images : [];
   const allThumbnails = Array.isArray(product.thumbnails) ? product.thumbnails : [];
   
-  // Guest Limitation: Limit accessible images to 1
   const productImages = isGuest ? allImages.slice(0, 1) : allImages;
   const productThumbnails = isGuest ? allThumbnails.slice(0, 1) : allThumbnails;
 
@@ -63,7 +64,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     return `${origin}${cleanPath}`;
   };
 
-  // High-Quality Logic: Prefer high-res thumbnails
   const displayImage = getImageUrl(
     productThumbnails[currentImageIndex] || 
     productImages[currentImageIndex] || 
@@ -71,7 +71,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
   );
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all hover:shadow-md flex flex-col h-full cursor-pointer" onClick={onClick}>
+    <div 
+        className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all hover:shadow-md flex flex-col h-full cursor-pointer active:scale-[0.98]" 
+        onClick={onClick}
+    >
       <div className="relative aspect-square overflow-hidden bg-stone-100 group/image">
         {displayImage ? (
           <img 
@@ -96,7 +99,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
           </div>
         )}
         
-        <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center">
+        {/* Click Overlay - ensures tap target works even over image */}
+        <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center" onClick={onClick}>
             <Maximize2 className="text-white opacity-0 group-hover/image:opacity-100 transition-opacity drop-shadow-md" size={32} />
         </div>
 
@@ -111,7 +115,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
           </>
         )}
         
-        {/* Guest Lock Hint if more images exist but are hidden */}
         {isGuest && allImages.length > 1 && (
              <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur rounded text-[9px] font-bold text-white uppercase tracking-widest pointer-events-none">
                  +{allImages.length - 1} More
