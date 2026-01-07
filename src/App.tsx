@@ -72,7 +72,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
     
-    return this.props.children;
+    // Explicitly cast this to avoid TS error: Property 'props' does not exist on type 'ErrorBoundary'
+    return (this as any).props.children;
   }
 }
 

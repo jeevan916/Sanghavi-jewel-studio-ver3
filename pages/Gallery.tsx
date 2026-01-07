@@ -173,15 +173,16 @@ export const Gallery: React.FC = () => {
       if (navigator.vibrate) navigator.vibrate(10);
       
       // Build context list for swipe navigation in ProductDetails
+      // We pass the IDs of currently loaded products so details page knows neighbors
       const contextIds = products.map(p => p.id);
       
-      // If the clicked product isn't in main list (e.g. from Curated), add it loosely
+      // If clicked product isn't in main list (e.g. from Curated), prepend it
       if (!contextIds.includes(productId)) contextIds.unshift(productId);
 
       navigate(`/product/${productId}`, { 
           state: { 
               sharedCategory: restrictedCategory,
-              productContext: contextIds // Pass list for swipe nav
+              productContext: contextIds 
           } 
       });
   };
