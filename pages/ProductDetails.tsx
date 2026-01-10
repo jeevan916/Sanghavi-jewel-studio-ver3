@@ -2,14 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, ProductStats } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, X, Link as LinkIcon, Wand2, Eraser, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
+import { ComparisonSlider } from '../components/ComparisonSlider';
 import { storeService } from '../services/storeService';
 import { enhanceJewelryImage, removeWatermark } from '../services/geminiService';
+import { useUpload } from '../contexts/UploadContext';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { processImage } = useUpload();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +24,7 @@ export const ProductDetails: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [aiComparison, setAiComparison] = useState<{original: string, enhanced: string} | null>(null);
 
   // Navigation State
   const [neighbors, setNeighbors] = useState<{prev: string | null, next: string | null}>({ prev: null, next: null });
@@ -81,27 +85,64 @@ export const ProductDetails: React.FC = () => {
     }
   };
 
+  const urlToBase64 = async (url: string): Promise<string> => {
+      try {
+        if (url.startsWith('data:')) return url;
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+          console.error("Image conversion failed", e);
+          return "";
+      }
+  };
+
   const handleAI = async (mode: 'enhance' | 'cleanup') => {
       if (!product) return;
       if (!window.confirm(mode === 'enhance' ? "Enhance image lighting using Gemini?" : "Remove watermarks/text?")) return;
       
       setIsProcessingAI(true);
       try {
-          const img = product.images[0];
-          const newImg = mode === 'enhance' 
-            ? await enhanceJewelryImage(img) 
-            : await removeWatermark(img);
+          const imgUrl = product.images[0];
+          // Step 1 & 2: Fetch URL and convert to Base64 (Memory)
+          const base64Input = await urlToBase64(imgUrl);
+          if (!base64Input) throw new Error("Could not load source image for processing");
+
+          // Step 3: AI Enhance
+          const rawBase64 = mode === 'enhance' 
+            ? await enhanceJewelryImage(base64Input) 
+            : await removeWatermark(base64Input);
           
-          const updated = { ...product, images: [newImg, ...product.images] }; // Add as new first image
-          await storeService.updateProduct(updated);
-          setProduct(updated);
-          alert("AI Enhancement Complete!");
-      } catch (e) {
+          const enhancedDataUri = `data:image/jpeg;base64,${rawBase64}`;
+          setAiComparison({ original: imgUrl, enhanced: enhancedDataUri });
+      } catch (e: any) {
           console.error(e);
-          alert("AI Processing Failed. Please try again.");
+          alert(`AI Processing Failed: ${e.message}`);
       } finally {
           setIsProcessingAI(false);
       }
+  };
+
+  const handleApplyAI = async () => {
+     if (!product || !aiComparison) return;
+     setIsLoading(true);
+     try {
+        // Step 4-7: Send Buffer to Server -> Sharp Optimize -> Save to Disk -> Return CDN URL
+        const optimizedUrl = await processImage(aiComparison.enhanced, 1600, 0.9, 'image/webp');
+
+        const updated = { ...product, images: [optimizedUrl, ...product.images] };
+        await storeService.updateProduct(updated);
+        setProduct(updated);
+        setAiComparison(null);
+     } catch (e) {
+        alert("Failed to save enhanced image to vault.");
+     } finally {
+        setIsLoading(false);
+     }
   };
 
   const handlePrivateLink = async () => {
@@ -135,32 +176,43 @@ export const ProductDetails: React.FC = () => {
       </div>
 
       <div className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden select-none group">
-        {displayImages.length > 0 ? (
-            <img src={displayImages[0]} className="w-full h-full object-cover cursor-zoom-in" onClick={() => setShowFullScreen(true)} alt={product.title} />
+        {aiComparison ? (
+            <ComparisonSlider 
+                before={aiComparison.original} 
+                after={aiComparison.enhanced} 
+                onAccept={handleApplyAI} 
+                onDiscard={() => setAiComparison(null)} 
+            />
         ) : (
-            <div className="w-full h-full flex items-center justify-center text-stone-400 italic">No image available</div>
-        )}
-        
-        {/* Desktop Quick Nav Overlay */}
-        <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            {neighbors.prev && <button onClick={() => navigate(`/product/${neighbors.prev}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur"><ChevronLeft size={24}/></button>}
-            {neighbors.next && <button onClick={() => navigate(`/product/${neighbors.next}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur"><ChevronRight size={24}/></button>}
-        </div>
+            <>
+                {displayImages.length > 0 ? (
+                    <img src={displayImages[0]} className="w-full h-full object-cover cursor-zoom-in" onClick={() => setShowFullScreen(true)} alt={product.title} />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-stone-400 italic">No image available</div>
+                )}
+                
+                {/* Desktop Quick Nav Overlay */}
+                <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    {neighbors.prev && <button onClick={() => navigate(`/product/${neighbors.prev}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur"><ChevronLeft size={24}/></button>}
+                    {neighbors.next && <button onClick={() => navigate(`/product/${neighbors.next}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur"><ChevronRight size={24}/></button>}
+                </div>
 
-        {isGuest && images.length > 1 && (
-            <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer" onClick={() => navigate('/login')}>
-                <Lock size={12} /> +{images.length - 1} Private Views Locked
-            </div>
-        )}
-        <button onClick={toggleLike} className={`absolute top-4 right-4 p-3 rounded-full shadow-sm transition-transform active:scale-90 ${isLiked ? 'bg-red-500 text-white' : 'bg-white/70 text-stone-400'}`}>
-                <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
-        </button>
+                {isGuest && images.length > 1 && (
+                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer" onClick={() => navigate('/login')}>
+                        <Lock size={12} /> +{images.length - 1} Private Views Locked
+                    </div>
+                )}
+                <button onClick={toggleLike} className={`absolute top-4 right-4 p-3 rounded-full shadow-sm transition-transform active:scale-90 ${isLiked ? 'bg-red-500 text-white' : 'bg-white/70 text-stone-400'}`}>
+                        <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
+                </button>
 
-        {isAdmin && (
-             <div className="absolute bottom-4 left-4 flex gap-2">
-                 <button onClick={handlePrivateLink} className="p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600" title="Copy Private Link"><LinkIcon size={18}/></button>
-                 <button onClick={() => setIsEditing(!isEditing)} className={`p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600 ${isEditing ? 'text-gold-600 ring-2 ring-gold-500' : ''}`} title="Edit Details"><Edit2 size={18}/></button>
-             </div>
+                {isAdmin && (
+                    <div className="absolute bottom-4 left-4 flex gap-2">
+                        <button onClick={handlePrivateLink} className="p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600" title="Copy Private Link"><LinkIcon size={18}/></button>
+                        <button onClick={() => setIsEditing(!isEditing)} className={`p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600 ${isEditing ? 'text-gold-600 ring-2 ring-gold-500' : ''}`} title="Edit Details"><Edit2 size={18}/></button>
+                    </div>
+                )}
+            </>
         )}
 
         {isProcessingAI && (
@@ -172,7 +224,7 @@ export const ProductDetails: React.FC = () => {
       </div>
 
       {/* Admin AI Tools */}
-      {isAdmin && isEditing && (
+      {isAdmin && isEditing && !aiComparison && (
           <div className="bg-stone-900 p-4 flex items-center justify-around gap-4 text-white">
                <button onClick={() => handleAI('enhance')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Wand2 size={20}/> AI Enhance</button>
                <button onClick={() => handleAI('cleanup')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Eraser size={20}/> Cleanup</button>
