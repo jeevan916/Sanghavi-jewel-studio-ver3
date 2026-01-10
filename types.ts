@@ -77,6 +77,16 @@ export interface AppConfig {
   whatsappToken?: string;
 }
 
+/**
+ * Added to resolve import errors in product details and dashboard
+ */
+export interface ProductStats {
+  like: number;
+  dislike: number;
+  inquiry: number;
+  purchase: number;
+}
+
 export interface AnalyticsEvent {
   id: string;
   type: 'inquiry' | 'screenshot' | 'view' | 'like' | 'dislike' | 'download' | 'login' | 'sold' | 'long_press';
