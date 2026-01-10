@@ -66,6 +66,8 @@ const initDB = async () => {
         await pool.query('SELECT 1');
         dbStatus = { healthy: true, error: null };
         await createTables();
+        await seedDefaultAdmin();
+        setupAutoBackup();
     } catch (err) {
         dbStatus = { healthy: false, error: err.message };
         setTimeout(initDB, 10000); 
@@ -87,7 +89,96 @@ const createTables = async () => {
     for (const query of tables) await pool.query(query);
 };
 
+const seedDefaultAdmin = async () => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM staff WHERE username = "admin"');
+        if (rows.length === 0) {
+            await pool.query('INSERT INTO staff (id, username, password, role, isActive, name, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+            [crypto.randomUUID(), 'admin', 'admin123', 'admin', true, 'Sanghavi Administrator', new Date()]);
+            console.log("[Vault] Default admin account seeded.");
+        }
+    } catch (err) {
+        console.error("[Vault] Seeding failed:", err.message);
+    }
+};
+
+const setupAutoBackup = () => {
+    // Auto backup every 24 hours
+    setInterval(async () => {
+        console.log("[Vault] Triggering automated backup...");
+        try {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const backupName = `auto_sanghavi_vault_${timestamp}.zip`;
+            const backupPath = path.resolve(BACKUP_ROOT, backupName);
+            await execPromise(`zip -r "${backupPath}" "${DATA_ROOT}"`);
+            console.log(`[Vault] Automated backup successful: ${backupName}`);
+        } catch (err) {
+            console.error(`[Vault] Automated backup failed:`, err.message);
+        }
+    }, 1000 * 60 * 60 * 24);
+};
+
 initDB();
+
+// --- AUTHENTICATION ENGINE ---
+
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [username, password]);
+        const user = rows[0];
+        if (user) {
+            if (!user.isActive) return res.status(403).json({ error: 'Account deactivated' });
+            res.json({ user });
+        } else {
+            res.status(401).json({ error: 'Invalid username or password' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/customers/check/:phone', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [req.params.phone]);
+        if (rows.length > 0) {
+            res.json({ exists: true, user: rows[0] });
+        } else {
+            res.json({ exists: false });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/customers/login', async (req, res) => {
+    const { phone, name, pincode, location } = req.body;
+    try {
+        // Find existing or create new
+        const [existing] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
+        let user;
+        if (existing.length > 0) {
+            user = existing[0];
+            // Update optional details if provided
+            if (name || pincode || location) {
+                await pool.query('UPDATE customers SET name = IFNULL(?, name), pincode = IFNULL(?, pincode), lastLocation = IFNULL(?, lastLocation) WHERE phone = ?', 
+                [name || null, pincode || null, JSON.stringify(location) || null, phone]);
+                const [updated] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
+                user = updated[0];
+            }
+        } else {
+            const id = crypto.randomUUID();
+            const finalName = name || `Client ${phone.slice(-4)}`;
+            await pool.query('INSERT INTO customers (id, phone, name, pincode, lastLocation, role, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+            [id, phone, finalName, pincode || null, JSON.stringify(location) || null, 'customer', new Date()]);
+            const [created] = await pool.query('SELECT * FROM customers WHERE id = ?', [id]);
+            user = created[0];
+        }
+        res.json({ user });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // --- BACKUP ENGINE ---
 app.post('/api/maintenance/backup', async (req, res) => {
@@ -95,14 +186,8 @@ app.post('/api/maintenance/backup', async (req, res) => {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const backupName = `sanghavi_vault_backup_${timestamp}.zip`;
         const backupPath = path.resolve(BACKUP_ROOT, backupName);
-        
-        // We use system 'zip' command for efficiency if available, otherwise fallback logic
-        // Note: In most production environments zip is available.
-        // We package the entire persistence folder
         const cmd = `zip -r "${backupPath}" "${DATA_ROOT}"`;
-        
         await execPromise(cmd);
-        
         res.json({ 
             success: true, 
             filename: backupName, 
@@ -145,32 +230,73 @@ app.get('/api/maintenance/backups/download/:name', async (req, res) => {
 
 // Existing API Handlers...
 app.get('/api/health', (req, res) => res.json({ status: 'online', healthy: dbStatus.healthy }));
+
 app.get('/api/products', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
-    res.json({ items: rows.map(r => ({...r, images: JSON.parse(r.images || '[]'), thumbnails: JSON.parse(r.thumbnails || '[]')})), meta: { totalPages: 1 } });
+    try {
+        const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
+        res.json({ items: rows.map(r => ({...r, images: JSON.parse(r.images || '[]'), thumbnails: JSON.parse(r.thumbnails || '[]')})), meta: { totalPages: 1 } });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
+app.post('/api/products', async (req, res) => {
+    const p = req.body;
+    try {
+        await pool.query('INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', 
+        [p.id, p.title, p.category, p.subCategory, p.weight, p.description, JSON.stringify(p.tags), JSON.stringify(p.images), JSON.stringify(p.thumbnails), p.supplier, p.uploadedBy, p.isHidden, new Date(p.createdAt), new Date(p.dateTaken), JSON.stringify(p.meta)]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.put('/api/products/:id', async (req, res) => {
     const p = req.body;
-    await pool.query('UPDATE products SET title=?, category=?, weight=?, images=?, thumbnails=? WHERE id=?', 
-        [p.title, p.category, p.weight, JSON.stringify(p.images), JSON.stringify(p.thumbnails), req.params.id]);
-    res.json({ success: true });
+    try {
+        await pool.query('UPDATE products SET title=?, category=?, weight=?, images=?, thumbnails=? WHERE id=?', 
+            [p.title, p.category, p.weight, JSON.stringify(p.images), JSON.stringify(p.thumbnails), req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
 app.get('/api/config', async (req, res) => {
-    const [rows] = await pool.query('SELECT data FROM app_config WHERE id=1');
-    res.json(rows[0]?.data ? JSON.parse(rows[0].data) : {});
+    try {
+        const [rows] = await pool.query('SELECT data FROM app_config WHERE id=1');
+        res.json(rows[0]?.data ? JSON.parse(rows[0].data) : {});
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
 app.post('/api/config', async (req, res) => {
-    await pool.query('INSERT INTO app_config (id, data) VALUES (1, ?) ON DUPLICATE KEY UPDATE data=?', [JSON.stringify(req.body), JSON.stringify(req.body)]);
-    res.json({ success: true });
+    try {
+        await pool.query('INSERT INTO app_config (id, data) VALUES (1, ?) ON DUPLICATE KEY UPDATE data=?', [JSON.stringify(req.body), JSON.stringify(req.body)]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
 app.get('/api/staff', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM staff');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT id, username, role, name, isActive, createdAt FROM staff');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
 app.post('/api/analytics', async (req, res) => {
     const e = req.body;
-    await pool.query('INSERT INTO analytics (id, type, productId, productTitle, category, weight, userId, userName, timestamp, duration, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [crypto.randomUUID(), e.type, e.productId, e.productTitle, e.category, e.weight, e.userId, e.userName, new Date(), e.duration || 0, JSON.stringify(e.meta || {})]);
-    res.json({ success: true });
+    try {
+        await pool.query('INSERT INTO analytics (id, type, productId, productTitle, category, weight, userId, userName, timestamp, duration, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [crypto.randomUUID(), e.type, e.productId, e.productTitle, e.category, e.weight, e.userId, e.userName, new Date(), e.duration || 0, JSON.stringify(e.meta || {})]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 const dist = path.resolve(process.cwd(), 'dist');
