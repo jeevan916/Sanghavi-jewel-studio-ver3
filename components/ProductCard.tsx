@@ -89,7 +89,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
       ref={containerRef}
       className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all duration-300 hover:shadow-md flex flex-col h-full cursor-pointer active:scale-[0.98] select-none"
       style={{ 
-        contain: 'layout size paint', // Full isolation for GPU optimization
+        contain: 'layout paint', // Removed 'size' to allow intrinsic sizing of children
         transform: 'translate3d(0, 0, 0)', // Force GPU layer promotion
         willChange: 'transform',
         backfaceVisibility: 'hidden'
