@@ -44,12 +44,13 @@ export const Gallery: React.FC = () => {
 
   // Memoized filter logic for zero-lag searching
   const filteredProducts = useMemo(() => {
+    const s = search.toLowerCase();
     return products.filter(p => {
       const matchesCat = activeCategory === 'All' || p.category === activeCategory;
-      const matchesSearch = !search || 
-        p.title.toLowerCase().includes(search.toLowerCase()) || 
-        p.tags.some(t => t.toLowerCase().includes(search.toLowerCase()));
-      return matchesCat && matchesSearch;
+      if (!matchesCat) return false;
+      if (!s) return true;
+      return p.title.toLowerCase().includes(s) || 
+             p.tags.some(t => t.toLowerCase().includes(s));
     });
   }, [products, activeCategory, search]);
 
@@ -67,8 +68,8 @@ export const Gallery: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-20">
-      <div className="sticky top-0 md:top-16 bg-white/90 backdrop-blur-md border-b border-stone-200 z-40">
+    <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden">
+      <div className="sticky top-0 md:top-16 bg-white/90 backdrop-blur-md border-b border-stone-200 z-40 transition-transform duration-300">
         <div className="max-w-7xl mx-auto p-2">
             <div className="px-2 md:px-6 h-12 flex items-center justify-between gap-4">
                 <div className="flex-1 max-w-md relative">
@@ -91,7 +92,7 @@ export const Gallery: React.FC = () => {
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
                     className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
-                      activeCategory === cat ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500'
+                      activeCategory === cat ? 'bg-stone-900 text-white shadow-lg' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
                     }`}
                 >
                     {cat}
@@ -103,13 +104,13 @@ export const Gallery: React.FC = () => {
 
       <main className="max-w-7xl mx-auto pt-4">
         {activeCategory === 'All' && !search && curated.latest.length > 0 && (
-          <div className="mb-8">
+          <div className="mb-8" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 300px' }}>
             <h3 className="px-6 font-serif text-xl font-bold mb-4 flex items-center gap-2">
               <Clock size={20} className="text-gold-600" /> New Arrivals
             </h3>
-            <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide">
+            <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide snap-x">
               {curated.latest.map(p => (
-                <div key={p.id} className="w-48 shrink-0">
+                <div key={p.id} className="w-48 shrink-0 snap-start">
                   <ProductCard product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
                 </div>
               ))}
@@ -121,7 +122,11 @@ export const Gallery: React.FC = () => {
           className={`grid gap-4 px-4 pb-8 ${
             viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
           }`}
-          style={{ contentVisibility: 'auto' }} // Modern CSS optimization for long lists
+          style={{ 
+            contentVisibility: 'auto', // Modern layout virtualization
+            containIntrinsicSize: '0 500px',
+            transform: 'translateZ(0)' // Promotes container to own GPU layer
+          }}
         >
           {filteredProducts.map(product => (
             <ProductCard 

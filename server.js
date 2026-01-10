@@ -88,15 +88,22 @@ const seedDefaultAdmin = async () => {
 
 initDB();
 
-// Global Data Sanitizer
+// Global Data Sanitizer - Crucial for "p.filter is not a function" fix
 const sanitizeProduct = (p) => {
     if (!p) return null;
+    const safeParse = (str, fallback = []) => {
+        try {
+            if (typeof str === 'object' && str !== null) return str;
+            return JSON.parse(str || (Array.isArray(fallback) ? '[]' : '{}'));
+        } catch (e) { return fallback; }
+    };
+
     return {
         ...p,
-        tags: Array.isArray(p.tags) ? p.tags : JSON.parse(p.tags || '[]'),
-        images: Array.isArray(p.images) ? p.images : JSON.parse(p.images || '[]'),
-        thumbnails: Array.isArray(p.thumbnails) ? p.thumbnails : JSON.parse(p.thumbnails || '[]'),
-        meta: typeof p.meta === 'object' ? p.meta : JSON.parse(p.meta || '{}')
+        tags: safeParse(p.tags, []),
+        images: safeParse(p.images, []),
+        thumbnails: safeParse(p.thumbnails, []),
+        meta: safeParse(p.meta, {})
     };
 };
 
@@ -123,7 +130,7 @@ app.post('/api/customers/login', async (req, res) => {
             const id = crypto.randomUUID();
             await pool.query('INSERT INTO customers (id, phone, name, pincode, lastLocation, role, createdAt) VALUES (?,?,?,?,?,?,?)',
             [id, phone, name || `Client ${phone.slice(-4)}`, pincode || '', JSON.stringify(location || {}), 'customer', new Date()]);
-            const [created] = await pool.query('SELECT * FROM customers WHERE id = ?', [id]);
+            const [created] = await pool.query('SELECT * FROM customers WHERE id = ?');
             res.json({ user: created[0] });
         }
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -147,7 +154,7 @@ app.get('/api/products', async (req, res) => {
 app.get('/api/products/curated', async (req, res) => {
     try {
         const [latest] = await pool.query('SELECT * FROM products WHERE isHidden = FALSE ORDER BY createdAt DESC LIMIT 10');
-        const [trending] = await pool.query('SELECT * FROM products WHERE isHidden = FALSE LIMIT 10'); // Placeholder for trend logic
+        const [trending] = await pool.query('SELECT * FROM products WHERE isHidden = FALSE LIMIT 10'); 
         res.json({
             latest: latest.map(sanitizeProduct),
             trending: trending.map(sanitizeProduct),
@@ -194,7 +201,6 @@ app.post('/api/analytics', async (req, res) => {
 
 app.get('/api/intelligence', async (req, res) => {
     try {
-        // Mocking sophisticated intelligence responses
         res.json({
             spendingPower: [],
             devices: [{ os: 'iOS', user_count: 5 }, { os: 'Android', user_count: 3 }],

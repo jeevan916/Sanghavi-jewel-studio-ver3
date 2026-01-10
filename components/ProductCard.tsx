@@ -10,7 +10,7 @@ interface ProductCardProps {
   onClick?: () => void;
 }
 
-// Global cache to prevent re-creating Blobs for the same image
+// Global cache to prevent re-creating Blobs for the same image session
 const blobCache = new Map<string, string>();
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
@@ -32,7 +32,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
           observer.unobserve(entry.target);
         }
       },
-      { rootMargin: '200px' } // Load slightly before visible
+      { 
+        rootMargin: '400px', // Pre-load further out for 120hz high-speed scrolling
+        threshold: 0.01 
+      }
     );
 
     if (containerRef.current) {
@@ -46,14 +49,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
     const rawData = product.thumbnails?.[0] || product.images?.[0] || '';
     if (!rawData) return;
 
-    // If it's already a URL, use it
     if (rawData.startsWith('http') || rawData.startsWith('/')) {
       setImageSrc(rawData);
       return;
     }
 
-    // Performance Trick: Use Blob URLs instead of Base64 strings
-    // Base64 strings consume 33% more memory and slow down the main thread
     if (blobCache.has(product.id)) {
       setImageSrc(blobCache.get(product.id)!);
     } else if (rawData.startsWith('data:')) {
@@ -69,7 +69,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
         blobCache.set(product.id, url);
         setImageSrc(url);
       } catch (e) {
-        setImageSrc(rawData); // Fallback to base64 if blob fails
+        setImageSrc(rawData);
       }
     }
   };
@@ -89,8 +89,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
       ref={containerRef}
       className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all duration-300 hover:shadow-md flex flex-col h-full cursor-pointer active:scale-[0.98] select-none"
       style={{ 
-        contain: 'layout size', // Optimizes browser rendering
-        transform: 'translateZ(0)' // Hardware acceleration
+        contain: 'layout size paint', // Full isolation for GPU optimization
+        transform: 'translate3d(0, 0, 0)', // Force GPU layer promotion
+        willChange: 'transform',
+        backfaceVisibility: 'hidden'
       }}
       onClick={() => { 
         if(navigator.vibrate) navigator.vibrate(5); 
@@ -103,13 +105,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
             src={imageSrc} 
             alt={product.title} 
             onLoad={() => setIsLoaded(true)}
+            decoding="async" // Off-thread decoding prevents scroll stutter
+            loading="lazy"
             className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
           />
         )}
         
-        {/* Instant Skeleton / Placeholder */}
         {!isLoaded && (
-          <div className="absolute inset-0 bg-stone-200 animate-pulse flex items-center justify-center">
+          <div className="absolute inset-0 bg-stone-200 flex items-center justify-center">
             <div className="w-8 h-8 rounded-full border-2 border-stone-300 border-t-gold-500 animate-spin opacity-20" />
           </div>
         )}
@@ -121,9 +124,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
           <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
         </button>
 
-        {isGuest && product.images.length > 1 && (
+        {isGuest && (product.images?.length || 0) > 1 && (
           <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur rounded text-[9px] font-bold text-white uppercase tracking-widest pointer-events-none z-20">
-            +{product.images.length - 1} Locked
+            +{(product.images?.length || 0) - 1} Locked
           </div>
         )}
       </div>

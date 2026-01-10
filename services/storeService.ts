@@ -49,18 +49,24 @@ export const storeService = {
         const item = localStorage.getItem('sanghavi_user_session');
         if (!item) return null;
         const user = JSON.parse(item);
-        // Robustness: Ensure we have a valid object and it's not a legacy string
         return (user && typeof user === 'object' && user.id) ? user : null;
     } catch {
-        localStorage.removeItem('sanghavi_user_session'); // Clear corrupted session
+        localStorage.removeItem('sanghavi_user_session');
         return null;
     }
   },
 
   getProducts: async (page = 1, limit = 20, filters: any = {}) => {
     try {
-      return await apiFetch(`/products`);
-    } catch { return { items: [], meta: { totalPages: 1 } }; }
+      const data = await apiFetch(`/products`);
+      // Defensive: Ensure items is ALWAYS an array
+      return { 
+        items: Array.isArray(data.items) ? data.items : [], 
+        meta: data.meta || { totalPages: 1 } 
+      };
+    } catch { 
+      return { items: [], meta: { totalPages: 1 } }; 
+    }
   },
 
   getProductById: (id: string): Promise<Product> => apiFetch(`/products/${id}`),
