@@ -80,7 +80,29 @@ const initDB = async () => {
 };
 initDB();
 
-// API Endpoints
+// API Routes
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        if (!pool) {
+          return res.status(503).json({ error: "Database not initialized" });
+        }
+        const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [username, password]);
+        
+        if (rows[0]) {
+            if (!rows[0].isActive) {
+              return res.status(403).json({ error: 'Account disabled by administrator' });
+            }
+            res.json({ user: rows[0] });
+        } else {
+            res.status(401).json({ error: 'Invalid username or security key' });
+        }
+    } catch (e) {
+        console.error('[Login API Error]:', e);
+        res.status(500).json({ error: 'Internal Auth Failure' });
+    }
+});
+
 app.get('/api/products', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
@@ -90,7 +112,18 @@ app.get('/api/products', async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ status: 'online' }));
 
-// SPA Catch-all: Must be AFTER all API routes
+// 404 handler for API (must be before catch-all)
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: `API Endpoint ${req.originalUrl} not found` });
+});
+
+// Global Error Handler for API (Ensures JSON output)
+app.use((err, req, res, next) => {
+    console.error('[Global Error Handler]:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+});
+
+// SPA Catch-all
 const distPath = path.resolve(process.cwd(), 'dist');
 if (existsSync(distPath)) {
   app.use(express.static(distPath));

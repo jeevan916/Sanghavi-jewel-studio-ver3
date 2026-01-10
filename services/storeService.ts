@@ -25,12 +25,29 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2
                 ...options,
                 headers: { 'Content-Type': 'application/json', ...options.headers },
             });
-            const data = await response.json().catch(() => ({ error: 'Parse Error' }));
-            if (!response.ok) throw new Error(data.error || `Error (${response.status})`);
+
+            const contentType = response.headers.get("content-type");
+            let data;
+            
+            // Check if response is actually JSON before parsing
+            if (contentType && contentType.includes("application/json")) {
+                data = await response.json();
+            } else {
+                // If it's not JSON (like an HTML error page), read as text and throw
+                const text = await response.text();
+                throw new Error(`Server returned unexpected response: ${text.slice(0, 50)}...`);
+            }
+
+            if (!response.ok) {
+                throw new Error(data.error || `Server Error (${response.status})`);
+            }
             return data;
         } catch (err: any) {
             lastError = err;
-            if (i < retries) await sleep(1000 * (i + 1));
+            if (i < retries) {
+                console.warn(`Fetch attempt ${i + 1} failed for ${endpoint}. Retrying...`);
+                await sleep(500 * (i + 1));
+            }
         }
     }
     throw lastError;
@@ -39,9 +56,11 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2
 export const storeService = {
   checkServerHealth: async (): Promise<HealthStatus> => {
     try {
-        const data = await apiFetch('/health', {}, 0);
+        const data = await apiFetch('/health', { method: 'GET' }, 0);
         return { healthy: data.status === 'online' };
-    } catch (e: any) { return { healthy: false, reason: e.message }; }
+    } catch (e: any) { 
+        return { healthy: false, reason: e.message || 'Server unreachable' }; 
+    }
   },
 
   getCurrentUser: (): User | null => {
@@ -81,8 +100,13 @@ export const storeService = {
     apiFetch(`/products/${id}/stats`).catch(() => ({ like: 0, dislike: 0, inquiry: 0, purchase: 0 })),
 
   login: async (username: string, password: string) => {
-    const data = await apiFetch('/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-    localStorage.setItem('sanghavi_user_session', JSON.stringify(data.user));
+    const data = await apiFetch('/login', { 
+      method: 'POST', 
+      body: JSON.stringify({ username, password }) 
+    });
+    if (data.user) {
+        localStorage.setItem('sanghavi_user_session', JSON.stringify(data.user));
+    }
     return data.user;
   },
 
@@ -91,7 +115,9 @@ export const storeService = {
       method: 'POST', 
       body: JSON.stringify({ phone, name, pincode, location }) 
     });
-    localStorage.setItem('sanghavi_user_session', JSON.stringify(data.user));
+    if (data.user) {
+        localStorage.setItem('sanghavi_user_session', JSON.stringify(data.user));
+    }
     return data.user;
   },
 
