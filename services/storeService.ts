@@ -75,12 +75,20 @@ export const storeService = {
     }
   },
 
-  getProducts: async (page = 1, limit = 20, filters: any = {}) => {
+  getProducts: async (page = 1, limit = 50, filters: any = {}) => {
     try {
-      const data = await apiFetch(`/products`);
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+      if (filters.publicOnly) {
+          queryParams.append('public', 'true');
+      }
+      
+      const data = await apiFetch(`/products?${queryParams.toString()}`);
       return { 
         items: Array.isArray(data.items) ? data.items : [], 
-        meta: data.meta || { totalPages: 1 } 
+        meta: data.meta || { totalPages: 1, page, limit } 
       };
     } catch { 
       return { items: [], meta: { totalPages: 1 } }; 

@@ -42,17 +42,17 @@ ensureFolders();
 app.use('/uploads', express.static(UPLOADS_ROOT, { maxAge: '31d', immutable: true }));
 
 // Sanitization Utility
+const safeParse = (str, fallback = []) => {
+  if (Array.isArray(str)) return str;
+  try {
+    if (!str) return fallback;
+    const parsed = JSON.parse(str);
+    return (typeof parsed === 'object') ? parsed : fallback;
+  } catch (e) { return fallback; }
+};
+
 const sanitizeProduct = (p) => {
   if (!p) return null;
-  const safeParse = (str, fallback = []) => {
-    if (Array.isArray(str)) return str;
-    try {
-      if (!str) return fallback;
-      const parsed = JSON.parse(str);
-      return (typeof parsed === 'object') ? parsed : fallback;
-    } catch (e) { return fallback; }
-  };
-
   return {
     ...p,
     tags: safeParse(p.tags, []),
@@ -60,6 +60,27 @@ const sanitizeProduct = (p) => {
     thumbnails: safeParse(p.thumbnails, []),
     meta: typeof p.meta === 'string' ? safeParse(p.meta, {}) : (p.meta || {})
   };
+};
+
+// Summary Sanitization: Strips heavy image arrays for list views to reduce payload size
+const sanitizeProductSummary = (p) => {
+  if (!p) return null;
+  const full = sanitizeProduct(p);
+  
+  // Logic: 
+  // 1. If thumbnails exist, we don't need the heavy 'images' array for the list view.
+  // 2. If thumbnails are missing, keep ONLY the first image as a fallback poster.
+  
+  if (full.thumbnails && full.thumbnails.length > 0) {
+    full.images = []; // Client uses thumbnails[0]
+  } else if (full.images && full.images.length > 0) {
+    full.images = [full.images[0]]; // Fallback to first image only
+  }
+  
+  // Remove unnecessary fields for list view if they are large (optional, but good practice)
+  // delete full.description; 
+  
+  return full;
 };
 
 // Database Initialization
@@ -202,19 +223,48 @@ app.post('/api/login', async (req, res) => {
 // Products
 app.get('/api/products', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
-    res.json({ items: (rows || []).map(sanitizeProduct), meta: { totalPages: 1 } });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 1000;
+    const isPublic = req.query.public === 'true';
+    const offset = (page - 1) * limit;
+
+    let query = 'SELECT * FROM products';
+    const params = [];
+
+    if (isPublic) {
+        query += ' WHERE isHidden = 0';
+    }
+
+    query += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const [rows] = await pool.query(query, params);
+    
+    // Count total for pagination meta
+    // Note: For perf on large datasets, exact count can be slow, but ok for now.
+    const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM products ${isPublic ? 'WHERE isHidden = 0' : ''}`);
+    const total = countRows[0].total;
+
+    res.json({ 
+        items: (rows || []).map(sanitizeProductSummary), 
+        meta: { 
+            page, 
+            limit, 
+            totalPages: Math.ceil(total / limit),
+            totalItems: total
+        } 
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/products/curated', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 20');
-        const items = (rows || []).map(sanitizeProduct);
+        const [rows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 50');
+        const items = (rows || []).map(sanitizeProductSummary);
         res.json({
             latest: items.slice(0, 8),
-            loved: items.filter((_, i) => i % 3 === 0),
-            trending: items.filter((_, i) => i % 2 === 0),
+            loved: items.filter((_, i) => i % 3 === 0).slice(0, 8),
+            trending: items.filter((_, i) => i % 2 === 0).slice(0, 8),
             ideal: items.slice(0, 4)
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -224,6 +274,7 @@ app.get('/api/products/:id', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
         if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
+        // Return full product with all images for details view
         res.json(sanitizeProduct(rows[0]));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
