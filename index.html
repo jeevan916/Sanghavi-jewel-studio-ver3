@@ -21,7 +21,7 @@
       window.process = { env: { NODE_ENV: 'production' } };
     </script>
 
-    <!-- Clean Import Map: Strictly Browser-side dependencies -->
+    <!-- Clean Import Map -->
     <script type="importmap">
 {
   "imports": {
@@ -53,44 +53,53 @@
 }
 </script>
     
+    <!-- RESTORED: Tailwind CDN for immediate styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-    
     <script>
-      window.tailwind.config = {
+      tailwind.config = {
         theme: {
           extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              serif: ['Playfair Display', 'serif'],
-            },
             colors: {
               gold: {
-                50: '#fbf8f1', 100: '#f5efdb', 200: '#ebdbb2', 300: '#dec082', 400: '#d1a355',
-                500: '#c68a36', 600: '#aa6c29', 700: '#885025', 800: '#704126', 900: '#5e3722',
+                50: '#fbf8f1',
+                100: '#f5ead6',
+                200: '#ebdbb2',
+                300: '#dfc28e',
+                400: '#d0a462',
+                500: '#c68a36',
+                600: '#a86f28',
+                700: '#865421',
+                800: '#6e4420',
+                900: '#5a381e',
+                950: '#321d0e',
+              },
+            },
+            fontFamily: {
+              serif: ['"Playfair Display"', 'serif'],
+              sans: ['"Inter"', 'sans-serif'],
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'slide-up': 'slideUp 0.5s ease-out forwards',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
               }
             }
           }
         }
       }
     </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    
     <style>
-      :root {
-        scrollbar-gutter: stable;
-      }
-      body { 
-        -webkit-tap-highlight-color: transparent; 
-        background-color: #fbf8f1; 
-        margin: 0; 
-        padding: 0; 
-        overflow-x: hidden;
-        text-rendering: optimizeLegibility;
-        -webkit-font-smoothing: antialiased;
-        overscroll-behavior-y: none;
-      }
-      * {
-        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-      }
       #initial-loader {
         position: fixed; inset: 0; background: #fbf8f1;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -101,21 +110,7 @@
       .loading-bar-progress { position: absolute; height: 100%; width: 30%; background: #c68a36; left: -30%; animation: loadingSlide 1.5s infinite ease-in-out; }
       @keyframes loadingSlide { 0% { left: -30%; } 100% { left: 100%; } }
       .loaded #initial-loader { opacity: 0; visibility: hidden; pointer-events: none; }
-      
-      .scrollbar-hide::-webkit-scrollbar {
-        display: none;
-      }
-      .scrollbar-hide {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-
-      /* Hardware Acceleration for 120Hz */
-      .gpu-accelerated {
-        transform: translateZ(0);
-        will-change: transform;
-        backface-visibility: hidden;
-      }
+      .gpu-accelerated { transform: translateZ(0); will-change: transform; backface-visibility: hidden; }
     </style>
   </head>
   <body>
@@ -129,7 +124,6 @@
       window.addEventListener('load', () => {
         setTimeout(() => document.body.classList.add('loaded'), 500);
       });
-      // Force passive listeners for better high-refresh performance
       window.addEventListener('touchstart', function() {}, {passive: true});
       window.addEventListener('touchmove', function() {}, {passive: true});
       window.addEventListener('scroll', function() {}, {passive: true});

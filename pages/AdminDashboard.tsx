@@ -2,18 +2,19 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storeService } from '../services/storeService';
+import { coreEngine } from '../services/coreEngine';
 import { Product, AnalyticsEvent, User } from '../types';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'trends' | 'intelligence';
+type ViewMode = 'overview' | 'files' | 'leads' | 'trends' | 'intelligence' | 'neural';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
@@ -31,6 +32,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [viewStyle, setViewStyle] = useState<'grid' | 'list'>('grid');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editProduct, setEditProduct] = useState<Product | null>(null);
+
+  // Core Engine Data
+  const memory = coreEngine.getMemory();
+  const fixHistory = coreEngine.getFixHistory();
 
   const refreshData = async (background = false) => {
     if (!background) setLoading(true);
@@ -111,25 +116,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           .filter(Boolean) as (Product & { score: number })[];
   }, [analytics, products]);
 
-  const handleSelect = (id: string, multi: boolean) => {
-      if (multi) {
-          const newSet = new Set(selectedIds);
-          if (newSet.has(id)) newSet.delete(id);
-          else newSet.add(id);
-          setSelectedIds(newSet);
-      } else {
-          setSelectedIds(new Set([id]));
-      }
-  };
-
-  const handleSaveEdit = async () => {
-      if (editProduct) {
-          await storeService.updateProduct(editProduct);
-          setEditProduct(null);
-          refreshData(true);
-      }
-  };
-
   if (loading && products.length === 0) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-stone-50">
@@ -161,7 +147,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'files', icon: FolderOpen, label: 'Assets' },
               { id: 'leads', icon: UserCheck, label: 'Leads' },
               { id: 'trends', icon: TrendingUp, label: 'Trends' },
-              { id: 'intelligence', icon: BrainCircuit, label: 'AI Intel' },
+              { id: 'neural', icon: BrainCircuit, label: 'Neural Core' },
             ].map(tab => (
               <button 
                 key={tab.id}
@@ -184,6 +170,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     <div className="p-3 bg-green-50 text-green-600 rounded-xl"><UserCheck size={24} /></div>
                     <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Leads</p><p className="text-2xl font-bold text-stone-800">{customers.length}</p></div>
                 </div>
+          </div>
+      )}
+
+      {activeView === 'neural' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
+              <div className="bg-stone-900 text-white p-8 rounded-3xl shadow-xl border border-stone-800">
+                  <div className="flex items-center gap-3 mb-6">
+                      <div className="p-3 bg-gold-500/10 rounded-xl border border-gold-500/20">
+                          <BrainCircuit size={24} className="text-gold-500" />
+                      </div>
+                      <div>
+                          <h3 className="font-serif text-2xl text-gold-500">Core Engine v{memory.version}</h3>
+                          <p className="text-stone-400 text-xs uppercase tracking-widest">{memory.identity}</p>
+                      </div>
+                  </div>
+                  
+                  <div className="space-y-6">
+                      <div>
+                          <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Lock size={12}/> Locked Features (Immutable)</h4>
+                          <div className="grid grid-cols-1 gap-2">
+                              {memory.locked_features.map(f => (
+                                  <div key={f.id} className="p-3 bg-stone-800/50 rounded-xl border border-stone-700/50 flex justify-between items-center">
+                                      <div className="flex items-center gap-3">
+                                          <div className={`w-2 h-2 rounded-full ${f.status === 'stable' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                                          <span className="font-medium text-sm text-stone-200">{f.name}</span>
+                                      </div>
+                                      <ShieldCheck size={16} className="text-gold-500/50" />
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      <div>
+                          <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Cpu size={12}/> Architecture Rules</h4>
+                          <div className="space-y-2">
+                              {memory.architecture_rules.map((rule, i) => (
+                                  <div key={i} className="text-xs font-mono text-stone-400 bg-black/20 p-2 rounded border-l-2 border-gold-500/50">
+                                      {rule}
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-200">
+                      <h4 className="font-serif text-xl text-stone-800 mb-4 flex items-center gap-2">
+                          <Activity size={20} className="text-blue-500" /> Recent Fix Memory
+                      </h4>
+                      <div className="space-y-3">
+                          {fixHistory.map((fix, i) => (
+                              <div key={i} className="flex gap-3 items-start">
+                                  <CheckCircle size={16} className="text-green-500 mt-0.5 shrink-0" />
+                                  <p className="text-sm text-stone-600">{fix}</p>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-3xl border border-blue-100">
+                      <h4 className="font-serif text-xl text-blue-900 mb-2">Engine Status</h4>
+                      <div className="flex items-center gap-2 mb-4">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase">Active</span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase">Monitoring</span>
+                      </div>
+                      <p className="text-sm text-blue-800/80 leading-relaxed">
+                          The Core Engine is actively monitoring the codebase for regression. 
+                          Critical features like the AI Slider and Server-Side Sharp processing are locked and protected.
+                      </p>
+                  </div>
+              </div>
           </div>
       )}
 
