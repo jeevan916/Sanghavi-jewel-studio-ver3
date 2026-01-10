@@ -33,57 +33,31 @@ const ensureFolders = () => {
 };
 ensureFolders();
 
+// Static Assets
 app.use('/uploads', express.static(UPLOADS_ROOT, { maxAge: '31d', immutable: true }));
 
-/**
- * Enterprise Jewelry Image Pipeline
- * Transcodes to WebP/AVIF, applies sharpening, and creates responsive variants
- */
-async function processJewelryImage(base64Data, title) {
-  const buffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ""), 'base64');
-  const slug = (title || 'jewelry').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  const hash = crypto.randomBytes(4).toString('hex');
-  
-  const pipeline = sharp(buffer)
-    .rotate() // Auto-orient based on EXIF
-    .toColorspace('srgb')
-    .removeAlpha() // High-end jewelry looks best on solid backgrounds
-    .flatten({ background: { r: 251, g: 248, b: 241 } }); // Studio background
+// Sanitization Utility
+const sanitizeProduct = (p) => {
+  if (!p) return null;
+  const safeParse = (str, fallback = []) => {
+    if (Array.isArray(str)) return str;
+    try {
+      if (!str) return fallback;
+      const parsed = JSON.parse(str);
+      return Array.isArray(parsed) ? parsed : fallback;
+    } catch (e) { return fallback; }
+  };
 
-  const variants = [
-    { width: 720, dir: UPLOADS_720, quality: 75 },
-    { width: 1080, dir: UPLOADS_1080, quality: 82 }
-  ];
+  return {
+    ...p,
+    tags: safeParse(p.tags, []),
+    images: safeParse(p.images, []),
+    thumbnails: safeParse(p.thumbnails, []),
+    meta: typeof p.meta === 'string' ? safeParse(p.meta, {}) : (p.meta || {})
+  };
+};
 
-  const results = { images: [], thumbnails: [] };
-
-  for (const v of variants) {
-    const filename = `${slug}_${v.width}_${hash}.webp`;
-    const fullPath = path.join(v.dir, filename);
-    
-    await pipeline
-      .clone()
-      .resize({ 
-        width: v.width, 
-        withoutEnlargement: true,
-        kernel: sharp.kernel.lanczos3 
-      })
-      .sharpen({ 
-        sigma: 0.5, 
-        m1: 2, 
-        m2: 20 // Edge-aware sharpening to preserve gold/facets
-      })
-      .webp({ quality: v.quality, effort: 6, smartSubsample: true })
-      .toFile(fullPath);
-
-    const publicUrl = `/uploads/${v.width === 720 ? '720' : '1080'}/${filename}`;
-    if (v.width === 720) results.thumbnails.push(publicUrl);
-    results.images.push(publicUrl);
-  }
-
-  return results;
-}
-
+// Database Initialization
 const dbConfig = {
   host: (process.env.DB_HOST || 'localhost').toLowerCase() === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -106,33 +80,23 @@ const initDB = async () => {
 };
 initDB();
 
-app.post('/api/products', async (req, res) => {
-  const p = req.body;
+// API Endpoints
+app.get('/api/products', async (req, res) => {
   try {
-    const rawImage = p.images[0];
-    if (!rawImage) throw new Error("No image data provided");
-
-    // Process through modern pipeline
-    const assetUrls = await processJewelryImage(rawImage, p.title);
-
-    await pool.query(
-      'INSERT INTO products (id, title, category, subCategory, weight, description, tags, images, thumbnails, supplier, uploadedBy, isHidden, createdAt, dateTaken, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', 
-      [
-        p.id, p.title, p.category, p.subCategory, p.weight, p.description, 
-        JSON.stringify(p.tags || []), 
-        JSON.stringify(assetUrls.images), 
-        JSON.stringify(assetUrls.thumbnails), 
-        p.supplier, p.uploadedBy, p.isHidden, new Date(), new Date(), 
-        JSON.stringify(p.meta || {})
-      ]
-    );
-    res.json({ success: true, assets: assetUrls });
-  } catch (e) {
-    console.error('[Upload API] Error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
+    const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
+    res.json({ items: (rows || []).map(sanitizeProduct), meta: { totalPages: 1 } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/health', (req, res) => res.json({ status: 'online' }));
 
-app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Pipeline Active on port ${PORT}`));
+// SPA Catch-all: Must be AFTER all API routes
+const distPath = path.resolve(process.cwd(), 'dist');
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Server Active on port ${PORT}`));
