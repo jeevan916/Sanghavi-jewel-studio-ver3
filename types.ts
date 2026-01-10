@@ -29,7 +29,7 @@ export type User = {
   name: string;
   role: UserRole;
   phone?: string;
-  location?: string; // This can serve as pincode/city
+  location?: string;
   pincode?: string;
   lastLogin?: string;
   createdAt?: string;
@@ -96,8 +96,8 @@ export interface AnalyticsEvent {
   deviceName: string;
   timestamp: string;
   imageIndex?: number;
-  duration?: number; // Time spent in seconds
-  meta?: any; // Detailed device stats (screen res, etc)
+  duration?: number;
+  meta?: any;
 }
 
 export interface ProductSuggestion {

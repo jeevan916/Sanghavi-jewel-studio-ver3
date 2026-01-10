@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
@@ -28,7 +29,6 @@ export const Gallery: React.FC = () => {
   const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [curated, setCurated] = useState<CuratedCollections>({ latest: [], loved: [], trending: [], ideal: [] });
-  const [analytics, setAnalytics] = useState<AnalyticsEvent[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
   
   const [page, setPage] = useState(1);
@@ -37,7 +37,6 @@ export const Gallery: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   const [activeCategory, setActiveCategory] = useState('All');
-  const [activeSubCategory, setActiveSubCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'masonry'>('grid');
   
@@ -70,11 +69,9 @@ export const Gallery: React.FC = () => {
   useEffect(() => {
       Promise.all([
           storeService.getConfig(),
-          storeService.getAnalytics(),
           storeService.getCuratedProducts()
-      ]).then(([conf, ana, cur]) => {
+      ]).then(([conf, cur]) => {
           setConfig(conf);
-          setAnalytics(ana);
           setCurated(cur);
       });
   }, []);
@@ -83,7 +80,7 @@ export const Gallery: React.FC = () => {
       setPage(1);
       setProducts([]); 
       setHasMore(true);
-  }, [activeCategory, activeSubCategory, search]);
+  }, [activeCategory, search]);
 
   useEffect(() => {
     const requestId = ++requestRef.current;
@@ -93,7 +90,6 @@ export const Gallery: React.FC = () => {
             const filters = {
                 publicOnly: isGuest, 
                 category: activeCategory !== 'All' ? activeCategory : undefined,
-                subCategory: activeSubCategory !== 'All' ? activeSubCategory : undefined,
                 search: search || undefined
             };
 
@@ -108,7 +104,7 @@ export const Gallery: React.FC = () => {
             });
             setHasMore(page < response.meta.totalPages);
         } catch (error) {
-            console.error("Gallery Load Error", error);
+            console.error("Gallery Sync Error", error);
         } finally {
             if (requestId === requestRef.current) {
                 setIsLoading(false);
@@ -118,27 +114,24 @@ export const Gallery: React.FC = () => {
     };
     const timeout = setTimeout(fetchProducts, 300);
     return () => clearTimeout(timeout);
-  }, [page, activeCategory, activeSubCategory, search, isGuest]);
+  }, [page, activeCategory, search, isGuest]);
 
   const categoryList = useMemo(() => {
     if (!config?.categories) return ['All'];
-    const visibleCats = config.categories
+    return ['All', ...config.categories
         .filter(c => {
-             // Strictly hide private categories for guests unless explicitly unlocked via private link
+             // Strict Privacy: Hide private cats from guests unless explicitly unlocked
              const isUnlocked = unlockedCategories.includes(c.name) || (sharedCategoryState === c.name);
              if (c.isPrivate) return isAdmin || isUnlocked;
              return true;
         })
-        .map(c => c.name);
-    return ['All', ...visibleCats];
+        .map(c => c.name)];
   }, [config, isAdmin, unlockedCategories, sharedCategoryState]);
 
   const navigateToProduct = (productId: string) => {
       if (navigator.vibrate) navigator.vibrate(10);
-      
-      // BUILD CONTEXT: Pass the list of loaded product IDs to allow swiping next/prev in Details
+      // Pass the current visible product IDs for horizontal swipe navigation in Details
       const contextIds = products.map(p => p.id);
-      
       navigate(`/product/${productId}`, { 
           state: { 
               sharedCategory: sharedCategoryState,
@@ -146,11 +139,6 @@ export const Gallery: React.FC = () => {
           } 
       });
   };
-
-  const trendingStats = useMemo(() => {
-      const liveViewers = Math.floor(Math.random() * 5) + 3; 
-      return { live: liveViewers, total: products.length };
-  }, [products]);
 
   if (isInitialLoad && products.length === 0) {
       return (
@@ -161,52 +149,28 @@ export const Gallery: React.FC = () => {
       );
   }
 
-  const isMainCatalogView = activeCategory === 'All' && activeSubCategory === 'All' && !search;
-
   return (
     <div className="min-h-screen bg-stone-50 pb-20 md:pt-16 animate-in fade-in duration-700">
-      {!isGuest && (
-          <div className="bg-stone-900 text-gold-500 text-[10px] font-bold uppercase tracking-widest py-1.5 px-4 flex items-center justify-between z-50">
-             <div className="flex items-center gap-2 animate-pulse">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> Live Studio Pulse
-             </div>
-             <div className="flex items-center gap-4">
-                <span className="text-white hidden sm:inline">Active Sessions: {trendingStats.live}</span>
-                <span className="text-gold-300">New arrivals logged</span>
-             </div>
-          </div>
-      )}
-
       <div className="sticky top-0 md:top-16 bg-white/90 backdrop-blur-md border-b border-stone-200 z-40">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2 p-2">
+        <div className="max-w-7xl mx-auto p-2">
             <div className="px-2 md:px-6 h-12 flex items-center justify-between gap-4">
                 <div className="flex-1 max-w-md relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
                     <input 
-                    type="text" 
-                    placeholder="Search collection..."
-                    value={search}
+                    type="text" placeholder="Search Studio..." value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 bg-stone-100 border-none rounded-xl text-sm focus:ring-1 focus:ring-gold-500 outline-none"
                     />
                 </div>
-                <div className="flex gap-2 items-center">
-                    <button onClick={() => setViewMode(viewMode === 'grid' ? 'masonry' : 'grid')} className="p-2 text-stone-400 hover:text-gold-600 transition">
-                        {viewMode === 'grid' ? <LayoutGrid size={20}/> : <Grid size={20}/>}
-                    </button>
-                    {user && (
-                    <button onClick={() => storeService.logout()} className="p-2 text-stone-400 hover:text-red-500 transition">
-                        <LogOut size={20} />
-                    </button>
-                    )}
-                </div>
+                <button onClick={() => setViewMode(viewMode === 'grid' ? 'masonry' : 'grid')} className="p-2 text-stone-400 hover:text-gold-600 transition">
+                    {viewMode === 'grid' ? <LayoutGrid size={20}/> : <Grid size={20}/>}
+                </button>
             </div>
-
             <div className="flex gap-2 overflow-x-auto scrollbar-hide px-2 md:px-6 pb-2">
                 {categoryList.map(cat => (
                 <button
                     key={cat}
-                    onClick={() => { setActiveCategory(cat); setActiveSubCategory('All'); if(navigator.vibrate) navigator.vibrate(5); }}
+                    onClick={() => { setActiveCategory(cat); if(navigator.vibrate) navigator.vibrate(5); }}
                     className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                     activeCategory === cat ? 'bg-stone-900 text-white shadow-lg' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
                     }`}
@@ -219,18 +183,15 @@ export const Gallery: React.FC = () => {
       </div>
 
       <main className="max-w-7xl mx-auto md:p-8">
-        {isMainCatalogView && (
-            <div className="py-6 space-y-2">
-                <CuratedSection title="Latest Arrivals" products={curated.latest} icon={Clock} accent="text-stone-800" onProductClick={navigateToProduct} />
-                <CuratedSection title="Most Loved" products={curated.loved} icon={Heart} accent="text-red-500" onProductClick={navigateToProduct} />
-                <CuratedSection title="Trending Now" products={curated.trending} icon={TrendingUp} accent="text-gold-600" onProductClick={navigateToProduct} />
+        {activeCategory === 'All' && !search && (
+            <div className="py-6">
+                <CuratedSection title="Latest Masterpieces" products={curated.latest} icon={Clock} accent="text-stone-800" onProductClick={navigateToProduct} />
+                <CuratedSection title="Most Loved Designs" products={curated.loved} icon={Heart} accent="text-red-500" onProductClick={navigateToProduct} />
             </div>
         )}
 
         <div ref={gridRef} className={`grid gap-4 px-4 pb-8 animate-in slide-in-from-bottom-8 duration-1000 ${
-            viewMode === 'grid' 
-            ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
-            : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
+            viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
         }`}>
             {products.map((product, index) => {
                 const isLast = products.length === index + 1;
@@ -241,12 +202,7 @@ export const Gallery: React.FC = () => {
                 );
             })}
         </div>
-
-        {isLoading && (
-            <div className="flex justify-center py-8">
-                <Loader2 className="animate-spin text-gold-500" size={24} />
-            </div>
-        )}
+        {isLoading && <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gold-500" size={24} /></div>}
       </main>
     </div>
   );

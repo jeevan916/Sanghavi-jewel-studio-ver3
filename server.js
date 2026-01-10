@@ -105,11 +105,24 @@ const createTables = async () => {
         ];
         for (const query of tables) await pool.query(query);
 
-        // Migrations
+        // Migrations & Admin Password Reset
         try { await pool.query(`ALTER TABLE analytics ADD COLUMN duration INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE analytics ADD COLUMN meta JSON`); } catch (e) {}
         try { await pool.query(`ALTER TABLE analytics ADD COLUMN category VARCHAR(100)`); } catch (e) {}
         try { await pool.query(`ALTER TABLE analytics ADD COLUMN weight DECIMAL(10,3)`); } catch (e) {}
+        
+        // Ensure Admin exists with requested password: jaimata@916
+        const adminCheck = await pool.query('SELECT id FROM staff WHERE username = "admin"');
+        if (adminCheck[0].length > 0) {
+            await pool.query('UPDATE staff SET password = ? WHERE username = "admin"', ['jaimata@916']);
+            console.log(`[Database] Admin password updated successfully.`);
+        } else {
+            await pool.query(
+                'INSERT INTO staff (id, username, password, role, isActive, name, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [crypto.randomUUID(), 'admin', 'jaimata@916', 'admin', true, 'System Administrator', new Date()]
+            );
+            console.log(`[Database] Admin account created with default credentials.`);
+        }
         
         console.log(`[Database] Schema synchronization complete.`);
     } catch (err) {
