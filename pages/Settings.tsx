@@ -109,22 +109,22 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                     <button onClick={() => {
                         if(!newSupplierName.trim() || !config) return;
                         const newSup: Supplier = { id: Date.now().toString(), name: newSupplierName, isPrivate: false };
-                        setConfig({...config, suppliers: [...config.suppliers, newSup]});
+                        setConfig({...config, suppliers: [...(config.suppliers || []), newSup]});
                         setNewSupplierName('');
                     }} className="bg-gold-600 text-white px-4 rounded-lg hover:bg-gold-700 transition"><Plus /></button>
                 </div>
                 <div className="space-y-2">
-                    {config.suppliers.map(s => (
+                    {(config.suppliers || []).map(s => (
                         <div key={s.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg border border-stone-100">
                              <div className="flex items-center gap-3">
                                  <span className="font-medium text-stone-700">{s.name}</span>
                                  {s.isPrivate && <span className="text-[9px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-bold">Locked</span>}
                              </div>
                              <div className="flex items-center gap-2">
-                                 <button onClick={() => setConfig({...config, suppliers: config.suppliers.map(sup => sup.id === s.id ? {...sup, isPrivate: !sup.isPrivate} : sup)})} className="p-2 text-stone-400 hover:text-stone-600 transition-colors">
+                                 <button onClick={() => setConfig({...config, suppliers: (config.suppliers || []).map(sup => sup.id === s.id ? {...sup, isPrivate: !sup.isPrivate} : sup)})} className="p-2 text-stone-400 hover:text-stone-600 transition-colors">
                                      {s.isPrivate ? <Lock size={16}/> : <Unlock size={16}/>}
                                  </button>
-                                 <button onClick={() => setConfig({...config, suppliers: config.suppliers.filter(sup => sup.id !== s.id)})} className="p-2 text-stone-400 hover:text-red-500 transition-colors">
+                                 <button onClick={() => setConfig({...config, suppliers: (config.suppliers || []).filter(sup => sup.id !== s.id)})} className="p-2 text-stone-400 hover:text-red-500 transition-colors">
                                      <Trash2 size={16}/>
                                  </button>
                              </div>
@@ -144,13 +144,13 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                     <button onClick={() => {
                         if(!newCategoryName.trim() || !config) return;
                         const newCat: CategoryConfig = { id: Date.now().toString(), name: newCategoryName, subCategories: [], isPrivate: false };
-                        setConfig({...config, categories: [...config.categories, newCat]});
+                        setConfig({...config, categories: [...(config.categories || []), newCat]});
                         setNewCategoryName('');
                     }} className="bg-gold-600 text-white px-4 rounded-lg hover:bg-gold-700 transition"><Plus /></button>
                 </div>
 
                 <div className="space-y-4">
-                    {config.categories.map(c => (
+                    {(config.categories || []).map(c => (
                         <div key={c.id} className="border border-stone-200 rounded-xl overflow-hidden shadow-sm">
                             <div className="bg-stone-50 p-3 flex justify-between items-center border-b border-stone-200">
                                 <span className="font-bold text-stone-700 flex items-center gap-2">{c.name} {c.isPrivate && <Lock size={12} className="text-red-400"/>}</span>
@@ -162,7 +162,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                     }} className="p-1.5 bg-white border border-stone-200 rounded hover:bg-gold-50 hover:border-gold-200 text-stone-500 hover:text-gold-600 transition">
                                         <LinkIcon size={14} />
                                     </button>
-                                    <button onClick={() => setConfig({...config, categories: config.categories.map(cat => cat.id === c.id ? {...cat, isPrivate: !cat.isPrivate} : cat)})} className="text-[10px] text-stone-400 hover:text-stone-600 uppercase font-bold tracking-widest ml-2">{c.isPrivate ? 'Make Public' : 'Make Private'}</button>
+                                    <button onClick={() => setConfig({...config, categories: (config.categories || []).map(cat => cat.id === c.id ? {...cat, isPrivate: !cat.isPrivate} : cat)})} className="text-[10px] text-stone-400 hover:text-stone-600 uppercase font-bold tracking-widest ml-2">{c.isPrivate ? 'Make Public' : 'Make Private'}</button>
                                 </div>
                             </div>
                             <div className="p-4 bg-white">
@@ -170,7 +170,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                     {c.subCategories.map(sub => (
                                         <span key={sub} className="bg-stone-50 text-stone-600 px-2 py-1 rounded text-[10px] font-bold border border-stone-200 flex items-center gap-1">
                                             {sub.toUpperCase()}
-                                            <button onClick={() => setConfig({...config, categories: config.categories.map(cat => cat.id === c.id ? {...cat, subCategories: cat.subCategories.filter(s => s !== sub)} : cat)})} className="hover:text-red-500 transition-colors"><X size={10} /></button>
+                                            <button onClick={() => setConfig({...config, categories: (config.categories || []).map(cat => cat.id === c.id ? {...cat, subCategories: cat.subCategories.filter(s => s !== sub)} : cat)})} className="hover:text-red-500 transition-colors"><X size={10} /></button>
                                         </span>
                                     ))}
                                 </div>
@@ -178,7 +178,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                     <input value={newSubCategory.catId === c.id ? newSubCategory.val : ''} onChange={e => setNewSubCategory({catId: c.id, val: e.target.value})} placeholder={`Add sub-category...`} className="flex-1 text-sm p-1.5 border border-stone-200 rounded focus:border-gold-400 outline-none" />
                                     <button onClick={() => {
                                         if(!newSubCategory.val.trim() || newSubCategory.catId !== c.id || !config) return;
-                                        setConfig({...config, categories: config.categories.map(cat => cat.id === c.id ? {...cat, subCategories: [...cat.subCategories, newSubCategory.val]} : cat)});
+                                        setConfig({...config, categories: (config.categories || []).map(cat => cat.id === c.id ? {...cat, subCategories: [...cat.subCategories, newSubCategory.val]} : cat)});
                                         setNewSubCategory({catId: '', val: ''});
                                     }} className="text-[10px] font-bold uppercase bg-stone-800 text-white px-3 rounded hover:bg-stone-700">Add</button>
                                 </div>

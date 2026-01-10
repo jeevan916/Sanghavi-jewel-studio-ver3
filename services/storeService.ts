@@ -159,7 +159,23 @@ export const storeService = {
     }).catch(() => {});
   },
 
-  getConfig: (): Promise<AppConfig> => apiFetch('/config').catch(() => ({ suppliers: [], categories: [], linkExpiryHours: 24 })),
+  getConfig: async (): Promise<AppConfig> => {
+    try {
+        const data = await apiFetch('/config');
+        // Sanitization to prevent UI Crashes on empty DB
+        return {
+            suppliers: Array.isArray(data?.suppliers) ? data.suppliers : [],
+            categories: Array.isArray(data?.categories) ? data.categories : [],
+            linkExpiryHours: Number(data?.linkExpiryHours) || 24,
+            whatsappNumber: data?.whatsappNumber || '',
+            whatsappPhoneId: data?.whatsappPhoneId || '',
+            whatsappToken: data?.whatsappToken || ''
+        };
+    } catch {
+        return { suppliers: [], categories: [], linkExpiryHours: 24 };
+    }
+  },
+
   saveConfig: (c: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(c) }),
   
   addProduct: (p: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(p) }),
