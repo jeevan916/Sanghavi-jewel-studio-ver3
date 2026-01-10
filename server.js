@@ -7,6 +7,8 @@ import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync
 import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
+import multer from 'multer';
+import sharp from 'sharp';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +28,11 @@ const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
 const ensureFolders = () => {
   [DATA_ROOT, UPLOADS_ROOT, BACKUPS_ROOT].forEach(dir => {
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
+  });
+  // Engine Folders
+  ['720', '1080'].forEach(size => {
+    const dir = path.join(UPLOADS_ROOT, size);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
   });
 };
@@ -78,7 +85,6 @@ const initDB = async () => {
     await pool.query(`CREATE TABLE IF NOT EXISTS config (id INT PRIMARY KEY, data JSON)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS designs (id VARCHAR(255) PRIMARY KEY, imageUrl LONGTEXT, prompt TEXT, aspectRatio VARCHAR(20), createdAt DATETIME)`);
 
-    // Ensure default config exists
     const [configRows] = await pool.query('SELECT * FROM config WHERE id = 1');
     if (configRows.length === 0) {
         const defaultConfig = { suppliers: [], categories: [], linkExpiryHours: 24 };
@@ -92,6 +98,73 @@ const initDB = async () => {
   }
 };
 initDB();
+
+// --- PHOTO UPLOADING ENGINE ---
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB Limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.match(/^image\/(jpeg|png|webp|heic|avif)$/)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported file format'), false);
+    }
+  }
+});
+
+app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded' });
+  }
+
+  const results = [];
+
+  try {
+    for (const file of req.files) {
+      const hash = crypto.randomBytes(8).toString('hex');
+      const slug = `img_${Date.now()}`;
+      
+      const processVariant = async (width, format, quality) => {
+        const filename = `${slug}_${width}_${hash}.${format}`;
+        const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
+        
+        await sharp(file.buffer)
+          .rotate() // Auto-orient based on EXIF
+          .resize(width, null, { withoutEnlargement: true }) // Preserve Aspect Ratio
+          .sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }) // Edge-aware sharpening for jewelry facets
+          .toFormat(format, { quality, effort: 4 }) // Tune compression
+          .withMetadata(false) // Strip EXIF/Metadata
+          .toFile(filepath);
+          
+        return `/uploads/${width}/${filename}`;
+      };
+
+      // Concurrent processing for speed
+      const [mobileWebP, desktopWebP, mobileAvif, desktopAvif] = await Promise.all([
+        processVariant(720, 'webp', 80),
+        processVariant(1080, 'webp', 85),
+        processVariant(720, 'avif', 65),
+        processVariant(1080, 'avif', 75)
+      ]);
+
+      results.push({
+        originalName: file.originalname,
+        primary: desktopWebP, // Default for UI
+        variants: {
+          mobile: mobileWebP,
+          desktop: desktopWebP,
+          mobile_avif: mobileAvif,
+          desktop_avif: desktopAvif
+        }
+      });
+    }
+
+    res.json({ success: true, files: results });
+  } catch (error) {
+    console.error('[Upload Engine] Processing Failed:', error);
+    res.status(500).json({ error: 'Image processing failed', details: error.message });
+  }
+});
 
 // --- API ROUTES ---
 

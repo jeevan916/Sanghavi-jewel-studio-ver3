@@ -66,12 +66,17 @@ export const UploadWizard: React.FC = () => {
     setIsAnalyzing(true);
     setUploadError(null);
     try {
-      const compressedMain = await processImage(images[0]);
-      setImages([compressedMain]);
+      // Keep reference to original data URL for AI Analysis before overwriting with server URL
+      const originalBase64 = images[0];
+
+      // Upload to Backend Engine
+      const serverUrl = await processImage(originalBase64);
+      setImages([serverUrl]);
 
       if (useAI) {
-        const base64 = compressedMain.split(',')[1];
-        const result = await analyzeJewelryImage(base64);
+        // Use original base64 for Gemini
+        const base64Clean = originalBase64.includes(',') ? originalBase64.split(',')[1] : originalBase64;
+        const result = await analyzeJewelryImage(base64Clean);
         setAnalysisData(prev => ({
           ...prev,
           ...result,
@@ -91,8 +96,10 @@ export const UploadWizard: React.FC = () => {
   const handleSingleSave = async () => {
     setIsSaving(true);
     try {
-      const finalMain = await processImage(images[0]);
-      const finalThumb = await processImage(images[0]);
+      // Image is already uploaded and set to a URL in handleProceedToDetails
+      const finalMain = images[0];
+      // Reuse same URL for thumbnail since backend handles optimization variants internally
+      const finalThumb = images[0]; 
 
       const newProduct: Product = {
         id: Date.now().toString(),
