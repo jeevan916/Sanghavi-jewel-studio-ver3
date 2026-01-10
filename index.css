@@ -1,7 +1,7 @@
 
 /* 
-  Tailwind directives removed to support CDN usage in this environment.
-  Custom styles below.
+  Tailwind Runtime active via CDN.
+  Build directives removed to prevent browser errors.
 */
 
 :root {
