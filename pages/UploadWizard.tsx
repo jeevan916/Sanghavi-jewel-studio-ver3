@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2, Cpu, Eye, ImagePlus, Tag as TagIcon, ArrowRight } from 'lucide-react';
-import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
+import { Camera, Loader2, Save, X, Plus, Image as ImageIcon, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Smartphone, ImagePlus, ArrowRight, Tag as TagIcon, Eye } from 'lucide-react';
+import { analyzeJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
-import { Product, AppConfig, CategoryConfig } from '../types';
+import { Product, AppConfig } from '../types';
 import { useUpload } from '../contexts/UploadContext';
 
 type UploadMode = 'single' | 'batch';
@@ -15,7 +15,7 @@ export const UploadWizard: React.FC = () => {
   const currentUser = storeService.getCurrentUser();
   const [config, setConfig] = useState<AppConfig | null>(null);
 
-  const { queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, processImage } = useUpload();
+  const { queue, addToQueue, removeFromQueue, clearCompleted, useAI, setUseAI, processImage } = useUpload();
   
   const [selectedSupplier, setSelectedSupplier] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -29,7 +29,7 @@ export const UploadWizard: React.FC = () => {
   const [analysisData, setAnalysisData] = useState<Partial<Product>>({});
 
   useEffect(() => {
-    storeService.getConfig().then(setConfig);
+    storeService.getConfig().then(setConfig).catch(() => null);
   }, []);
 
   const getDeviceInfo = () => {
@@ -66,8 +66,7 @@ export const UploadWizard: React.FC = () => {
     setIsAnalyzing(true);
     setUploadError(null);
     try {
-      // Pre-process image for analysis (high quality but resized)
-      const compressedMain = await processImage(images[0], 2200, 0.9);
+      const compressedMain = await processImage(images[0]);
       setImages([compressedMain]);
 
       if (useAI) {
@@ -90,16 +89,10 @@ export const UploadWizard: React.FC = () => {
   };
 
   const handleSingleSave = async () => {
-    if (!analysisData.title && !useAI) {
-      setAnalysisData(prev => ({...prev, title: prev.title || `SJ-${Date.now().toString().slice(-6)}`}));
-    }
-    
     setIsSaving(true);
     try {
-      // 1. Final High Res Compression
-      const finalMain = await processImage(images[0], 2200, 0.85);
-      // 2. Generate Real Thumbnail
-      const finalThumb = await processImage(images[0], 400, 0.6);
+      const finalMain = await processImage(images[0]);
+      const finalThumb = await processImage(images[0]);
 
       const newProduct: Product = {
         id: Date.now().toString(),
@@ -122,7 +115,7 @@ export const UploadWizard: React.FC = () => {
         }
       };
       await storeService.addProduct(newProduct);
-      alert("Jewelry Assets Secured in Physical Storage!");
+      alert("Jewelry Assets Secured in Vault!");
       setStep(1); setImages([]); setAnalysisData({}); setSelectedCategory(''); setUploadError(null);
     } catch (err: any) {
       setUploadError(`Storage failed: ${err.message}`);
@@ -131,7 +124,7 @@ export const UploadWizard: React.FC = () => {
     }
   };
 
-  const activeSubCategories = config?.categories.find(c => c.name === selectedCategory)?.subCategories || [];
+  const activeSubCategories = config?.categories?.find(c => c.name === selectedCategory)?.subCategories || [];
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 pb-24 animate-fade-in text-stone-800">
@@ -149,24 +142,21 @@ export const UploadWizard: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm mb-6 space-y-6">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-            <Briefcase size={14} /> Batch Identification
+            <Briefcase size={14} /> Identification
           </h4>
           <div className="flex items-center gap-3">
              <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${useAI ? 'text-gold-600' : 'text-stone-400'}`}>
-               {useAI ? 'AI Analysis Active' : 'AI Analysis Disabled'}
+               {useAI ? 'AI Active' : 'AI Off'}
              </span>
-             <button 
-               onClick={() => setUseAI(!useAI)}
-               className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${useAI ? 'bg-gold-500' : 'bg-stone-300'}`}
-             >
+             <button onClick={() => setUseAI(!useAI)} className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${useAI ? 'bg-gold-500' : 'bg-stone-300'}`}>
                 <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${useAI ? 'left-7' : 'left-1'}`} />
              </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Supplier</label><select value={selectedSupplier} onChange={e => setSelectedSupplier(e.target.value)} className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-stone-50"><option value="">Select...</option>{config?.suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
-          <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Category</label><select value={selectedCategory} onChange={e => { setSelectedCategory(e.target.value); setSelectedSubCategory(''); }} className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-stone-50"><option value="">Select...</option>{config?.categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
+          <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Supplier</label><select value={selectedSupplier} onChange={e => setSelectedSupplier(e.target.value)} className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-stone-50"><option value="">Select...</option>{config?.suppliers?.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
+          <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Category</label><select value={selectedCategory} onChange={e => { setSelectedCategory(e.target.value); setSelectedSubCategory(''); }} className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-stone-50"><option value="">Select...</option>{config?.categories?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
           <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Sub-Category</label><select value={selectedSubCategory} onChange={e => setSelectedSubCategory(e.target.value)} disabled={!selectedCategory} className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-stone-50"><option value="">Select...</option>{activeSubCategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}</select></div>
         </div>
       </div>
@@ -174,33 +164,24 @@ export const UploadWizard: React.FC = () => {
       {mode === 'batch' ? (
         <div className="space-y-6">
             <div className="flex gap-4">
-                <button onClick={() => fileInputRef.current?.click()} className="flex-1 px-4 py-5 bg-stone-900 text-white rounded-2xl font-bold shadow hover:bg-stone-800 flex items-center justify-center gap-2 transition-all"><ImagePlus size={20} /> Select Library</button>
-                <button onClick={() => cameraInputRef.current?.click()} className="flex-1 px-4 py-5 bg-gold-600 text-white rounded-2xl font-bold shadow hover:bg-gold-700 flex items-center justify-center gap-2 transition-all"><Camera size={20} /> Launch Camera</button>
+                <button onClick={() => fileInputRef.current?.click()} className="flex-1 px-4 py-5 bg-stone-900 text-white rounded-2xl font-bold shadow hover:bg-stone-800 flex items-center justify-center gap-2 transition-all"><ImagePlus size={20} /> Library</button>
+                <button onClick={() => cameraInputRef.current?.click()} className="flex-1 px-4 py-5 bg-gold-600 text-white rounded-2xl font-bold shadow hover:bg-gold-700 flex items-center justify-center gap-2 transition-all"><Camera size={20} /> Camera</button>
             </div>
             {queue.length > 0 && (
                 <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
                     <div className="p-4 bg-stone-50 border-b border-stone-200 text-[10px] font-bold text-stone-400 uppercase flex justify-between items-center">
-                      <span className="flex items-center gap-2"><ImageIcon size={14}/> Queue: {queue.length} Assets</span>
-                      <button onClick={clearCompleted} className="text-red-400 hover:text-red-600 transition-colors">Clear Completed</button>
+                      <span>Queue: {queue.length} Assets</span>
+                      <button onClick={clearCompleted} className="text-red-400 hover:text-red-600">Clear</button>
                     </div>
                     <div className="divide-y divide-stone-100 max-h-[400px] overflow-y-auto">
                         {queue.map(item => (
                             <div key={item.id} className="p-4 flex items-center gap-4">
-                                <img src={item.previewUrl} className="w-12 h-12 object-cover rounded-lg border border-stone-100" />
+                                <img src={item.previewUrl} className="w-12 h-12 object-cover rounded-lg" />
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-bold truncate">{item.file.name}</p>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-[9px] uppercase font-bold tracking-widest ${item.status === 'complete' ? 'text-green-500' : 'text-stone-400'}`}>
-                                      {item.status}
-                                    </span>
-                                    {item.status === 'analyzing' && <Loader2 size={8} className="animate-spin text-gold-500" />}
-                                  </div>
+                                  <span className="text-[9px] uppercase text-stone-400">{item.status}</span>
                                 </div>
-                                {item.status === 'complete' ? (
-                                  <div className="bg-green-100 text-green-600 p-1 rounded-full"><CheckCircle size={16} /></div>
-                                ) : (
-                                  <button onClick={() => removeFromQueue(item.id)} className="text-stone-300 hover:text-red-400 transition-colors"><Trash2 size={16}/></button>
-                                )}
+                                {item.status === 'complete' ? <div className="text-green-600"><CheckCircle size={16} /></div> : <button onClick={() => removeFromQueue(item.id)} className="text-stone-300"><Trash2 size={16}/></button>}
                             </div>
                         ))}
                     </div>
@@ -212,14 +193,13 @@ export const UploadWizard: React.FC = () => {
       ) : (
         <>
             {step === 1 && (
-                <div onClick={() => cameraInputRef.current?.click()} className="border-2 border-dashed border-gold-300 rounded-3xl p-16 flex flex-col items-center justify-center bg-gold-50/50 cursor-pointer hover:bg-gold-50 transition h-80 group shadow-inner">
-                    <div className="p-4 bg-white rounded-full shadow-md group-hover:scale-110 transition-transform mb-4 border border-gold-100">
+                <div onClick={() => cameraInputRef.current?.click()} className="border-2 border-dashed border-gold-300 rounded-3xl p-16 flex flex-col items-center justify-center bg-gold-50/50 cursor-pointer hover:bg-gold-50 transition h-80 shadow-inner">
+                    <div className="p-4 bg-white rounded-full shadow-md mb-4 border border-gold-100">
                       <Camera size={48} className="text-gold-500" />
                     </div>
-                    <p className="font-serif text-2xl text-gold-800">Launch Native Studio Camera</p>
-                    <p className="text-stone-400 text-sm mt-1">Directly launch system app for maximum resolution</p>
+                    <p className="font-serif text-2xl text-gold-800">Launch Studio Camera</p>
                     <div className="mt-8 flex gap-4">
-                      <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="px-6 py-2 bg-white text-stone-600 border border-stone-200 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow hover:shadow-md transition flex items-center gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="px-6 py-2 bg-white text-stone-600 border border-stone-200 rounded-xl text-[10px] font-bold uppercase shadow hover:shadow-md transition flex items-center gap-2">
                         <ImageIcon size={14} /> Open Gallery
                       </button>
                     </div>
@@ -228,119 +208,56 @@ export const UploadWizard: React.FC = () => {
                 </div>
             )}
             {step === 2 && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                <div className="space-y-6">
                     <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-                      <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Eye size={14}/> Selected Media Assets</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-4"><Eye size={14}/> Selected Assets</h4>
+                      <div className="grid grid-cols-2 gap-4">
                           {images.map((img, idx) => (
-                            <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden shadow-sm border border-stone-100 group">
+                            <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-stone-100 group">
                               <img src={img} className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => { setImages([]); setStep(1); }} className="bg-red-500 text-white p-2 rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
-                                  <Trash2 size={16}/>
-                                </button>
-                              </div>
+                              <button onClick={() => { setImages([]); setStep(1); }} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Trash2 size={24} className="text-white"/>
+                              </button>
                             </div>
                           ))}
                       </div>
                     </div>
-                    
-                    <button 
-                      onClick={handleProceedToDetails} 
-                      disabled={isAnalyzing} 
-                      className="w-full py-4 bg-gold-600 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 hover:bg-gold-700 transition-all active:scale-[0.98]"
-                    >
-                      {isAnalyzing ? <Loader2 className="animate-spin" /> : (useAI ? <Sparkles size={18} /> : <ArrowRight size={18} />)}
-                      {isAnalyzing ? 'Analyzing with Gemini 3.0...' : (useAI ? 'AI Analysis & Proceed' : 'Proceed to Details')}
+                    <button onClick={handleProceedToDetails} disabled={isAnalyzing} className="w-full py-4 bg-gold-600 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 transition-all">
+                      {isAnalyzing ? <Loader2 className="animate-spin" /> : <ArrowRight size={18} />}
+                      {isAnalyzing ? 'Analyzing...' : 'Proceed to Details'}
                     </button>
-                    
-                    <button onClick={() => { setImages([]); setStep(1); }} className="w-full py-2 text-stone-400 text-xs font-bold uppercase tracking-widest hover:text-red-400 transition-colors">Cancel Upload</button>
                 </div>
             )}
             {step === 3 && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-200 space-y-6">
-                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                            {images.map((img, idx) => (
-                              <div key={idx} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-stone-100 shadow-sm">
-                                <img src={img} className="w-full h-full object-cover" />
-                              </div>
-                            ))}
-                        </div>
-                        
                         <div className="space-y-4">
                           <div>
                             <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1.5 ml-1">Asset Title</label>
-                            <input 
-                              value={analysisData.title || ''} 
-                              onChange={e => setAnalysisData({...analysisData, title: e.target.value})} 
-                              className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-serif text-2xl focus:border-gold-500 outline-none transition-all" 
-                              placeholder="E.g. Vintage Emerald Choker" 
-                            />
+                            <input value={analysisData.title || ''} onChange={e => setAnalysisData({...analysisData, title: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-serif text-2xl focus:border-gold-500 outline-none" placeholder="E.g. Vintage Emerald Choker" />
                           </div>
-                          
                           <div>
-                            <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1.5 ml-1">Description & Marketing Copy</label>
-                            <textarea 
-                              value={analysisData.description || ''} 
-                              onChange={e => setAnalysisData({...analysisData, description: e.target.value})} 
-                              className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-sm min-h-[140px] focus:border-gold-500 outline-none transition-all" 
-                              placeholder="Describe the jewelry craftsmanship..." 
-                            />
+                            <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1.5 ml-1">Description</label>
+                            <textarea value={analysisData.description || ''} onChange={e => setAnalysisData({...analysisData, description: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-sm min-h-[140px] focus:border-gold-500 outline-none" placeholder="Describe the jewelry craftsmanship..." />
                           </div>
-
                           <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1 ml-1">Asset Weight (g)</label>
-                                <input type="number" step="0.01" value={analysisData.weight || ''} onChange={e => setAnalysisData({...analysisData, weight: parseFloat(e.target.value)})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:border-gold-500 outline-none" placeholder="0.00" />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1 ml-1">Date Logged</label>
-                                <input type="date" value={analysisData.dateTaken || ''} onChange={e => setAnalysisData({...analysisData, dateTaken: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:border-gold-500 outline-none" />
-                              </div>
+                              <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1 ml-1">Weight (g)</label><input type="number" step="0.01" value={analysisData.weight || ''} onChange={e => setAnalysisData({...analysisData, weight: parseFloat(e.target.value)})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl" placeholder="0.00" /></div>
+                              <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1 ml-1">Date</label><input type="date" value={analysisData.dateTaken || ''} onChange={e => setAnalysisData({...analysisData, dateTaken: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl" /></div>
                           </div>
-                          
-                          {analysisData.tags && analysisData.tags.length > 0 && (
-                            <div>
-                               <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1.5 ml-1">Smart Tags</label>
-                               <div className="flex flex-wrap gap-2">
-                                 {analysisData.tags.map(tag => (
-                                   <span key={tag} className="px-3 py-1 bg-gold-50 text-gold-700 text-[10px] font-bold rounded-full border border-gold-100 flex items-center gap-1">
-                                     <TagIcon size={10} /> {tag}
-                                   </span>
-                                 ))}
-                               </div>
-                            </div>
-                          )}
                         </div>
                     </div>
-                    
                     <div className="flex gap-4">
-                      <button onClick={() => setStep(2)} className="px-6 py-4 bg-stone-100 text-stone-500 rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-stone-200 transition-colors">Back</button>
-                      <button 
-                        onClick={handleSingleSave} 
-                        disabled={isSaving} 
-                        className="flex-1 py-4 bg-stone-900 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 hover:bg-black transition-all active:scale-[0.98]"
-                      >
+                      <button onClick={() => setStep(2)} className="px-6 py-4 bg-stone-100 text-stone-500 rounded-2xl font-bold uppercase tracking-widest text-[10px]">Back</button>
+                      <button onClick={handleSingleSave} disabled={isSaving} className="flex-1 py-4 bg-stone-900 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 disabled:opacity-50">
                         {isSaving ? <Loader2 className="animate-spin" /> : <Save />} 
-                        {isSaving ? 'Committing to Vault...' : 'Confirm & Commit to Storage'}
+                        {isSaving ? 'Saving...' : 'Commit to Vault'}
                       </button>
                     </div>
                 </div>
             )}
         </>
       )}
-      
-      {uploadError && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3 animate-in fade-in">
-           <AlertCircle className="text-red-500 mt-0.5 shrink-0" size={18} />
-           <div className="flex-1">
-             <p className="text-xs font-bold text-red-800 uppercase tracking-widest">Upload Exception</p>
-             <p className="text-sm text-red-700 mt-1">{uploadError}</p>
-           </div>
-           <button onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-600"><X size={16}/></button>
-        </div>
-      )}
+      {uploadError && <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3"><AlertCircle className="text-red-500 mt-0.5" size={18} /><p className="text-sm text-red-700">{uploadError}</p></div>}
     </div>
   );
 };

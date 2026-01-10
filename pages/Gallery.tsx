@@ -8,7 +8,6 @@ import { Product, AppConfig } from '../types';
 
 export const Gallery: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [curated, setCurated] = useState<CuratedCollections>({ latest: [], loved: [], trending: [], ideal: [] });
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -26,13 +25,13 @@ export const Gallery: React.FC = () => {
     const loadInitialData = async () => {
       try {
         const [conf, cur, prodRes] = await Promise.all([
-          storeService.getConfig(),
-          storeService.getCuratedProducts(),
-          storeService.getProducts(1, 1000, { publicOnly: isGuest })
+          storeService.getConfig().catch(() => null),
+          storeService.getCuratedProducts().catch(() => ({ latest: [], loved: [], trending: [], ideal: [] })),
+          storeService.getProducts(1, 1000, { publicOnly: isGuest }).catch(() => ({ items: [] }))
         ]);
         setConfig(conf);
-        setCurated(cur);
-        setProducts(prodRes.items);
+        if (cur) setCurated(cur);
+        if (prodRes?.items) setProducts(prodRes.items);
       } catch (e) {
         console.error("Load failed", e);
       } finally {
@@ -42,15 +41,16 @@ export const Gallery: React.FC = () => {
     loadInitialData();
   }, [isGuest]);
 
-  // Memoized filter logic for zero-lag searching
   const filteredProducts = useMemo(() => {
+    if (!products) return [];
     const s = search.toLowerCase();
     return products.filter(p => {
+      if (!p) return false;
       const matchesCat = activeCategory === 'All' || p.category === activeCategory;
       if (!matchesCat) return false;
       if (!s) return true;
-      return p.title.toLowerCase().includes(s) || 
-             p.tags.some(t => t.toLowerCase().includes(s));
+      return (p.title || '').toLowerCase().includes(s) || 
+             (p.tags || []).some(t => t.toLowerCase().includes(s));
     });
   }, [products, activeCategory, search]);
 
@@ -66,6 +66,8 @@ export const Gallery: React.FC = () => {
       </div>
     );
   }
+
+  const categoryList = config?.categories?.map(c => c.name) || [];
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden">
@@ -87,7 +89,7 @@ export const Gallery: React.FC = () => {
                 </button>
             </div>
             <div className="flex gap-2 overflow-x-auto scrollbar-hide px-2 md:px-6 pb-2">
-                {['All', ...(config?.categories.map(c => c.name) || [])].map(cat => (
+                {['All', ...categoryList].map(cat => (
                 <button
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
@@ -103,8 +105,8 @@ export const Gallery: React.FC = () => {
       </div>
 
       <main className="max-w-7xl mx-auto pt-4">
-        {activeCategory === 'All' && !search && curated.latest.length > 0 && (
-          <div className="mb-8" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 300px' }}>
+        {activeCategory === 'All' && !search && (curated?.latest?.length || 0) > 0 && (
+          <div className="mb-8">
             <h3 className="px-6 font-serif text-xl font-bold mb-4 flex items-center gap-2">
               <Clock size={20} className="text-gold-600" /> New Arrivals
             </h3>
@@ -123,9 +125,9 @@ export const Gallery: React.FC = () => {
             viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
           }`}
           style={{ 
-            contentVisibility: 'auto', // Modern layout virtualization
+            contentVisibility: 'auto',
             containIntrinsicSize: '0 500px',
-            transform: 'translateZ(0)' // Promotes container to own GPU layer
+            transform: 'translateZ(0)'
           }}
         >
           {filteredProducts.map(product => (
@@ -138,7 +140,7 @@ export const Gallery: React.FC = () => {
           ))}
         </div>
         
-        {filteredProducts.length === 0 && (
+        {filteredProducts.length === 0 && !isLoading && (
           <div className="text-center py-20 text-stone-400 font-serif italic">
             No pieces found matching your criteria.
           </div>
