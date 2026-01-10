@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
@@ -42,7 +42,7 @@ const sanitizeProduct = (p) => {
     try {
       if (!str) return fallback;
       const parsed = JSON.parse(str);
-      return Array.isArray(parsed) ? (Array.isArray(fallback) ? parsed : parsed) : fallback;
+      return (typeof parsed === 'object') ? parsed : fallback;
     } catch (e) { return fallback; }
   };
 
@@ -147,6 +147,39 @@ app.get('/api/products/curated', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/products/:id', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+        if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
+        res.json(sanitizeProduct(rows[0]));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/products/:id/stats', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT type, COUNT(*) as count FROM analytics WHERE productId = ? GROUP BY type', [req.params.id]);
+        const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
+        rows.forEach(r => {
+            if (stats.hasOwnProperty(r.type)) stats[r.type] = r.count;
+        });
+        res.json(stats);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/products', async (req, res) => {
+    try {
+        const p = req.body;
+        await pool.query('INSERT INTO products SET ?', {
+            ...p,
+            tags: JSON.stringify(p.tags || []),
+            images: JSON.stringify(p.images || []),
+            thumbnails: JSON.stringify(p.thumbnails || []),
+            meta: JSON.stringify(p.meta || {})
+        });
+        res.status(201).json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.put('/api/products/:id', async (req, res) => {
     try {
         const p = req.body;
@@ -189,6 +222,69 @@ app.get('/api/analytics', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/api/analytics', async (req, res) => {
+    try {
+        const event = { id: crypto.randomUUID(), ...req.body, timestamp: new Date() };
+        await pool.query('INSERT INTO analytics SET ?', event);
+        res.status(201).json(event);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Customers
+app.get('/api/customers', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT id, name, phone, pincode, role, createdAt FROM customers ORDER BY createdAt DESC');
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/customers/check/:phone', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [req.params.phone]);
+        res.json({ exists: rows.length > 0, user: rows[0] || null });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/customers/login', async (req, res) => {
+    const { phone, name, pincode } = req.body;
+    try {
+        const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
+        let user = rows[0];
+        if (!user) {
+            user = { id: crypto.randomUUID(), phone, name: name || `Client ${phone.slice(-4)}`, pincode, role: 'customer', createdAt: new Date() };
+            await pool.query('INSERT INTO customers SET ?', user);
+        } else if (name || pincode) {
+            await pool.query('UPDATE customers SET name = COALESCE(?, name), pincode = COALESCE(?, pincode) WHERE phone = ?', [name, pincode, phone]);
+            user = { ...user, name: name || user.name, pincode: pincode || user.pincode };
+        }
+        res.json({ user });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Staff
+app.get('/api/staff', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT id, username, role, name, isActive, createdAt FROM staff');
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/staff', async (req, res) => {
+    try {
+        const s = { id: crypto.randomUUID(), ...req.body, createdAt: new Date() };
+        await pool.query('INSERT INTO staff SET ?', s);
+        res.status(201).json(s);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/staff/:id', async (req, res) => {
+    try {
+        await pool.query('UPDATE staff SET ? WHERE id = ?', [req.body, req.params.id]);
+        const [rows] = await pool.query('SELECT id, username, role, name, isActive, createdAt FROM staff WHERE id = ?', [req.params.id]);
+        res.json(rows[0]);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Backups
 app.get('/api/backups', async (req, res) => {
     try {
@@ -207,8 +303,7 @@ app.post('/api/backups', async (req, res) => {
     try {
         const name = `snapshot_${Date.now()}.json`;
         const [products] = await pool.query('SELECT * FROM products');
-        const fs = await import('fs');
-        fs.writeFileSync(path.join(BACKUPS_ROOT, name), JSON.stringify(products));
+        writeFileSync(path.join(BACKUPS_ROOT, name), JSON.stringify(products));
         res.json({ success: true, filename: name, size: JSON.stringify(products).length });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -218,12 +313,19 @@ app.get('/api/intelligence', async (req, res) => {
     try {
         const [p] = await pool.query('SELECT COUNT(*) as count FROM products');
         const [c] = await pool.query('SELECT COUNT(*) as count FROM customers');
-        res.json({ summary: { totalInventory: p[0].count, totalLeads: c[0].count } });
+        const [a] = await pool.query('SELECT COUNT(*) as count FROM analytics WHERE type="inquiry"');
+        res.json({ 
+            summary: { 
+                totalInventory: p[0].count, 
+                totalLeads: c[0].count,
+                activeInquiries: a[0].count
+            } 
+        });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // 404 & Global Handler
-app.use('/api/*', (req, res) => res.status(404).json({ error: 'Endpoint Not Found' }));
+app.use('/api/*', (req, res) => res.status(404).json({ error: `Endpoint ${req.originalUrl} Not Found` }));
 app.use((err, req, res, next) => {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
