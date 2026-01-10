@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Product } from '../types';
-import { Share2, MessageCircle, ChevronLeft, ChevronRight, Maximize2, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { storeService } from '../services/storeService';
 
 interface ProductCardProps {
@@ -9,15 +10,69 @@ interface ProductCardProps {
   onClick?: () => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onClick }) => {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+// Global cache to prevent re-creating Blobs for the same image
+const blobCache = new Map<string, string>();
+
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
   const [isLiked, setIsLiked] = useState(false);
-  const isGuest = !storeService.getCurrentUser();
+  const [isVisible, setIsVisible] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string>('');
+  const [isLoaded, setIsLoaded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const likes = storeService.getLikes();
-    setIsLiked(likes.includes(product.id));
+    setIsLiked(storeService.getLikes().includes(product.id));
+    
+    // Intersection Observer for lazy-loading and memory management
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          prepareImage();
+          observer.unobserve(entry.target);
+        }
+      },
+      { rootMargin: '200px' } // Load slightly before visible
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
   }, [product.id]);
+
+  const prepareImage = () => {
+    const rawData = product.thumbnails?.[0] || product.images?.[0] || '';
+    if (!rawData) return;
+
+    // If it's already a URL, use it
+    if (rawData.startsWith('http') || rawData.startsWith('/')) {
+      setImageSrc(rawData);
+      return;
+    }
+
+    // Performance Trick: Use Blob URLs instead of Base64 strings
+    // Base64 strings consume 33% more memory and slow down the main thread
+    if (blobCache.has(product.id)) {
+      setImageSrc(blobCache.get(product.id)!);
+    } else if (rawData.startsWith('data:')) {
+      try {
+        const parts = rawData.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/webp';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) u8arr[n] = bstr.charCodeAt(n);
+        const blob = new Blob([u8arr], { type: mime });
+        const url = URL.createObjectURL(blob);
+        blobCache.set(product.id, url);
+        setImageSrc(url);
+      } catch (e) {
+        setImageSrc(rawData); // Fallback to base64 if blob fails
+      }
+    }
+  };
 
   const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -27,62 +82,58 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, isAdmin, onCl
     if (liked) storeService.logEvent('like', product);
   };
 
-  const handleInquiry = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (navigator.vibrate) navigator.vibrate(10);
-    await storeService.shareToWhatsApp(product, currentImageIndex);
-  };
-
-  const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('data:') || path.startsWith('http')) return path;
-    return `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
-  };
-
-  const displayImage = getImageUrl(product.thumbnails[currentImageIndex] || product.images[0]);
+  const isGuest = !storeService.getCurrentUser();
 
   return (
     <div 
-        className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all hover:shadow-md flex flex-col h-full cursor-pointer active:scale-[0.98] select-none" 
-        onClick={() => { if(navigator.vibrate) navigator.vibrate(5); onClick?.(); }}
+      ref={containerRef}
+      className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all duration-300 hover:shadow-md flex flex-col h-full cursor-pointer active:scale-[0.98] select-none"
+      style={{ 
+        contain: 'layout size', // Optimizes browser rendering
+        transform: 'translateZ(0)' // Hardware acceleration
+      }}
+      onClick={() => { 
+        if(navigator.vibrate) navigator.vibrate(5); 
+        onClick?.(); 
+      }}
     >
       <div className="relative aspect-square overflow-hidden bg-stone-100">
-        <img 
-            src={displayImage} 
+        {isVisible && imageSrc && (
+          <img 
+            src={imageSrc} 
             alt={product.title} 
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-            loading="lazy" 
-        />
+            onLoad={() => setIsLoaded(true)}
+            className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
+          />
+        )}
         
-        {/* CRITICAL: High-priority tap overlay to ensure 'button not working' is fixed */}
-        <div className="absolute inset-0 z-10 bg-transparent active:bg-black/5" />
+        {/* Instant Skeleton / Placeholder */}
+        {!isLoaded && (
+          <div className="absolute inset-0 bg-stone-200 animate-pulse flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full border-2 border-stone-300 border-t-gold-500 animate-spin opacity-20" />
+          </div>
+        )}
 
-        <button onClick={handleToggleLike} className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur shadow-sm z-20 transition-all ${isLiked ? 'bg-red-50 text-red-500' : 'bg-white/70 text-stone-400'}`}>
-            <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
+        <button 
+          onClick={handleToggleLike} 
+          className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur shadow-sm z-20 transition-all active:scale-125 ${isLiked ? 'bg-red-50 text-red-500' : 'bg-white/70 text-stone-400'}`}
+        >
+          <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
         </button>
 
         {isGuest && product.images.length > 1 && (
-             <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur rounded text-[9px] font-bold text-white uppercase tracking-widest pointer-events-none z-20">
-                 +{product.images.length - 1} Locked
-             </div>
+          <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur rounded text-[9px] font-bold text-white uppercase tracking-widest pointer-events-none z-20">
+            +{product.images.length - 1} Locked
+          </div>
         )}
       </div>
       
-      <div className="p-4 flex flex-col flex-grow relative z-20">
-        <h3 className="font-serif text-lg text-stone-800 leading-tight mb-1 truncate font-bold">{product.title}</h3>
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 mb-3 font-bold">
-          <span className="text-gold-600">{product.category}</span>
-          <span className="text-stone-300">•</span>
+      <div className="p-3 flex flex-col flex-grow relative z-20 bg-white">
+        <h3 className="font-serif text-sm text-stone-800 leading-tight mb-0.5 truncate font-bold">{product.title}</h3>
+        <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-stone-500 mb-1 font-bold">
+          <span>{product.category}</span>
+          <span>•</span>
           <span>{product.weight}g</span>
-        </div>
-        
-        <div className="flex gap-2 mt-auto">
-          <button onClick={handleInquiry} className="flex-1 bg-gold-600 text-white text-[10px] py-2.5 rounded-lg hover:bg-gold-700 transition flex items-center justify-center gap-2 font-bold uppercase tracking-widest">
-            <MessageCircle size={14} /> Inquire
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); navigator.share?.({ title: product.title, url: window.location.href }); }} className="p-2 text-stone-400 hover:text-gold-600 border border-stone-200 rounded-lg">
-            <Share2 size={16} />
-          </button>
         </div>
       </div>
     </div>
