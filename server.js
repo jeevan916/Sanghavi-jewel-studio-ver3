@@ -25,9 +25,10 @@ app.use(express.json({ limit: '100mb' }));
 
 /** 
  * CRITICAL DATA PRESERVATION:
- * DATA_ROOT is moved to the parent directory (..) of the app root.
+ * DATA_ROOT is moved to .builds/sanghavi_persistence to ensure 
+ * persistent storage across deployments and domain changes.
  */
-const DATA_ROOT = path.resolve(process.cwd(), '..', 'sanghavi_persistence');
+const DATA_ROOT = path.resolve(process.cwd(), '.builds', 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const THUMBS_ROOT = path.resolve(UPLOADS_ROOT, 'thumbnails');
 
@@ -39,7 +40,7 @@ const ensureFolders = async () => {
         }
         if (!existsSync(UPLOADS_ROOT)) mkdirSync(UPLOADS_ROOT, { recursive: true, mode: 0o777 });
         if (!existsSync(THUMBS_ROOT)) mkdirSync(THUMBS_ROOT, { recursive: true, mode: 0o777 });
-        console.log(`[Vault] Connection to permanent storage verified.`);
+        console.log(`[Vault] Connection to permanent storage verified at .builds.`);
     } catch (err) {
         console.error(`[Vault] Initialization failed:`, err.message);
     }
