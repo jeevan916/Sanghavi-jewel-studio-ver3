@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Product, QueueItem } from '../types';
-import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
+import { analyzeJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
 
 interface UploadContextType {
@@ -13,9 +13,7 @@ interface UploadContextType {
   isProcessing: boolean;
   useAI: boolean;
   setUseAI: (value: boolean) => void;
-  cleanImage: (id: string) => void;
-  studioEnhance: (id: string) => void;
-  processImage: (file: File | string, maxWidth: number, quality: number, format?: 'image/avif' | 'image/webp' | 'image/jpeg') => Promise<string>;
+  processImage: (file: File | string) => Promise<string>;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
@@ -32,43 +30,13 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [useAI, setUseAI] = useState(false); 
   const currentUser = storeService.getCurrentUser();
 
-  /**
-   * Enhanced processImage with Next-Gen format support (AVIF/WebP)
-   */
-  const processImage = (fileOrBase64: File | string, maxWidth = 2200, quality = 0.85, format: 'image/avif' | 'image/webp' | 'image/jpeg' = 'image/avif'): Promise<string> => {
+  const processImage = (fileOrBase64: File | string): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxWidth) {
-          height *= maxWidth / width;
-          width = maxWidth;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, width, height);
-        }
-        
-        // Use requested next-gen format
-        resolve(canvas.toDataURL(format, quality));
-      };
-      img.onerror = reject;
-
-      if (typeof fileOrBase64 === 'string') {
-        img.src = fileOrBase64;
-      } else {
-        const reader = new FileReader();
-        reader.onload = (e) => { img.src = e.target?.result as string; };
-        reader.readAsDataURL(fileOrBase64);
-      }
+      if (typeof fileOrBase64 === 'string') return resolve(fileOrBase64);
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(fileOrBase64);
     });
   };
 
@@ -90,11 +58,9 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const removeFromQueue = useCallback((id: string) => {
     setQueue(prev => {
-        const item = prev.find(i => i.id === id);
-        if (item && item.previewUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(item.previewUrl);
-        }
-        return prev.filter(item => item.id !== id);
+      const item = prev.find(i => i.id === id);
+      if (item && item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
+      return prev.filter(item => item.id !== id);
     });
   }, []);
 
@@ -104,26 +70,11 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const clearCompleted = () => {
     setQueue(prev => {
-        prev.filter(i => i.status === 'complete').forEach(i => {
-            if (i.previewUrl.startsWith('blob:')) URL.revokeObjectURL(i.previewUrl);
-        });
-        return prev.filter(item => item.status !== 'complete');
+      prev.filter(i => i.status === 'complete').forEach(i => {
+        if (i.previewUrl.startsWith('blob:')) URL.revokeObjectURL(i.previewUrl);
+      });
+      return prev.filter(item => item.status !== 'complete');
     });
-  };
-
-  const studioEnhance = async (id: string) => {
-    const item = queue.find(i => i.id === id);
-    if (!item) return;
-    updateQueueItem(id, { status: 'analyzing' }); 
-    try {
-        const base64 = await processImage(item.file, 2200, 0.9, 'image/webp');
-        const enhancedBase64 = await enhanceJewelryImage(base64.split(',')[1]);
-        const enhancedUrl = `data:image/webp;base64,${enhancedBase64}`;
-        if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
-        updateQueueItem(id, { status: 'pending', previewUrl: enhancedUrl });
-    } catch (e) {
-        updateQueueItem(id, { status: 'error', error: 'Enhancement failed' });
-    }
   };
 
   useEffect(() => {
@@ -136,21 +87,13 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         updateQueueItem(nextItem.id, { status: 'analyzing' });
         
-        // 1. Process main high-res image (max 2200px) in AVIF for best compression
-        const highRes = nextItem.previewUrl.startsWith('data:image') 
-          ? await processImage(nextItem.previewUrl, 2200, 0.85, 'image/avif')
-          : await processImage(nextItem.file, 2200, 0.85, 'image/avif');
-
-        // 2. Process small thumbnail (max 400px) in WebP for fast UI rendering
-        const thumbnail = nextItem.previewUrl.startsWith('data:image')
-          ? await processImage(nextItem.previewUrl, 400, 0.6, 'image/webp')
-          : await processImage(nextItem.file, 400, 0.6, 'image/webp');
-
+        const base64Data = await processImage(nextItem.file);
+        
         let analysis = useAI 
-          ? await analyzeJewelryImage(highRes.split(',')[1]) 
-          : { title: '', description: "Vault Input." };
+          ? await analyzeJewelryImage(base64Data.split(',')[1]) 
+          : { title: '', description: "Studio Asset" };
 
-        const finalTitle = analysis.title || nextItem.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ") || `SJ-${Date.now().toString().slice(-6)}`;
+        const finalTitle = analysis.title || nextItem.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
 
         updateQueueItem(nextItem.id, { status: 'saving', productTitle: finalTitle });
 
@@ -162,23 +105,22 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           weight: nextItem.weight || analysis.weight || 0,
           description: analysis.description || '',
           tags: analysis.tags || [],
-          images: [highRes],
-          thumbnails: [thumbnail],
+          images: [base64Data], // Server will replace this with processed URLs
+          thumbnails: [],
           supplier: nextItem.supplier || 'Internal',
-          uploadedBy: currentUser?.name || 'Mobile User',
+          uploadedBy: currentUser?.name || 'Staff',
           isHidden: false,
           createdAt: new Date().toISOString(),
           dateTaken: new Date().toISOString().split('T')[0],
           meta: { 
-              cameraModel: nextItem.device || 'Mobile',
-              deviceManufacturer: nextItem.manufacturer || 'Sanghavi'
+            cameraModel: nextItem.device,
+            deviceManufacturer: nextItem.manufacturer
           }
         };
 
         await storeService.addProduct(newProduct);
         updateQueueItem(nextItem.id, { status: 'complete' });
       } catch (err) {
-        console.error("Batch processing error:", err);
         updateQueueItem(nextItem.id, { status: 'error', error: 'Upload failed' });
       } finally {
         setIsProcessing(false);
@@ -189,7 +131,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [queue, isProcessing, currentUser, useAI]);
 
   return (
-    <UploadContext.Provider value={{ queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, cleanImage: () => {}, studioEnhance, processImage }}>
+    <UploadContext.Provider value={{ queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, processImage }}>
       {children}
     </UploadContext.Provider>
   );
