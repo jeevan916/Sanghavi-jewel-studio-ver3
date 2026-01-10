@@ -82,12 +82,10 @@
         margin: 0; 
         padding: 0; 
         overflow-x: hidden;
-        /* 120Hz/Hardware Acceleration optimization */
         text-rendering: optimizeLegibility;
         -webkit-font-smoothing: antialiased;
         overscroll-behavior-y: none;
       }
-      /* Ensure smooth transitions at high refresh rates */
       * {
         transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
       }
@@ -102,13 +100,19 @@
       @keyframes loadingSlide { 0% { left: -30%; } 100% { left: 100%; } }
       .loaded #initial-loader { opacity: 0; visibility: hidden; pointer-events: none; }
       
-      /* Hide scrollbars but keep functionality */
       .scrollbar-hide::-webkit-scrollbar {
         display: none;
       }
       .scrollbar-hide {
         -ms-overflow-style: none;
         scrollbar-width: none;
+      }
+
+      /* Hardware Acceleration for 120Hz */
+      .gpu-accelerated {
+        transform: translateZ(0);
+        will-change: transform;
+        backface-visibility: hidden;
       }
     </style>
   </head>
@@ -123,8 +127,9 @@
       window.addEventListener('load', () => {
         setTimeout(() => document.body.classList.add('loaded'), 500);
       });
-      // Force passive event listeners for high-refresh scroll performance
+      // Force passive listeners for better high-refresh performance
       window.addEventListener('touchstart', function() {}, {passive: true});
+      window.addEventListener('touchmove', function() {}, {passive: true});
       window.addEventListener('scroll', function() {}, {passive: true});
     </script>
   </body>

@@ -88,13 +88,13 @@ const seedDefaultAdmin = async () => {
 
 initDB();
 
-// Global Data Sanitizer - Crucial for "p.filter is not a function" fix
 const sanitizeProduct = (p) => {
     if (!p) return null;
     const safeParse = (str, fallback = []) => {
         try {
             if (typeof str === 'object' && str !== null) return str;
-            return JSON.parse(str || (Array.isArray(fallback) ? '[]' : '{}'));
+            if (!str) return fallback;
+            return JSON.parse(str);
         } catch (e) { return fallback; }
     };
 
@@ -107,7 +107,6 @@ const sanitizeProduct = (p) => {
     };
 };
 
-// --- AUTH ENDPOINTS ---
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -143,11 +142,10 @@ app.get('/api/customers/check/:phone', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- PRODUCT ENDPOINTS ---
 app.get('/api/products', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
-        res.json({ items: rows.map(sanitizeProduct), meta: { totalPages: 1 } });
+        res.json({ items: (rows || []).map(sanitizeProduct), meta: { totalPages: 1 } });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -156,8 +154,8 @@ app.get('/api/products/curated', async (req, res) => {
         const [latest] = await pool.query('SELECT * FROM products WHERE isHidden = FALSE ORDER BY createdAt DESC LIMIT 10');
         const [trending] = await pool.query('SELECT * FROM products WHERE isHidden = FALSE LIMIT 10'); 
         res.json({
-            latest: latest.map(sanitizeProduct),
-            trending: trending.map(sanitizeProduct),
+            latest: (latest || []).map(sanitizeProduct),
+            trending: (trending || []).map(sanitizeProduct),
             loved: [],
             ideal: []
         });
@@ -167,8 +165,8 @@ app.get('/api/products/curated', async (req, res) => {
 app.get('/api/products/:id', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
-        if (rows[0]) res.json(sanitizeProduct(rows[0]));
-        else res.status(404).json({ error: 'Not found' });
+        if (rows && rows[0]) res.json(sanitizeProduct(rows[0]));
+        else res.status(404).json({ error: 'Product not found' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -176,7 +174,7 @@ app.get('/api/products/:id/stats', async (req, res) => {
     try {
         const [likes] = await pool.query('SELECT COUNT(*) as count FROM analytics WHERE productId = ? AND type = "like"', [req.params.id]);
         const [inqs] = await pool.query('SELECT COUNT(*) as count FROM analytics WHERE productId = ? AND type = "inquiry"', [req.params.id]);
-        res.json({ like: likes[0].count, inquiry: inqs[0].count, dislike: 0, purchase: 0 });
+        res.json({ like: (likes[0]?.count || 0), inquiry: (inqs[0]?.count || 0), dislike: 0, purchase: 0 });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -189,7 +187,6 @@ app.post('/api/products', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- ANALYTICS & INTELLIGENCE ---
 app.post('/api/analytics', async (req, res) => {
     const e = req.body;
     try {

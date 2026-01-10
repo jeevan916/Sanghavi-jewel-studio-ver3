@@ -25,7 +25,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2
                 ...options,
                 headers: { 'Content-Type': 'application/json', ...options.headers },
             });
-            const data = await response.json().catch(() => ({}));
+            const data = await response.json().catch(() => ({ error: 'Parse Error' }));
             if (!response.ok) throw new Error(data.error || `Error (${response.status})`);
             return data;
         } catch (err: any) {
@@ -59,7 +59,6 @@ export const storeService = {
   getProducts: async (page = 1, limit = 20, filters: any = {}) => {
     try {
       const data = await apiFetch(`/products`);
-      // Defensive: Ensure items is ALWAYS an array
       return { 
         items: Array.isArray(data.items) ? data.items : [], 
         meta: data.meta || { totalPages: 1 } 
@@ -69,7 +68,14 @@ export const storeService = {
     }
   },
 
-  getProductById: (id: string): Promise<Product> => apiFetch(`/products/${id}`),
+  getProductById: async (id: string): Promise<Product | null> => {
+      try {
+          return await apiFetch(`/products/${id}`);
+      } catch (e) {
+          console.error(`Product ${id} fetch failed`, e);
+          return null;
+      }
+  },
   
   getProductStats: (id: string): Promise<ProductStats> => 
     apiFetch(`/products/${id}/stats`).catch(() => ({ like: 0, dislike: 0, inquiry: 0, purchase: 0 })),
@@ -93,7 +99,11 @@ export const storeService = {
   
   logout: () => localStorage.removeItem('sanghavi_user_session'),
 
-  getLikes: () => JSON.parse(localStorage.getItem('sanghavi_likes') || '[]'),
+  getLikes: () => {
+    try {
+      return JSON.parse(localStorage.getItem('sanghavi_likes') || '[]');
+    } catch { return []; }
+  },
   
   toggleLike: (productId: string) => {
     const likes = storeService.getLikes();
@@ -121,7 +131,11 @@ export const storeService = {
   addProduct: (p: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(p) }),
   updateProduct: (p: Product) => apiFetch(`/products/${p.id}`, { method: 'PUT', body: JSON.stringify(p) }),
 
-  getUnlockedCategories: () => JSON.parse(sessionStorage.getItem('sanghavi_unlocked_cats') || '[]'),
+  getUnlockedCategories: () => {
+    try {
+      return JSON.parse(sessionStorage.getItem('sanghavi_unlocked_cats') || '[]');
+    } catch { return []; }
+  },
   unlockCategory: (name: string) => {
     const cats = storeService.getUnlockedCategories();
     if (!cats.includes(name)) sessionStorage.setItem('sanghavi_unlocked_cats', JSON.stringify([...cats, name]));
