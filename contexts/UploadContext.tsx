@@ -15,6 +15,7 @@ interface UploadContextType {
   setUseAI: (value: boolean) => void;
   cleanImage: (id: string) => void;
   studioEnhance: (id: string) => void;
+  processImage: (file: File | string, maxWidth: number, quality: number) => Promise<string>;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
@@ -28,8 +29,43 @@ export const useUpload = () => {
 export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [useAI, setUseAI] = useState(false); // Defaulting to OFF as requested
+  const [useAI, setUseAI] = useState(false); 
   const currentUser = storeService.getCurrentUser();
+
+  const processImage = (fileOrBase64: File | string, maxWidth = 2200, quality = 0.85): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+
+      if (typeof fileOrBase64 === 'string') {
+        img.src = fileOrBase64;
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => { img.src = e.target?.result as string; };
+        reader.readAsDataURL(fileOrBase64);
+      }
+    });
+  };
 
   const addToQueue = (files: File[], supplier: string, category: string, subCategory: string, device: string, manufacturer: string) => {
     const newItems: QueueItem[] = files.map(file => ({
@@ -70,43 +106,12 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   };
 
-  const processImage = (file: File, maxWidth = 2200, quality = 0.82): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            let width = img.width;
-            let height = img.height;
-            if (width > maxWidth) {
-                height *= maxWidth / width;
-                width = maxWidth;
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(img, 0, 0, width, height);
-            }
-            resolve(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = reject;
-        img.src = event.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
   const studioEnhance = async (id: string) => {
     const item = queue.find(i => i.id === id);
     if (!item) return;
     updateQueueItem(id, { status: 'analyzing' }); 
     try {
-        const base64 = await processImage(item.file, 2200);
+        const base64 = await processImage(item.file, 2200, 0.9);
         const enhancedBase64 = await enhanceJewelryImage(base64.split(',')[1]);
         const enhancedUrl = `data:image/jpeg;base64,${enhancedBase64}`;
         if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
@@ -126,11 +131,15 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         updateQueueItem(nextItem.id, { status: 'analyzing' });
         
+        // 1. Process main high-res image (max 2200px)
         const highRes = nextItem.previewUrl.startsWith('data:image') 
-          ? nextItem.previewUrl 
-          : await processImage(nextItem.file, 2200);
+          ? await processImage(nextItem.previewUrl, 2200, 0.85)
+          : await processImage(nextItem.file, 2200, 0.85);
 
-        const thumbnail = await processImage(nextItem.file, 1000);
+        // 2. Process small thumbnail (max 400px)
+        const thumbnail = nextItem.previewUrl.startsWith('data:image')
+          ? await processImage(nextItem.previewUrl, 400, 0.6)
+          : await processImage(nextItem.file, 400, 0.6);
 
         let analysis = useAI 
           ? await analyzeJewelryImage(highRes.split(',')[1]) 
@@ -164,6 +173,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         await storeService.addProduct(newProduct);
         updateQueueItem(nextItem.id, { status: 'complete' });
       } catch (err) {
+        console.error("Batch processing error:", err);
         updateQueueItem(nextItem.id, { status: 'error', error: 'Upload failed' });
       } finally {
         setIsProcessing(false);
@@ -174,7 +184,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [queue, isProcessing, currentUser, useAI]);
 
   return (
-    <UploadContext.Provider value={{ queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, cleanImage: () => {}, studioEnhance }}>
+    <UploadContext.Provider value={{ queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, cleanImage: () => {}, studioEnhance, processImage }}>
       {children}
     </UploadContext.Provider>
   );

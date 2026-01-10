@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2, Cpu, Eye, ImagePlus } from 'lucide-react';
+import { Camera, Loader2, Save, X, RefreshCw, Plus, Image as ImageIcon, Calendar, Smartphone, User, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Zap, Eraser, Edit3, Sparkles, Wand2, Cpu, Eye, ImagePlus, Tag as TagIcon, ArrowRight } from 'lucide-react';
 import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
 import { Product, AppConfig, CategoryConfig } from '../types';
@@ -15,7 +15,7 @@ export const UploadWizard: React.FC = () => {
   const currentUser = storeService.getCurrentUser();
   const [config, setConfig] = useState<AppConfig | null>(null);
 
-  const { queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI } = useUpload();
+  const { queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, processImage } = useUpload();
   
   const [selectedSupplier, setSelectedSupplier] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -41,32 +41,18 @@ export const UploadWizard: React.FC = () => {
     return { device, manufacturer };
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     if (mode === 'single') {
-      const newImages: string[] = [];
-      let processed = 0;
-      (Array.from(files) as File[]).forEach((file: File) => {
-        fileToBase64(file).then(base64 => {
-            newImages.push(base64);
-            processed++;
-            if (processed === files.length) {
-                setImages(prev => [...prev, ...newImages]);
-                if (step === 1) setStep(2);
-            }
-        });
-      });
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setImages([ev.target?.result as string]);
+        setStep(2);
+      };
+      reader.readAsDataURL(file);
     } else {
       const info = getDeviceInfo();
       addToQueue(Array.from(files), selectedSupplier, selectedCategory, selectedSubCategory, info.device, info.manufacturer);
@@ -77,11 +63,15 @@ export const UploadWizard: React.FC = () => {
   const handleProceedToDetails = async () => {
     if (images.length === 0) return;
     
-    if (useAI) {
-      setIsAnalyzing(true);
-      setUploadError(null);
-      try {
-        const base64 = images[0].split(',')[1];
+    setIsAnalyzing(true);
+    setUploadError(null);
+    try {
+      // Pre-process image for analysis (high quality but resized)
+      const compressedMain = await processImage(images[0], 2200, 0.9);
+      setImages([compressedMain]);
+
+      if (useAI) {
+        const base64 = compressedMain.split(',')[1];
         const result = await analyzeJewelryImage(base64);
         setAnalysisData(prev => ({
           ...prev,
@@ -89,27 +79,28 @@ export const UploadWizard: React.FC = () => {
           category: selectedCategory || result.category,
           subCategory: selectedSubCategory || result.subCategory,
         }));
-        setStep(3);
-      } catch (error: any) {
-        setUploadError(`AI analysis failed: ${error.message}`);
-        // Still proceed but without AI data
-        setStep(3);
-      } finally {
-        setIsAnalyzing(false);
       }
-    } else {
       setStep(3);
+    } catch (error: any) {
+      setUploadError(`Analysis/Processing failed: ${error.message}`);
+      setStep(3);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
   const handleSingleSave = async () => {
     if (!analysisData.title && !useAI) {
-      // If AI is off, title might be empty initially, fallback to timestamp
       setAnalysisData(prev => ({...prev, title: prev.title || `SJ-${Date.now().toString().slice(-6)}`}));
     }
     
     setIsSaving(true);
     try {
+      // 1. Final High Res Compression
+      const finalMain = await processImage(images[0], 2200, 0.85);
+      // 2. Generate Real Thumbnail
+      const finalThumb = await processImage(images[0], 400, 0.6);
+
       const newProduct: Product = {
         id: Date.now().toString(),
         title: analysisData.title || `SJ-${Date.now().toString().slice(-6)}`,
@@ -118,8 +109,8 @@ export const UploadWizard: React.FC = () => {
         weight: analysisData.weight || 0,
         description: analysisData.description || '',
         tags: analysisData.tags || [],
-        images: images,
-        thumbnails: images, 
+        images: [finalMain],
+        thumbnails: [finalThumb], 
         supplier: selectedSupplier,
         uploadedBy: currentUser?.name || 'Staff',
         isHidden: false,
@@ -232,7 +223,7 @@ export const UploadWizard: React.FC = () => {
                         <ImageIcon size={14} /> Open Gallery
                       </button>
                     </div>
-                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" multiple />
+                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
                     <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" capture="environment" />
                 </div>
             )}
@@ -245,16 +236,12 @@ export const UploadWizard: React.FC = () => {
                             <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden shadow-sm border border-stone-100 group">
                               <img src={img} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => { setImages(prev => prev.filter((_, i) => i !== idx)); if(images.length <= 1) setStep(1); }} className="bg-red-500 text-white p-2 rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                                <button onClick={() => { setImages([]); setStep(1); }} className="bg-red-500 text-white p-2 rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
                                   <Trash2 size={16}/>
                                 </button>
                               </div>
                             </div>
                           ))}
-                          <button onClick={() => cameraInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 hover:bg-stone-50 hover:border-gold-300 transition-all">
-                            <Plus size={24}/>
-                            <span className="text-[10px] font-bold uppercase mt-1">Add More</span>
-                          </button>
                       </div>
                     </div>
                     
@@ -319,7 +306,7 @@ export const UploadWizard: React.FC = () => {
                                <div className="flex flex-wrap gap-2">
                                  {analysisData.tags.map(tag => (
                                    <span key={tag} className="px-3 py-1 bg-gold-50 text-gold-700 text-[10px] font-bold rounded-full border border-gold-100 flex items-center gap-1">
-                                     <Tag size={10} /> {tag}
+                                     <TagIcon size={10} /> {tag}
                                    </span>
                                  ))}
                                </div>
@@ -357,15 +344,3 @@ export const UploadWizard: React.FC = () => {
     </div>
   );
 };
-
-const Tag = ({ size = 12, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l4.71-4.71c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>
-  </svg>
-);
-
-const ArrowRight = ({ size = 18, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-  </svg>
-);
