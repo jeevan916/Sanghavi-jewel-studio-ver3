@@ -1,50 +1,10 @@
 
 /* 
-  SANGHAVI STUDIO - GLOBAL STYLES
+  Styles are now primarily handled by the Tailwind CDN in index.html
+  to ensure consistent rendering across all environments.
   
-  Note: Tailwind classes are generated at runtime via the CDN script in index.html.
-  This file contains only custom overrides and utility classes that Tailwind
-  does not handle by default.
+  This file remains for build-tool compatibility if needed in future.
 */
-
-:root {
-  scrollbar-gutter: stable;
-}
-
-body { 
-  -webkit-tap-highlight-color: transparent; 
-  background-color: #fbf8f1; /* DNA: Background */
-  margin: 0; 
-  padding: 0; 
-  overflow-x: hidden;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  overscroll-behavior-y: none;
-  font-family: 'Inter', sans-serif; /* DNA: Secondary Font Default */
-}
-
-/* Custom Scrollbar Hide Utility */
-.scrollbar-hide::-webkit-scrollbar {
-    display: none;
-}
-.scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-/* Studio Animations */
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-.animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
-}
-
-@keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-.animate-slide-up {
-    animation: slideUp 0.5s ease-out forwards;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
