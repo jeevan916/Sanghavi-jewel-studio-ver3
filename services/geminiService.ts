@@ -1,22 +1,45 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { AspectRatio } from "../types";
+import { storeService } from "./storeService";
 
 /**
  * AI Service for Sanghavi Jewel Studio.
  * Optimized for Speed and Cost Efficiency (Flash Series Only).
+ * Dynamically configured via Database Settings.
  */
+
+// Helper to get active configuration or fallbacks
+const getAIConfig = async () => {
+    const appConfig = await storeService.getConfig();
+    return appConfig.aiConfig || {
+        models: {
+            analysis: 'gemini-3-flash-preview',
+            enhancement: 'gemini-2.5-flash-image',
+            watermark: 'gemini-2.5-flash-image',
+            design: 'gemini-2.5-flash-image'
+        },
+        prompts: {
+            analysis: "Analyze this luxury jewelry piece...",
+            enhancement: "Enhance lighting...",
+            watermark: "Remove text...",
+            design: "Generate jewelry..."
+        }
+    };
+};
 
 export const analyzeJewelryImage = async (base64Image: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const config = await getAIConfig();
+  
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Fastest Vision Analysis
+      model: config.models.analysis, 
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
-          { text: "Analyze this luxury jewelry piece for a high-end catalog. Respond ONLY with a valid JSON object containing: title, category, subCategory, weight (number), description (marketing tone), tags (array of strings)." }
+          { text: config.prompts.analysis }
         ]
       },
       config: {
@@ -45,15 +68,15 @@ export const analyzeJewelryImage = async (base64Image: string) => {
 
 export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  // Enforced Cheapest/Fastest Model
-  const model = 'gemini-2.5-flash-image';
-  
+  const config = await getAIConfig();
+
   try {
+    const finalPrompt = config.prompts.design.replace('${prompt}', prompt);
     const response = await ai.models.generateContent({
-      model: model,
+      model: config.models.design,
       contents: {
         parts: [
-          { text: `Hyper-realistic macro studio photography of bespoke jewelry: ${prompt}. Professional luxury lighting, 8k resolution, elegant composition.` },
+          { text: finalPrompt },
         ],
       },
       config: {
@@ -76,14 +99,16 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
 
 export const enhanceJewelryImage = async (base64Image: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const config = await getAIConfig();
+
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image", // Fastest Image Editing
+      model: config.models.enhancement, 
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
-          { text: "Jewelry Studio Retouching: Simulate a professional photo box environment. Apply soft, diffused studio lighting with a warm, rich color temperature to enhance the metal's aesthetic. Correct overexposure and remove harsh shadows. Balance the contrast for a high-end Instagram/E-commerce look. CRITICAL: Strictly preserve the original shape, size, and surface texture of the jewelry. DO NOT ADD SPARKLES, starbursts, or artificial glints. Maintain a clean, neutral background." },
+          { text: config.prompts.enhancement },
         ],
       },
     });
@@ -101,14 +126,16 @@ export const enhanceJewelryImage = async (base64Image: string) => {
 
 export const removeWatermark = async (base64Image: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const config = await getAIConfig();
+
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image", // Fastest Cleanup
+      model: config.models.watermark, 
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
-          { text: "Seamlessly remove any watermarks, text, or branding logos from this jewelry image. CRITICAL: Do not blur or distort the jewelry. Keep the metal texture and gemstone facets 100% sharp and original." },
+          { text: config.prompts.watermark },
         ],
       },
     });

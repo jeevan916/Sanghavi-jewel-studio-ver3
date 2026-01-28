@@ -33,6 +33,7 @@ export type User = {
   pincode?: string;
   lastLogin?: string;
   createdAt?: string;
+  isAdmin?: boolean; // Legacy compat
 };
 
 export interface StaffAccount {
@@ -68,6 +69,21 @@ export interface CategoryConfig {
   isPrivate: boolean;
 }
 
+export interface AIConfig {
+  models: {
+    analysis: string;
+    enhancement: string;
+    watermark: string;
+    design: string;
+  };
+  prompts: {
+    analysis: string;
+    enhancement: string;
+    watermark: string;
+    design: string;
+  };
+}
+
 export interface AppConfig {
   suppliers: Supplier[];
   categories: CategoryConfig[];
@@ -75,11 +91,9 @@ export interface AppConfig {
   whatsappNumber?: string;
   whatsappPhoneId?: string;
   whatsappToken?: string;
+  aiConfig: AIConfig;
 }
 
-/**
- * Added to resolve import errors in product details and dashboard
- */
 export interface ProductStats {
   like: number;
   dislike: number;

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
 import { AppConfig, Supplier, CategoryConfig, StaffAccount } from '../types';
-import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles } from 'lucide-react';
+import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles, BrainCircuit } from 'lucide-react';
 import { Maintenance } from './Maintenance';
 
 interface SettingsProps {
@@ -10,7 +11,7 @@ interface SettingsProps {
 
 export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [config, setConfig] = useState<AppConfig | null>(null);
-  const [activeTab, setActiveTab] = useState<'suppliers' | 'categories' | 'staff' | 'general' | 'maintenance'>('suppliers');
+  const [activeTab, setActiveTab] = useState<'suppliers' | 'categories' | 'staff' | 'general' | 'ai' | 'maintenance'>('suppliers');
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   
@@ -26,6 +27,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newSubCategory, setNewSubCategory] = useState<{catId: string, val: string}>({catId: '', val: ''});
 
+  // Available Gemini Models for Dropdowns
+  const modelOptions = [
+      { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Fastest Text)' },
+      { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Complex Reasoning)' },
+      { id: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Fastest Vision)' },
+      { id: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image (High Res)' }
+  ];
+
   useEffect(() => {
     const loadData = async () => {
         try {
@@ -35,7 +44,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               const staff = await storeService.getStaff();
               setStaffList(staff);
             } else {
-                if (['staff', 'general', 'maintenance'].includes(activeTab)) setActiveTab('suppliers');
+                if (['staff', 'general', 'maintenance', 'ai'].includes(activeTab)) setActiveTab('suppliers');
             }
         } catch (e) {
             console.error("Failed to load settings data", e);
@@ -53,6 +62,28 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         setIsLoading(false);
         alert('Settings Saved Successfully');
     }
+  };
+
+  const updateAIModel = (key: keyof AppConfig['aiConfig']['models'], value: string) => {
+      if (!config) return;
+      setConfig({
+          ...config,
+          aiConfig: {
+              ...config.aiConfig,
+              models: { ...config.aiConfig.models, [key]: value }
+          }
+      });
+  };
+
+  const updateAIPrompt = (key: keyof AppConfig['aiConfig']['prompts'], value: string) => {
+      if (!config) return;
+      setConfig({
+          ...config,
+          aiConfig: {
+              ...config.aiConfig,
+              prompts: { ...config.aiConfig.prompts, [key]: value }
+          }
+      });
   };
 
   if (activeTab === 'maintenance' && isAdmin) {
@@ -94,6 +125,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       <div className="flex gap-2 md:gap-4 mb-6 border-b border-stone-200 overflow-x-auto whitespace-nowrap scrollbar-hide">
         <button onClick={() => setActiveTab('suppliers')} className={`pb-3 px-2 font-bold text-xs uppercase tracking-widest transition-colors ${activeTab === 'suppliers' ? 'text-gold-600 border-b-2 border-gold-600' : 'text-stone-400'}`}>Suppliers</button>
         <button onClick={() => setActiveTab('categories')} className={`pb-3 px-2 font-bold text-xs uppercase tracking-widest transition-colors ${activeTab === 'categories' ? 'text-gold-600 border-b-2 border-gold-600' : 'text-stone-400'}`}>Taxonomy</button>
+        {isAdmin && <button onClick={() => setActiveTab('ai')} className={`pb-3 px-2 font-bold text-xs uppercase tracking-widest transition-colors ${activeTab === 'ai' ? 'text-gold-600 border-b-2 border-gold-600' : 'text-stone-400'}`}>Neural Engine</button>}
         {isAdmin && <button onClick={() => setActiveTab('staff')} className={`pb-3 px-2 font-bold text-xs uppercase tracking-widest transition-colors ${activeTab === 'staff' ? 'text-gold-600 border-b-2 border-gold-600' : 'text-stone-400'}`}>Staff</button>}
         {isAdmin && <button onClick={() => setActiveTab('general')} className={`pb-3 px-2 font-bold text-xs uppercase tracking-widest transition-colors ${activeTab === 'general' ? 'text-gold-600 border-b-2 border-gold-600' : 'text-stone-400'}`}>General</button>}
         {isAdmin && <button onClick={() => setActiveTab('maintenance')} className={`pb-3 px-2 font-bold text-xs uppercase tracking-widest transition-colors ${activeTab === 'maintenance' ? 'text-gold-600 border-b-2 border-gold-600' : 'text-stone-400'}`}>Maintenance</button>}
@@ -187,6 +219,95 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 </div>
             </div>
         </div>
+      )}
+
+      {activeTab === 'ai' && isAdmin && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
+                  <h3 className="font-bold text-stone-700 mb-6 flex items-center gap-2">
+                      <BrainCircuit size={20} className="text-gold-600"/> Neural Configuration
+                  </h3>
+                  
+                  <div className="space-y-8">
+                      {/* Analysis Settings */}
+                      <div className="space-y-3">
+                          <div className="flex justify-between items-end">
+                              <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">Metadata Analysis Engine</label>
+                              <select 
+                                  value={config.aiConfig?.models.analysis} 
+                                  onChange={e => updateAIModel('analysis', e.target.value)}
+                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1"
+                              >
+                                  {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                              </select>
+                          </div>
+                          <textarea 
+                              value={config.aiConfig?.prompts.analysis}
+                              onChange={e => updateAIPrompt('analysis', e.target.value)}
+                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-gold-500 outline-none"
+                          />
+                      </div>
+
+                      {/* Enhancement Settings */}
+                      <div className="space-y-3">
+                          <div className="flex justify-between items-end">
+                              <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">Image Enhancement Engine</label>
+                              <select 
+                                  value={config.aiConfig?.models.enhancement} 
+                                  onChange={e => updateAIModel('enhancement', e.target.value)}
+                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1"
+                              >
+                                  {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                              </select>
+                          </div>
+                          <textarea 
+                              value={config.aiConfig?.prompts.enhancement}
+                              onChange={e => updateAIPrompt('enhancement', e.target.value)}
+                              className="w-full h-32 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-gold-500 outline-none"
+                          />
+                      </div>
+
+                       {/* Watermark Settings */}
+                       <div className="space-y-3">
+                          <div className="flex justify-between items-end">
+                              <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">Watermark Removal Engine</label>
+                              <select 
+                                  value={config.aiConfig?.models.watermark} 
+                                  onChange={e => updateAIModel('watermark', e.target.value)}
+                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1"
+                              >
+                                  {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                              </select>
+                          </div>
+                          <textarea 
+                              value={config.aiConfig?.prompts.watermark}
+                              onChange={e => updateAIPrompt('watermark', e.target.value)}
+                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-gold-500 outline-none"
+                          />
+                      </div>
+
+                      {/* Design Generation Settings */}
+                      <div className="space-y-3">
+                          <div className="flex justify-between items-end">
+                              <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">Design Generation Engine</label>
+                              <select 
+                                  value={config.aiConfig?.models.design} 
+                                  onChange={e => updateAIModel('design', e.target.value)}
+                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1"
+                              >
+                                  {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                              </select>
+                          </div>
+                          <p className="text-[10px] text-stone-400">Use {'${prompt}'} placeholder for user input.</p>
+                          <textarea 
+                              value={config.aiConfig?.prompts.design}
+                              onChange={e => updateAIPrompt('design', e.target.value)}
+                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-gold-500 outline-none"
+                          />
+                      </div>
+                  </div>
+              </div>
+          </div>
       )}
 
       {activeTab === 'staff' && isAdmin && (
@@ -283,5 +404,3 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     </div>
   );
 };
-
-export default Settings;

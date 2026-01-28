@@ -192,19 +192,51 @@ export const storeService = {
   getConfig: async (): Promise<AppConfig> => {
     try {
         const data = await apiFetch('/config');
+        
+        // Construct nested AI Config from flat keys
+        const aiConfig = {
+            models: {
+                analysis: data?.ai_model_analysis || 'gemini-3-flash-preview',
+                enhancement: data?.ai_model_enhancement || 'gemini-2.5-flash-image',
+                watermark: data?.ai_model_watermark || 'gemini-2.5-flash-image',
+                design: data?.ai_model_design || 'gemini-2.5-flash-image'
+            },
+            prompts: {
+                analysis: data?.ai_prompt_analysis || 'Analyze this jewelry...',
+                enhancement: data?.ai_prompt_enhancement || 'Enhance lighting...',
+                watermark: data?.ai_prompt_watermark || 'Remove text...',
+                design: data?.ai_prompt_design || 'Create design...'
+            }
+        };
+
         const sanitized = {
             suppliers: Array.isArray(data?.suppliers) ? data.suppliers : [],
             categories: Array.isArray(data?.categories) ? data.categories : [],
             linkExpiryHours: Number(data?.linkExpiryHours) || 24,
             whatsappNumber: data?.whatsappNumber || '',
             whatsappPhoneId: data?.whatsappPhoneId || '',
-            whatsappToken: data?.whatsappToken || ''
+            whatsappToken: data?.whatsappToken || '',
+            aiConfig: aiConfig
         };
         CACHE.config = sanitized;
         return sanitized;
     } catch (e) {
         console.error("Critical: Config Fetch Failed", e);
-        return { suppliers: [], categories: [], linkExpiryHours: 24 };
+        // Fallback default config
+        return { 
+            suppliers: [], 
+            categories: [], 
+            linkExpiryHours: 24,
+            aiConfig: {
+                models: { 
+                    analysis: 'gemini-3-flash-preview', 
+                    enhancement: 'gemini-2.5-flash-image', 
+                    watermark: 'gemini-2.5-flash-image', 
+                    design: 'gemini-2.5-flash-image' 
+                },
+                prompts: { analysis: '', enhancement: '', watermark: '', design: '' }
+            }
+        };
     }
   },
 
