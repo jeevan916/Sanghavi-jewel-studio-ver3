@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats } from '../types';
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
@@ -12,6 +12,7 @@ import { useUpload } from '../contexts/UploadContext';
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { processImage } = useUpload();
   
   const [product, setProduct] = useState<Product | null>(null);
@@ -35,7 +36,13 @@ export const ProductDetails: React.FC = () => {
   const touchStart = useRef(0);
   const touchEnd = useRef(0);
   
-  // Ensure scroll resets immediately when ID changes to prevent "auto-scrolling" ghosts
+  // Animation Direction Logic
+  const direction = (location.state as any)?.direction || 'fade';
+  const animationClass = direction === 'next' ? 'animate-slide-in-right' 
+                       : direction === 'prev' ? 'animate-slide-in-left' 
+                       : 'animate-fade-in';
+
+  // Ensure scroll resets immediately when ID changes
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, [id]);
@@ -44,7 +51,7 @@ export const ProductDetails: React.FC = () => {
     if (!id) return;
     
     const fetchData = async () => {
-      // Check cache first to avoid loader flicker for snappy feel
+      // Check cache first to avoid loader flicker
       const cached = storeService.getCached().products?.find(p => p.id === id);
       if (cached) {
          setProduct(cached);
@@ -180,15 +187,15 @@ export const ProductDetails: React.FC = () => {
       if (!touchStart.current || !touchEnd.current) return;
       
       const distance = touchStart.current - touchEnd.current;
-      const isSwipeLeft = distance > 50;  // Swiping Left -> Go Next
+      const isSwipeLeft = distance > 50;  // Swiping Left -> Go Next (User moves finger left)
       const isSwipeRight = distance < -50; // Swiping Right -> Go Prev
 
       if (isSwipeLeft && neighbors.next) {
-          navigate(`/product/${neighbors.next}`);
+          navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } });
       }
       
       if (isSwipeRight && neighbors.prev) {
-          navigate(`/product/${neighbors.prev}`);
+          navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } });
       }
 
       // Reset
@@ -211,11 +218,12 @@ export const ProductDetails: React.FC = () => {
 
   return (
     <div 
-        key={product.id} // Forces re-mount animation on navigation
-        className="min-h-screen bg-stone-50 pb-20 animate-fade-in"
+        key={product.id} 
+        className={`min-h-screen bg-stone-50 pb-20 ${animationClass}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        style={{ overscrollBehaviorX: 'none' }}
     >
       <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30 transition-transform duration-300">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24} /></button>
@@ -245,8 +253,22 @@ export const ProductDetails: React.FC = () => {
                 )}
                 
                 <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {neighbors.prev && <button onClick={() => navigate(`/product/${neighbors.prev}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"><ChevronLeft size={24}/></button>}
-                    {neighbors.next && <button onClick={() => navigate(`/product/${neighbors.next}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"><ChevronRight size={24}/></button>}
+                    {neighbors.prev && (
+                        <button 
+                            onClick={() => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } })} 
+                            className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"
+                        >
+                            <ChevronLeft size={24}/>
+                        </button>
+                    )}
+                    {neighbors.next && (
+                        <button 
+                            onClick={() => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } })} 
+                            className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"
+                        >
+                            <ChevronRight size={24}/>
+                        </button>
+                    )}
                 </div>
 
                 {isGuest && images.length > 1 && (
@@ -282,7 +304,7 @@ export const ProductDetails: React.FC = () => {
           </div>
       )}
       
-      <div className="max-w-3xl mx-auto p-6 space-y-8 animate-slide-up">
+      <div className="max-w-3xl mx-auto p-6 space-y-8">
             {/* Header Details */}
             <div>
                 <span className="text-gold-600 text-xs font-bold uppercase tracking-widest">{product.category}</span>
@@ -331,7 +353,7 @@ export const ProductDetails: React.FC = () => {
             ))}
             </div>
 
-            {/* Specifications Section (Newly Added) */}
+            {/* Specifications Section */}
             <div className="bg-stone-100 rounded-2xl p-6 space-y-4">
                 <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
                     <Info size={16} /> Specifications
@@ -433,8 +455,8 @@ export const ProductDetails: React.FC = () => {
             images={displayImages} 
             title={product.title} 
             onClose={() => setShowFullScreen(false)} 
-            onNextProduct={neighbors.next ? () => navigate(`/product/${neighbors.next}`) : undefined}
-            onPrevProduct={neighbors.prev ? () => navigate(`/product/${neighbors.prev}`) : undefined}
+            onNextProduct={neighbors.next ? () => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } }) : undefined}
+            onPrevProduct={neighbors.prev ? () => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } }) : undefined}
         />
       )}
     </div>
