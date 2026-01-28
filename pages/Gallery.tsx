@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
 import { storeService, CuratedCollections } from '../services/storeService';
-import { Search, LayoutGrid, Grid, Clock, Heart, Loader2 } from 'lucide-react';
+import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2 } from 'lucide-react';
 import { Product, AppConfig } from '../types';
 
 export const Gallery: React.FC = () => {
@@ -14,7 +14,7 @@ export const Gallery: React.FC = () => {
   
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'masonry'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'detail'>('grid');
   const [isLoading, setIsLoading] = useState(true);
 
   const user = storeService.getCurrentUser();
@@ -99,8 +99,12 @@ export const Gallery: React.FC = () => {
                       className="w-full pl-9 pr-4 py-2 bg-stone-100 border-none rounded-xl text-sm focus:ring-1 focus:ring-gold-500 outline-none transition-all"
                     />
                 </div>
-                <button onClick={() => setViewMode(v => v === 'grid' ? 'masonry' : 'grid')} className="p-2 text-stone-400 hover:text-gold-600 transition">
-                    {viewMode === 'grid' ? <LayoutGrid size={20}/> : <Grid size={20}/>}
+                <button 
+                  onClick={() => setViewMode(v => v === 'grid' ? 'detail' : 'grid')} 
+                  className="p-2 text-stone-400 hover:text-gold-600 transition"
+                  title={viewMode === 'grid' ? "Switch to Large View" : "Switch to Grid View"}
+                >
+                    {viewMode === 'grid' ? <RectangleVertical size={24}/> : <LayoutGrid size={24}/>}
                 </button>
             </div>
             <div className="flex gap-2 overflow-x-auto scrollbar-hide px-2 md:px-6 pb-2">
@@ -137,7 +141,9 @@ export const Gallery: React.FC = () => {
 
         <div 
           className={`grid gap-4 px-4 pb-8 ${
-            viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
+            viewMode === 'grid' 
+                ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
+                : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
           }`}
           style={{ 
             transform: 'translateZ(0)' // Keep GPU promotion

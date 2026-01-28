@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, ProductStats } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ComparisonSlider } from '../components/ComparisonSlider';
 import { storeService } from '../services/storeService';
@@ -41,7 +41,8 @@ export const ProductDetails: React.FC = () => {
             const safeProduct = {
                 ...fetched,
                 images: Array.isArray(fetched.images) ? fetched.images : [],
-                thumbnails: Array.isArray(fetched.thumbnails) ? fetched.thumbnails : []
+                thumbnails: Array.isArray(fetched.thumbnails) ? fetched.thumbnails : [],
+                tags: Array.isArray(fetched.tags) ? fetched.tags : []
             };
             setProduct(safeProduct);
             setEditForm(safeProduct);
@@ -222,7 +223,8 @@ export const ProductDetails: React.FC = () => {
           </div>
       )}
       
-      <div className="max-w-3xl mx-auto p-6 space-y-6">
+      <div className="max-w-3xl mx-auto p-6 space-y-8">
+            {/* Header Details */}
             <div>
                 <span className="text-gold-600 text-xs font-bold uppercase tracking-widest">{product.category}</span>
                 {isEditing ? (
@@ -254,6 +256,7 @@ export const ProductDetails: React.FC = () => {
                 </div>
             </div>
 
+            {/* Stats Grid */}
             <div className="grid grid-cols-4 gap-2">
             {[
                 { icon: Heart, label: 'Likes', val: stats.like, color: 'text-red-400' },
@@ -269,6 +272,75 @@ export const ProductDetails: React.FC = () => {
             ))}
             </div>
 
+            {/* Specifications Section (Newly Added) */}
+            <div className="bg-stone-100 rounded-2xl p-6 space-y-4">
+                <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                    <Info size={16} /> Specifications
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="flex items-start gap-3">
+                         <Calendar size={18} className="text-stone-400 mt-0.5" />
+                         <div>
+                             <p className="text-xs font-bold uppercase text-stone-400">Date Added</p>
+                             <p className="text-sm font-medium text-stone-700">{new Date(product.createdAt).toLocaleDateString()}</p>
+                         </div>
+                     </div>
+                     {product.meta?.cameraModel && (
+                        <div className="flex items-start gap-3">
+                            <Camera size={18} className="text-stone-400 mt-0.5" />
+                            <div>
+                                <p className="text-xs font-bold uppercase text-stone-400">Captured On</p>
+                                <p className="text-sm font-medium text-stone-700">{product.meta.cameraModel}</p>
+                            </div>
+                        </div>
+                     )}
+                     {isAdmin && product.supplier && (
+                        <div className="flex items-start gap-3">
+                            <Package size={18} className="text-stone-400 mt-0.5" />
+                            <div>
+                                <p className="text-xs font-bold uppercase text-stone-400">Supplier</p>
+                                <p className="text-sm font-medium text-stone-700">{product.supplier}</p>
+                            </div>
+                        </div>
+                     )}
+                     {isAdmin && product.uploadedBy && (
+                        <div className="flex items-start gap-3">
+                            <User size={18} className="text-stone-400 mt-0.5" />
+                            <div>
+                                <p className="text-xs font-bold uppercase text-stone-400">Uploaded By</p>
+                                <p className="text-sm font-medium text-stone-700">{product.uploadedBy}</p>
+                            </div>
+                        </div>
+                     )}
+                     {product.meta?.location && (
+                        <div className="flex items-start gap-3">
+                            <MapPin size={18} className="text-stone-400 mt-0.5" />
+                            <div>
+                                <p className="text-xs font-bold uppercase text-stone-400">Studio Location</p>
+                                <p className="text-sm font-medium text-stone-700">{product.meta.location}</p>
+                            </div>
+                        </div>
+                     )}
+                </div>
+
+                {product.tags && product.tags.length > 0 && (
+                    <div className="pt-4 border-t border-stone-200">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Hash size={16} className="text-stone-400" />
+                            <span className="text-xs font-bold uppercase text-stone-400">Tags</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {product.tags.map((tag, i) => (
+                                <span key={i} className="px-3 py-1 bg-white border border-stone-200 rounded-full text-xs font-medium text-stone-600">
+                                    #{tag}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Description Section */}
             <div className="prose prose-stone max-w-none">
                 <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2 mb-2"><Info size={16} /> Craftsmanship Story</h3>
                 {isEditing ? (
