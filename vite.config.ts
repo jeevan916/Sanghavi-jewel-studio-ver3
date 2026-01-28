@@ -37,14 +37,20 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
+      minify: 'esbuild',
+      sourcemap: false,
       rollupOptions: {
         output: {
           manualChunks(id) {
+            // Keep AI SDK separate as it's large
+            if (id.includes('@google/genai')) return 'vendor-ai';
+            // Bundle core React deps together
             if (id.includes('node_modules')) {
-              if (id.includes('lucide-react')) return 'vendor-icons';
-              if (id.includes('@google/genai')) return 'vendor-ai';
-              if (id.includes('react')) return 'vendor-react';
-              return 'vendor';
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+                return 'vendor-react';
+              }
+              // Allow other libs (like lucide-react) to be tree-shaken naturally 
+              // instead of forcing them into a massive vendor file.
             }
           },
         },

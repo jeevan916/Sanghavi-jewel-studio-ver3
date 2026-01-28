@@ -44,7 +44,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "3.9.2",
+    version: "3.9.3",
     identity: "Sanghavi Jewel Studio - AI Bespoke PWA",
     
     // THE VISUAL IDENTITY (DO NOT BREAK)
@@ -67,7 +67,7 @@ export const APP_MEMORY: AppMemory = {
     // TECHNICAL RULES
     architecture_rules: [
         "Project Structure: Flat Root (No 'src' folder nesting).",
-        "Styling: Tailwind CSS via Standalone CDN (Runtime Mode).",
+        "Styling: PostCSS/Vite Build (No Runtime CDN).",
         "API Logic: 'storeService' is the Single Source of Truth.",
         "Images: Pipeline -> Slugify -> Base64 -> AI -> Buffer -> Sharp -> CDN.",
         "Persistence: MySQL + LocalStorage (User Session)."
@@ -110,10 +110,10 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
+        "Optimization: Removed Tailwind Runtime CDN and Import Maps for faster initial load.",
         "Implemented SEO-friendly file naming (slugified) to optimize for Hostinger CDN.",
         "Added explicit MIME type handling in .htaccess for WebP/AVIF formats.",
         "Removed Gemini Voice/Audio features and microphone permissions.",
-        "Enforced 'Flash' series models for all AI tasks to optimize speed/cost.",
-        "Removed AI vendor branding elements from UI."
+        "Enforced 'Flash' series models for all AI tasks to optimize speed/cost."
     ]
 };
