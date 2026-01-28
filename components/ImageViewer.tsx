@@ -56,6 +56,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setPosition({ x: 0, y: 0 });
   };
 
+  // Preload neighboring images for instant swiping
+  useEffect(() => {
+    const preload = (url: string) => {
+        const img = new Image();
+        img.src = url;
+    };
+    if (currentIndex < images.length - 1) preload(images[currentIndex + 1]);
+    if (currentIndex > 0) preload(images[currentIndex - 1]);
+  }, [currentIndex, images]);
+
   // Distance calculator for pinch
   const getDistance = (touches: React.TouchList) => {
     const dx = touches[0].clientX - touches[1].clientX;

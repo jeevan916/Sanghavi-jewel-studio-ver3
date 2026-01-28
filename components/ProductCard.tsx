@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product } from '../types';
 import { Heart } from 'lucide-react';
 import { storeService } from '../services/storeService';
@@ -10,69 +10,13 @@ interface ProductCardProps {
   onClick?: () => void;
 }
 
-// Global cache to prevent re-creating Blobs for the same image session
-const blobCache = new Map<string, string>();
-
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
   const [isLiked, setIsLiked] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-  const [imageSrc, setImageSrc] = useState<string>('');
   const [isLoaded, setIsLoaded] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsLiked(storeService.getLikes().includes(product.id));
-    
-    // Intersection Observer for lazy-loading and memory management
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          prepareImage();
-          observer.unobserve(entry.target);
-        }
-      },
-      { 
-        rootMargin: '400px', // Pre-load further out for 120hz high-speed scrolling
-        threshold: 0.01 
-      }
-    );
-
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
-    return () => observer.disconnect();
   }, [product.id]);
-
-  const prepareImage = () => {
-    const rawData = product.thumbnails?.[0] || product.images?.[0] || '';
-    if (!rawData) return;
-
-    if (rawData.startsWith('http') || rawData.startsWith('/')) {
-      setImageSrc(rawData);
-      return;
-    }
-
-    if (blobCache.has(product.id)) {
-      setImageSrc(blobCache.get(product.id)!);
-    } else if (rawData.startsWith('data:')) {
-      try {
-        const parts = rawData.split(',');
-        const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/webp';
-        const bstr = atob(parts[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while (n--) u8arr[n] = bstr.charCodeAt(n);
-        const blob = new Blob([u8arr], { type: mime });
-        const url = URL.createObjectURL(blob);
-        blobCache.set(product.id, url);
-        setImageSrc(url);
-      } catch (e) {
-        setImageSrc(rawData);
-      }
-    }
-  };
 
   const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -83,14 +27,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
   };
 
   const isGuest = !storeService.getCurrentUser();
+  const displayImage = product.thumbnails?.[0] || product.images?.[0] || '';
 
   return (
     <div 
-      ref={containerRef}
       className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all duration-300 hover:shadow-md flex flex-col h-full cursor-pointer active:scale-[0.98] select-none"
       style={{ 
-        contain: 'layout paint', // Removed 'size' to allow intrinsic sizing of children
-        transform: 'translate3d(0, 0, 0)', // Force GPU layer promotion
+        contain: 'layout paint',
+        transform: 'translate3d(0, 0, 0)', 
         willChange: 'transform',
         backfaceVisibility: 'hidden'
       }}
@@ -100,20 +44,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
       }}
     >
       <div className="relative aspect-square overflow-hidden bg-stone-100">
-        {isVisible && imageSrc && (
-          <img 
-            src={imageSrc} 
+        <img 
+            src={displayImage} 
             alt={product.title} 
             onLoad={() => setIsLoaded(true)}
-            decoding="async" // Off-thread decoding prevents scroll stutter
-            loading="lazy"
-            className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
-          />
-        )}
+            decoding="async" 
+            loading="lazy" 
+            className={`w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
+        />
         
         {!isLoaded && (
-          <div className="absolute inset-0 bg-stone-200 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full border-2 border-stone-300 border-t-gold-500 animate-spin opacity-20" />
+          <div className="absolute inset-0 bg-stone-100 flex items-center justify-center">
+             <div className="w-6 h-6 rounded-full border-2 border-stone-200 border-t-gold-400 animate-spin" />
           </div>
         )}
 
