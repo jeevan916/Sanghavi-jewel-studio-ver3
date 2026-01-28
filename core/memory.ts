@@ -1,43 +1,88 @@
 
 /**
- * SANGHAVI JEWEL STUDIO - CORE MEMORY
+ * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
  * 
- * This file acts as the persistent "Brain" of the application.
- * It documents critical features, architectural decisions, and recent fixes.
- * Future AI agents MUST read this file to understand the project state.
+ * This file is the central intelligence of the application.
+ * It documents the "Design DNA", "Critical Features", and "Micro-Instructions"
+ * that define the application's identity and behavior.
+ * 
+ * AI AGENTS MUST READ THIS BEFORE MAKING CHANGES.
  */
 
 export interface SystemFeature {
     id: string;
     name: string;
     status: 'stable' | 'beta' | 'deprecated';
-    critical: boolean; // If true, this feature must NEVER be removed without explicit instruction
+    critical: boolean; // If true, this feature is LOCKED and must not be removed.
     description: string;
+}
+
+export interface DesignDNA {
+    fonts: {
+        primary: string;   // 'Playfair Display' (Serif)
+        secondary: string; // 'Inter' (Sans)
+    };
+    palette: {
+        gold: string;      // #c68a36 (Primary Brand Color)
+        background: string;// #fbf8f1 (Warm Stone)
+        surface: string;   // #ffffff
+    };
+    aesthetics: {
+        radius: string;    // 'rounded-xl' or 'rounded-2xl'
+        animation: string; // 'animate-fade-in'
+    };
 }
 
 export interface AppMemory {
     version: string;
     identity: string;
-    architecture_rules: string[];
+    design_dna: DesignDNA;       // The visual soul of the app
+    architecture_rules: string[];// Technical commandments
+    micro_instructions: string[];// Specific user preferences/fixes
     locked_features: SystemFeature[];
     fix_log: string[];
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "3.8.1",
+    version: "3.8.5",
     identity: "Sanghavi Jewel Studio - AI Bespoke PWA",
     
-    // STRICT RULES FOR THE AI TO FOLLOW
+    // THE VISUAL IDENTITY (DO NOT BREAK)
+    design_dna: {
+        fonts: {
+            primary: "Playfair Display",
+            secondary: "Inter"
+        },
+        palette: {
+            gold: "#c68a36",
+            background: "#fbf8f1",
+            surface: "#ffffff"
+        },
+        aesthetics: {
+            radius: "rounded-2xl",
+            animation: "animate-fade-in"
+        }
+    },
+
+    // TECHNICAL RULES
     architecture_rules: [
-        "Project Structure: Flat Root (No 'src' folder).",
-        "Use Tailwind CSS via CDN Runtime (Browser Environment Compatible).",
-        "StoreService is the Single Source of Truth for API calls.",
-        "Images must follow the pipeline: Fetch -> Base64 -> AI -> Buffer -> Sharp -> CDN.",
-        "Always sanitize database inputs (e.g., config.suppliers || []).",
-        "Keep the 'ComparisonSlider' for all AI enhancements."
+        "Project Structure: Flat Root (No 'src' folder nesting).",
+        "Styling: Tailwind CSS via Standalone CDN (Runtime Mode).",
+        "API Logic: 'storeService' is the Single Source of Truth.",
+        "Images: Pipeline -> Fetch -> Base64 -> AI -> Buffer -> Sharp -> CDN.",
+        "Persistence: MySQL + LocalStorage (User Session)."
     ],
 
-    // FEATURES THAT MUST NOT BE REMOVED
+    // USER MICRO-INSTRUCTIONS (Persistent Requests)
+    micro_instructions: [
+        "Never delete the 'Core Engine' or 'Memory'.",
+        "Maintain the 'Sophisticated' and 'Luxury' aesthetic.",
+        "Ensure 'Gemini Native Audio' remains available as a feature.",
+        "Always sanitize database inputs.",
+        "Keep the 'ComparisonSlider' for AI enhancements."
+    ],
+
+    // FEATURES THAT ARE LOCKED AND PROTECTED
     locked_features: [
         {
             id: 'ai_comparison_slider',
@@ -51,7 +96,7 @@ export const APP_MEMORY: AppMemory = {
             name: 'Server-Side Image Engine',
             status: 'stable',
             critical: true,
-            description: "Node.js Sharp processing for AVIF/WebP generation to replace client-side canvas."
+            description: "Node.js Sharp processing for AVIF/WebP generation."
         },
         {
             id: 'whatsapp_otp',
@@ -59,16 +104,21 @@ export const APP_MEMORY: AppMemory = {
             status: 'stable',
             critical: true,
             description: "Authentication via Meta WhatsApp API."
+        },
+        {
+            id: 'gemini_native_audio',
+            name: 'Gemini Native Audio',
+            status: 'stable',
+            critical: true,
+            description: "Real-time voice consultation using Gemini 2.5 Flash Native Audio."
         }
     ],
 
-    // MEMORY OF RECENT FIXES (To prevent regression)
+    // HISTORY OF STABILIZATION
     fix_log: [
-        "Fixed TypeError in Settings.tsx by adding defensive checks (?.map).",
-        "Reverted to Tailwind CDN to fix UI breakage in no-build environment.",
-        "Implemented 7-step strict AI image pipeline.",
-        "Restored ComparisonSlider after it was accidentally removed.",
-        "Flattened project structure: Removed 'src/' nesting to fix module resolution errors.",
-        "Removed Gemini Native Audio feature as per request."
+        "Established 'Core Engine' to prevent regression.",
+        "Documented Design DNA (Fonts/Colors) to ensure consistency.",
+        "Corrected Tailwind configuration to CDN Runtime mode.",
+        "Locked 'Consultant' feature in memory to prevent accidental deletion."
     ]
 };

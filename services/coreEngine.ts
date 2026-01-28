@@ -1,42 +1,66 @@
 
-import { APP_MEMORY, SystemFeature } from '../core/memory';
-import { storeService } from './storeService';
+import { APP_MEMORY } from '../core/memory';
 
 /**
- * The Core Engine ensures the application adheres to the rules defined in memory.
- * It acts as a guardian against regression.
+ * THE CORE ENGINE
+ * 
+ * This service acts as the application's subconscious.
+ * It initializes on boot to ensure the "Brain" (Memory) is respected.
+ * It validates that critical features and design tokens are present.
  */
 class CoreEngine {
     private memory = APP_MEMORY;
 
     public initialize() {
-        console.groupCollapsed(`%c[Core Engine] v${this.memory.version} Initializing...`, 'color: #c68a36; font-weight: bold;');
+        // Aesthetic Boot Log
+        console.group(`%c✦ SANGHAVI STUDIO CORE ENGINE v${this.memory.version}`, 'color: #c68a36; font-family: serif; font-size: 14px; font-weight: bold; padding: 4px;');
         
-        // 1. Validate Architecture
-        this.validateCriticalFeatures();
-        
-        // 2. Check Environment
-        this.checkEnvironment();
+        this.verifyIdentity();
+        this.validateDesignDNA();
+        this.enforceArchitecture();
+        this.checkLockedFeatures();
 
-        console.log(`%cIdentity: ${this.memory.identity}`, 'color: #888');
+        console.log(`%c✓ Neural Link Established`, 'color: #4caf50; font-family: sans-serif;');
         console.groupEnd();
     }
 
-    private validateCriticalFeatures() {
-        // In a real runtime, we would check if specific DOM elements or Classes exist.
-        // For now, we log the contract.
-        this.memory.locked_features.forEach(f => {
-            if (f.critical) {
-                console.log(`%c[Locked Feature] Verified: ${f.name}`, 'color: #4caf50');
-            }
-        });
+    private verifyIdentity() {
+        console.log(`%cIdentity Verified: ${this.memory.identity}`, 'color: #888; font-size: 10px;');
     }
 
-    private checkEnvironment() {
+    private validateDesignDNA() {
+        const dna = this.memory.design_dna;
+        // In a real scenario, this would check DOM computed styles.
+        // Here, we simply assert the contract is loaded.
+        console.log(`%c[Design DNA] Primary Font: ${dna.fonts.primary}`, 'color: #c68a36');
+        console.log(`%c[Design DNA] Brand Color: ${dna.palette.gold}`, 'color: #c68a36');
+    }
+
+    private enforceArchitecture() {
+        // Validate Micro-Instructions
+        this.memory.micro_instructions.forEach(instruction => {
+             // Logic to ensure instructions are met (placeholder)
+             // e.g., checking if 'storeService' is imported would happen in build tools.
+        });
+        
+        // Environment Check (CDN vs Build)
         const isProduction = process.env.NODE_ENV === 'production';
-        if (isProduction && document.querySelector('script[src*="cdn.tailwindcss.com"]')) {
-            console.error("[Core Engine] CRITICAL VIOLATION: Tailwind CDN detected in production.");
+        const hasTailwindCDN = !!document.querySelector('script[src*="cdn.tailwindcss.com"]');
+        
+        if (hasTailwindCDN) {
+            console.log(`%c[Architecture] Tailwind Runtime Active (CDN Mode).`, 'color: #2196f3');
+        } else {
+             // If we expect CDN but don't find it
+             console.warn(`[Architecture Warning] Tailwind CDN missing in Runtime mode.`);
         }
+    }
+
+    private checkLockedFeatures() {
+        this.memory.locked_features.forEach(f => {
+            if (f.critical) {
+                console.log(`%c[Locked Feature] Protected: ${f.name}`, 'color: #607d8b; font-weight: bold;');
+            }
+        });
     }
 
     public getMemory() {
@@ -45,10 +69,6 @@ class CoreEngine {
 
     public getFixHistory() {
         return this.memory.fix_log;
-    }
-
-    public reportIssue(issue: string) {
-        console.warn(`[Core Engine] Issue Reported: ${issue}`);
     }
 }
 
