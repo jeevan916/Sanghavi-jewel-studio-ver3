@@ -1,14 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
-import { enhanceJewelryImage } from '../services/geminiService';
 import { useUpload } from '../contexts/UploadContext';
 import { Product } from '../types';
 import { 
-  Zap, RefreshCw, Loader2, CheckCircle, AlertTriangle, 
-  Image as ImageIcon, ShieldCheck, Sparkles, Wand2, ArrowLeft,
-  Database, Download, Trash2, Archive, Shield, History, Cpu,
-  Activity, Server, FileJson
+  Loader2, ArrowLeft, Database, Download, Trash2, Archive, Shield, History, Cpu,
+  Activity, FileJson, Server
 } from 'lucide-react';
 
 interface MaintenanceProps {
@@ -41,7 +38,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
 
   const handleCreateBackup = async () => {
     setIsBackupLoading(true);
-    addLog('Starting full vault backup (Next-Gen ZIP)...');
+    addLog('Starting full vault backup...');
     try {
       const res = await storeService.createBackup();
       addLog(`Backup complete: ${res.filename} (${(res.size/1024/1024).toFixed(2)} MB)`);
@@ -54,7 +51,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
   };
 
   const handleDeleteBackup = async (name: string) => {
-    if(!window.confirm("Delete this backup permanently from server?")) return;
+    if(!window.confirm("Delete this backup permanently?")) return;
     try {
       await storeService.deleteBackup(name);
       loadBackups();
@@ -73,11 +70,8 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
       const p = products[i];
       try {
         const sourceImg = p.images[0];
-        // High-res: AVIF (Ultra compression)
         const newHighRes = await processImage(sourceImg, { width: 2200, quality: 0.85, format: 'image/avif' });
-        // Thumbnail: WebP (High speed)
         const newThumb = await processImage(sourceImg, { width: 400, quality: 0.6, format: 'image/webp' });
-        
         await storeService.updateProduct({ ...p, images: [newHighRes], thumbnails: [newThumb] });
         setProgress(prev => ({ ...prev, current: i + 1, success: prev.success + 1 }));
       } catch (err) {
@@ -103,7 +97,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
       <div className="bg-stone-900 text-white p-6 rounded-2xl shadow-xl mb-8">
           <div className="flex items-center gap-2 mb-4">
               <Activity className="text-teal-400" size={20} />
-              <h3 className="font-bold uppercase tracking-widest text-sm">System Diagnostics</h3>
+              <h3 className="font-bold uppercase tracking-widest text-sm">System Diagnostics (Normalized DB)</h3>
           </div>
           
           {diagnostics ? (
@@ -115,23 +109,33 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                               {diagnostics.db_connected ? 'Connected' : 'Disconnected'}
                           </span>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/10">
-                          <span className="text-xs text-stone-400 font-bold uppercase">Config Table</span>
-                          <span className="text-sm font-mono">{diagnostics.counts?.config || 0} Rows</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/10">
-                          <span className="text-xs text-stone-400 font-bold uppercase">Product Count</span>
-                          <span className="text-sm font-mono">{diagnostics.counts?.products || 0} Items</span>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="p-3 bg-white/5 rounded-lg border border-white/10 text-center">
+                            <span className="block text-[10px] text-stone-400 font-bold uppercase mb-1">Products</span>
+                            <span className="text-xl font-mono font-bold text-white">{diagnostics.counts?.products || 0}</span>
+                        </div>
+                        <div className="p-3 bg-white/5 rounded-lg border border-white/10 text-center">
+                            <span className="block text-[10px] text-stone-400 font-bold uppercase mb-1">Suppliers</span>
+                            <span className="text-xl font-mono font-bold text-white">{diagnostics.counts?.suppliers || 0}</span>
+                        </div>
+                        <div className="p-3 bg-white/5 rounded-lg border border-white/10 text-center">
+                            <span className="block text-[10px] text-stone-400 font-bold uppercase mb-1">Categories</span>
+                            <span className="text-xl font-mono font-bold text-white">{diagnostics.counts?.categories || 0}</span>
+                        </div>
                       </div>
                   </div>
                   
-                  <div className="bg-black/30 p-3 rounded-lg border border-white/5 overflow-hidden">
+                  <div className="bg-black/30 p-3 rounded-lg border border-white/5 overflow-hidden flex flex-col">
                       <div className="flex items-center gap-2 mb-2 text-stone-500 text-[10px] font-bold uppercase">
-                          <FileJson size={12}/> Config Row Dump (ID: 1)
+                          <Server size={12}/> Tables in Schema
                       </div>
-                      <pre className="text-[10px] font-mono text-stone-300 whitespace-pre-wrap h-32 overflow-y-auto">
-                          {JSON.stringify(diagnostics.rawConfig?.[0], null, 2)}
-                      </pre>
+                      <div className="flex-1 overflow-y-auto pr-2">
+                        {diagnostics.tables?.map((t: any, i: number) => (
+                           <div key={i} className="text-[10px] font-mono text-stone-300 py-1 border-b border-white/5 last:border-0">
+                               {Object.values(t)[0] as string}
+                           </div>
+                        ))}
+                      </div>
                   </div>
               </div>
           ) : (

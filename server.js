@@ -38,51 +38,17 @@ const ensureFolders = () => {
 };
 ensureFolders();
 
-// Static Assets with Hostinger/CDN Friendly Headers
+// Static Assets
 app.use('/uploads', express.static(UPLOADS_ROOT, { 
-  maxAge: '365d', // Long-term cache for CDN
+  maxAge: '365d',
   immutable: true, 
   setHeaders: (res, path) => {
-    // Explicitly set MIME types for Hostinger LiteSpeed servers
     if (path.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp');
     if (path.endsWith('.avif')) res.setHeader('Content-Type', 'image/avif');
   }
 }));
 
-// Sanitization Utility
-const safeParse = (str, fallback = []) => {
-  if (Array.isArray(str)) return str;
-  try {
-    if (!str) return fallback;
-    const parsed = JSON.parse(str);
-    return (typeof parsed === 'object') ? parsed : fallback;
-  } catch (e) { return fallback; }
-};
-
-const sanitizeProduct = (p) => {
-  if (!p) return null;
-  return {
-    ...p,
-    tags: safeParse(p.tags, []),
-    images: safeParse(p.images, []),
-    thumbnails: safeParse(p.thumbnails, []),
-    meta: typeof p.meta === 'string' ? safeParse(p.meta, {}) : (p.meta || {})
-  };
-};
-
-// Summary Sanitization
-const sanitizeProductSummary = (p) => {
-  if (!p) return null;
-  const full = sanitizeProduct(p);
-  if (full.thumbnails && full.thumbnails.length > 0) {
-    full.images = []; 
-  } else if (full.images && full.images.length > 0) {
-    full.images = [full.images[0]]; 
-  }
-  return full;
-};
-
-// Database Initialization
+// Database Config
 const dbConfig = {
   host: (process.env.DB_HOST || 'localhost').toLowerCase() === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -93,25 +59,94 @@ const dbConfig = {
 };
 
 let pool;
+
+// --- DATABASE INITIALIZATION & MIGRATION ---
 const initDB = async () => {
   try {
     pool = mysql.createPool(dbConfig);
     
-    // Initialize Core Tables
+    // 1. Core Data Tables
     await pool.query(`CREATE TABLE IF NOT EXISTS products (id VARCHAR(255) PRIMARY KEY, title VARCHAR(255), category VARCHAR(255), subCategory VARCHAR(255), weight FLOAT, description TEXT, tags JSON, images JSON, thumbnails JSON, supplier VARCHAR(255), uploadedBy VARCHAR(255), isHidden BOOLEAN, createdAt DATETIME, meta JSON)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS staff (id VARCHAR(255) PRIMARY KEY, username VARCHAR(255) UNIQUE, password VARCHAR(255), role VARCHAR(50), name VARCHAR(255), isActive BOOLEAN, createdAt DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS customers (id VARCHAR(255) PRIMARY KEY, phone VARCHAR(50) UNIQUE, name VARCHAR(255), pincode VARCHAR(20), role VARCHAR(50), createdAt DATETIME)`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS config (id INT PRIMARY KEY, data JSON)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS designs (id VARCHAR(255) PRIMARY KEY, imageUrl LONGTEXT, prompt TEXT, aspectRatio VARCHAR(20), createdAt DATETIME)`);
 
-    const [configRows] = await pool.query('SELECT * FROM config WHERE id = 1');
-    if (configRows.length === 0) {
-        console.log('[Database] Config table empty. Injecting default seed...');
-        const defaultConfig = { suppliers: [], categories: [], linkExpiryHours: 24 };
-        await pool.query('INSERT INTO config (id, data) VALUES (1, ?)', [JSON.stringify(defaultConfig)]);
-    } else {
-        console.log('[Database] Config loaded from persistence.');
+    // 2. Normalized Configuration Tables (Professional Schema)
+    await pool.query(`CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255), isPrivate BOOLEAN)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255), isPrivate BOOLEAN)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS sub_categories (id INT AUTO_INCREMENT PRIMARY KEY, categoryId VARCHAR(50), name VARCHAR(255), FOREIGN KEY (categoryId) REFERENCES categories(id) ON DELETE CASCADE)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value TEXT)`);
+
+    // 3. Migration Logic: Convert old JSON config to new Tables
+    const [legacyConfig] = await pool.query("SHOW TABLES LIKE 'config'");
+    if (legacyConfig.length > 0) {
+        const [rows] = await pool.query('SELECT data FROM config WHERE id = 1');
+        if (rows.length > 0) {
+            const [supCount] = await pool.query('SELECT COUNT(*) as c FROM suppliers');
+            // Only migrate if new tables are empty
+            if (supCount[0].c === 0) {
+                 console.log('[Database] ⚠️ Detected Legacy JSON Config. Starting Migration...');
+                 let oldData = rows[0].data;
+                 // Handle double-encoding edge case
+                 if (typeof oldData === 'string') {
+                    try { oldData = JSON.parse(oldData); } catch (e) { console.error("Migration Parse Error", e); }
+                 }
+                 
+                 // Transactional Migration
+                 const conn = await pool.getConnection();
+                 try {
+                     await conn.beginTransaction();
+                     
+                     // Migrate Suppliers
+                     if (Array.isArray(oldData.suppliers)) {
+                         for (const s of oldData.suppliers) {
+                             await conn.query('INSERT INTO suppliers (id, name, isPrivate) VALUES (?, ?, ?)', [s.id, s.name, !!s.isPrivate]);
+                         }
+                     }
+                     // Migrate Categories
+                     if (Array.isArray(oldData.categories)) {
+                         for (const c of oldData.categories) {
+                             await conn.query('INSERT INTO categories (id, name, isPrivate) VALUES (?, ?, ?)', [c.id, c.name, !!c.isPrivate]);
+                             if (Array.isArray(c.subCategories)) {
+                                 for (const sub of c.subCategories) {
+                                     await conn.query('INSERT INTO sub_categories (categoryId, name) VALUES (?, ?)', [c.id, sub]);
+                                 }
+                             }
+                         }
+                     }
+                     // Migrate Settings
+                     const settingsMap = {
+                         linkExpiryHours: oldData.linkExpiryHours,
+                         whatsappNumber: oldData.whatsappNumber,
+                         whatsappPhoneId: oldData.whatsappPhoneId,
+                         whatsappToken: oldData.whatsappToken
+                     };
+                     for (const [k, v] of Object.entries(settingsMap)) {
+                         if (v !== undefined && v !== null) {
+                            await conn.query('INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)', [k, String(v)]);
+                         }
+                     }
+                     
+                     // Archive old table
+                     await conn.query('RENAME TABLE config TO config_legacy_backup');
+                     await conn.commit();
+                     console.log('[Database] ✅ Migration Complete. Normalized tables populated.');
+                 } catch (e) {
+                     await conn.rollback();
+                     console.error('[Database] Migration Failed:', e);
+                 } finally {
+                     conn.release();
+                 }
+            }
+        }
+    }
+
+    // 4. Default Seed (If everything is empty)
+    const [supCheck] = await pool.query('SELECT COUNT(*) as c FROM suppliers');
+    if (supCheck[0].c === 0) {
+         console.log('[Database] Fresh Install. Seeding Defaults...');
+         await pool.query("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('linkExpiryHours', '24')");
     }
 
     console.log('[Database] Schema Verified and Ready');
@@ -122,10 +157,10 @@ const initDB = async () => {
 };
 initDB();
 
-// --- CDN-FRIENDLY PHOTO ENGINE ---
+// --- IMAGE PROCESSING ---
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB Limit
+  limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.match(/^image\/(jpeg|png|webp|heic|avif)$/)) {
       cb(null, true);
@@ -135,71 +170,29 @@ const upload = multer({
   }
 });
 
-// Utility to create SEO-friendly slugs
-const slugify = (text) => {
-  return text
-    .toString()
-    .toLowerCase()
-    .replace(/\s+/g, '-')           // Replace spaces with -
-    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
-    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
-    .replace(/^-+/, '')             // Trim - from start
-    .replace(/-+$/, '');            // Trim - from end
-};
+const slugify = (text) => text.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
 
 app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ error: 'No files uploaded' });
-  }
-
+  if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
   const results = [];
-
   try {
     for (const file of req.files) {
-      // 1. Generate SEO-Friendly, CDN-Safe Filename
       const originalName = file.originalname.split('.').slice(0, -1).join('.');
-      const safeName = slugify(originalName) || 'studio-asset';
-      const hash = crypto.randomBytes(4).toString('hex'); // Short 8-char hash
+      const safeName = slugify(originalName) || 'asset';
+      const hash = crypto.randomBytes(4).toString('hex');
       
       const processVariant = async (width, format, quality) => {
-        // Naming Convention: [name]-[width]w-[hash].[ext]
-        // Example: diamond-ring-1080w-a1b2c3d4.webp
         const filename = `${safeName}-${width}w-${hash}.${format}`;
         const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
-        
-        await sharp(file.buffer)
-          .rotate() 
-          .resize(width, null, { withoutEnlargement: true }) 
-          .sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }) 
-          .toFormat(format, { quality, effort: 4 }) 
-          .withMetadata(false) 
-          .toFile(filepath);
-          
+        await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
         return `/uploads/${width}/${filename}`;
       };
 
-      const [mobileWebP, desktopWebP, mobileAvif, desktopAvif] = await Promise.all([
-        processVariant(720, 'webp', 80),
-        processVariant(1080, 'webp', 85),
-        processVariant(720, 'avif', 65),
-        processVariant(1080, 'avif', 75)
-      ]);
-
-      results.push({
-        originalName: file.originalname,
-        primary: desktopWebP, 
-        variants: {
-          mobile: mobileWebP,
-          desktop: desktopWebP,
-          mobile_avif: mobileAvif,
-          desktop_avif: desktopAvif
-        }
-      });
+      const [desktopWebP] = await Promise.all([processVariant(1080, 'webp', 85)]);
+      results.push({ originalName: file.originalname, primary: desktopWebP });
     }
-
     res.json({ success: true, files: results });
   } catch (error) {
-    console.error('[Upload Engine] Processing Failed:', error);
     res.status(500).json({ error: 'Image processing failed', details: error.message });
   }
 });
@@ -208,35 +201,59 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ status: 'online' }));
 
-// DIAGNOSTICS ENDPOINT
 app.get('/api/diagnostics', async (req, res) => {
     try {
-        const [tableRows] = await pool.query('SHOW TABLES');
-        const [pCount] = await pool.query('SELECT COUNT(*) as c FROM products');
-        const [cCount] = await pool.query('SELECT COUNT(*) as c FROM config');
-        const [configRaw] = await pool.query('SELECT * FROM config');
-
+        const [tables] = await pool.query('SHOW TABLES');
+        const [p] = await pool.query('SELECT COUNT(*) as c FROM products');
+        const [s] = await pool.query('SELECT COUNT(*) as c FROM suppliers');
+        const [c] = await pool.query('SELECT COUNT(*) as c FROM categories');
+        
         res.json({
             status: 'online',
             db_connected: true,
             counts: {
-                products: pCount[0].c,
-                config: cCount[0].c
+                products: p[0].c,
+                suppliers: s[0].c,
+                categories: c[0].c
             },
-            tables: tableRows,
-            rawConfig: configRaw
+            tables: tables
         });
     } catch (e) {
         res.status(500).json({ status: 'error', db_connected: false, error: e.message });
     }
 });
 
-// Config
+// --- CONFIG API (NORMALIZED) ---
 app.get('/api/config', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT data FROM config WHERE id = 1');
-        // If row exists, send data. If not, send default.
-        res.json(rows[0]?.data || { suppliers: [], categories: [], linkExpiryHours: 24 });
+        const [suppliers] = await pool.query('SELECT * FROM suppliers');
+        const [categories] = await pool.query('SELECT * FROM categories');
+        const [subCats] = await pool.query('SELECT * FROM sub_categories');
+        const [settingsRows] = await pool.query('SELECT * FROM system_settings');
+
+        // Reconstruct Object for Frontend
+        const catMap = categories.map(c => ({
+            id: c.id,
+            name: c.name,
+            isPrivate: !!c.isPrivate,
+            subCategories: subCats.filter(s => s.categoryId === c.id).map(s => s.name)
+        }));
+
+        const config = {
+            suppliers: suppliers.map(s => ({ ...s, isPrivate: !!s.isPrivate })),
+            categories: catMap,
+            linkExpiryHours: 24,
+            whatsappNumber: '',
+            whatsappPhoneId: '',
+            whatsappToken: ''
+        };
+
+        settingsRows.forEach(row => {
+            if (row.setting_key === 'linkExpiryHours') config.linkExpiryHours = Number(row.setting_value);
+            else config[row.setting_key] = row.setting_value;
+        });
+
+        res.json(config);
     } catch (e) { 
         console.error("Config fetch error:", e);
         res.status(500).json({ error: e.message }); 
@@ -244,65 +261,74 @@ app.get('/api/config', async (req, res) => {
 });
 
 app.post('/api/config', async (req, res) => {
+    const conn = await pool.getConnection();
     try {
-        // Ensure row 1 exists before updating
-        const [check] = await pool.query('SELECT id FROM config WHERE id = 1');
-        if (check.length === 0) {
-             await pool.query('INSERT INTO config (id, data) VALUES (1, ?)', [JSON.stringify(req.body)]);
-        } else {
-             await pool.query('UPDATE config SET data = ? WHERE id = 1', [JSON.stringify(req.body)]);
+        await conn.beginTransaction();
+        const { suppliers, categories, linkExpiryHours, whatsappNumber, whatsappPhoneId, whatsappToken } = req.body;
+
+        // 1. Update Settings
+        const settings = { linkExpiryHours, whatsappNumber, whatsappPhoneId, whatsappToken };
+        for (const [k, v] of Object.entries(settings)) {
+             await conn.query('INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?', [k, String(v || ''), String(v || '')]);
         }
+
+        // 2. Sync Suppliers (Replace Strategy)
+        await conn.query('DELETE FROM suppliers'); 
+        if (suppliers?.length) {
+            const supplierValues = suppliers.map(s => [s.id, s.name, !!s.isPrivate]);
+            await conn.query('INSERT INTO suppliers (id, name, isPrivate) VALUES ?', [supplierValues]);
+        }
+
+        // 3. Sync Categories & SubCategories
+        await conn.query('DELETE FROM sub_categories'); // FK cascade handles relation but we clear to rebuild
+        await conn.query('DELETE FROM categories');
+        
+        if (categories?.length) {
+            for (const c of categories) {
+                await conn.query('INSERT INTO categories (id, name, isPrivate) VALUES (?, ?, ?)', [c.id, c.name, !!c.isPrivate]);
+                if (c.subCategories?.length) {
+                    const subValues = c.subCategories.map(name => [c.id, name]);
+                    await conn.query('INSERT INTO sub_categories (categoryId, name) VALUES ?', [subValues]);
+                }
+            }
+        }
+
+        await conn.commit();
         res.json({ success: true });
     } catch (e) { 
+        await conn.rollback();
         console.error("Config save error:", e);
         res.status(500).json({ error: e.message }); 
+    } finally {
+        conn.release();
     }
 });
 
-// Auth
-app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [username, password]);
-        if (rows[0]) {
-            if (!rows[0].isActive) return res.status(403).json({ error: 'Account disabled' });
-            res.json({ user: rows[0] });
-        } else {
-            res.status(401).json({ error: 'Invalid credentials' });
-        }
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
+// --- CORE PRODUCT APIs ---
+// Sanitization Helper
+const safeParse = (str, fallback = []) => {
+  if (Array.isArray(str)) return str;
+  try { return JSON.parse(str) || fallback; } catch (e) { return fallback; }
+};
+const sanitizeProduct = (p) => p ? ({ ...p, tags: safeParse(p.tags), images: safeParse(p.images), thumbnails: safeParse(p.thumbnails), meta: safeParse(p.meta, {}) }) : null;
 
-// Products
 app.get('/api/products', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 1000;
-    const isPublic = req.query.public === 'true';
     const offset = (page - 1) * limit;
+    const isPublic = req.query.public === 'true';
 
     let query = 'SELECT * FROM products';
-    const params = [];
-
-    if (isPublic) {
-        query += ' WHERE isHidden = 0';
-    }
-
+    if (isPublic) query += ' WHERE isHidden = 0';
     query += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
-
-    const [rows] = await pool.query(query, params);
-    const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM products ${isPublic ? 'WHERE isHidden = 0' : ''}`);
-    const total = countRows[0].total;
-
+    
+    const [rows] = await pool.query(query, [limit, offset]);
+    const [count] = await pool.query(`SELECT COUNT(*) as total FROM products ${isPublic ? 'WHERE isHidden = 0' : ''}`);
+    
     res.json({ 
-        items: (rows || []).map(sanitizeProductSummary), 
-        meta: { 
-            page, 
-            limit, 
-            totalPages: Math.ceil(total / limit),
-            totalItems: total
-        } 
+        items: rows.map(sanitizeProduct), 
+        meta: { page, limit, totalPages: Math.ceil(count[0].total / limit), totalItems: count[0].total } 
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -310,7 +336,7 @@ app.get('/api/products', async (req, res) => {
 app.get('/api/products/curated', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 50');
-        const items = (rows || []).map(sanitizeProductSummary);
+        const items = rows.map(sanitizeProduct);
         res.json({
             latest: items.slice(0, 8),
             loved: items.filter((_, i) => i % 3 === 0).slice(0, 8),
@@ -321,22 +347,15 @@ app.get('/api/products/curated', async (req, res) => {
 });
 
 app.get('/api/products/:id', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
-        if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
-        res.json(sanitizeProduct(rows[0]));
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+    rows[0] ? res.json(sanitizeProduct(rows[0])) : res.status(404).json({ error: 'Not found' });
 });
 
 app.get('/api/products/:id/stats', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT type, COUNT(*) as count FROM analytics WHERE productId = ? GROUP BY type', [req.params.id]);
-        const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
-        rows.forEach(r => {
-            if (stats.hasOwnProperty(r.type)) stats[r.type] = r.count;
-        });
-        res.json(stats);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const [rows] = await pool.query('SELECT type, COUNT(*) as c FROM analytics WHERE productId = ? GROUP BY type', [req.params.id]);
+    const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
+    rows.forEach(r => { if(stats.hasOwnProperty(r.type)) stats[r.type] = r.c; });
+    res.json(stats);
 });
 
 app.post('/api/products', async (req, res) => {
@@ -357,65 +376,22 @@ app.put('/api/products/:id', async (req, res) => {
     try {
         const p = req.body;
         await pool.query('UPDATE products SET ? WHERE id = ?', [{
-            title: p.title,
-            category: p.category,
-            subCategory: p.subCategory,
-            weight: p.weight,
-            description: p.description,
-            tags: JSON.stringify(p.tags || []),
-            images: JSON.stringify(p.images || []),
-            thumbnails: JSON.stringify(p.thumbnails || []),
-            isHidden: p.isHidden
+            title: p.title, category: p.category, subCategory: p.subCategory, weight: p.weight, description: p.description,
+            tags: JSON.stringify(p.tags || []), images: JSON.stringify(p.images || []), thumbnails: JSON.stringify(p.thumbnails || []), isHidden: p.isHidden
         }, req.params.id]);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Designs
-app.get('/api/designs', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT * FROM designs ORDER BY createdAt DESC');
-        res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/designs', async (req, res) => {
-    try {
-        const design = { ...req.body, createdAt: new Date() };
-        await pool.query('INSERT INTO designs SET ?', design);
-        res.status(201).json(design);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// Analytics
-app.get('/api/analytics', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
-        res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/analytics', async (req, res) => {
-    try {
-        const event = { id: crypto.randomUUID(), ...req.body, timestamp: new Date() };
-        await pool.query('INSERT INTO analytics SET ?', event);
-        res.status(201).json(event);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// Customers
+// Other Entities
 app.get('/api/customers', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT id, name, phone, pincode, role, createdAt FROM customers ORDER BY createdAt DESC');
-        res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const [rows] = await pool.query('SELECT id, name, phone, pincode, role, createdAt FROM customers ORDER BY createdAt DESC');
+    res.json(rows);
 });
 
 app.get('/api/customers/check/:phone', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [req.params.phone]);
-        res.json({ exists: rows.length > 0, user: rows[0] || null });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [req.params.phone]);
+    res.json({ exists: rows.length > 0, user: rows[0] || null });
 });
 
 app.post('/api/customers/login', async (req, res) => {
@@ -428,87 +404,70 @@ app.post('/api/customers/login', async (req, res) => {
             await pool.query('INSERT INTO customers SET ?', user);
         } else if (name || pincode) {
             await pool.query('UPDATE customers SET name = COALESCE(?, name), pincode = COALESCE(?, pincode) WHERE phone = ?', [name, pincode, phone]);
-            user = { ...user, name: name || user.name, pincode: pincode || user.pincode };
+            user.name = name || user.name;
         }
         res.json({ user });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Staff
+app.post('/api/login', async (req, res) => {
+    const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [req.body.username, req.body.password]);
+    if (rows[0] && rows[0].isActive) res.json({ user: rows[0] });
+    else res.status(401).json({ error: 'Invalid or Disabled' });
+});
+
 app.get('/api/staff', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT id, username, role, name, isActive, createdAt FROM staff');
-        res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const [rows] = await pool.query('SELECT id, username, role, name, isActive, createdAt FROM staff');
+    res.json(rows);
 });
 
 app.post('/api/staff', async (req, res) => {
-    try {
-        const s = { id: crypto.randomUUID(), ...req.body, createdAt: new Date() };
-        await pool.query('INSERT INTO staff SET ?', s);
-        res.status(201).json(s);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const s = { id: crypto.randomUUID(), ...req.body, createdAt: new Date() };
+    await pool.query('INSERT INTO staff SET ?', s);
+    res.status(201).json(s);
 });
 
 app.put('/api/staff/:id', async (req, res) => {
-    try {
-        await pool.query('UPDATE staff SET ? WHERE id = ?', [req.body, req.params.id]);
-        const [rows] = await pool.query('SELECT id, username, role, name, isActive, createdAt FROM staff WHERE id = ?', [req.params.id]);
-        res.json(rows[0]);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    await pool.query('UPDATE staff SET ? WHERE id = ?', [req.body, req.params.id]);
+    res.json({ success: true });
 });
 
-// Backups
-app.get('/api/backups', async (req, res) => {
-    try {
-        if (!existsSync(BACKUPS_ROOT)) return res.json([]);
-        const files = readdirSync(BACKUPS_ROOT)
-            .filter(f => f.endsWith('.zip') || f.endsWith('.json'))
-            .map(f => {
-                const s = statSync(path.join(BACKUPS_ROOT, f));
-                return { name: f, date: s.mtime, size: s.size };
-            });
-        res.json(files);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+app.post('/api/analytics', async (req, res) => {
+    const event = { id: crypto.randomUUID(), ...req.body, timestamp: new Date() };
+    await pool.query('INSERT INTO analytics SET ?', event);
+    res.status(201).json(event);
+});
+
+app.get('/api/analytics', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
+    res.json(rows);
+});
+
+app.get('/api/intelligence', async (req, res) => {
+    const [p] = await pool.query('SELECT COUNT(*) as c FROM products');
+    const [cust] = await pool.query('SELECT COUNT(*) as c FROM customers');
+    const [inq] = await pool.query('SELECT COUNT(*) as c FROM analytics WHERE type="inquiry"');
+    res.json({ summary: { totalInventory: p[0].c, totalLeads: cust[0].c, activeInquiries: inq[0].c } });
 });
 
 app.post('/api/backups', async (req, res) => {
-    try {
-        const name = `snapshot_${Date.now()}.json`;
-        const [products] = await pool.query('SELECT * FROM products');
-        writeFileSync(path.join(BACKUPS_ROOT, name), JSON.stringify(products));
-        res.json({ success: true, filename: name, size: JSON.stringify(products).length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const name = `snapshot_${Date.now()}.json`;
+    const [products] = await pool.query('SELECT * FROM products');
+    writeFileSync(path.join(BACKUPS_ROOT, name), JSON.stringify(products));
+    res.json({ success: true, filename: name, size: JSON.stringify(products).length });
 });
 
-// Intelligence
-app.get('/api/intelligence', async (req, res) => {
-    try {
-        const [p] = await pool.query('SELECT COUNT(*) as count FROM products');
-        const [c] = await pool.query('SELECT COUNT(*) as count FROM customers');
-        const [a] = await pool.query('SELECT COUNT(*) as count FROM analytics WHERE type="inquiry"');
-        res.json({ 
-            summary: { 
-                totalInventory: p[0].count, 
-                totalLeads: c[0].count,
-                activeInquiries: a[0].count
-            } 
-        });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+app.get('/api/backups', (req, res) => {
+    if (!existsSync(BACKUPS_ROOT)) return res.json([]);
+    res.json(readdirSync(BACKUPS_ROOT).filter(f => f.endsWith('.json')).map(f => ({ name: f, date: statSync(path.join(BACKUPS_ROOT, f)).mtime, size: statSync(path.join(BACKUPS_ROOT, f)).size })));
 });
 
-// 404 & Global Handler
-app.use('/api/*', (req, res) => res.status(404).json({ error: `Endpoint ${req.originalUrl} Not Found` }));
-app.use((err, req, res, next) => {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-});
+app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error' }); });
 
-// SPA
 const distPath = path.resolve(process.cwd(), 'dist');
 if (existsSync(distPath)) {
   app.use(express.static(distPath));
   app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
 }
 
-app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Port ${PORT}`));
+app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Server Online on Port ${PORT}`));
