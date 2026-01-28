@@ -4,7 +4,7 @@ import { AspectRatio } from "../types";
 
 /**
  * AI Service for Sanghavi Jewel Studio.
- * Strictly uses Gemini 3.0 for Photo Analysis and 2.5/3.0 for Generation.
+ * Optimized for Speed and Cost Efficiency (Flash Series Only).
  */
 
 export const analyzeJewelryImage = async (base64Image: string) => {
@@ -12,7 +12,7 @@ export const analyzeJewelryImage = async (base64Image: string) => {
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Gemini 3.0 Vision Analysis
+      model: "gemini-3-flash-preview", // Fastest Vision Analysis
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
@@ -43,10 +43,10 @@ export const analyzeJewelryImage = async (base64Image: string) => {
   }
 };
 
-export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio, isPro: boolean = false) => {
+export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  // Use Gemini 3.0 for high-quality photos, 2.5 Flash for standard
-  const model = isPro ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+  // Enforced Cheapest/Fastest Model
+  const model = 'gemini-2.5-flash-image';
   
   try {
     const response = await ai.models.generateContent({
@@ -59,7 +59,7 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
       config: {
         imageConfig: {
           aspectRatio: aspectRatio as any,
-          imageSize: isPro ? "2K" : "1K"
+          // imageSize not supported on Flash, defaults to standard
         }
       }
     });
@@ -79,7 +79,7 @@ export const enhanceJewelryImage = async (base64Image: string) => {
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image", // Gemini 2.5 Flash Image for enhancement processing
+      model: "gemini-2.5-flash-image", // Fastest Image Editing
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
@@ -92,11 +92,10 @@ export const enhanceJewelryImage = async (base64Image: string) => {
       if (part.inlineData) return part.inlineData.data;
     }
     
-    // Fallback: If no image, log text if available to understand why
     const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text);
-    if (textPart) console.warn("Gemini returned text instead of image:", textPart.text);
+    if (textPart) console.warn("AI returned text instead of image:", textPart.text);
     
-    throw new Error("Studio enhancement failed - No image returned");
+    throw new Error("Studio enhancement failed");
   } catch (error) { throw error; }
 };
 
@@ -105,7 +104,7 @@ export const removeWatermark = async (base64Image: string) => {
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image", // Gemini 2.5 Flash Image for text/logo removal
+      model: "gemini-2.5-flash-image", // Fastest Cleanup
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
@@ -118,10 +117,9 @@ export const removeWatermark = async (base64Image: string) => {
       if (part.inlineData) return part.inlineData.data;
     }
     
-    // Fallback: If no image, log text if available to understand why
     const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text);
-    if (textPart) console.warn("Gemini returned text instead of image:", textPart.text);
+    if (textPart) console.warn("AI returned text instead of image:", textPart.text);
 
-    throw new Error("Cleanup failed - No image returned");
+    throw new Error("Cleanup failed");
   } catch (error) { throw error; }
 };

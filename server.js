@@ -38,8 +38,16 @@ const ensureFolders = () => {
 };
 ensureFolders();
 
-// Static Assets
-app.use('/uploads', express.static(UPLOADS_ROOT, { maxAge: '31d', immutable: true }));
+// Static Assets with Hostinger/CDN Friendly Headers
+app.use('/uploads', express.static(UPLOADS_ROOT, { 
+  maxAge: '365d', // Long-term cache for CDN
+  immutable: true, 
+  setHeaders: (res, path) => {
+    // Explicitly set MIME types for Hostinger LiteSpeed servers
+    if (path.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp');
+    if (path.endsWith('.avif')) res.setHeader('Content-Type', 'image/avif');
+  }
+}));
 
 // Sanitization Utility
 const safeParse = (str, fallback = []) => {
@@ -62,24 +70,15 @@ const sanitizeProduct = (p) => {
   };
 };
 
-// Summary Sanitization: Strips heavy image arrays for list views to reduce payload size
+// Summary Sanitization
 const sanitizeProductSummary = (p) => {
   if (!p) return null;
   const full = sanitizeProduct(p);
-  
-  // Logic: 
-  // 1. If thumbnails exist, we don't need the heavy 'images' array for the list view.
-  // 2. If thumbnails are missing, keep ONLY the first image as a fallback poster.
-  
   if (full.thumbnails && full.thumbnails.length > 0) {
-    full.images = []; // Client uses thumbnails[0]
+    full.images = []; 
   } else if (full.images && full.images.length > 0) {
-    full.images = [full.images[0]]; // Fallback to first image only
+    full.images = [full.images[0]]; 
   }
-  
-  // Remove unnecessary fields for list view if they are large (optional, but good practice)
-  // delete full.description; 
-  
   return full;
 };
 
@@ -120,7 +119,7 @@ const initDB = async () => {
 };
 initDB();
 
-// --- PHOTO UPLOADING ENGINE ---
+// --- CDN-FRIENDLY PHOTO ENGINE ---
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB Limit
@@ -133,6 +132,18 @@ const upload = multer({
   }
 });
 
+// Utility to create SEO-friendly slugs
+const slugify = (text) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+    .replace(/^-+/, '')             // Trim - from start
+    .replace(/-+$/, '');            // Trim - from end
+};
+
 app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: 'No files uploaded' });
@@ -142,25 +153,28 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
 
   try {
     for (const file of req.files) {
-      const hash = crypto.randomBytes(8).toString('hex');
-      const slug = `img_${Date.now()}`;
+      // 1. Generate SEO-Friendly, CDN-Safe Filename
+      const originalName = file.originalname.split('.').slice(0, -1).join('.');
+      const safeName = slugify(originalName) || 'studio-asset';
+      const hash = crypto.randomBytes(4).toString('hex'); // Short 8-char hash
       
       const processVariant = async (width, format, quality) => {
-        const filename = `${slug}_${width}_${hash}.${format}`;
+        // Naming Convention: [name]-[width]w-[hash].[ext]
+        // Example: diamond-ring-1080w-a1b2c3d4.webp
+        const filename = `${safeName}-${width}w-${hash}.${format}`;
         const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
         
         await sharp(file.buffer)
-          .rotate() // Auto-orient based on EXIF
-          .resize(width, null, { withoutEnlargement: true }) // Preserve Aspect Ratio
-          .sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }) // Edge-aware sharpening for jewelry facets
-          .toFormat(format, { quality, effort: 4 }) // Tune compression
-          .withMetadata(false) // Strip EXIF/Metadata
+          .rotate() 
+          .resize(width, null, { withoutEnlargement: true }) 
+          .sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }) 
+          .toFormat(format, { quality, effort: 4 }) 
+          .withMetadata(false) 
           .toFile(filepath);
           
         return `/uploads/${width}/${filename}`;
       };
 
-      // Concurrent processing for speed
       const [mobileWebP, desktopWebP, mobileAvif, desktopAvif] = await Promise.all([
         processVariant(720, 'webp', 80),
         processVariant(1080, 'webp', 85),
@@ -170,7 +184,7 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
 
       results.push({
         originalName: file.originalname,
-        primary: desktopWebP, // Default for UI
+        primary: desktopWebP, 
         variants: {
           mobile: mobileWebP,
           desktop: desktopWebP,
@@ -239,9 +253,6 @@ app.get('/api/products', async (req, res) => {
     params.push(limit, offset);
 
     const [rows] = await pool.query(query, params);
-    
-    // Count total for pagination meta
-    // Note: For perf on large datasets, exact count can be slow, but ok for now.
     const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM products ${isPublic ? 'WHERE isHidden = 0' : ''}`);
     const total = countRows[0].total;
 
@@ -274,7 +285,6 @@ app.get('/api/products/:id', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
         if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
-        // Return full product with all images for details view
         res.json(sanitizeProduct(rows[0]));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });

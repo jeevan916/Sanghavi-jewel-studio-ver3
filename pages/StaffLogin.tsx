@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storeService, HealthStatus } from '../services/storeService';
@@ -149,3 +148,5 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
     </div>
   );
 };
+
+export default StaffLogin;

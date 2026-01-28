@@ -44,7 +44,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "3.8.5",
+    version: "3.9.2",
     identity: "Sanghavi Jewel Studio - AI Bespoke PWA",
     
     // THE VISUAL IDENTITY (DO NOT BREAK)
@@ -69,15 +69,16 @@ export const APP_MEMORY: AppMemory = {
         "Project Structure: Flat Root (No 'src' folder nesting).",
         "Styling: Tailwind CSS via Standalone CDN (Runtime Mode).",
         "API Logic: 'storeService' is the Single Source of Truth.",
-        "Images: Pipeline -> Fetch -> Base64 -> AI -> Buffer -> Sharp -> CDN.",
+        "Images: Pipeline -> Slugify -> Base64 -> AI -> Buffer -> Sharp -> CDN.",
         "Persistence: MySQL + LocalStorage (User Session)."
     ],
 
     // USER MICRO-INSTRUCTIONS (Persistent Requests)
     micro_instructions: [
-        "Never delete the 'Core Engine' or 'Memory'.",
+        "Use ONLY Cheapest/Fastest AI Models (Flash Series) for all tasks.",
+        "Remove all AI Vendor Branding (e.g. 'Powered by Gemini').",
         "Maintain the 'Sophisticated' and 'Luxury' aesthetic.",
-        "Ensure 'Gemini Native Audio' remains available as a feature.",
+        "Ensure filenames are SEO-friendly and lowercase for Hostinger compatibility.",
         "Always sanitize database inputs.",
         "Keep the 'ComparisonSlider' for AI enhancements."
     ],
@@ -96,7 +97,7 @@ export const APP_MEMORY: AppMemory = {
             name: 'Server-Side Image Engine',
             status: 'stable',
             critical: true,
-            description: "Node.js Sharp processing for AVIF/WebP generation."
+            description: "Node.js Sharp processing for AVIF/WebP generation with CDN optimization."
         },
         {
             id: 'whatsapp_otp',
@@ -104,21 +105,15 @@ export const APP_MEMORY: AppMemory = {
             status: 'stable',
             critical: true,
             description: "Authentication via Meta WhatsApp API."
-        },
-        {
-            id: 'gemini_native_audio',
-            name: 'Gemini Native Audio',
-            status: 'stable',
-            critical: true,
-            description: "Real-time voice consultation using Gemini 2.5 Flash Native Audio."
         }
     ],
 
     // HISTORY OF STABILIZATION
     fix_log: [
-        "Established 'Core Engine' to prevent regression.",
-        "Documented Design DNA (Fonts/Colors) to ensure consistency.",
-        "Corrected Tailwind configuration to CDN Runtime mode.",
-        "Locked 'Consultant' feature in memory to prevent accidental deletion."
+        "Implemented SEO-friendly file naming (slugified) to optimize for Hostinger CDN.",
+        "Added explicit MIME type handling in .htaccess for WebP/AVIF formats.",
+        "Removed Gemini Voice/Audio features and microphone permissions.",
+        "Enforced 'Flash' series models for all AI tasks to optimize speed/cost.",
+        "Removed AI vendor branding elements from UI."
     ]
 };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
 import { AppConfig, Supplier, CategoryConfig, StaffAccount } from '../types';
@@ -284,3 +283,5 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     </div>
   );
 };
+
+export default Settings;

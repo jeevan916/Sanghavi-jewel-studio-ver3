@@ -20,13 +20,11 @@ export const ProductDetails: React.FC = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, purchase: 0 });
   
-  // Admin / Edit State
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiComparison, setAiComparison] = useState<{original: string, enhanced: string} | null>(null);
 
-  // Navigation State
   const [neighbors, setNeighbors] = useState<{prev: string | null, next: string | null}>({ prev: null, next: null });
 
   const user = storeService.getCurrentUser();
@@ -52,7 +50,6 @@ export const ProductDetails: React.FC = () => {
             setStats(pStats);
             storeService.logEvent('view', safeProduct);
 
-            // Fetch neighbors for swipe navigation (using summary list for speed)
             const listData = await storeService.getProducts(1, 1000, { publicOnly: isGuest });
             const items = listData.items;
             const idx = items.findIndex(p => p.id === fetched.id);
@@ -103,16 +100,14 @@ export const ProductDetails: React.FC = () => {
 
   const handleAI = async (mode: 'enhance' | 'cleanup') => {
       if (!product) return;
-      if (!window.confirm(mode === 'enhance' ? "Enhance image lighting using Gemini?" : "Remove watermarks/text?")) return;
+      if (!window.confirm(mode === 'enhance' ? "Enhance image lighting using AI?" : "Remove watermarks/text?")) return;
       
       setIsProcessingAI(true);
       try {
           const imgUrl = product.images[0];
-          // Step 1 & 2: Fetch URL and convert to Base64 (Memory)
           const base64Input = await urlToBase64(imgUrl);
           if (!base64Input) throw new Error("Could not load source image for processing");
 
-          // Step 3: AI Enhance
           const rawBase64 = mode === 'enhance' 
             ? await enhanceJewelryImage(base64Input) 
             : await removeWatermark(base64Input);
@@ -121,7 +116,7 @@ export const ProductDetails: React.FC = () => {
           setAiComparison({ original: imgUrl, enhanced: enhancedDataUri });
       } catch (e: any) {
           console.error(e);
-          alert(`AI Processing Failed: ${e.message}`);
+          alert(`Processing Failed: ${e.message}`);
       } finally {
           setIsProcessingAI(false);
       }
@@ -131,9 +126,7 @@ export const ProductDetails: React.FC = () => {
      if (!product || !aiComparison) return;
      setIsLoading(true);
      try {
-        // Step 4-7: Send Buffer to Server -> Sharp Optimize -> Save to Disk -> Return CDN URL
         const optimizedUrl = await processImage(aiComparison.enhanced, 1600, 0.9, 'image/webp');
-
         const updated = { ...product, images: [optimizedUrl, ...product.images] };
         await storeService.updateProduct(updated);
         setProduct(updated);
@@ -191,7 +184,6 @@ export const ProductDetails: React.FC = () => {
                     <div className="w-full h-full flex items-center justify-center text-stone-400 italic">No image available</div>
                 )}
                 
-                {/* Desktop Quick Nav Overlay */}
                 <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     {neighbors.prev && <button onClick={() => navigate(`/product/${neighbors.prev}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur"><ChevronLeft size={24}/></button>}
                     {neighbors.next && <button onClick={() => navigate(`/product/${neighbors.next}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur"><ChevronRight size={24}/></button>}
@@ -218,12 +210,11 @@ export const ProductDetails: React.FC = () => {
         {isProcessingAI && (
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center text-white z-40">
                 <Loader2 className="animate-spin mb-4 text-gold-500" size={48} />
-                <p className="font-serif text-lg animate-pulse">Gemini Vision Processing...</p>
+                <p className="font-serif text-lg animate-pulse">AI Vision Processing...</p>
             </div>
         )}
       </div>
 
-      {/* Admin AI Tools */}
       {isAdmin && isEditing && !aiComparison && (
           <div className="bg-stone-900 p-4 flex items-center justify-around gap-4 text-white">
                <button onClick={() => handleAI('enhance')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Wand2 size={20}/> AI Enhance</button>

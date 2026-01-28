@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storeService } from '../services/storeService';
@@ -272,3 +271,5 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     </div>
   );
 };
+
+export default AdminDashboard;

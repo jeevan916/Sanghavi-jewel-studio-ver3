@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { storeService } from '../services/storeService';
@@ -374,3 +373,5 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
     </div>
   );
 };
+
+export default CustomerLogin;
