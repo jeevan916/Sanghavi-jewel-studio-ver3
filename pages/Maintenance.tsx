@@ -7,7 +7,8 @@ import { Product } from '../types';
 import { 
   Zap, RefreshCw, Loader2, CheckCircle, AlertTriangle, 
   Image as ImageIcon, ShieldCheck, Sparkles, Wand2, ArrowLeft,
-  Database, Download, Trash2, Archive, Shield, History, Cpu
+  Database, Download, Trash2, Archive, Shield, History, Cpu,
+  Activity, Server, FileJson
 } from 'lucide-react';
 
 interface MaintenanceProps {
@@ -23,10 +24,12 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
   
   const [backups, setBackups] = useState<any[]>([]);
   const [isBackupLoading, setIsBackupLoading] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<any>(null);
 
   useEffect(() => {
     storeService.getProducts(1, 2000, { publicOnly: false }).then(res => setProducts(res.items));
     loadBackups();
+    storeService.getDiagnostics().then(setDiagnostics);
   }, []);
 
   const loadBackups = async () => {
@@ -96,6 +99,48 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
         </div>
       </div>
 
+      {/* DIAGNOSTICS PANEL */}
+      <div className="bg-stone-900 text-white p-6 rounded-2xl shadow-xl mb-8">
+          <div className="flex items-center gap-2 mb-4">
+              <Activity className="text-teal-400" size={20} />
+              <h3 className="font-bold uppercase tracking-widest text-sm">System Diagnostics</h3>
+          </div>
+          
+          {diagnostics ? (
+              <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                      <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/10">
+                          <span className="text-xs text-stone-400 font-bold uppercase">DB Connection</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${diagnostics.db_connected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {diagnostics.db_connected ? 'Connected' : 'Disconnected'}
+                          </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/10">
+                          <span className="text-xs text-stone-400 font-bold uppercase">Config Table</span>
+                          <span className="text-sm font-mono">{diagnostics.counts?.config || 0} Rows</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/10">
+                          <span className="text-xs text-stone-400 font-bold uppercase">Product Count</span>
+                          <span className="text-sm font-mono">{diagnostics.counts?.products || 0} Items</span>
+                      </div>
+                  </div>
+                  
+                  <div className="bg-black/30 p-3 rounded-lg border border-white/5 overflow-hidden">
+                      <div className="flex items-center gap-2 mb-2 text-stone-500 text-[10px] font-bold uppercase">
+                          <FileJson size={12}/> Config Row Dump (ID: 1)
+                      </div>
+                      <pre className="text-[10px] font-mono text-stone-300 whitespace-pre-wrap h-32 overflow-y-auto">
+                          {JSON.stringify(diagnostics.rawConfig?.[0], null, 2)}
+                      </pre>
+                  </div>
+              </div>
+          ) : (
+              <div className="flex items-center gap-2 text-stone-400">
+                  <Loader2 className="animate-spin" size={16} /> Running diagnostics...
+              </div>
+          )}
+      </div>
+
       <div className="grid md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Cpu size={20} /></div>
@@ -104,10 +149,10 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
           <button disabled={isProcessing} onClick={runReOptimization} className="w-full py-2 bg-stone-900 text-white rounded-lg text-xs font-bold disabled:opacity-50">Transcode All</button>
         </div>
 
-        <div className="bg-stone-900 p-6 rounded-2xl shadow-xl space-y-4 text-white">
-          <div className="w-10 h-10 bg-gold-500 text-white rounded-xl flex items-center justify-center"><Archive size={20} /></div>
+        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+          <div className="w-10 h-10 bg-gold-50 text-gold-600 rounded-xl flex items-center justify-center"><Archive size={20} /></div>
           <h3 className="font-serif">Backup Vault</h3>
-          <p className="text-xs text-stone-400">Create a compressed ZIP of the entire database and physical image storage.</p>
+          <p className="text-xs text-stone-500">Create a compressed ZIP of the entire database and physical image storage.</p>
           <button disabled={isBackupLoading} onClick={handleCreateBackup} className="w-full py-2 bg-gold-600 text-white rounded-lg text-xs font-bold disabled:opacity-50">
             {isBackupLoading ? 'Backing up...' : 'Create Snapshot'}
           </button>

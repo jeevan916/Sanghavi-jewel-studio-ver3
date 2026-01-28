@@ -202,7 +202,8 @@ export const storeService = {
         };
         CACHE.config = sanitized;
         return sanitized;
-    } catch {
+    } catch (e) {
+        console.error("Critical: Config Fetch Failed", e);
         return { suppliers: [], categories: [], linkExpiryHours: 24 };
     }
   },
@@ -259,5 +260,6 @@ export const storeService = {
   getBackups: () => apiFetch('/backups').catch(() => []),
   createBackup: () => apiFetch('/backups', { method: 'POST' }),
   deleteBackup: (name: string) => apiFetch(`/backups/${name}`, { method: 'DELETE' }),
-  downloadBackupUrl: (name: string) => `${API_BASE}/backups/download/${name}?key=${process.env.API_KEY}`
+  downloadBackupUrl: (name: string) => `${API_BASE}/backups/download/${name}?key=${process.env.API_KEY}`,
+  getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message }))
 };

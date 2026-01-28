@@ -44,7 +44,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "3.9.3",
+    version: "3.9.4",
     identity: "Sanghavi Jewel Studio - AI Bespoke PWA",
     
     // THE VISUAL IDENTITY (DO NOT BREAK)
@@ -110,7 +110,7 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
-        "Optimization: Removed Tailwind Runtime CDN and Import Maps for faster initial load.",
+        "Reverted to PostCSS/Vite build for Tailwind CSS (Removed CDN) to fix build-time integration.",
         "Implemented SEO-friendly file naming (slugified) to optimize for Hostinger CDN.",
         "Added explicit MIME type handling in .htaccess for WebP/AVIF formats.",
         "Removed Gemini Voice/Audio features and microphone permissions.",

@@ -107,8 +107,11 @@ const initDB = async () => {
 
     const [configRows] = await pool.query('SELECT * FROM config WHERE id = 1');
     if (configRows.length === 0) {
+        console.log('[Database] Config table empty. Injecting default seed...');
         const defaultConfig = { suppliers: [], categories: [], linkExpiryHours: 24 };
         await pool.query('INSERT INTO config (id, data) VALUES (1, ?)', [JSON.stringify(defaultConfig)]);
+    } else {
+        console.log('[Database] Config loaded from persistence.');
     }
 
     console.log('[Database] Schema Verified and Ready');
@@ -205,19 +208,55 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ status: 'online' }));
 
+// DIAGNOSTICS ENDPOINT
+app.get('/api/diagnostics', async (req, res) => {
+    try {
+        const [tableRows] = await pool.query('SHOW TABLES');
+        const [pCount] = await pool.query('SELECT COUNT(*) as c FROM products');
+        const [cCount] = await pool.query('SELECT COUNT(*) as c FROM config');
+        const [configRaw] = await pool.query('SELECT * FROM config');
+
+        res.json({
+            status: 'online',
+            db_connected: true,
+            counts: {
+                products: pCount[0].c,
+                config: cCount[0].c
+            },
+            tables: tableRows,
+            rawConfig: configRaw
+        });
+    } catch (e) {
+        res.status(500).json({ status: 'error', db_connected: false, error: e.message });
+    }
+});
+
 // Config
 app.get('/api/config', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT data FROM config WHERE id = 1');
+        // If row exists, send data. If not, send default.
         res.json(rows[0]?.data || { suppliers: [], categories: [], linkExpiryHours: 24 });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        console.error("Config fetch error:", e);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 app.post('/api/config', async (req, res) => {
     try {
-        await pool.query('UPDATE config SET data = ? WHERE id = 1', [JSON.stringify(req.body)]);
+        // Ensure row 1 exists before updating
+        const [check] = await pool.query('SELECT id FROM config WHERE id = 1');
+        if (check.length === 0) {
+             await pool.query('INSERT INTO config (id, data) VALUES (1, ?)', [JSON.stringify(req.body)]);
+        } else {
+             await pool.query('UPDATE config SET data = ? WHERE id = 1', [JSON.stringify(req.body)]);
+        }
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        console.error("Config save error:", e);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 // Auth

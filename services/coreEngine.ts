@@ -40,18 +40,15 @@ class CoreEngine {
         // Validate Micro-Instructions
         this.memory.micro_instructions.forEach(instruction => {
              // Logic to ensure instructions are met (placeholder)
-             // e.g., checking if 'storeService' is imported would happen in build tools.
         });
         
         // Environment Check (CDN vs Build)
-        const isProduction = process.env.NODE_ENV === 'production';
         const hasTailwindCDN = !!document.querySelector('script[src*="cdn.tailwindcss.com"]');
         
         if (hasTailwindCDN) {
-            console.log(`%c[Architecture] Tailwind Runtime Active (CDN Mode).`, 'color: #2196f3');
+            console.warn(`[Architecture Warning] Tailwind CDN detected. This should be removed for Production Build.`);
         } else {
-             // If we expect CDN but don't find it
-             console.warn(`[Architecture Warning] Tailwind CDN missing in Runtime mode.`);
+            console.log(`%c[Architecture] Stylesheet Engine: PostCSS/Vite (Optimized)`, 'color: #2196f3');
         }
     }
 
