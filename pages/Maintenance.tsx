@@ -71,9 +71,9 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
       try {
         const sourceImg = p.images[0];
         // High-res: AVIF (Ultra compression)
-        const newHighRes = await processImage(sourceImg, 2200, 0.85, 'image/avif');
+        const newHighRes = await processImage(sourceImg, { width: 2200, quality: 0.85, format: 'image/avif' });
         // Thumbnail: WebP (High speed)
-        const newThumb = await processImage(sourceImg, 400, 0.6, 'image/webp');
+        const newThumb = await processImage(sourceImg, { width: 400, quality: 0.6, format: 'image/webp' });
         
         await storeService.updateProduct({ ...p, images: [newHighRes], thumbnails: [newThumb] });
         setProgress(prev => ({ ...prev, current: i + 1, success: prev.success + 1 }));

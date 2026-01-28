@@ -126,7 +126,7 @@ export const ProductDetails: React.FC = () => {
      if (!product || !aiComparison) return;
      setIsLoading(true);
      try {
-        const optimizedUrl = await processImage(aiComparison.enhanced, 1600, 0.9, 'image/webp');
+        const optimizedUrl = await processImage(aiComparison.enhanced, { width: 1600, quality: 0.9, format: 'image/webp' });
         const updated = { ...product, images: [optimizedUrl, ...product.images] };
         await storeService.updateProduct(updated);
         setProduct(updated);

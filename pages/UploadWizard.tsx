@@ -69,12 +69,15 @@ export const UploadWizard: React.FC = () => {
       // Keep reference to original data URL for AI Analysis before overwriting with server URL
       const originalBase64 = images[0];
 
-      // Upload to Backend Engine
-      const serverUrl = await processImage(originalBase64);
+      // Upload to Backend Engine with optional enhancement (if useAI is true)
+      // Note: We use useAI for visual enhancement flag here if desired, 
+      // but UploadWizard typically does metadata analysis separately. 
+      // We pass { enhance: false } to keep visual fidelity unless explicitly requested features are added later.
+      const serverUrl = await processImage(originalBase64, { enhance: false });
       setImages([serverUrl]);
 
       if (useAI) {
-        // Use original base64 for Gemini
+        // Use original base64 for Gemini Metadata Analysis
         const base64Clean = originalBase64.includes(',') ? originalBase64.split(',')[1] : originalBase64;
         const result = await analyzeJewelryImage(base64Clean);
         setAnalysisData(prev => ({

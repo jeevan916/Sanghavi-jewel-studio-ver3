@@ -1,8 +1,15 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Product, QueueItem } from '../types';
-import { analyzeJewelryImage } from '../services/geminiService';
+import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
 import { storeService } from '../services/storeService';
+
+interface ProcessOptions {
+  enhance?: boolean;
+  width?: number;
+  quality?: number;
+  format?: string;
+}
 
 interface UploadContextType {
   queue: QueueItem[];
@@ -13,7 +20,7 @@ interface UploadContextType {
   isProcessing: boolean;
   useAI: boolean;
   setUseAI: (value: boolean) => void;
-  processImage: (fileOrBase64: File | string, maxWidth?: number, quality?: number, format?: string) => Promise<string>;
+  processImage: (fileOrBase64: File | string, options?: ProcessOptions) => Promise<string>;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
@@ -31,29 +38,72 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const currentUser = storeService.getCurrentUser();
 
   /**
-   * Enhanced image processor that delegates to the Backend Photo Engine
-   * Falls back to client-side canvas if server is unreachable (Offline/PWA)
+   * AI-Powered Image Pipeline:
+   * 1. Input Normalization (File/URL/Base64 -> Blob)
+   * 2. AI Enhancement (Gemini Vision -> Buffer) [Optional]
+   * 3. Server Optimization (Sharp -> WebP/AVIF)
+   * 4. CDN Delivery (Final URL)
    */
   const processImage = async (
-    fileOrBase64: File | string, 
-    maxWidth: number = 1600, 
-    quality: number = 0.8, 
-    format: string = 'image/jpeg'
+    input: File | string, 
+    options: ProcessOptions = {}
   ): Promise<string> => {
+      const { enhance = false, width = 1600, quality = 0.8, format = 'image/jpeg' } = options;
+
       try {
-          // 1. Prepare FormData
-          const formData = new FormData();
-          
-          if (typeof fileOrBase64 === 'string') {
-              // Convert Base64 to Blob
-              const fetchResponse = await fetch(fileOrBase64);
-              const blob = await fetchResponse.blob();
-              formData.append('files', blob, 'image.jpg');
+          // STEP 1: Input Normalization -> Blob
+          let currentBlob: Blob;
+          let fileName = 'image.jpg';
+
+          if (input instanceof File) {
+            currentBlob = input;
+            fileName = input.name;
+          } else if (typeof input === 'string') {
+            if (input.startsWith('data:')) {
+               // Base64 -> Blob
+               const arr = input.split(',');
+               const mime = arr[0].match(/:(.*?);/)?.[1] || format;
+               const bstr = atob(arr[1]);
+               let n = bstr.length;
+               const u8arr = new Uint8Array(n);
+               while (n--) u8arr[n] = bstr.charCodeAt(n);
+               currentBlob = new Blob([u8arr], { type: mime });
+            } else {
+               // URL -> Blob (Fetch)
+               const res = await fetch(input);
+               currentBlob = await res.blob();
+               const urlParts = input.split('/');
+               fileName = urlParts[urlParts.length - 1] || 'fetched-image.jpg';
+            }
           } else {
-              formData.append('files', fileOrBase64);
+            throw new Error("Invalid input type");
           }
 
-          // 2. Upload to Engine
+          // STEP 2: AI Enhancement (Gemini)
+          if (enhance) {
+             const base64 = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(currentBlob);
+             });
+             
+             // Call Gemini Service
+             const enhancedBase64Raw = await enhanceJewelryImage(base64);
+             
+             // Convert Raw Base64 back to Blob (Buffer)
+             const byteCharacters = atob(enhancedBase64Raw);
+             const byteNumbers = new Array(byteCharacters.length);
+             for (let i = 0; i < byteCharacters.length; i++) {
+                 byteNumbers[i] = byteCharacters.charCodeAt(i);
+             }
+             const byteArray = new Uint8Array(byteNumbers);
+             currentBlob = new Blob([byteArray], { type: 'image/jpeg' });
+          }
+
+          // STEP 3: Server Optimization (Sharp Engine)
+          const formData = new FormData();
+          formData.append('files', currentBlob, fileName);
+
           const response = await fetch('/api/media/upload', {
               method: 'POST',
               body: formData
@@ -62,38 +112,41 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           if (response.ok) {
               const data = await response.json();
               if (data.success && data.files?.[0]) {
-                  return data.files[0].primary; // Returns the optimized URL
+                  // STEP 4: CDN Delivery
+                  return data.files[0].primary; 
               }
           }
           throw new Error('Upload Engine Failed');
+
       } catch (e) {
-          console.warn('Backend Upload Failed, falling back to Client-Side Transcoding', e);
+          console.warn('Backend Pipeline Failed, falling back to Client-Side Transcoding', e);
           
           // Fallback: Client-Side Canvas Transcoding (Offline Mode)
           return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
               const canvas = document.createElement('canvas');
-              let width = img.width;
-              let height = img.height;
-              if (width > maxWidth) {
-                height = (height * maxWidth) / width;
-                width = maxWidth;
+              let w = img.width;
+              let h = img.height;
+              if (w > width) {
+                h = (h * width) / w;
+                w = width;
               }
-              canvas.width = width;
-              canvas.height = height;
+              canvas.width = w;
+              canvas.height = h;
               const ctx = canvas.getContext('2d');
               if (!ctx) return reject(new Error("Canvas context failed"));
-              ctx.drawImage(img, 0, 0, width, height);
+              ctx.drawImage(img, 0, 0, w, h);
               resolve(canvas.toDataURL(format, quality));
             };
             img.onerror = () => reject(new Error("Image load failed"));
-            if (typeof fileOrBase64 === 'string') {
-              img.src = fileOrBase64;
+            
+            if (input instanceof File) {
+               const reader = new FileReader();
+               reader.onload = (e) => { img.src = e.target?.result as string; };
+               reader.readAsDataURL(input);
             } else {
-              const reader = new FileReader();
-              reader.onload = (e) => { img.src = e.target?.result as string; };
-              reader.readAsDataURL(fileOrBase64);
+               img.src = input; // Works for Data URI or URL
             }
           });
       }
@@ -146,16 +199,12 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         updateQueueItem(nextItem.id, { status: 'analyzing' });
         
-        // Upload to Engine (Auto-transcodes to WebP/AVIF)
-        const primaryUrl = await processImage(nextItem.file);
+        // Use AI Enhancement pipeline if enabled
+        const primaryUrl = await processImage(nextItem.file, { enhance: useAI });
         
-        // For thumbnails, we can use the same URL or process a smaller one. 
-        // The Engine returns variants but `processImage` helper returns primary string.
-        // For simple queue logic, we use primaryUrl for both or trigger another small upload if strictly needed,
-        // but backend already optimizes.
         const thumbUrl = primaryUrl; 
         
-        // AI Analysis requires Base64. If `primaryUrl` is a server path, we need to convert original file to base64 for Gemini.
+        // Metadata Analysis
         let analysis = { title: '', description: "Studio Asset", category: '', subCategory: '', tags: [], weight: 0 };
         if (useAI) {
              const base64 = await new Promise<string>((resolve) => {
