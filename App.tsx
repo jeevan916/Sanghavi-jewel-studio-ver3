@@ -118,6 +118,8 @@ function AppContent() {
     try {
         const currentUser = storeService.getCurrentUser();
         setUser(currentUser);
+        // 🔥 WARM UP: Pre-fetch catalog data in the background
+        storeService.warmup();
     } catch (e) {
         console.error("User fetch error", e);
     }

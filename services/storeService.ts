@@ -17,6 +17,14 @@ export interface HealthStatus {
   reason?: string;
 }
 
+// Memory Cache (RAM) - Enables Instant Navigation
+const CACHE = {
+  products: null as Product[] | null,
+  curated: null as CuratedCollections | null,
+  config: null as AppConfig | null,
+  lastFetch: 0
+};
+
 async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2) {
     let lastError;
     for (let i = 0; i <= retries; i++) {
@@ -29,11 +37,9 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2
             const contentType = response.headers.get("content-type");
             let data;
             
-            // Check if response is actually JSON before parsing
             if (contentType && contentType.includes("application/json")) {
                 data = await response.json();
             } else {
-                // If it's not JSON (like an HTML error page), read as text and throw
                 const text = await response.text();
                 throw new Error(`Server returned unexpected response: ${text.slice(0, 50)}...`);
             }
@@ -54,6 +60,20 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2
 }
 
 export const storeService = {
+  // NEW: Synchronously retrieve data if available
+  getCached: () => ({ ...CACHE }),
+
+  // NEW: Trigger background fetch to populate cache (called on App load)
+  warmup: async () => {
+     if (Date.now() - CACHE.lastFetch < 120000 && CACHE.products) return; // Cache valid for 2 mins
+     try {
+         console.log("🔥 [Store] Warming up cache...");
+         storeService.getConfig().catch(e => console.warn("Config warmup failed", e));
+         storeService.getCuratedProducts().catch(e => console.warn("Curated warmup failed", e));
+         storeService.getProducts(1, 50).catch(e => console.warn("Product warmup failed", e));
+     } catch (e) { console.warn("Warmup error", e); }
+  },
+
   checkServerHealth: async (): Promise<HealthStatus> => {
     try {
         const data = await apiFetch('/health', { method: 'GET' }, 0);
@@ -86,10 +106,20 @@ export const storeService = {
       }
       
       const data = await apiFetch(`/products?${queryParams.toString()}`);
-      return { 
+      
+      const result = { 
         items: Array.isArray(data.items) ? data.items : [], 
         meta: data.meta || { totalPages: 1, page, limit } 
       };
+
+      // CACHE STRATEGY: Update memory cache if it's the main default view
+      const isDefaultView = page === 1 && (!filters || Object.keys(filters).length <= 1);
+      if (isDefaultView) {
+          CACHE.products = result.items;
+          CACHE.lastFetch = Date.now();
+      }
+
+      return result;
     } catch { 
       return { items: [], meta: { totalPages: 1 } }; 
     }
@@ -162,8 +192,7 @@ export const storeService = {
   getConfig: async (): Promise<AppConfig> => {
     try {
         const data = await apiFetch('/config');
-        // Sanitization to prevent UI Crashes on empty DB
-        return {
+        const sanitized = {
             suppliers: Array.isArray(data?.suppliers) ? data.suppliers : [],
             categories: Array.isArray(data?.categories) ? data.categories : [],
             linkExpiryHours: Number(data?.linkExpiryHours) || 24,
@@ -171,6 +200,8 @@ export const storeService = {
             whatsappPhoneId: data?.whatsappPhoneId || '',
             whatsappToken: data?.whatsappToken || ''
         };
+        CACHE.config = sanitized;
+        return sanitized;
     } catch {
         return { suppliers: [], categories: [], linkExpiryHours: 24 };
     }
@@ -213,8 +244,11 @@ export const storeService = {
   chatWithLead: (customer: User) => {
     window.open(`https://wa.me/${customer.phone}`, '_blank');
   },
-  getCuratedProducts: (): Promise<CuratedCollections> => 
-    apiFetch('/products/curated').catch(() => ({ latest: [], loved: [], trending: [], ideal: [] })),
+  getCuratedProducts: async (): Promise<CuratedCollections> => {
+    const data = await apiFetch('/products/curated').catch(() => ({ latest: [], loved: [], trending: [], ideal: [] }));
+    CACHE.curated = data;
+    return data;
+  },
   getStaff: (): Promise<StaffAccount[]> => apiFetch('/staff').catch(() => []),
   addStaff: (s: any): Promise<StaffAccount> => apiFetch('/staff', { method: 'POST', body: JSON.stringify(s) }),
   updateStaff: (id: string, updates: any): Promise<StaffAccount> => apiFetch(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),

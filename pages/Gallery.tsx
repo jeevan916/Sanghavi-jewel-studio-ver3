@@ -22,23 +22,38 @@ export const Gallery: React.FC = () => {
   const isGuest = !user;
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        const [conf, cur, prodRes] = await Promise.all([
-          storeService.getConfig().catch(() => null),
-          storeService.getCuratedProducts().catch(() => ({ latest: [], loved: [], trending: [], ideal: [] })),
-          storeService.getProducts(1, 1000, { publicOnly: isGuest }).catch(() => ({ items: [] }))
-        ]);
-        setConfig(conf);
-        if (cur) setCurated(cur);
-        if (prodRes?.items) setProducts(prodRes.items);
-      } catch (e) {
-        console.error("Load failed", e);
-      } finally {
-        setIsLoading(false);
-      }
+    const initializeGallery = async () => {
+        // 1. Instant Render from Cache (if available)
+        const cached = storeService.getCached();
+        let hasCache = false;
+        if (cached.products && cached.products.length > 0) {
+            setProducts(cached.products);
+            hasCache = true;
+        }
+        if (cached.config) setConfig(cached.config);
+        if (cached.curated) setCurated(cached.curated);
+
+        if (hasCache) setIsLoading(false);
+
+        // 2. Background Refresh (Always update with latest data)
+        try {
+            const [conf, cur, prodRes] = await Promise.all([
+            storeService.getConfig().catch(() => null),
+            storeService.getCuratedProducts().catch(() => ({ latest: [], loved: [], trending: [], ideal: [] })),
+            storeService.getProducts(1, 1000, { publicOnly: isGuest }).catch(() => ({ items: [] }))
+            ]);
+            
+            if (conf) setConfig(conf);
+            if (cur) setCurated(cur);
+            if (prodRes?.items) setProducts(prodRes.items);
+        } catch (e) {
+            console.error("Gallery Sync failed", e);
+        } finally {
+            setIsLoading(false);
+        }
     };
-    loadInitialData();
+    
+    initializeGallery();
   }, [isGuest]);
 
   const filteredProducts = useMemo(() => {
@@ -59,7 +74,7 @@ export const Gallery: React.FC = () => {
     navigate(`/product/${productId}`);
   }, [navigate]);
 
-  if (isLoading) {
+  if (isLoading && products.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
         <Loader2 className="animate-spin text-gold-600" size={32} />
@@ -70,7 +85,7 @@ export const Gallery: React.FC = () => {
   const categoryList = config?.categories?.map(c => c.name) || [];
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden">
+    <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden animate-fade-in">
       <div className="sticky top-0 md:top-16 bg-white/90 backdrop-blur-md border-b border-stone-200 z-40 transition-transform duration-300">
         <div className="max-w-7xl mx-auto p-2">
             <div className="px-2 md:px-6 h-12 flex items-center justify-between gap-4">
@@ -125,7 +140,7 @@ export const Gallery: React.FC = () => {
             viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
           }`}
           style={{ 
-            transform: 'translateZ(0)' // Keep GPU promotion, remove contentVisibility
+            transform: 'translateZ(0)' // Keep GPU promotion
           }}
         >
           {filteredProducts.map(product => (
