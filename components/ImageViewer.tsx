@@ -30,6 +30,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const initialPinchScale = useRef<number>(1);
   const isPanning = useRef(false);
 
+  // Reset view and index when images (product) changes
+  useEffect(() => {
+    setCurrentIndex(0);
+    resetView();
+  }, [images]);
+
   // Vibration helper
   const vibrate = () => {
     if (navigator.vibrate) navigator.vibrate(10);
@@ -59,6 +65,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   // Preload neighboring images for instant swiping
   useEffect(() => {
     const preload = (url: string) => {
+        if (!url) return;
         const img = new Image();
         img.src = url;
     };
@@ -157,11 +164,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     lastTouchPos.current = null;
   };
 
-  // Reset view when image changes
-  useEffect(() => {
-    resetView();
-  }, [currentIndex]);
-
   return (
     <div className="fixed inset-0 z-[100] bg-black text-white flex flex-col animate-fade-in select-none">
       {/* Top Bar */}
@@ -190,6 +192,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         onTouchEnd={handleTouchEnd}
       >
          <img 
+            key={images[currentIndex]} // Force remount if image URL changes but index stays same (though index resets on product change)
             src={images[currentIndex]} 
             alt="Full Screen"
             draggable={false}

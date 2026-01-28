@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, ProductStats } from '../types';
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash } from 'lucide-react';
@@ -30,11 +30,29 @@ export const ProductDetails: React.FC = () => {
   const user = storeService.getCurrentUser();
   const isAdmin = user?.role === 'admin' || user?.role === 'contributor';
   const isGuest = !user;
+
+  // Touch handling refs
+  const touchStart = useRef(0);
+  const touchEnd = useRef(0);
   
+  // Ensure scroll resets immediately when ID changes to prevent "auto-scrolling" ghosts
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
+    
     const fetchData = async () => {
-      setIsLoading(true);
+      // Check cache first to avoid loader flicker for snappy feel
+      const cached = storeService.getCached().products?.find(p => p.id === id);
+      if (cached) {
+         setProduct(cached);
+         setIsLoading(false);
+      } else {
+         setIsLoading(true);
+      }
+
       try {
         const fetched = await storeService.getProductById(id);
         if (fetched) {
@@ -51,6 +69,7 @@ export const ProductDetails: React.FC = () => {
             setStats(pStats);
             storeService.logEvent('view', safeProduct);
 
+            // Fetch neighbors for navigation
             const listData = await storeService.getProducts(1, 1000, { publicOnly: isGuest });
             const items = listData.items;
             const idx = items.findIndex(p => p.id === fetched.id);
@@ -148,6 +167,35 @@ export const ProductDetails: React.FC = () => {
       } catch (e) { alert("Link generation failed"); }
   };
 
+  // --- SWIPE HANDLERS ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+      touchStart.current = e.targetTouches[0].clientX;
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+      touchEnd.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+      if (!touchStart.current || !touchEnd.current) return;
+      
+      const distance = touchStart.current - touchEnd.current;
+      const isSwipeLeft = distance > 50;  // Swiping Left -> Go Next
+      const isSwipeRight = distance < -50; // Swiping Right -> Go Prev
+
+      if (isSwipeLeft && neighbors.next) {
+          navigate(`/product/${neighbors.next}`);
+      }
+      
+      if (isSwipeRight && neighbors.prev) {
+          navigate(`/product/${neighbors.prev}`);
+      }
+
+      // Reset
+      touchStart.current = 0;
+      touchEnd.current = 0;
+  };
+
   if (isLoading && !product) return <div className="h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-gold-600" size={40} /></div>;
   if (!product) return <div className="h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center"><p className="text-stone-500 mb-4">Product not found.</p><button onClick={() => navigate('/collection')} className="text-gold-600 font-bold">Return to Gallery</button></div>;
 
@@ -162,11 +210,17 @@ export const ProductDetails: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-20 animate-fade-in">
-      <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-600"><ArrowLeft size={24} /></button>
+    <div 
+        key={product.id} // Forces re-mount animation on navigation
+        className="min-h-screen bg-stone-50 pb-20 animate-fade-in"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+    >
+      <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30 transition-transform duration-300">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24} /></button>
         <h2 className="font-serif font-bold text-stone-800 text-lg truncate flex-1 px-4 text-center">{product.title}</h2>
-        <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-2 text-stone-600"><Share2 size={20} /></button>
+        <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><Share2 size={20} /></button>
       </div>
 
       <div className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden select-none group">
@@ -180,14 +234,19 @@ export const ProductDetails: React.FC = () => {
         ) : (
             <>
                 {displayImages.length > 0 ? (
-                    <img src={displayImages[0]} className="w-full h-full object-cover cursor-zoom-in" onClick={() => setShowFullScreen(true)} alt={product.title} />
+                    <img 
+                        src={displayImages[0]} 
+                        className="w-full h-full object-cover cursor-zoom-in active:scale-105 transition-transform duration-500" 
+                        onClick={() => setShowFullScreen(true)} 
+                        alt={product.title} 
+                    />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-stone-400 italic">No image available</div>
                 )}
                 
                 <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {neighbors.prev && <button onClick={() => navigate(`/product/${neighbors.prev}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur"><ChevronLeft size={24}/></button>}
-                    {neighbors.next && <button onClick={() => navigate(`/product/${neighbors.next}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur"><ChevronRight size={24}/></button>}
+                    {neighbors.prev && <button onClick={() => navigate(`/product/${neighbors.prev}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"><ChevronLeft size={24}/></button>}
+                    {neighbors.next && <button onClick={() => navigate(`/product/${neighbors.next}`)} className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"><ChevronRight size={24}/></button>}
                 </div>
 
                 {isGuest && images.length > 1 && (
@@ -223,7 +282,7 @@ export const ProductDetails: React.FC = () => {
           </div>
       )}
       
-      <div className="max-w-3xl mx-auto p-6 space-y-8">
+      <div className="max-w-3xl mx-auto p-6 space-y-8 animate-slide-up">
             {/* Header Details */}
             <div>
                 <span className="text-gold-600 text-xs font-bold uppercase tracking-widest">{product.category}</span>
