@@ -136,7 +136,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Package size={18}/> Manufacturing Sources</h3>
                 <div className="flex gap-2 mb-6">
-                    <input value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="New supplier name..." className="flex-1 p-2 border border-stone-200 rounded-lg text-sm" />
+                    <input value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="New supplier name..." className="flex-1 p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                     <button onClick={() => {
                         if(!newSupplierName.trim() || !config) return;
                         const newSup: Supplier = { id: Date.now().toString(), name: newSupplierName, isPrivate: false };
@@ -171,7 +171,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Tag size={18}/> Collection Hierarchy</h3>
                 <div className="flex gap-2 mb-6">
-                    <input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="New category name..." className="flex-1 p-2 border border-stone-200 rounded-lg text-sm" />
+                    <input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="New category name..." className="flex-1 p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                     <button onClick={() => {
                         if(!newCategoryName.trim() || !config) return;
                         const newCat: CategoryConfig = { id: Date.now().toString(), name: newCategoryName, subCategories: [], isPrivate: false };
@@ -206,7 +206,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                     ))}
                                 </div>
                                 <div className="flex gap-2">
-                                    <input value={newSubCategory.catId === c.id ? newSubCategory.val : ''} onChange={e => setNewSubCategory({catId: c.id, val: e.target.value})} placeholder={`Add sub-category...`} className="flex-1 text-sm p-1.5 border border-stone-200 rounded focus:border-gold-400 outline-none" />
+                                    <input value={newSubCategory.catId === c.id ? newSubCategory.val : ''} onChange={e => setNewSubCategory({catId: c.id, val: e.target.value})} placeholder={`Add sub-category...`} className="flex-1 text-sm p-1.5 border border-stone-200 rounded focus:border-gold-400 outline-none text-stone-900" />
                                     <button onClick={() => {
                                         if(!newSubCategory.val.trim() || newSubCategory.catId !== c.id || !config) return;
                                         setConfig({...config, categories: (config.categories || []).map(cat => cat.id === c.id ? {...cat, subCategories: [...cat.subCategories, newSubCategory.val]} : cat)});
@@ -236,7 +236,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               <select 
                                   value={config.aiConfig?.models.analysis} 
                                   onChange={e => updateAIModel('analysis', e.target.value)}
-                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1"
+                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1 text-stone-900"
                               >
                                   {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                               </select>
@@ -244,7 +244,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           <textarea 
                               value={config.aiConfig?.prompts.analysis}
                               onChange={e => updateAIPrompt('analysis', e.target.value)}
-                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-gold-500 outline-none"
+                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
                           />
                       </div>
 
@@ -255,7 +255,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               <select 
                                   value={config.aiConfig?.models.enhancement} 
                                   onChange={e => updateAIModel('enhancement', e.target.value)}
-                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1"
+                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1 text-stone-900"
                               >
                                   {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                               </select>
@@ -263,7 +263,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           <textarea 
                               value={config.aiConfig?.prompts.enhancement}
                               onChange={e => updateAIPrompt('enhancement', e.target.value)}
-                              className="w-full h-32 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-gold-500 outline-none"
+                              className="w-full h-32 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
                           />
                       </div>
 
@@ -274,7 +274,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               <select 
                                   value={config.aiConfig?.models.watermark} 
                                   onChange={e => updateAIModel('watermark', e.target.value)}
-                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1"
+                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1 text-stone-900"
                               >
                                   {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                               </select>
@@ -282,7 +282,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           <textarea 
                               value={config.aiConfig?.prompts.watermark}
                               onChange={e => updateAIPrompt('watermark', e.target.value)}
-                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-gold-500 outline-none"
+                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
                           />
                       </div>
 
@@ -293,7 +293,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               <select 
                                   value={config.aiConfig?.models.design} 
                                   onChange={e => updateAIModel('design', e.target.value)}
-                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1"
+                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1 text-stone-900"
                               >
                                   {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                               </select>
@@ -302,7 +302,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           <textarea 
                               value={config.aiConfig?.prompts.design}
                               onChange={e => updateAIPrompt('design', e.target.value)}
-                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-gold-500 outline-none"
+                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
                           />
                       </div>
                   </div>
@@ -359,14 +359,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><MessageCircle size={18}/> Communication</h3>
                 <div>
                     <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">WhatsApp Number</label>
-                    <input type="text" value={config.whatsappNumber || ''} onChange={e => setConfig({...config, whatsappNumber: e.target.value})} placeholder="91..." className="w-full p-2 border border-stone-200 rounded-lg text-sm" />
+                    <input type="text" value={config.whatsappNumber || ''} onChange={e => setConfig({...config, whatsappNumber: e.target.value})} placeholder="91..." className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                 </div>
             </div>
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Layers size={18}/> Persistence</h3>
                 <div>
                     <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Link Expiry (Hours)</label>
-                    <input type="number" value={config.linkExpiryHours} onChange={e => setConfig({...config, linkExpiryHours: parseInt(e.target.value) || 24})} className="w-full p-2 border border-stone-200 rounded-lg text-sm" />
+                    <input type="number" value={config.linkExpiryHours} onChange={e => setConfig({...config, linkExpiryHours: parseInt(e.target.value) || 24})} className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                 </div>
             </div>
         </div>
@@ -386,13 +386,13 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                       setShowAddStaff(false);
                       setNewStaff({ username: '', password: '', name: '', role: 'contributor' });
                   }} className="p-6 space-y-4">
-                      <input required value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} placeholder="Full Name" className="w-full p-3 border rounded-xl" />
-                      <input required value={newStaff.username} onChange={e => setNewStaff({...newStaff, username: e.target.value})} placeholder="Username" className="w-full p-3 border rounded-xl" />
+                      <input required value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} placeholder="Full Name" className="w-full p-3 border rounded-xl text-stone-900" />
+                      <input required value={newStaff.username} onChange={e => setNewStaff({...newStaff, username: e.target.value})} placeholder="Username" className="w-full p-3 border rounded-xl text-stone-900" />
                       <div className="relative">
-                        <input required type={showPassword ? 'text' : 'password'} value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} placeholder="Password" className="w-full p-3 border rounded-xl" />
+                        <input required type={showPassword ? 'text' : 'password'} value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} placeholder="Password" className="w-full p-3 border rounded-xl text-stone-900" />
                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400">{showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
                       </div>
-                      <select value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value as any})} className="w-full p-3 border rounded-xl">
+                      <select value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value as any})} className="w-full p-3 border rounded-xl text-stone-900">
                           <option value="contributor">Contributor</option>
                           <option value="admin">Administrator</option>
                       </select>
