@@ -32,6 +32,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        '/uploads': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
+        }
       },
     },
     build: {
@@ -49,8 +54,6 @@ export default defineConfig(({ mode }) => {
               if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
                 return 'vendor-react';
               }
-              // Allow other libs (like lucide-react) to be tree-shaken naturally 
-              // instead of forcing them into a massive vendor file.
             }
           },
         },
