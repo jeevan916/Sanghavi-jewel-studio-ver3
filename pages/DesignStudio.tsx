@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { generateJewelryDesign } from '../services/geminiService';
-import { GeneratedDesign, AspectRatio } from '../types';
+import { GeneratedDesign, AspectRatio, AppConfig } from '../types';
 import { storeService } from '../services/storeService';
-import { Loader2, Download, Sparkles, Zap } from 'lucide-react';
+import { Loader2, Download, Sparkles, Zap, ChevronDown } from 'lucide-react';
 
 export const DesignStudio: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -11,9 +11,11 @@ export const DesignStudio: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [history, setHistory] = useState<GeneratedDesign[]>([]);
+  const [config, setConfig] = useState<AppConfig | null>(null);
 
   useEffect(() => {
     storeService.getDesigns().then(setHistory);
+    storeService.getConfig().then(setConfig).catch(() => null);
   }, []);
 
   const handleGenerate = async () => {
@@ -45,6 +47,7 @@ export const DesignStudio: React.FC = () => {
   };
 
   const ratios: AspectRatio[] = ['1:1', '3:4', '4:3', '9:16', '16:9'];
+  const templates = config?.aiConfig?.templates?.design || [];
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 pb-24 animate-fade-in">
@@ -62,8 +65,36 @@ export const DesignStudio: React.FC = () => {
 
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">Concept Details</label>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative">
+            <div className="flex justify-between items-center mb-3">
+                <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Concept Details</label>
+                {templates.length > 0 && (
+                    <div className="relative">
+                        <select 
+                            onChange={(e) => {
+                                const t = templates.find(tpl => tpl.id === e.target.value);
+                                if (t) {
+                                    // Remove template placeholders if any for cleaner UI, or just set raw
+                                    // For simplicity, we just set the content minus the variable part if possible, 
+                                    // but usually templates are full sentences.
+                                    // Let's just set the prompt to a generic starting point based on the template logic.
+                                    // Actually, templates in config often have ${prompt}.
+                                    // We will just set the input to something descriptive or clear it.
+                                    // Better UX: Allow user to pick a "Style" which sets the text.
+                                    setPrompt(t.content.replace('${prompt}', '...'));
+                                }
+                                e.target.value = '';
+                            }}
+                            className="text-[10px] font-bold uppercase text-gold-600 bg-transparent outline-none cursor-pointer pr-4 text-right"
+                            defaultValue=""
+                        >
+                            <option value="" disabled>Load Style...</option>
+                            {templates.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                        </select>
+                        <ChevronDown size={12} className="absolute right-0 top-1/2 -translate-y-1/2 text-gold-600 pointer-events-none"/>
+                    </div>
+                )}
+            </div>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}

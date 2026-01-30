@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Product, ProductStats } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash } from 'lucide-react';
+import { Product, ProductStats, PromptTemplate, AppConfig } from '../types';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ComparisonSlider } from '../components/ComparisonSlider';
 import { storeService } from '../services/storeService';
@@ -16,6 +16,7 @@ export const ProductDetails: React.FC = () => {
   const { processImage } = useUpload();
   
   const [product, setProduct] = useState<Product | null>(null);
+  const [config, setConfig] = useState<AppConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -25,6 +26,7 @@ export const ProductDetails: React.FC = () => {
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiComparison, setAiComparison] = useState<{original: string, enhanced: string} | null>(null);
+  const [showTemplateSelector, setShowTemplateSelector] = useState<{mode: 'enhance' | 'cleanup', templates: PromptTemplate[]} | null>(null);
 
   const [neighbors, setNeighbors] = useState<{prev: string | null, next: string | null}>({ prev: null, next: null });
 
@@ -54,25 +56,36 @@ export const ProductDetails: React.FC = () => {
     setAiComparison(null);
     setIsProcessingAI(false);
     setIsEditing(false);
+    setShowTemplateSelector(null);
 
     const fetchData = async () => {
       // Check cache first to avoid loader flicker
-      const cached = storeService.getCached().products?.find(p => p.id === id);
-      if (cached) {
-         setProduct(cached);
+      const cached = storeService.getCached();
+      const cachedProduct = cached.products?.find(p => p.id === id);
+      
+      if (cached.config) setConfig(cached.config);
+      
+      if (cachedProduct) {
+         setProduct(cachedProduct);
          setIsLoading(false);
       } else {
          setIsLoading(true);
       }
 
       try {
-        const fetched = await storeService.getProductById(id);
-        if (fetched) {
+        const [fetchedProduct, fetchedConfig] = await Promise.all([
+             storeService.getProductById(id),
+             storeService.getConfig()
+        ]);
+        
+        setConfig(fetchedConfig);
+
+        if (fetchedProduct) {
             const safeProduct = {
-                ...fetched,
-                images: Array.isArray(fetched.images) ? fetched.images : [],
-                thumbnails: Array.isArray(fetched.thumbnails) ? fetched.thumbnails : [],
-                tags: Array.isArray(fetched.tags) ? fetched.tags : []
+                ...fetchedProduct,
+                images: Array.isArray(fetchedProduct.images) ? fetchedProduct.images : [],
+                thumbnails: Array.isArray(fetchedProduct.thumbnails) ? fetchedProduct.thumbnails : [],
+                tags: Array.isArray(fetchedProduct.tags) ? fetchedProduct.tags : []
             };
             setProduct(safeProduct);
             setEditForm(safeProduct);
@@ -84,7 +97,7 @@ export const ProductDetails: React.FC = () => {
             // Fetch neighbors for navigation
             const listData = await storeService.getProducts(1, 1000, { publicOnly: isGuest });
             const items = listData.items;
-            const idx = items.findIndex(p => p.id === fetched.id);
+            const idx = items.findIndex(p => p.id === fetchedProduct.id);
             if (idx !== -1) {
                 setNeighbors({
                     prev: idx > 0 ? items[idx - 1].id : null,
@@ -130,19 +143,33 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  const handleAI = async (mode: 'enhance' | 'cleanup') => {
-      if (!product) return;
-      if (!window.confirm(mode === 'enhance' ? "Enhance image lighting using AI?" : "Remove watermarks/text?")) return;
+  const initiateAI = (mode: 'enhance' | 'cleanup') => {
+      if (!config) return;
+      const templates = mode === 'enhance' 
+        ? (config.aiConfig.templates?.enhancement || []) 
+        : (config.aiConfig.templates?.watermark || []);
       
+      if (templates.length > 0) {
+          setShowTemplateSelector({ mode, templates });
+      } else {
+          // No templates, just run default
+          runAIProcess(mode);
+      }
+  };
+
+  const runAIProcess = async (mode: 'enhance' | 'cleanup', promptOverride?: string) => {
+      if (!product) return;
+      setShowTemplateSelector(null);
       setIsProcessingAI(true);
+      
       try {
           const imgUrl = product.images[0];
           const base64Input = await urlToBase64(imgUrl);
           if (!base64Input) throw new Error("Could not load source image for processing");
 
           const rawBase64 = mode === 'enhance' 
-            ? await enhanceJewelryImage(base64Input) 
-            : await removeWatermark(base64Input);
+            ? await enhanceJewelryImage(base64Input, promptOverride) 
+            : await removeWatermark(base64Input, promptOverride);
           
           const enhancedDataUri = `data:image/jpeg;base64,${rawBase64}`;
           setAiComparison({ original: imgUrl, enhanced: enhancedDataUri });
@@ -310,8 +337,33 @@ export const ProductDetails: React.FC = () => {
 
       {isAdmin && isEditing && !aiComparison && (
           <div className="bg-stone-900 p-4 flex items-center justify-around gap-4 text-white">
-               <button onClick={() => handleAI('enhance')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Wand2 size={20}/> AI Enhance</button>
-               <button onClick={() => handleAI('cleanup')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Eraser size={20}/> Cleanup</button>
+               <button onClick={() => initiateAI('enhance')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Wand2 size={20}/> AI Enhance</button>
+               <button onClick={() => initiateAI('cleanup')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Eraser size={20}/> Cleanup</button>
+          </div>
+      )}
+
+      {showTemplateSelector && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center p-4">
+              <div className="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-sm overflow-hidden animate-slide-up shadow-2xl">
+                  <div className="p-4 bg-stone-50 border-b border-stone-200 flex justify-between items-center">
+                      <h3 className="font-bold text-stone-800 flex items-center gap-2">
+                          <Sparkles size={16} className="text-gold-600"/> Select AI Template
+                      </h3>
+                      <button onClick={() => setShowTemplateSelector(null)} className="p-1 hover:bg-stone-200 rounded-full"><Lock size={16} className="text-stone-400 rotate-45" /></button>
+                  </div>
+                  <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
+                      <button onClick={() => runAIProcess(showTemplateSelector.mode)} className="w-full text-left p-3 rounded-lg border border-stone-200 hover:border-gold-500 hover:bg-gold-50 transition group">
+                          <span className="block font-bold text-xs uppercase text-stone-400 group-hover:text-gold-600 mb-1">Default</span>
+                          <span className="block text-sm text-stone-700 font-medium">Use System Default Prompt</span>
+                      </button>
+                      {showTemplateSelector.templates.map(t => (
+                          <button key={t.id} onClick={() => runAIProcess(showTemplateSelector.mode, t.content)} className="w-full text-left p-3 rounded-lg border border-stone-200 hover:border-gold-500 hover:bg-gold-50 transition group">
+                              <span className="block font-bold text-xs uppercase text-stone-400 group-hover:text-gold-600 mb-1">{t.label}</span>
+                              <span className="block text-xs text-stone-600 line-clamp-2">{t.content}</span>
+                          </button>
+                      ))}
+                  </div>
+              </div>
           </div>
       )}
       

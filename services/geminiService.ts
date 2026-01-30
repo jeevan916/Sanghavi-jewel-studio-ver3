@@ -28,7 +28,7 @@ const getAIConfig = async () => {
     };
 };
 
-export const analyzeJewelryImage = async (base64Image: string) => {
+export const analyzeJewelryImage = async (base64Image: string, promptOverride?: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const config = await getAIConfig();
   
@@ -39,7 +39,7 @@ export const analyzeJewelryImage = async (base64Image: string) => {
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
-          { text: config.prompts.analysis }
+          { text: promptOverride || config.prompts.analysis }
         ]
       },
       config: {
@@ -66,12 +66,14 @@ export const analyzeJewelryImage = async (base64Image: string) => {
   }
 };
 
-export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio) => {
+export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectRatio, templateOverride?: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const config = await getAIConfig();
 
   try {
-    const finalPrompt = config.prompts.design.replace('${prompt}', prompt);
+    const basePrompt = templateOverride || config.prompts.design;
+    const finalPrompt = basePrompt.replace('${prompt}', prompt);
+    
     const response = await ai.models.generateContent({
       model: config.models.design,
       contents: {
@@ -97,7 +99,7 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
   }
 };
 
-export const enhanceJewelryImage = async (base64Image: string) => {
+export const enhanceJewelryImage = async (base64Image: string, promptOverride?: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const config = await getAIConfig();
 
@@ -108,7 +110,7 @@ export const enhanceJewelryImage = async (base64Image: string) => {
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
-          { text: config.prompts.enhancement },
+          { text: promptOverride || config.prompts.enhancement },
         ],
       },
     });
@@ -124,7 +126,7 @@ export const enhanceJewelryImage = async (base64Image: string) => {
   } catch (error) { throw error; }
 };
 
-export const removeWatermark = async (base64Image: string) => {
+export const removeWatermark = async (base64Image: string, promptOverride?: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const config = await getAIConfig();
 
@@ -135,7 +137,7 @@ export const removeWatermark = async (base64Image: string) => {
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
-          { text: config.prompts.watermark },
+          { text: promptOverride || config.prompts.watermark },
         ],
       },
     });
