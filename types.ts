@@ -69,6 +69,12 @@ export interface CategoryConfig {
   isPrivate: boolean;
 }
 
+export interface PromptTemplate {
+  id: string;
+  label: string;
+  content: string;
+}
+
 export interface AIConfig {
   models: {
     analysis: string;
@@ -81,6 +87,12 @@ export interface AIConfig {
     enhancement: string;
     watermark: string;
     design: string;
+  };
+  templates?: {
+    analysis: PromptTemplate[];
+    enhancement: PromptTemplate[];
+    watermark: PromptTemplate[];
+    design: PromptTemplate[];
   };
 }
 

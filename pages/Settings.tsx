@@ -1,13 +1,125 @@
 
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
-import { AppConfig, Supplier, CategoryConfig, StaffAccount } from '../types';
-import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles, BrainCircuit } from 'lucide-react';
+import { AppConfig, Supplier, CategoryConfig, StaffAccount, PromptTemplate } from '../types';
+import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles, BrainCircuit, FilePlus, ChevronDown } from 'lucide-react';
 import { Maintenance } from './Maintenance';
 
 interface SettingsProps {
   onBack?: () => void;
 }
+
+// Sub-component for managing a single AI Prompt Section
+const PromptSection = ({
+    title,
+    modelValue,
+    promptValue,
+    templates,
+    modelOptions,
+    onModelChange,
+    onPromptChange,
+    onSaveTemplate,
+    onDeleteTemplate
+}: {
+    title: string;
+    modelValue: string;
+    promptValue: string;
+    templates: PromptTemplate[];
+    modelOptions: {id: string, label: string}[];
+    onModelChange: (val: string) => void;
+    onPromptChange: (val: string) => void;
+    onSaveTemplate: (label: string, content: string) => void;
+    onDeleteTemplate: (id: string) => void;
+}) => {
+    const [isSaving, setIsSaving] = useState(false);
+    const [newLabel, setNewLabel] = useState('');
+
+    return (
+        <div className="space-y-3 p-4 bg-stone-50 border border-stone-200 rounded-xl">
+             <div className="flex flex-col md:flex-row justify-between md:items-end gap-2">
+                <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">{title}</label>
+                <select 
+                    value={modelValue} 
+                    onChange={e => onModelChange(e.target.value)}
+                    className="text-xs bg-white border border-stone-200 rounded p-1.5 text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
+                >
+                    {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[200px]">
+                    <select 
+                        onChange={(e) => {
+                            const t = templates.find(item => item.id === e.target.value);
+                            if (t) {
+                                onPromptChange(t.content);
+                                // Reset select
+                                e.target.value = '';
+                            }
+                        }}
+                        className="w-full text-xs p-2 pr-8 bg-white border border-stone-200 rounded-lg appearance-none focus:ring-1 focus:ring-gold-500 outline-none"
+                        defaultValue=""
+                    >
+                        <option value="" disabled>Load Template...</option>
+                        {templates.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none"/>
+                </div>
+                <button 
+                    onClick={() => setIsSaving(!isSaving)}
+                    className={`p-2 rounded-lg border transition-all ${isSaving ? 'bg-gold-50 border-gold-200 text-gold-600' : 'bg-white border-stone-200 text-stone-500 hover:text-stone-700'}`}
+                    title="Save current prompt as template"
+                >
+                    <FilePlus size={16}/>
+                </button>
+            </div>
+
+            {isSaving && (
+                <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
+                    <input 
+                        value={newLabel}
+                        onChange={e => setNewLabel(e.target.value)}
+                        placeholder="Template Name (e.g. 'Warm Studio Light')"
+                        className="flex-1 p-2 text-xs border border-stone-200 rounded-lg focus:border-gold-500 outline-none"
+                    />
+                    <button 
+                        onClick={() => {
+                            if (newLabel.trim()) {
+                                onSaveTemplate(newLabel, promptValue);
+                                setIsSaving(false);
+                                setNewLabel('');
+                            }
+                        }}
+                        disabled={!newLabel.trim()}
+                        className="px-3 py-1 bg-gold-600 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                    >
+                        Save
+                    </button>
+                </div>
+            )}
+            
+            {templates.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    {templates.map(t => (
+                        <div key={t.id} className="group flex items-center gap-1 pl-2 pr-1 py-1 bg-white border border-stone-200 rounded text-[10px] text-stone-600">
+                            <span>{t.label}</span>
+                            <button onClick={() => { if(confirm('Delete template?')) onDeleteTemplate(t.id); }} className="p-0.5 hover:text-red-500 text-stone-300 transition-colors">
+                                <X size={10}/>
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <textarea 
+                value={promptValue}
+                onChange={e => onPromptChange(e.target.value)}
+                className="w-full h-24 p-3 bg-white border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none resize-y"
+            />
+        </div>
+    );
+};
 
 export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -82,6 +194,37 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           aiConfig: {
               ...config.aiConfig,
               prompts: { ...config.aiConfig.prompts, [key]: value }
+          }
+      });
+  };
+
+  const addTemplate = (key: keyof AppConfig['aiConfig']['templates'], label: string, content: string) => {
+      if (!config) return;
+      const newTemplate: PromptTemplate = { id: Date.now().toString(), label, content };
+      const currentTemplates = config.aiConfig.templates?.[key] || [];
+      setConfig({
+          ...config,
+          aiConfig: {
+              ...config.aiConfig,
+              templates: {
+                  ...config.aiConfig.templates,
+                  [key]: [...currentTemplates, newTemplate]
+              }
+          }
+      });
+  };
+
+  const deleteTemplate = (key: keyof AppConfig['aiConfig']['templates'], id: string) => {
+      if (!config) return;
+      const currentTemplates = config.aiConfig.templates?.[key] || [];
+      setConfig({
+          ...config,
+          aiConfig: {
+              ...config.aiConfig,
+              templates: {
+                  ...config.aiConfig.templates,
+                  [key]: currentTemplates.filter(t => t.id !== id)
+              }
           }
       });
   };
@@ -230,79 +373,57 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                   
                   <div className="space-y-8">
                       {/* Analysis Settings */}
-                      <div className="space-y-3">
-                          <div className="flex justify-between items-end">
-                              <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">Metadata Analysis Engine</label>
-                              <select 
-                                  value={config.aiConfig?.models.analysis} 
-                                  onChange={e => updateAIModel('analysis', e.target.value)}
-                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1 text-stone-900"
-                              >
-                                  {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                              </select>
-                          </div>
-                          <textarea 
-                              value={config.aiConfig?.prompts.analysis}
-                              onChange={e => updateAIPrompt('analysis', e.target.value)}
-                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
-                          />
-                      </div>
+                      <PromptSection 
+                          title="Metadata Analysis Engine"
+                          modelValue={config.aiConfig?.models.analysis || ''}
+                          promptValue={config.aiConfig?.prompts.analysis || ''}
+                          templates={config.aiConfig?.templates?.analysis || []}
+                          modelOptions={modelOptions}
+                          onModelChange={v => updateAIModel('analysis', v)}
+                          onPromptChange={v => updateAIPrompt('analysis', v)}
+                          onSaveTemplate={(l, c) => addTemplate('analysis', l, c)}
+                          onDeleteTemplate={id => deleteTemplate('analysis', id)}
+                      />
 
                       {/* Enhancement Settings */}
-                      <div className="space-y-3">
-                          <div className="flex justify-between items-end">
-                              <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">Image Enhancement Engine</label>
-                              <select 
-                                  value={config.aiConfig?.models.enhancement} 
-                                  onChange={e => updateAIModel('enhancement', e.target.value)}
-                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1 text-stone-900"
-                              >
-                                  {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                              </select>
-                          </div>
-                          <textarea 
-                              value={config.aiConfig?.prompts.enhancement}
-                              onChange={e => updateAIPrompt('enhancement', e.target.value)}
-                              className="w-full h-32 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
-                          />
-                      </div>
+                      <PromptSection 
+                          title="Image Enhancement Engine"
+                          modelValue={config.aiConfig?.models.enhancement || ''}
+                          promptValue={config.aiConfig?.prompts.enhancement || ''}
+                          templates={config.aiConfig?.templates?.enhancement || []}
+                          modelOptions={modelOptions}
+                          onModelChange={v => updateAIModel('enhancement', v)}
+                          onPromptChange={v => updateAIPrompt('enhancement', v)}
+                          onSaveTemplate={(l, c) => addTemplate('enhancement', l, c)}
+                          onDeleteTemplate={id => deleteTemplate('enhancement', id)}
+                      />
 
                        {/* Watermark Settings */}
-                       <div className="space-y-3">
-                          <div className="flex justify-between items-end">
-                              <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">Watermark Removal Engine</label>
-                              <select 
-                                  value={config.aiConfig?.models.watermark} 
-                                  onChange={e => updateAIModel('watermark', e.target.value)}
-                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1 text-stone-900"
-                              >
-                                  {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                              </select>
-                          </div>
-                          <textarea 
-                              value={config.aiConfig?.prompts.watermark}
-                              onChange={e => updateAIPrompt('watermark', e.target.value)}
-                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
-                          />
-                      </div>
+                       <PromptSection 
+                          title="Watermark Removal Engine"
+                          modelValue={config.aiConfig?.models.watermark || ''}
+                          promptValue={config.aiConfig?.prompts.watermark || ''}
+                          templates={config.aiConfig?.templates?.watermark || []}
+                          modelOptions={modelOptions}
+                          onModelChange={v => updateAIModel('watermark', v)}
+                          onPromptChange={v => updateAIPrompt('watermark', v)}
+                          onSaveTemplate={(l, c) => addTemplate('watermark', l, c)}
+                          onDeleteTemplate={id => deleteTemplate('watermark', id)}
+                      />
 
                       {/* Design Generation Settings */}
-                      <div className="space-y-3">
-                          <div className="flex justify-between items-end">
-                              <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">Design Generation Engine</label>
-                              <select 
-                                  value={config.aiConfig?.models.design} 
-                                  onChange={e => updateAIModel('design', e.target.value)}
-                                  className="text-xs bg-stone-50 border border-stone-200 rounded p-1 text-stone-900"
-                              >
-                                  {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                              </select>
-                          </div>
-                          <p className="text-[10px] text-stone-400">Use {'${prompt}'} placeholder for user input.</p>
-                          <textarea 
-                              value={config.aiConfig?.prompts.design}
-                              onChange={e => updateAIPrompt('design', e.target.value)}
-                              className="w-full h-24 p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
+                      <div className="space-y-2">
+                          <p className="text-[10px] text-stone-400 pl-1">Use {'${prompt}'} placeholder for user input.</p>
+                          <PromptSection 
+                              title="Design Generation Engine"
+                              modelValue={config.aiConfig?.models.design || ''}
+                              promptValue={config.aiConfig?.prompts.design || ''}
+                              templates={config.aiConfig?.templates?.design || []}
+                              modelOptions={modelOptions}
+                              onModelChange={v => updateAIModel('design', v)}
+                              onPromptChange={v => updateAIPrompt('design', v)}
+                              onSaveTemplate={(l, c) => addTemplate('design', l, c)}
+                              onDeleteTemplate={id => deleteTemplate('design', id)}
                           />
                       </div>
                   </div>

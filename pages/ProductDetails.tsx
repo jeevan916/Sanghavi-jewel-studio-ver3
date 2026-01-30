@@ -50,6 +50,11 @@ export const ProductDetails: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     
+    // Reset interaction states on navigation to prevent data crossover
+    setAiComparison(null);
+    setIsProcessingAI(false);
+    setIsEditing(false);
+
     const fetchData = async () => {
       // Check cache first to avoid loader flicker
       const cached = storeService.getCached().products?.find(p => p.id === id);
@@ -150,14 +155,20 @@ export const ProductDetails: React.FC = () => {
   };
 
   const handleApplyAI = async () => {
-     if (!product || !aiComparison) return;
+     // Safety check: ensure we are modifying the currently viewed product
+     if (!product || !aiComparison || product.id !== id) return;
+     
      setIsLoading(true);
      try {
         const optimizedUrl = await processImage(aiComparison.enhanced, { width: 1600, quality: 0.9, format: 'image/webp' });
         const updated = { ...product, images: [optimizedUrl, ...product.images] };
         await storeService.updateProduct(updated);
-        setProduct(updated);
-        setAiComparison(null);
+        
+        // Only update state if we are still on the same product
+        if (id === updated.id) {
+            setProduct(updated);
+            setAiComparison(null);
+        }
      } catch (e) {
         alert("Failed to save enhanced image to vault.");
      } finally {

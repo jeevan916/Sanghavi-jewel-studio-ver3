@@ -243,7 +243,12 @@ app.post('/api/config', async (req, res) => {
             ai_prompt_analysis: aiConfig?.prompts?.analysis,
             ai_prompt_enhancement: aiConfig?.prompts?.enhancement,
             ai_prompt_watermark: aiConfig?.prompts?.watermark,
-            ai_prompt_design: aiConfig?.prompts?.design
+            ai_prompt_design: aiConfig?.prompts?.design,
+            // Flatten Templates
+            ai_templates_analysis: JSON.stringify(aiConfig?.templates?.analysis || []),
+            ai_templates_enhancement: JSON.stringify(aiConfig?.templates?.enhancement || []),
+            ai_templates_watermark: JSON.stringify(aiConfig?.templates?.watermark || []),
+            ai_templates_design: JSON.stringify(aiConfig?.templates?.design || [])
         };
 
         for (const [k, v] of Object.entries(settings)) {

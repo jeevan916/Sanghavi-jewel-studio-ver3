@@ -193,6 +193,11 @@ export const storeService = {
     try {
         const data = await apiFetch('/config');
         
+        // Helper to safely parse templates
+        const parseTemplates = (jsonStr: string) => {
+            try { return JSON.parse(jsonStr || '[]'); } catch { return []; }
+        };
+
         // Construct nested AI Config from flat keys
         const aiConfig = {
             models: {
@@ -206,6 +211,12 @@ export const storeService = {
                 enhancement: data?.ai_prompt_enhancement || 'Enhance lighting...',
                 watermark: data?.ai_prompt_watermark || 'Remove text...',
                 design: data?.ai_prompt_design || 'Create design...'
+            },
+            templates: {
+                analysis: parseTemplates(data?.ai_templates_analysis),
+                enhancement: parseTemplates(data?.ai_templates_enhancement),
+                watermark: parseTemplates(data?.ai_templates_watermark),
+                design: parseTemplates(data?.ai_templates_design)
             }
         };
 
@@ -234,7 +245,8 @@ export const storeService = {
                     watermark: 'gemini-2.5-flash-image', 
                     design: 'gemini-2.5-flash-image' 
                 },
-                prompts: { analysis: '', enhancement: '', watermark: '', design: '' }
+                prompts: { analysis: '', enhancement: '', watermark: '', design: '' },
+                templates: { analysis: [], enhancement: [], watermark: [], design: [] }
             }
         };
     }
