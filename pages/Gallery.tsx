@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
 import { storeService, CuratedCollections } from '../services/storeService';
-import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock } from 'lucide-react';
+import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User } from 'lucide-react';
 import { Product, AppConfig } from '../types';
 
 export const Gallery: React.FC = () => {
@@ -20,6 +20,7 @@ export const Gallery: React.FC = () => {
   const user = storeService.getCurrentUser();
   const isAdmin = user?.role === 'admin' || user?.role === 'contributor';
   const isGuest = !user;
+  const GUEST_VIEW_LIMIT = 8;
 
   useEffect(() => {
     const initializeGallery = async () => {
@@ -40,7 +41,8 @@ export const Gallery: React.FC = () => {
             const [conf, cur, prodRes] = await Promise.all([
             storeService.getConfig().catch(() => null),
             storeService.getCuratedProducts().catch(() => ({ latest: [], loved: [], trending: [], ideal: [] })),
-            storeService.getProducts(1, 1000, { publicOnly: isGuest }).catch(() => ({ items: [] }))
+            // We fetch all public items so we can show the "X more locked" count correctly
+            storeService.getProducts(1, 1000, { publicOnly: true }).catch(() => ({ items: [] }))
             ]);
             
             if (conf) setConfig(conf);
@@ -68,6 +70,16 @@ export const Gallery: React.FC = () => {
              (p.tags || []).some(t => t.toLowerCase().includes(s));
     });
   }, [products, activeCategory, search]);
+
+  // Apply Guest Limit
+  const visibleProducts = useMemo(() => {
+      if (isGuest) {
+          return filteredProducts.slice(0, GUEST_VIEW_LIMIT);
+      }
+      return filteredProducts;
+  }, [filteredProducts, isGuest]);
+
+  const lockedCount = Math.max(0, filteredProducts.length - GUEST_VIEW_LIMIT);
 
   const navigateToProduct = useCallback((productId: string) => {
     if (navigator.vibrate) navigator.vibrate(10);
@@ -160,7 +172,7 @@ export const Gallery: React.FC = () => {
             transform: 'translateZ(0)' // Keep GPU promotion
           }}
         >
-          {filteredProducts.map(product => (
+          {visibleProducts.map(product => (
             <ProductCard 
               key={product.id} 
               product={product} 
@@ -168,6 +180,27 @@ export const Gallery: React.FC = () => {
               onClick={() => navigateToProduct(product.id)} 
             />
           ))}
+
+          {/* GUEST LOCK CARD */}
+          {isGuest && lockedCount > 0 && (
+             <div className="bg-stone-100 rounded-xl overflow-hidden border border-dashed border-stone-300 flex flex-col items-center justify-center p-6 text-center space-y-4 min-h-[300px] hover:bg-stone-200/50 transition-colors animate-fade-in">
+                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-gold-500 shadow-sm mb-2 relative">
+                    <Lock size={28} />
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-stone-900 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                        {Math.min(99, lockedCount)}+
+                    </div>
+                 </div>
+                 <div>
+                    <h3 className="font-serif text-xl text-stone-800 font-bold">Private Vault</h3>
+                    <p className="text-xs text-stone-500 mt-2 max-w-[200px] mx-auto leading-relaxed">
+                        Join our exclusive clientele to unlock {lockedCount} more bespoke designs.
+                    </p>
+                 </div>
+                 <button onClick={() => navigate('/login')} className="px-6 py-3 bg-stone-900 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg hover:bg-gold-600 transition-colors flex items-center gap-2">
+                    <User size={14} /> Member Access
+                 </button>
+            </div>
+          )}
         </div>
         
         {filteredProducts.length === 0 && !isLoading && (

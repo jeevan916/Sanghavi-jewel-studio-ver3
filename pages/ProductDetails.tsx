@@ -95,7 +95,7 @@ export const ProductDetails: React.FC = () => {
             storeService.logEvent('view', safeProduct);
 
             // Fetch neighbors for navigation
-            const listData = await storeService.getProducts(1, 1000, { publicOnly: isGuest });
+            const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); // Always fetch public for nav
             const items = listData.items;
             const idx = items.findIndex(p => p.id === fetchedProduct.id);
             if (idx !== -1) {
@@ -310,7 +310,7 @@ export const ProductDetails: React.FC = () => {
                 </div>
 
                 {isGuest && images.length > 1 && (
-                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer" onClick={() => navigate('/login')}>
+                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-black/80 transition" onClick={() => navigate('/login')}>
                         <Lock size={12} /> +{images.length - 1} Private Views Locked
                     </div>
                 )}
@@ -395,7 +395,10 @@ export const ProductDetails: React.FC = () => {
                             <span>g</span>
                         </div>
                     ) : (
-                        <span>{product.weight}g</span>
+                        // LIMITED VIEW: Hide weight for guests
+                        <span className={`${isGuest ? 'blur-sm select-none opacity-50' : ''}`}>
+                            {isGuest ? '00.00g' : `${product.weight}g`}
+                        </span>
                     )}
                 </div>
             </div>
@@ -426,11 +429,14 @@ export const ProductDetails: React.FC = () => {
                          <Calendar size={18} className="text-stone-400 mt-0.5" />
                          <div>
                              <p className="text-xs font-bold uppercase text-stone-400">Date Added</p>
-                             <p className="text-sm font-medium text-stone-700">{new Date(product.createdAt).toLocaleDateString()}</p>
+                             {/* LIMITED VIEW: Hide Date */}
+                             <p className={`text-sm font-medium text-stone-700 ${isGuest ? 'blur-sm select-none opacity-50' : ''}`}>
+                                 {isGuest ? 'dd/mm/yyyy' : new Date(product.createdAt).toLocaleDateString()}
+                             </p>
                          </div>
                      </div>
-                     {product.meta?.cameraModel && (
-                        <div className="flex items-start gap-3">
+                     {product.meta?.cameraModel && !isGuest && (
+                        <div className="flex items-start gap-3 animate-fade-in">
                             <Camera size={18} className="text-stone-400 mt-0.5" />
                             <div>
                                 <p className="text-xs font-bold uppercase text-stone-400">Captured On</p>
@@ -456,8 +462,8 @@ export const ProductDetails: React.FC = () => {
                             </div>
                         </div>
                      )}
-                     {product.meta?.location && (
-                        <div className="flex items-start gap-3">
+                     {product.meta?.location && !isGuest && (
+                        <div className="flex items-start gap-3 animate-fade-in">
                             <MapPin size={18} className="text-stone-400 mt-0.5" />
                             <div>
                                 <p className="text-xs font-bold uppercase text-stone-400">Studio Location</p>
@@ -465,10 +471,15 @@ export const ProductDetails: React.FC = () => {
                             </div>
                         </div>
                      )}
+                     {isGuest && (
+                         <div className="col-span-full bg-white/50 p-3 rounded-lg border border-dashed border-stone-300 flex items-center justify-center gap-2 text-stone-500 text-xs italic">
+                             <Lock size={12}/> Technical specifications are locked for guests.
+                         </div>
+                     )}
                 </div>
 
-                {product.tags && product.tags.length > 0 && (
-                    <div className="pt-4 border-t border-stone-200">
+                {product.tags && product.tags.length > 0 && !isGuest && (
+                    <div className="pt-4 border-t border-stone-200 animate-fade-in">
                         <div className="flex items-center gap-2 mb-3">
                             <Hash size={16} className="text-stone-400" />
                             <span className="text-xs font-bold uppercase text-stone-400">Tags</span>
