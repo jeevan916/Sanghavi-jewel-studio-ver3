@@ -98,9 +98,13 @@ export const ProductDetails: React.FC = () => {
             const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); 
             const allItems = listData.items;
             const GUEST_LIMIT = 8;
+            
+            // Check if this specific product has been unlocked via shared link
+            const isUnlocked = storeService.getUnlockedProducts().includes(fetchedProduct.id);
+            const isSharedAccess = (location.state as any)?.fromSharedLink || isUnlocked;
 
-            // SECURITY: STRICT GUEST LOCK
-            if (isGuest) {
+            // SECURITY: STRICT GUEST LOCK (Bypassed if shared)
+            if (isGuest && !isSharedAccess) {
                 const globalIndex = allItems.findIndex(p => p.id === fetchedProduct.id);
                 if (globalIndex >= GUEST_LIMIT) {
                     setIsRestricted(true);
@@ -125,7 +129,7 @@ export const ProductDetails: React.FC = () => {
 
             // Calculate Neighbors
             let navItems = allItems;
-            if (isGuest) {
+            if (isGuest && !isSharedAccess) {
                 navItems = allItems.slice(0, GUEST_LIMIT);
             }
 

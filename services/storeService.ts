@@ -281,6 +281,16 @@ export const storeService = {
     if (!cats.includes(name)) sessionStorage.setItem('sanghavi_unlocked_cats', JSON.stringify([...cats, name]));
   },
 
+  getUnlockedProducts: () => {
+    try {
+      return JSON.parse(sessionStorage.getItem('sanghavi_unlocked_products') || '[]');
+    } catch { return []; }
+  },
+  unlockProduct: (id: string) => {
+    const prods = storeService.getUnlockedProducts();
+    if (!prods.includes(id)) sessionStorage.setItem('sanghavi_unlocked_products', JSON.stringify([...prods, id]));
+  },
+
   shareToWhatsApp: async (product: Product, imageIndex: number = 0) => {
     const config = await storeService.getConfig();
     const text = encodeURIComponent(`Interested in ${product.title}. Ref: ${window.location.origin}/#/product/${product.id}`);

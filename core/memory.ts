@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.3.1 (Deployment Stabilization)
+ * Version: 4.3.2 (Sharing Logic Repair)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -44,7 +44,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.3.1",
+    version: "4.3.2",
     identity: "Sanghavi Jewel Studio - Enterprise Edition",
     
     // THE VISUAL IDENTITY
@@ -156,11 +156,12 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
+        "Upgraded to v4.3.2: Sharing Logic Repair.",
+        "Fixed issue where private links were blocked by Guest Access Control logic.",
         "Upgraded to v4.3.1: Deployment Stabilization.",
         "Added 'prestart' npm script to auto-delete source index.html preventing production server conflicts.",
         "Upgraded to v4.3.0: Immersive UX Overhaul.",
         "Implemented Apple-style 'Infused' animations using cubic-bezier(0.19, 1, 0.22, 1).",
-        "Added Haptic Feedback Engine for tactile swipe navigation.",
-        "Refined ProductDetails layout: 3:4 aspect ratio + object-cover for full-width mobile immersion."
+        "Added Haptic Feedback Engine for tactile swipe navigation."
     ]
 };

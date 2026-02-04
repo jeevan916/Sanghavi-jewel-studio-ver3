@@ -8,6 +8,7 @@ import { Product, AppConfig } from '../types';
 
 export const Gallery: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [curated, setCurated] = useState<CuratedCollections>({ latest: [], loved: [], trending: [], ideal: [] });
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -48,6 +49,15 @@ export const Gallery: React.FC = () => {
             
             if (conf) setConfig(conf);
             if (cur) setCurated(cur);
+
+            // Handle Shared Category Link Logic
+            const sharedCat = (location.state as any)?.sharedCategory;
+            if (sharedCat) {
+                setActiveCategory(sharedCat);
+                // Clear state to prevent sticky behavior
+                window.history.replaceState({}, document.title);
+            }
+
         } catch (e) {
             console.error("Gallery Sync failed", e);
         } finally {
@@ -121,8 +131,10 @@ export const Gallery: React.FC = () => {
     navigate(`/product/${productId}`);
   }, [navigate]);
 
+  const unlockedCats = useMemo(() => storeService.getUnlockedCategories(), []);
+  
   const categoryList = (config?.categories || [])
-    .filter(c => !isGuest || !c.isPrivate)
+    .filter(c => !isGuest || !c.isPrivate || unlockedCats.includes(c.name))
     .map(c => c.name);
 
   const isOverviewMode = activeCategory === 'All' && !search;

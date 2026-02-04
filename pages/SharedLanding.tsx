@@ -23,7 +23,9 @@ export const SharedLanding: React.FC = () => {
         await new Promise(r => setTimeout(r, 800));
 
         if (data.type === 'product') {
-            navigate(`/product/${data.targetId}`, { replace: true });
+            // Unlock specific product in session storage to bypass Guest Limits
+            storeService.unlockProduct(data.targetId);
+            navigate(`/product/${data.targetId}`, { replace: true, state: { fromSharedLink: true } });
         } else if (data.type === 'category') {
             // Unlock the category persistently in this session
             storeService.unlockCategory(data.targetId);
