@@ -7,21 +7,29 @@
   RewriteEngine On
   RewriteBase /
   
-  # If index.html exists in root, use it (standard)
-  RewriteRule ^index\.html$ - [L]
-  
-  # If request is a file or dir, serve it
+  # Force HTTPS
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # 1. API Passthrough: Let Node.js handle /api requests
+  RewriteRule ^api/ - [L]
+
+  # 2. Serve existing files in root (uploads, etc) directly
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Otherwise, if index.html doesn't exist in root (deleted by script), 
-  # try serving from /dist/index.html (Static Fallback)
-  RewriteCond %{DOCUMENT_ROOT}/index.html !-f
-  RewriteRule . /dist/index.html [L]
+  # 3. Intelligent Asset Routing: 
+  # If a requested file exists in /dist, serve it from there.
+  # This handles /assets/..., /favicon.ico, etc.
+  RewriteCond %{DOCUMENT_ROOT}/dist/$1 -f
+  RewriteRule ^(.*)$ dist/$1 [L]
 
-  # Default fallback if root index exists
-  RewriteRule . /index.html [L]
+  # 4. Root URL Fix: Explicitly serve the app entry point
+  RewriteRule ^$ dist/index.html [L]
+
+  # 5. SPA Catch-All: Route everything else to the app entry point
+  RewriteRule ^.*$ dist/index.html [L]
 </IfModule>
 
 # ----------------------------------------------------------------------

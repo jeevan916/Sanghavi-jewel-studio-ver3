@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.3.2 (Sharing Logic Repair)
+ * Version: 4.3.3 (Routing Matrix Fix)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -44,7 +44,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.3.2",
+    version: "4.3.3",
     identity: "Sanghavi Jewel Studio - Enterprise Edition",
     
     // THE VISUAL IDENTITY
@@ -156,12 +156,10 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
+        "Upgraded to v4.3.3: Routing Matrix Fix.",
+        "Resolved critical issue where root URL failed to load by implementing strict .htaccess rewriting to /dist/index.html.",
+        "Changed Vite base to absolute '/' to ensure asset paths resolve correctly during rewrites.",
         "Upgraded to v4.3.2: Sharing Logic Repair.",
-        "Fixed issue where private links were blocked by Guest Access Control logic.",
-        "Upgraded to v4.3.1: Deployment Stabilization.",
-        "Added 'prestart' npm script to auto-delete source index.html preventing production server conflicts.",
-        "Upgraded to v4.3.0: Immersive UX Overhaul.",
-        "Implemented Apple-style 'Infused' animations using cubic-bezier(0.19, 1, 0.22, 1).",
-        "Added Haptic Feedback Engine for tactile swipe navigation."
+        "Fixed issue where private links were blocked by Guest Access Control logic."
     ]
 };

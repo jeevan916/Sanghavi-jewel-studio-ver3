@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, envDir, '');
   
   return {
-    base: './',
+    base: '/', // Changed from './' to '/' to support clean URL rewriting
     plugins: [react()],
     define: {
       /**
