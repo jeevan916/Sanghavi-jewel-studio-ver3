@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ComparisonSlider } from '../components/ComparisonSlider';
 import { storeService } from '../services/storeService';
@@ -125,6 +125,23 @@ export const ProductDetails: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
+  };
+
+  const handleToggleVisibility = async () => {
+      if (!product) return;
+      // Optimistic update
+      const newStatus = !product.isHidden;
+      const updated = { ...product, isHidden: newStatus };
+      setProduct(updated);
+      setEditForm(updated);
+
+      try {
+          await storeService.updateProduct(updated);
+      } catch (e) {
+          // Revert if failed
+          setProduct({ ...product, isHidden: !newStatus });
+          alert("Failed to update visibility status.");
+      }
   };
 
   const urlToBase64 = async (url: string): Promise<string> => {
@@ -319,9 +336,18 @@ export const ProductDetails: React.FC = () => {
                 </button>
 
                 {isAdmin && (
-                    <div className="absolute bottom-4 left-4 flex gap-2">
-                        <button onClick={handlePrivateLink} className="p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600" title="Copy Private Link"><LinkIcon size={18}/></button>
-                        <button onClick={() => setIsEditing(!isEditing)} className={`p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600 ${isEditing ? 'text-gold-600 ring-2 ring-gold-500' : ''}`} title="Edit Details"><Edit2 size={18}/></button>
+                    <div className="absolute bottom-4 left-4 flex gap-2 animate-fade-in z-20">
+                        {/* Visibility Toggle */}
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); handleToggleVisibility(); }}
+                            className={`p-2 backdrop-blur rounded-lg shadow transition-colors ${product.isHidden ? 'bg-red-500 text-white' : 'bg-white/90 text-stone-700 hover:text-green-600'}`}
+                            title={product.isHidden ? "Private (Hidden). Click to Make Public." : "Public. Click to Hide."}
+                        >
+                            {product.isHidden ? <EyeOff size={18}/> : <Eye size={18}/>}
+                        </button>
+                        
+                        <button onClick={(e) => { e.stopPropagation(); handlePrivateLink(); }} className="p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600" title="Copy Private Link"><LinkIcon size={18}/></button>
+                        <button onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing)} } className={`p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600 ${isEditing ? 'text-gold-600 ring-2 ring-gold-500' : ''}`} title="Edit Details"><Edit2 size={18}/></button>
                     </div>
                 )}
             </>
