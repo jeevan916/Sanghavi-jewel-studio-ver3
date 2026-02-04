@@ -21,6 +21,7 @@ export const ProductDetails: React.FC = () => {
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, purchase: 0 });
+  const [isRestricted, setIsRestricted] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
@@ -59,6 +60,9 @@ export const ProductDetails: React.FC = () => {
     setIsEditing(false);
     setShowTemplateSelector(null);
     setGeneratedLink(null);
+    setIsRestricted(false);
+    // Clear neighbors immediately to prevent stale navigation during load
+    setNeighbors({ prev: null, next: null });
 
     const fetchData = async () => {
       // Check cache first to avoid loader flicker
@@ -83,6 +87,23 @@ export const ProductDetails: React.FC = () => {
         setConfig(fetchedConfig);
 
         if (fetchedProduct) {
+            // Fetch neighbors for navigation
+            const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); 
+            const allItems = listData.items;
+            const GUEST_LIMIT = 8;
+
+            // SECURITY: STRICT GUEST LOCK
+            // If the user is a guest and tries to access an item outside the top 8, BLOCK IT.
+            if (isGuest) {
+                const globalIndex = allItems.findIndex(p => p.id === fetchedProduct.id);
+                if (globalIndex >= GUEST_LIMIT) {
+                    setIsRestricted(true);
+                    setProduct(fetchedProduct); // Load it but don't show details
+                    setIsLoading(false);
+                    return; // Stop processing
+                }
+            }
+
             const safeProduct = {
                 ...fetchedProduct,
                 images: Array.isArray(fetchedProduct.images) ? fetchedProduct.images : [],
@@ -96,27 +117,19 @@ export const ProductDetails: React.FC = () => {
             setStats(pStats);
             storeService.logEvent('view', safeProduct);
 
-            // Fetch neighbors for navigation
-            const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); 
-            let items = listData.items;
-
-            // SECURITY: GUEST NAVIGATION LOCK
-            // Guests can only navigate within the first 8 items (matching Gallery limit).
-            // This prevents guests from swiping "next" into restricted territory.
+            // Calculate Neighbors based on Restricted List
+            let navItems = allItems;
             if (isGuest) {
-                const GUEST_LIMIT = 8;
-                items = items.slice(0, GUEST_LIMIT);
+                navItems = allItems.slice(0, GUEST_LIMIT);
             }
 
-            const idx = items.findIndex(p => p.id === fetchedProduct.id);
+            const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
             if (idx !== -1) {
                 setNeighbors({
-                    prev: idx > 0 ? items[idx - 1].id : null,
-                    next: idx < items.length - 1 ? items[idx + 1].id : null
+                    prev: idx > 0 ? navItems[idx - 1].id : null,
+                    next: idx < navItems.length - 1 ? navItems[idx + 1].id : null
                 });
             } else {
-                // If current product is outside the allowed navigation list (e.g. direct link to #9),
-                // disable all navigation to isolate the user.
                 setNeighbors({ prev: null, next: null });
             }
         }
@@ -290,17 +303,39 @@ export const ProductDetails: React.FC = () => {
       setStats(prev => ({...prev, like: liked ? prev.like + 1 : Math.max(0, prev.like - 1)}));
   };
 
+  // --- STRICT RESTRICTED VIEW ---
+  if (isRestricted) {
+      return (
+          <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+              <div className="w-20 h-20 bg-stone-900 rounded-full flex items-center justify-center mb-6 shadow-xl">
+                  <Lock size={32} className="text-white" />
+              </div>
+              <h2 className="font-serif text-3xl text-stone-800 mb-2">Vault Restricted</h2>
+              <p className="text-stone-500 text-sm max-w-xs mx-auto mb-8 leading-relaxed">
+                  This bespoke asset resides in our private collection. Access is reserved for registered clientele.
+              </p>
+              <div className="flex gap-4 w-full max-w-xs">
+                  <button onClick={() => navigate('/collection')} className="flex-1 py-3 bg-stone-200 text-stone-600 rounded-xl font-bold uppercase text-xs tracking-widest">
+                      Gallery
+                  </button>
+                  <button onClick={() => navigate('/login')} className="flex-1 py-3 bg-gold-600 text-white rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg">
+                      Unlock Access
+                  </button>
+              </div>
+          </div>
+      );
+  }
+
   return (
     <div 
-        key={product.id} 
-        className={`min-h-screen bg-stone-50 pb-20 pt-0 md:pt-16 ${animationClass}`}
+        className="min-h-screen bg-stone-50 pb-20 pt-0 md:pt-16"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{ overscrollBehaviorX: 'none' }}
     >
-      {/* HEADER: Adaptive Sticky Behavior */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 md:top-16 z-30 transition-transform duration-300">
+      {/* HEADER: Stable (Outside Animation Key) */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 md:top-16 z-30">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24} /></button>
         <h2 className="font-serif font-bold text-stone-800 text-lg truncate flex-1 px-4 text-center md:text-left">{product.title}</h2>
         <div className="flex gap-2">
@@ -311,7 +346,8 @@ export const ProductDetails: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto md:p-6 lg:p-8">
+      {/* CONTENT: Animated Wrapper */}
+      <div key={product.id} className={`max-w-7xl mx-auto md:p-6 lg:p-8 ${animationClass}`}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-12">
             
             {/* LEFT COLUMN: Visual Media (Sticky on Desktop) */}
