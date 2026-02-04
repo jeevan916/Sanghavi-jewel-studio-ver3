@@ -11,7 +11,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "node server.js"
+    "start": "node server.js",
+    "prestart": "node -e \"import('fs').then(fs => { if(fs.existsSync('index.html')) { fs.unlinkSync('index.html'); console.log('Cleaned source index.html for production'); } })\""
   },
   "dependencies": {
     "@google/genai": "^1.34.0",

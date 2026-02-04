@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.3.0 (Immersive UX Overhaul)
+ * Version: 4.3.1 (Deployment Stabilization)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -44,7 +44,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.3.0",
+    version: "4.3.1",
     identity: "Sanghavi Jewel Studio - Enterprise Edition",
     
     // THE VISUAL IDENTITY
@@ -73,7 +73,8 @@ export const APP_MEMORY: AppMemory = {
         "Images: Pipeline -> Slugify -> Base64 -> AI -> Buffer -> Sharp -> CDN.",
         "Persistence: MySQL (System Settings) + LocalStorage (Session).",
         "AI: Use @google/genai SDK with Flash models for speed.",
-        "Gestures: 1:1 Physics Tracking for all galleries."
+        "Gestures: 1:1 Physics Tracking for all galleries.",
+        "Deployment: 'npm start' automatically removes root index.html to prevent collisions."
     ],
 
     // USER MICRO-INSTRUCTIONS
@@ -155,7 +156,11 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
+        "Upgraded to v4.3.1: Deployment Stabilization.",
+        "Added 'prestart' npm script to auto-delete source index.html preventing production server conflicts.",
         "Upgraded to v4.3.0: Immersive UX Overhaul.",
         "Implemented Apple-style 'Infused' animations using cubic-bezier(0.19, 1, 0.22, 1).",
         "Added Haptic Feedback Engine for tactile swipe navigation.",
-        "Refined ProductDetails layout: 3:4 aspect ratio + object-cover for full-width mobile immersion
+        "Refined ProductDetails layout: 3:4 aspect ratio + object-cover for full-width mobile immersion."
+    ]
+};
