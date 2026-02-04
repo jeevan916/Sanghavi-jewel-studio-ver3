@@ -44,7 +44,7 @@ export const ProductDetails: React.FC = () => {
   const touchEnd = useRef(0);
   
   // Animation Logic:
-  // If we are in full screen mode, or starting in it, suppress the page slide animation to reduce clutter/flashing behind the viewer.
+  // Using more robust cubic-bezier curves for 'infused' feel
   const direction = (location.state as any)?.direction || 'fade';
   const shouldAnimatePage = !showFullScreen && !startInFullScreen;
   const animationClass = shouldAnimatePage
@@ -269,7 +269,7 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  // --- SWIPE HANDLERS ---
+  // --- SWIPE HANDLERS (VIBRATION ENHANCED) ---
   const handleTouchStart = (e: React.TouchEvent) => {
       touchStart.current = e.targetTouches[0].clientX;
   };
@@ -286,10 +286,12 @@ export const ProductDetails: React.FC = () => {
       const isSwipeRight = distance < -50; // Swiping Right -> Go Prev
 
       if (isSwipeLeft && neighbors.next) {
+          if(navigator.vibrate) navigator.vibrate(20); // Haptic Feedback
           navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } });
       }
       
       if (isSwipeRight && neighbors.prev) {
+          if(navigator.vibrate) navigator.vibrate(20); // Haptic Feedback
           navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } });
       }
 
