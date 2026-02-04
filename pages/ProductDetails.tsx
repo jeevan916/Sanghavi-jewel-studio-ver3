@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '../types';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy } from 'lucide-react';
 import { ImageViewer } from '../components/ImageViewer';
 import { ComparisonSlider } from '../components/ComparisonSlider';
 import { storeService } from '../services/storeService';
@@ -27,6 +27,7 @@ export const ProductDetails: React.FC = () => {
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiComparison, setAiComparison] = useState<{original: string, enhanced: string} | null>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState<{mode: 'enhance' | 'cleanup', templates: PromptTemplate[]} | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
 
   const [neighbors, setNeighbors] = useState<{prev: string | null, next: string | null}>({ prev: null, next: null });
 
@@ -57,6 +58,7 @@ export const ProductDetails: React.FC = () => {
     setIsProcessingAI(false);
     setIsEditing(false);
     setShowTemplateSelector(null);
+    setGeneratedLink(null);
 
     const fetchData = async () => {
       // Check cache first to avoid loader flicker
@@ -235,11 +237,15 @@ export const ProductDetails: React.FC = () => {
 
   const handlePrivateLink = async () => {
       if (!product) return;
+      setIsLoading(true);
       try {
           const url = await storeService.createSharedLink(product.id, 'product');
-          await navigator.clipboard.writeText(url);
-          alert("Secure Private Link copied to clipboard!");
-      } catch (e) { alert("Link generation failed"); }
+          setGeneratedLink(url);
+      } catch (e) { 
+          alert("Link generation failed. Please check backend connection."); 
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   // --- SWIPE HANDLERS ---
@@ -379,6 +385,53 @@ export const ProductDetails: React.FC = () => {
                <button onClick={() => initiateAI('enhance')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Wand2 size={20}/> AI Enhance</button>
                <button onClick={() => initiateAI('cleanup')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Eraser size={20}/> Cleanup</button>
           </div>
+      )}
+
+      {/* PRIVATE LINK MODAL */}
+      {generatedLink && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
+                <button onClick={() => setGeneratedLink(null)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800"><X size={20}/></button>
+                <div className="flex flex-col items-center text-center gap-4">
+                    <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
+                        <CheckCircle size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-serif text-xl font-bold text-stone-800">Private Link Ready</h3>
+                        <p className="text-stone-500 text-xs mt-1">This secure link expires in 24 hours.</p>
+                    </div>
+                    
+                    <div className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl break-all text-xs font-mono text-stone-600 select-all">
+                        {generatedLink}
+                    </div>
+
+                    <div className="flex gap-2 w-full">
+                         <button 
+                            onClick={() => {
+                                navigator.clipboard.writeText(generatedLink);
+                                setGeneratedLink(null);
+                                alert("Copied to clipboard");
+                            }}
+                            className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2"
+                         >
+                            <Copy size={14} /> Copy Link
+                         </button>
+                         <button 
+                             onClick={() => {
+                                 if (navigator.share) {
+                                     navigator.share({ title: 'Private View', url: generatedLink }).catch(()=>{});
+                                 } else {
+                                     window.open(`https://wa.me/?text=${encodeURIComponent(generatedLink)}`, '_blank');
+                                 }
+                             }}
+                             className="px-4 py-3 bg-green-50 text-green-700 rounded-xl font-bold uppercase text-[10px] tracking-widest border border-green-100"
+                         >
+                            <Share2 size={16} />
+                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
       )}
 
       {showTemplateSelector && (

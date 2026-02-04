@@ -71,6 +71,9 @@ const initDB = async () => {
     await pool.query(`CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS customers (id VARCHAR(255) PRIMARY KEY, phone VARCHAR(50) UNIQUE, name VARCHAR(255), pincode VARCHAR(20), role VARCHAR(50), createdAt DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS designs (id VARCHAR(255) PRIMARY KEY, imageUrl LONGTEXT, prompt TEXT, aspectRatio VARCHAR(20), createdAt DATETIME)`);
+    
+    // Links Table for Private Sharing
+    await pool.query(`CREATE TABLE IF NOT EXISTS links (id VARCHAR(255) PRIMARY KEY, token VARCHAR(255) UNIQUE, targetId VARCHAR(255), type VARCHAR(50), expiresAt DATETIME, createdAt DATETIME)`);
 
     // 2. Normalized Configuration Tables (Professional Schema)
     await pool.query(`CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255), isPrivate BOOLEAN)`);
@@ -207,6 +210,36 @@ app.get('/api/diagnostics', async (req, res) => {
     } catch (e) {
         res.status(500).json({ status: 'error', db_connected: false, error: e.message });
     }
+});
+
+// --- LINKS API ---
+app.post('/api/links', async (req, res) => {
+    try {
+        const { targetId, type } = req.body;
+        const token = crypto.randomBytes(16).toString('hex');
+        const [settings] = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = "linkExpiryHours"');
+        const hours = parseInt(settings[0]?.setting_value || '24');
+        const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+        
+        await pool.query('INSERT INTO links (id, token, targetId, type, expiresAt, createdAt) VALUES (?, ?, ?, ?, ?, ?)', 
+            [crypto.randomUUID(), token, targetId, type, expiresAt, new Date()]);
+            
+        res.json({ token, expiresAt });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/links/:token', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM links WHERE token = ?', [req.params.token]);
+        if (!rows.length) return res.status(404).json({ error: 'Link not found' });
+        
+        const link = rows[0];
+        if (new Date() > new Date(link.expiresAt)) {
+            return res.status(410).json({ error: 'Link expired' });
+        }
+        
+        res.json(link);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // --- CONFIG API (NORMALIZED) ---
