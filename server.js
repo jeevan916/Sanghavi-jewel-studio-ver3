@@ -30,8 +30,8 @@ const ensureFolders = () => {
   [DATA_ROOT, UPLOADS_ROOT, BACKUPS_ROOT].forEach(dir => {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
   });
-  // Engine Folders
-  ['720', '1080'].forEach(size => {
+  // Engine Folders - Added 300 for Thumbnails
+  ['300', '720', '1080'].forEach(size => {
     const dir = path.join(UPLOADS_ROOT, size);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
   });
@@ -162,8 +162,17 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
         return `/uploads/${width}/${filename}`;
       };
 
-      const [desktopWebP] = await Promise.all([processVariant(1080, 'webp', 85)]);
-      results.push({ originalName: file.originalname, primary: desktopWebP });
+      // Generate High-Res (1080p) and Low-Res Thumbnail (300p) in parallel
+      const [desktopWebP, mobileThumb] = await Promise.all([
+          processVariant(1080, 'webp', 85),
+          processVariant(300, 'webp', 80)
+      ]);
+      
+      results.push({ 
+          originalName: file.originalname, 
+          primary: desktopWebP,
+          thumbnail: mobileThumb 
+      });
     }
     res.json({ success: true, files: results });
   } catch (error) {
@@ -382,9 +391,7 @@ app.get('/api/products/curated', async (req, res) => {
         const items = rows.map(sanitizeProduct);
         res.json({
             latest: items.slice(0, 8),
-            // Mock logic: Loved usually implies most likes (simulated by index for now)
             loved: items.filter((_, i) => i % 3 === 0).slice(0, 8), 
-            // Mock logic: Trending
             trending: items.filter((_, i) => i % 2 === 0).slice(0, 8),
             ideal: items.slice(0, 4)
         });

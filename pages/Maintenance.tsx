@@ -70,9 +70,10 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
       const p = products[i];
       try {
         const sourceImg = p.images[0];
-        const newHighRes = await processImage(sourceImg, { width: 2200, quality: 0.85, format: 'image/avif' });
-        const newThumb = await processImage(sourceImg, { width: 400, quality: 0.6, format: 'image/webp' });
-        await storeService.updateProduct({ ...p, images: [newHighRes], thumbnails: [newThumb] });
+        // Process once to get both optimized versions
+        const { primary, thumbnail } = await processImage(sourceImg, { width: 1080, quality: 0.85, format: 'image/webp' });
+        
+        await storeService.updateProduct({ ...p, images: [primary], thumbnails: [thumbnail] });
         setProgress(prev => ({ ...prev, current: i + 1, success: prev.success + 1 }));
       } catch (err) {
         setProgress(prev => ({ ...prev, current: i + 1, error: prev.error + 1 }));

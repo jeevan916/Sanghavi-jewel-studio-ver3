@@ -22,7 +22,8 @@ export const UploadWizard: React.FC = () => {
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
   
   const [step, setStep] = useState(1);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<string[]>([]); // Stores primary URL
+  const [thumbnailUrl, setThumbnailUrl] = useState<string>(''); // Stores thumb URL
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -69,12 +70,10 @@ export const UploadWizard: React.FC = () => {
       // Keep reference to original data URL for AI Analysis before overwriting with server URL
       const originalBase64 = images[0];
 
-      // Upload to Backend Engine with optional enhancement (if useAI is true)
-      // Note: We use useAI for visual enhancement flag here if desired, 
-      // but UploadWizard typically does metadata analysis separately. 
-      // We pass { enhance: false } to keep visual fidelity unless explicitly requested features are added later.
-      const serverUrl = await processImage(originalBase64, { enhance: false });
-      setImages([serverUrl]);
+      // Upload to Backend Engine
+      const { primary, thumbnail } = await processImage(originalBase64, { enhance: false });
+      setImages([primary]);
+      setThumbnailUrl(thumbnail);
 
       if (useAI) {
         // Use original base64 for Gemini Metadata Analysis
@@ -99,10 +98,9 @@ export const UploadWizard: React.FC = () => {
   const handleSingleSave = async () => {
     setIsSaving(true);
     try {
-      // Image is already uploaded and set to a URL in handleProceedToDetails
+      // Images are already uploaded in handleProceedToDetails
       const finalMain = images[0];
-      // Reuse same URL for thumbnail since backend handles optimization variants internally
-      const finalThumb = images[0]; 
+      const finalThumb = thumbnailUrl || finalMain;
 
       const newProduct: Product = {
         id: Date.now().toString(),
@@ -126,7 +124,7 @@ export const UploadWizard: React.FC = () => {
       };
       await storeService.addProduct(newProduct);
       alert("Jewelry Assets Secured in Vault!");
-      setStep(1); setImages([]); setAnalysisData({}); setSelectedCategory(''); setUploadError(null);
+      setStep(1); setImages([]); setThumbnailUrl(''); setAnalysisData({}); setSelectedCategory(''); setUploadError(null);
     } catch (err: any) {
       setUploadError(`Storage failed: ${err.message}`);
     } finally {

@@ -11,6 +11,11 @@ interface ProcessOptions {
   format?: string;
 }
 
+interface ImageResult {
+    primary: string;
+    thumbnail: string;
+}
+
 interface UploadContextType {
   queue: QueueItem[];
   addToQueue: (files: File[], supplier: string, category: string, subCategory: string, device: string, manufacturer: string) => void;
@@ -20,7 +25,7 @@ interface UploadContextType {
   isProcessing: boolean;
   useAI: boolean;
   setUseAI: (value: boolean) => void;
-  processImage: (fileOrBase64: File | string, options?: ProcessOptions) => Promise<string>;
+  processImage: (fileOrBase64: File | string, options?: ProcessOptions) => Promise<ImageResult>;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
@@ -47,7 +52,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const processImage = async (
     input: File | string, 
     options: ProcessOptions = {}
-  ): Promise<string> => {
+  ): Promise<ImageResult> => {
       const { enhance = false, width = 1600, quality = 0.8, format = 'image/jpeg' } = options;
 
       try {
@@ -112,8 +117,11 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           if (response.ok) {
               const data = await response.json();
               if (data.success && data.files?.[0]) {
-                  // STEP 4: CDN Delivery
-                  return data.files[0].primary; 
+                  // STEP 4: CDN Delivery (Return both Primary and Thumbnail)
+                  return {
+                      primary: data.files[0].primary,
+                      thumbnail: data.files[0].thumbnail || data.files[0].primary // Fallback to primary if thumb fails
+                  }; 
               }
           }
           throw new Error('Upload Engine Failed');
@@ -122,7 +130,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           console.warn('Backend Pipeline Failed, falling back to Client-Side Transcoding', e);
           
           // Fallback: Client-Side Canvas Transcoding (Offline Mode)
-          return new Promise((resolve, reject) => {
+          const fallbackUrl = await new Promise<string>((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
               const canvas = document.createElement('canvas');
@@ -146,9 +154,11 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                reader.onload = (e) => { img.src = e.target?.result as string; };
                reader.readAsDataURL(input);
             } else {
-               img.src = input; // Works for Data URI or URL
+               img.src = input; 
             }
           });
+
+          return { primary: fallbackUrl, thumbnail: fallbackUrl };
       }
   };
 
@@ -200,9 +210,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         updateQueueItem(nextItem.id, { status: 'analyzing' });
         
         // Use AI Enhancement pipeline if enabled
-        const primaryUrl = await processImage(nextItem.file, { enhance: useAI });
-        
-        const thumbUrl = primaryUrl; 
+        const { primary, thumbnail } = await processImage(nextItem.file, { enhance: useAI });
         
         // Metadata Analysis
         let analysis = { title: '', description: "Studio Asset", category: '', subCategory: '', tags: [], weight: 0 };
@@ -227,8 +235,8 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           weight: nextItem.weight || analysis.weight || 0,
           description: analysis.description || '',
           tags: analysis.tags || [],
-          images: [primaryUrl], 
-          thumbnails: [thumbUrl],
+          images: [primary], 
+          thumbnails: [thumbnail], // Uses distinct thumbnail
           supplier: nextItem.supplier || 'Internal',
           uploadedBy: currentUser?.name || 'Staff',
           isHidden: false,
