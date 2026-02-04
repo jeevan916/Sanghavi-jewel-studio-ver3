@@ -13,7 +13,9 @@ import sharp from 'sharp';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.resolve(process.cwd(), '.builds/config/.env') });
+// Robust Path Resolution for Config
+const envPath = path.resolve(__dirname, '.builds/config/.env');
+dotenv.config({ path: envPath });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,7 +24,8 @@ const HOST = '0.0.0.0';
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 
-const DATA_ROOT = path.resolve(process.cwd(), '.builds', 'sanghavi_persistence');
+// Use __dirname to ensure paths are correct regardless of where 'npm start' is run
+const DATA_ROOT = path.resolve(__dirname, '.builds', 'sanghavi_persistence');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
@@ -523,10 +526,26 @@ app.get('/api/backups', (req, res) => {
 
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error' }); });
 
-const distPath = path.resolve(process.cwd(), 'dist');
+// --- SERVE FRONTEND ---
+// Use __dirname to locate dist consistently
+const distPath = path.resolve(__dirname, 'dist');
+
 if (existsSync(distPath)) {
-  app.use(express.static(distPath));
-  app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+  // Serve static files from 'dist', but disable automatic index.html serving 
+  // so we can explicitly handle the root route below.
+  app.use(express.static(distPath, { index: false }));
+  
+  // Explicitly serve index.html for root route to fix "Cannot open directly" issues
+  app.get('/', (req, res) => {
+     res.sendFile(path.join(distPath, 'index.html'));
+  });
+
+  // Catch-all for SPA client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+} else {
+    console.warn(`[Warning] Frontend build not found at ${distPath}. Run 'npm run build' first.`);
 }
 
 app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Server Online on Port ${PORT}`));
