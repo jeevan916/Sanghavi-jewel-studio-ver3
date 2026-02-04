@@ -1,6 +1,7 @@
+
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.0.0 (Neural Template Engine Upgrade)
+ * Version: 4.1.0 (Guest Guard & Privacy Engine)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -42,8 +43,8 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.0.0",
-    identity: "Sanghavi Jewel Studio - Neural Engine V4",
+    version: "4.1.0",
+    identity: "Sanghavi Jewel Studio - Guest Guard & Privacy Engine",
     
     // THE VISUAL IDENTITY
     design_dna: {
@@ -77,7 +78,8 @@ export const APP_MEMORY: AppMemory = {
         "Maintain the 'Sophisticated' and 'Luxury' aesthetic.",
         "Ensure filenames are SEO-friendly.",
         "Always sanitize database inputs.",
-        "Keep the 'ComparisonSlider' for AI enhancements."
+        "Keep the 'ComparisonSlider' for AI enhancements.",
+        "Respect Guest View Limits (8 items max) in all new gallery implementations."
     ],
 
     // FEATURES THAT ARE LOCKED AND PROTECTED
@@ -109,13 +111,37 @@ export const APP_MEMORY: AppMemory = {
             status: 'stable',
             critical: true,
             description: "Visual slider in ProductDetails to compare Original vs Enhanced images."
+        },
+        {
+            id: 'guest_access_control',
+            name: 'Guest Access Control',
+            status: 'stable',
+            critical: true,
+            description: "Restricts non-logged users to 8 gallery items and masks sensitive product specs (Weight, Date, Tags)."
+        },
+        {
+            id: 'private_visibility_engine',
+            name: 'Private Visibility Engine',
+            status: 'stable',
+            critical: true,
+            description: "Admin toggle for Public/Private product status and Tokenized Shared Link generation."
+        },
+        {
+            id: 'dashboard_analytics_split',
+            name: 'Split Dashboard Views',
+            status: 'stable',
+            critical: true,
+            description: "Separated 'Activity Log' and 'Trend Analysis' into distinct admin views to reduce cognitive load."
         }
     ],
 
     // HISTORY OF STABILIZATION
     fix_log: [
-        "Upgraded to v4.0.0 with Neural Template Engine.",
-        "Consolidated Memory into single source of truth.",
+        "Upgraded to v4.1.0: Integrated Privacy & Guest logic into Core Memory.",
+        "Implemented Guest View Limit (8 items) in Gallery.",
+        "Applied Privacy Masks (Blur effects) to Product Details for guests.",
+        "Refactored Admin Dashboard: Separated Trends and Activity tabs.",
+        "Added 'Make Private' toggle and 'Private Link' generator to Product Details UI.",
         "Restored Admin Dashboard Neural Core visualization.",
         "Fixed Image cropping issue in Product Details (Object-Contain).",
         "Implemented SQL-based System Settings for dynamic AI configuration."
