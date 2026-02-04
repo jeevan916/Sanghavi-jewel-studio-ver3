@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
 import { storeService, CuratedCollections } from '../services/storeService';
-import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2 } from 'lucide-react';
+import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock } from 'lucide-react';
 import { Product, AppConfig } from '../types';
 
 export const Gallery: React.FC = () => {
@@ -82,7 +82,11 @@ export const Gallery: React.FC = () => {
     );
   }
 
-  const categoryList = config?.categories?.map(c => c.name) || [];
+  // REIMPLEMENTED ACCESS CONTROL: 
+  // Filter out private categories if the user is a guest
+  const categoryList = (config?.categories || [])
+    .filter(c => !isGuest || !c.isPrivate)
+    .map(c => c.name);
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden animate-fade-in">
@@ -119,6 +123,13 @@ export const Gallery: React.FC = () => {
                     {cat}
                 </button>
                 ))}
+                
+                {/* Visual cue for guests about restricted access */}
+                {isGuest && (
+                    <button onClick={() => navigate('/login')} className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gold-50 text-gold-600 border border-gold-200 flex items-center gap-1 whitespace-nowrap">
+                        <Lock size={10} /> + More
+                    </button>
+                )}
             </div>
         </div>
       </div>

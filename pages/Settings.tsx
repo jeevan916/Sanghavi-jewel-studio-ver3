@@ -35,88 +35,111 @@ const PromptSection = ({
     const [newLabel, setNewLabel] = useState('');
 
     return (
-        <div className="space-y-3 p-4 bg-stone-50 border border-stone-200 rounded-xl">
-             <div className="flex flex-col md:flex-row justify-between md:items-end gap-2">
-                <label className="text-xs font-bold text-stone-400 uppercase tracking-widest">{title}</label>
-                <select 
-                    value={modelValue} 
-                    onChange={e => onModelChange(e.target.value)}
-                    className="text-xs bg-white border border-stone-200 rounded p-1.5 text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none"
-                >
-                    {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                </select>
-            </div>
-            
-            <div className="flex flex-wrap gap-2 items-center">
-                <div className="relative flex-1 min-w-[200px]">
-                    <select 
-                        onChange={(e) => {
-                            const t = templates.find(item => item.id === e.target.value);
-                            if (t) {
-                                onPromptChange(t.content);
-                                // Reset select
-                                e.target.value = '';
-                            }
-                        }}
-                        className="w-full text-xs p-2 pr-8 bg-white border border-stone-200 rounded-lg appearance-none focus:ring-1 focus:ring-gold-500 outline-none"
-                        defaultValue=""
-                    >
-                        <option value="" disabled>Load Template...</option>
-                        {templates.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none"/>
+        <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm transition-all hover:shadow-md">
+            {/* Header Area */}
+            <div className="p-4 bg-stone-50/50 border-b border-stone-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-center gap-2">
+                    <div className="p-2 bg-gold-100/50 text-gold-700 rounded-lg">
+                        <Sparkles size={16} />
+                    </div>
+                    <label className="text-xs font-bold text-stone-600 uppercase tracking-widest">{title}</label>
                 </div>
-                <button 
-                    onClick={() => setIsSaving(!isSaving)}
-                    className={`p-2 rounded-lg border transition-all ${isSaving ? 'bg-gold-50 border-gold-200 text-gold-600' : 'bg-white border-stone-200 text-stone-500 hover:text-stone-700'}`}
-                    title="Save current prompt as template"
-                >
-                    <FilePlus size={16}/>
-                </button>
+                <div className="relative w-full sm:w-auto">
+                    <select 
+                        value={modelValue} 
+                        onChange={e => onModelChange(e.target.value)}
+                        className="w-full sm:w-64 text-xs font-medium bg-white border border-stone-200 rounded-lg py-2 pl-3 pr-8 text-stone-700 focus:ring-1 focus:ring-gold-500 outline-none appearance-none cursor-pointer hover:border-gold-300 transition-colors"
+                    >
+                        {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none"/>
+                </div>
             </div>
 
-            {isSaving && (
-                <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
-                    <input 
-                        value={newLabel}
-                        onChange={e => setNewLabel(e.target.value)}
-                        placeholder="Template Name (e.g. 'Warm Studio Light')"
-                        className="flex-1 p-2 text-xs border border-stone-200 rounded-lg focus:border-gold-500 outline-none"
+            {/* Editor Area */}
+            <div className="p-4 space-y-4">
+                <div className="relative">
+                    <textarea 
+                        value={promptValue}
+                        onChange={e => onPromptChange(e.target.value)}
+                        placeholder="Enter system prompt instructions for the AI..."
+                        className="w-full h-32 p-4 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono text-stone-800 leading-relaxed focus:ring-2 focus:ring-gold-500/20 focus:border-gold-500 outline-none resize-y transition-all"
                     />
-                    <button 
-                        onClick={() => {
-                            if (newLabel.trim()) {
-                                onSaveTemplate(newLabel, promptValue);
-                                setIsSaving(false);
-                                setNewLabel('');
-                            }
-                        }}
-                        disabled={!newLabel.trim()}
-                        className="px-3 py-1 bg-gold-600 text-white text-xs font-bold rounded-lg disabled:opacity-50"
-                    >
-                        Save
-                    </button>
+                    <div className="absolute bottom-3 right-3">
+                        <button 
+                            onClick={() => setIsSaving(true)} 
+                            className="bg-white/90 backdrop-blur shadow-sm border border-stone-200 text-stone-500 hover:text-gold-600 hover:border-gold-300 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                            title="Save as Preset"
+                        >
+                            <Save size={12}/> Save Preset
+                        </button>
+                    </div>
                 </div>
-            )}
-            
-            {templates.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                    {templates.map(t => (
-                        <div key={t.id} className="group flex items-center gap-1 pl-2 pr-1 py-1 bg-white border border-stone-200 rounded text-[10px] text-stone-600">
-                            <span>{t.label}</span>
-                            <button onClick={() => { if(confirm('Delete template?')) onDeleteTemplate(t.id); }} className="p-0.5 hover:text-red-500 text-stone-300 transition-colors">
-                                <X size={10}/>
+
+                {/* Templates Manager */}
+                <div className="space-y-3">
+                    {isSaving ? (
+                        <div className="flex items-center gap-2 p-3 bg-gold-50/50 border border-gold-100 rounded-xl animate-in fade-in slide-in-from-top-2">
+                            <input 
+                                value={newLabel}
+                                onChange={e => setNewLabel(e.target.value)}
+                                placeholder="Name your preset (e.g. 'Warm Studio Lighting')"
+                                className="flex-1 bg-white border border-gold-200 rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-gold-500"
+                                autoFocus
+                            />
+                            <button 
+                                onClick={() => {
+                                    if (newLabel.trim()) {
+                                        onSaveTemplate(newLabel, promptValue);
+                                        setIsSaving(false);
+                                        setNewLabel('');
+                                    }
+                                }}
+                                disabled={!newLabel.trim()}
+                                className="bg-gold-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-gold-700 transition disabled:opacity-50"
+                            >
+                                Save
+                            </button>
+                            <button 
+                                onClick={() => setIsSaving(false)}
+                                className="p-2 text-stone-400 hover:text-stone-600"
+                            >
+                                <X size={16}/>
                             </button>
                         </div>
-                    ))}
+                    ) : (
+                        <div>
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <FilePlus size={12}/> Saved Templates
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {templates.map(t => (
+                                    <div 
+                                        key={t.id} 
+                                        onClick={() => onPromptChange(t.content)}
+                                        className="group cursor-pointer flex items-center gap-2 pl-3 pr-2 py-1.5 bg-white border border-stone-200 hover:border-gold-400 hover:shadow-sm rounded-lg transition-all"
+                                        title={t.content.slice(0, 100) + '...'}
+                                    >
+                                        <span className="text-xs font-medium text-stone-600 group-hover:text-gold-700">{t.label}</span>
+                                        <div className="w-px h-3 bg-stone-200 group-hover:bg-gold-200 transition-colors"></div>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); if(confirm('Delete this template?')) onDeleteTemplate(t.id); }}
+                                            className="p-1 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                        >
+                                            <Trash2 size={12}/>
+                                        </button>
+                                    </div>
+                                ))}
+                                {templates.length === 0 && (
+                                    <div className="px-4 py-3 border border-dashed border-stone-200 rounded-lg text-xs text-stone-400 w-full text-center">
+                                        No templates saved. Write a prompt above and click "Save Preset".
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
-
-            <textarea 
-                value={promptValue}
-                onChange={e => onPromptChange(e.target.value)}
-                className="w-full h-24 p-3 bg-white border border-stone-200 rounded-lg text-xs font-mono text-stone-900 focus:ring-1 focus:ring-gold-500 outline-none resize-y"
-            />
+            </div>
         </div>
     );
 };

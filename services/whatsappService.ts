@@ -11,10 +11,16 @@ export const whatsappService = {
   },
 
   /**
-   * Dispatches OTP via Meta WhatsApp Business API using the 'sanghavi_jewel_studio' template.
+   * Dispatches OTP via Meta WhatsApp Business API.
+   * STRICT: Ensures the phone number has a country code. Defaults to 91 (India) if 10 digits provided.
    */
   sendOTP: async (phone: string, otp: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
+    let formattedPhone = phone.replace(/\D/g, '');
+    
+    // Auto-append India code if user (or system) provides exactly 10 digits
+    if (formattedPhone.length === 10) {
+        formattedPhone = '91' + formattedPhone;
+    }
     
     // More inclusive test environment detection for Hostinger and local setups
     const hostname = window.location.hostname;
@@ -25,7 +31,7 @@ export const whatsappService = {
       hostname.includes('hostingerapp.com') ||
       hostname.includes('.online');
 
-    console.debug(`[WhatsApp] Attempting OTP delivery to ${phone}. Host: ${hostname}, Dev Mode: ${isTestEnv}`);
+    console.debug(`[WhatsApp] Attempting OTP delivery to ${formattedPhone}. Host: ${hostname}, Dev Mode: ${isTestEnv}`);
 
     try {
       const response = await fetch(`https://graph.facebook.com/v21.0/${WHATSAPP_PHONE_ID}/messages`, {
@@ -36,7 +42,7 @@ export const whatsappService = {
         },
         body: JSON.stringify({
           messaging_product: 'whatsapp',
-          to: cleanPhone,
+          to: formattedPhone,
           type: 'template',
           template: {
             name: 'sanghavi_jewel_studio', 
@@ -67,7 +73,7 @@ export const whatsappService = {
           console.log('%cAPI Error:', 'color: #ff4444;', data.error?.message || 'Meta API Error');
           console.log('%cSolution:', 'color: #888;', 'Ensure phone is whitelisted in Meta App Dashboard or app is set to Live.');
           console.log('%cOTP FALLBACK ACTIVATED', 'background: #c68a36; color: white; padding: 2px 5px; border-radius: 3px;');
-          console.log(`%cOTP for ${phone}: %c${otp}`, 'color: #888;', 'color: #c68a36; font-weight: bold; font-size: 18px;');
+          console.log(`%cOTP for ${formattedPhone}: %c${otp}`, 'color: #888;', 'color: #c68a36; font-weight: bold; font-size: 18px;');
           console.groupEnd();
           
           return { success: true, isDemo: true, error: data.error?.message };
@@ -82,7 +88,7 @@ export const whatsappService = {
       console.error('[WhatsApp Transport] Critical Error:', error);
       
       if (isTestEnv) {
-        console.log(`%c[NETWORK FALLBACK] OTP for ${phone}: ${otp}`, 'background: #222; color: #bada55; padding: 10px; font-size: 20px;');
+        console.log(`%c[NETWORK FALLBACK] OTP for ${formattedPhone}: ${otp}`, 'background: #222; color: #bada55; padding: 10px; font-size: 20px;');
         return { success: true, isDemo: true, error: 'Network failure' };
       }
       

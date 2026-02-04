@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storeService } from '../services/storeService';
@@ -74,7 +75,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const folders = useMemo(() => {
       if (!Array.isArray(products)) return ['All', 'Private'];
       // Explicitly filter for strings to satisfy Set<string>
-      const cats = new Set(products.map(p => p?.category).filter((c): c is string => !!c));
+      const cats = new Set(products.map(p => p?.category).filter((c): c is string => typeof c === 'string' && !!c));
       return ['All', 'Private', ...Array.from(cats)];
   }, [products]);
 
@@ -86,7 +87,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
             selectedFolder === 'All' ? true :
             selectedFolder === 'Private' ? p.isHidden :
             p.category === selectedFolder;
-          const matchesSearch = p.title?.toLowerCase().includes(searchQuery.toLowerCase()) || p.id?.includes(searchQuery);
+          const matchesSearch = (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || (p.id || '').includes(searchQuery);
           return matchesFolder && matchesSearch;
       });
   }, [products, selectedFolder, searchQuery]);
@@ -103,10 +104,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       if (!confirm(`Permanently delete ${selectedAssets.size} assets? This cannot be undone.`)) return;
       setLoading(true);
       try {
-          await Promise.all(Array.from(selectedAssets).map(id => storeService.deleteProduct(id)));
+          await Promise.all(Array.from(selectedAssets).map((id) => storeService.deleteProduct(id as string)));
           setSelectedAssets(new Set<string>());
           refreshData(true);
-      } catch(e) { console.error(e); alert('Delete failed'); }
+      } catch(e: any) { console.error(e); alert('Delete failed'); }
       setLoading(false);
   };
 
@@ -123,7 +124,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           setIsMoveModalOpen(false);
           setSelectedAssets(new Set<string>());
           refreshData(true);
-      } catch(e) { console.error(e); alert('Move failed'); }
+      } catch(e: any) { console.error(e); alert('Move failed'); }
       setLoading(false);
   };
 

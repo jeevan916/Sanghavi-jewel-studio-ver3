@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { storeService } from '../services/storeService';
@@ -33,16 +34,31 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
     return () => clearInterval(interval);
   }, [timer]);
 
+  // --- PHONE NUMBER HARMONIZATION ---
+  const normalizePhone = (input: string): string => {
+      // 1. Remove all non-numeric characters (spaces, +, -, etc.)
+      let p = input.replace(/\D/g, '');
+      
+      // 2. Handle prefixes
+      if (p.length > 10) {
+          if (p.startsWith('91') && p.length === 12) {
+              p = p.substring(2); // Remove 91
+          } else if (p.startsWith('0') && p.length === 11) {
+              p = p.substring(1); // Remove 0
+          }
+      }
+      return p;
+  };
+
   const getLocation = (): Promise<{lat: number, lng: number}> => {
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
-            // Non-blocking reject: allow login but warn
             resolve({ lat: 0, lng: 0 });
             return;
         }
         navigator.geolocation.getCurrentPosition(
             (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
-            (err) => resolve({ lat: 0, lng: 0 }), // Graceful fallback
+            (err) => resolve({ lat: 0, lng: 0 }), 
             { enableHighAccuracy: true, timeout: 5000 }
         );
     });
@@ -50,10 +66,10 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
 
   const handleVerifyPhone = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = normalizePhone(phone);
     
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setError('Please enter a valid 10-digit WhatsApp number.');
+    if (cleanPhone.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number.');
       return;
     }
 
@@ -65,47 +81,46 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
         const loc = await getLocation();
         setUserLocation(loc);
 
-        // 2. Check Database with sanitized phone
+        // 2. Check Database with sanitized 10-digit phone
         const check = await storeService.checkCustomerExistence(cleanPhone);
         
-        // Ensure name is updated if it's a default "Client XXX" name
         const hasDefaultName = check.user?.name?.startsWith('Client ') || false;
 
         if (check.exists && !hasDefaultName) {
-            // Existing user with real name: Skip registration
             setExistingUserName(check.user?.name || '');
             setIsNewUser(false);
-            initiateOtp();
+            initiateOtp(cleanPhone); // Pass normalized phone
         } else {
-            // New user OR Existing user with Default Name: Force Registration/Update
             if (check.exists && hasDefaultName && check.user?.pincode) {
-                // Pre-fill pincode if we have it, but force name entry
                 setRegistrationData(prev => ({...prev, pincode: check.user.pincode || ''}));
             }
             setIsNewUser(true);
             setIsCheckingUser(false);
         }
     } catch (err: any) {
-        setError("Network Error: Unable to verify account status. Please check connection.");
+        setError("Network Error: Unable to verify account status.");
         setIsCheckingUser(false);
     }
   };
 
   const handleRegisterAndSendOtp = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!registrationData.name.trim()) { setError('Full Name is required for registration.'); return; }
+      if (!registrationData.name.trim()) { setError('Full Name is required.'); return; }
       if (!registrationData.pincode.trim() || registrationData.pincode.length < 6) { setError('Valid Pincode is required.'); return; }
-      initiateOtp();
+      
+      const cleanPhone = normalizePhone(phone);
+      initiateOtp(cleanPhone);
   };
 
-  const initiateOtp = async () => {
+  const initiateOtp = async (normalizedPhone: string) => {
       setIsLoading(true);
       setError('');
       setIsDemoMode(false);
 
-      const cleanPhone = phone.replace(/\D/g, '');
       const otp = whatsappService.generateOTP();
-      const result = await whatsappService.sendOTP(cleanPhone, otp);
+      
+      // Send OTP (whatsappService handles adding 91 prefix for API)
+      const result = await whatsappService.sendOTP(normalizedPhone, otp);
 
       if (result.success) {
         setGeneratedOtp(otp);
@@ -143,7 +158,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
     if (entered === generatedOtp) {
       setIsLoading(true);
       try {
-        const cleanPhone = phone.replace(/\D/g, '');
+        const cleanPhone = normalizePhone(phone);
         const user = await storeService.loginWithWhatsApp(
             cleanPhone, 
             isNewUser ? registrationData.name : undefined, 
@@ -151,7 +166,6 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
             userLocation
         );
         if (user) {
-          // Log login event with location
           storeService.logEvent('login', undefined, user);
           onLoginSuccess(user);
         } else {
@@ -214,11 +228,10 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                             <input 
                             type="tel" 
                             value={phone}
-                            onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
-                            placeholder="e.g. 919876543210"
+                            onChange={e => setPhone(e.target.value)}
+                            placeholder="e.g. 9876543210"
                             className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium tracking-wider"
                             required
-                            maxLength={15}
                             />
                         </div>
                     </div>
@@ -234,12 +247,12 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                         className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-800 transition-all shadow-xl shadow-stone-200 disabled:opacity-50"
                     >
                         {isCheckingUser ? <Loader2 className="animate-spin" size={20}/> : <Locate size={20}/>}
-                        {isCheckingUser ? 'Verifying Secure Location...' : 'Verify Securely'}
+                        {isCheckingUser ? 'Verifying...' : 'Verify Number'}
                     </button>
-                    <p className="text-[10px] text-center text-stone-400 mt-2">Location access required for audit compliance.</p>
+                    <p className="text-[10px] text-center text-stone-400 mt-2">Format: 10 digit Indian mobile number.</p>
                 </form>
             ) : (
-                // 2. New User Registration (Only shown if phone doesn't exist)
+                // 2. New User Registration
                 <form onSubmit={handleRegisterAndSendOtp} className="space-y-4 animate-in slide-in-from-bottom-4">
                      <div className="p-3 bg-blue-50 text-blue-800 text-xs rounded-xl flex items-center gap-2 border border-blue-100 mb-4">
                         <Info size={16}/> <span>Welcome! Complete your profile to register.</span>
@@ -333,9 +346,9 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                    <Info size={16} /> Admin Debug Active
                 </div>
                 <p className="text-[11px] text-stone-600 font-medium leading-relaxed">
-                  WhatsApp message failed (likely Template or Token issue).
+                  WhatsApp message failed.
                   <span className="block mt-2 font-bold text-stone-800 bg-white/50 p-2 rounded border border-gold-200">
-                    Press F12 (Console) to view your 6-digit verification code.
+                    Use Code: {generatedOtp}
                   </span>
                 </p>
               </div>
@@ -344,7 +357,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
             <div className="text-center">
               <p className="text-stone-400 text-xs mb-2">Issue receiving the code?</p>
               <button 
-                onClick={() => initiateOtp()}
+                onClick={() => initiateOtp(normalizePhone(phone))}
                 disabled={timer > 0 || isLoading}
                 className={`text-xs font-bold uppercase tracking-widest ${timer > 0 ? 'text-stone-300' : 'text-gold-600 hover:text-gold-700'}`}
               >
