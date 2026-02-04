@@ -5,7 +5,7 @@ import { useUpload } from '../contexts/UploadContext';
 import { Product } from '../types';
 import { 
   Loader2, ArrowLeft, Database, Download, Trash2, Archive, Shield, History, Cpu,
-  Activity, FileJson, Server
+  Activity, FileJson, Server, Image as ImageIcon
 } from 'lucide-react';
 
 interface MaintenanceProps {
@@ -70,10 +70,20 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
       const p = products[i];
       try {
         const sourceImg = p.images[0];
+        if (!sourceImg) {
+             setProgress(prev => ({ ...prev, current: i + 1, error: prev.error + 1 }));
+             continue;
+        }
         // Process once to get both optimized versions
         const { primary, thumbnail } = await processImage(sourceImg, { width: 1080, quality: 0.85, format: 'image/webp' });
         
-        await storeService.updateProduct({ ...p, images: [primary], thumbnails: [thumbnail] });
+        // Update 0-index images while preserving gallery
+        const newImages = [...p.images];
+        newImages[0] = primary;
+        const newThumbnails = [...(p.thumbnails || [])];
+        newThumbnails[0] = thumbnail;
+
+        await storeService.updateProduct({ ...p, images: newImages, thumbnails: newThumbnails });
         setProgress(prev => ({ ...prev, current: i + 1, success: prev.success + 1 }));
       } catch (err) {
         setProgress(prev => ({ ...prev, current: i + 1, error: prev.error + 1 }));
@@ -84,8 +94,52 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
     addLog("Batch Re-Optimization Complete.");
   };
 
+  const runThumbnailRepair = async () => {
+    if (!window.confirm(`Regenerate thumbnails for ${products.length} items? This uses server processing power.`)) return;
+    setIsProcessing(true);
+    setProgress({ current: 0, total: products.length, success: 0, error: 0 });
+    addLog("Starting Thumbnail Regeneration Sequence...");
+
+    for (let i = 0; i < products.length; i++) {
+        const p = products[i];
+        try {
+            const sourceImg = p.images[0];
+            if (!sourceImg) {
+                addLog(`Skipped ${p.title} (No Source)`);
+                setProgress(prev => ({ ...prev, current: i + 1 }));
+                continue;
+            }
+
+            // We use processImage to generate the thumbnail. 
+            // It returns a primary as well, which we can use to refresh the main image link ensuring sync.
+            const { primary, thumbnail } = await processImage(sourceImg, { width: 1080, quality: 0.85, format: 'image/webp' });
+
+            const newImages = [...p.images];
+            newImages[0] = primary;
+            
+            // Ensure thumbnails array exists and update first index
+            const newThumbnails = p.thumbnails && p.thumbnails.length > 0 ? [...p.thumbnails] : newImages.map(() => '');
+            newThumbnails[0] = thumbnail;
+
+            await storeService.updateProduct({
+                ...p,
+                images: newImages,
+                thumbnails: newThumbnails
+            });
+
+            addLog(`Repaired: ${p.title}`);
+            setProgress(prev => ({ ...prev, current: i + 1, success: prev.success + 1 }));
+        } catch (e: any) {
+            addLog(`Failed: ${p.title} - ${e.message}`);
+            setProgress(prev => ({ ...prev, current: i + 1, error: prev.error + 1 }));
+        }
+    }
+    setIsProcessing(false);
+    addLog("Thumbnail Repair Operation Completed.");
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 pb-24 animate-fade-in text-stone-800">
+    <div className="max-w-6xl mx-auto p-4 md:p-8 pb-24 animate-fade-in text-stone-800">
       <div className="flex items-center gap-4 mb-8">
         <button onClick={onBack} className="p-2 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24}/></button>
         <div>
@@ -146,19 +200,26 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
           )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 mb-8">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Cpu size={20} /></div>
           <h3 className="font-bold">Next-Gen Engine</h3>
           <p className="text-xs text-stone-500">Transcode entire catalog to AVIF (Storage) and WebP (Speed).</p>
-          <button disabled={isProcessing} onClick={runReOptimization} className="w-full py-2 bg-stone-900 text-white rounded-lg text-xs font-bold disabled:opacity-50">Transcode All</button>
+          <button disabled={isProcessing} onClick={runReOptimization} className="w-full py-2 bg-stone-900 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-stone-800 transition">Transcode All</button>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+          <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><ImageIcon size={20} /></div>
+          <h3 className="font-bold">Thumbnail Repair</h3>
+          <p className="text-xs text-stone-500">Regenerate broken or missing low-res previews.</p>
+          <button disabled={isProcessing} onClick={runThumbnailRepair} className="w-full py-2 bg-stone-100 text-stone-800 rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-stone-200 transition">Regenerate Thumbnails</button>
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
           <div className="w-10 h-10 bg-gold-50 text-gold-600 rounded-xl flex items-center justify-center"><Archive size={20} /></div>
           <h3 className="font-serif">Backup Vault</h3>
           <p className="text-xs text-stone-500">Create a compressed ZIP of the entire database and physical image storage.</p>
-          <button disabled={isBackupLoading} onClick={handleCreateBackup} className="w-full py-2 bg-gold-600 text-white rounded-lg text-xs font-bold disabled:opacity-50">
+          <button disabled={isBackupLoading} onClick={handleCreateBackup} className="w-full py-2 bg-gold-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-gold-700 transition">
             {isBackupLoading ? 'Backing up...' : 'Create Snapshot'}
           </button>
         </div>
@@ -167,14 +228,14 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
           <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center"><Shield size={20} /></div>
           <h3 className="font-bold">Security</h3>
           <p className="text-xs text-stone-500">Audit logs and persistence integrity checks.</p>
-          <button className="w-full py-2 bg-stone-100 text-stone-600 rounded-lg text-xs font-bold">Audit Health</button>
+          <button className="w-full py-2 bg-stone-100 text-stone-600 rounded-lg text-xs font-bold hover:bg-stone-200 transition">Audit Health</button>
         </div>
       </div>
 
       {isProcessing && (
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm mb-6">
            <div className="flex justify-between items-center mb-2">
-             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Transcoding: {progress.current} / {progress.total}</span>
+             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Processing: {progress.current} / {progress.total}</span>
              <span className="text-[10px] font-bold text-gold-600">{Math.round((progress.current/progress.total)*100)}%</span>
            </div>
            <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
