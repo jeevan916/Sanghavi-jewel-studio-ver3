@@ -70,6 +70,7 @@ export const storeService = {
          console.log("🔥 [Store] Warming up cache...");
          storeService.getConfig().catch(e => console.warn("Config warmup failed", e));
          storeService.getCuratedProducts().catch(e => console.warn("Curated warmup failed", e));
+         // Warmup default page 1
          storeService.getProducts(1, 50).catch(e => console.warn("Product warmup failed", e));
      } catch (e) { console.warn("Warmup error", e); }
   },
@@ -101,8 +102,20 @@ export const storeService = {
         page: page.toString(),
         limit: limit.toString(),
       });
-      if (filters.publicOnly) {
+      
+      if (filters.publicOnly !== undefined) {
+          queryParams.append('public', String(filters.publicOnly));
+      } else {
+          // Default to public only if not specified, unless explicitly requested all
           queryParams.append('public', 'true');
+      }
+
+      if (filters.category && filters.category !== 'All') {
+          queryParams.append('category', filters.category);
+      }
+
+      if (filters.search) {
+          queryParams.append('search', filters.search);
       }
       
       const data = await apiFetch(`/products?${queryParams.toString()}`);
@@ -112,8 +125,8 @@ export const storeService = {
         meta: data.meta || { totalPages: 1, page, limit } 
       };
 
-      // CACHE STRATEGY: Update memory cache if it's the main default view
-      const isDefaultView = page === 1 && (!filters || Object.keys(filters).length <= 1);
+      // CACHE STRATEGY: Update memory cache only for the default unfiltered view
+      const isDefaultView = page === 1 && (!filters.category || filters.category === 'All') && !filters.search;
       if (isDefaultView) {
           CACHE.products = result.items;
           CACHE.lastFetch = Date.now();
