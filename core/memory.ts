@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.1.4 (Stability Patch - Strict Guest Lock)
+ * Version: 4.1.5 (UX Polish - Zoom Mode Stabilization)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -43,7 +43,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.1.4",
+    version: "4.1.5",
     identity: "Sanghavi Jewel Studio - Guest Guard & Privacy Engine",
     
     // THE VISUAL IDENTITY
@@ -137,14 +137,11 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
+        "Upgraded to v4.1.5: Stabilized Zoom Mode Navigation.",
+        "Implemented seamless transitions when swiping between products in full-screen mode by suppressing background animations and viewer re-entry fades.",
         "Upgraded to v4.1.4: Fixed White Flash scrolling glitch by stabilizing component mounting key.",
         "Implemented Strict Guest Lock: Physically blocks rendering of assets outside the Top 8 via deep links or swipe.",
         "Upgraded to v4.1.3: Product Details Layout Refactor.",
-        "Implemented Split-Screen View for Desktop (Image Left, Details Right) for 'Stress-Free' reading.",
-        "Fixed Sticky Header Z-Index collision with Global Navigation on desktop.",
-        "Upgraded to v4.1.2: Implemented Server-Side Private Link Engine (SQL Table + API).",
-        "Added UI Modal for generated private links in ProductDetails.",
-        "Fixed Guest Navigation Loophole: Restricted swipe navigation (Next/Prev) to first 8 items for guests.",
-        "Implemented Guest View Limit (8 items) in Gallery."
+        "Implemented Split-Screen View for Desktop (Image Left, Details Right) for 'Stress-Free' reading."
     ]
 };

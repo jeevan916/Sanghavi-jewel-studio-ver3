@@ -15,10 +15,13 @@ export const ProductDetails: React.FC = () => {
   const location = useLocation();
   const { processImage } = useUpload();
   
+  // Initialize full screen state from navigation state to support seamless swiping
+  const startInFullScreen = !!(location.state as any)?.startInFullScreen;
+  const [showFullScreen, setShowFullScreen] = useState(startInFullScreen);
+  
   const [product, setProduct] = useState<Product | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showFullScreen, setShowFullScreen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, purchase: 0 });
   const [isRestricted, setIsRestricted] = useState(false);
@@ -40,11 +43,15 @@ export const ProductDetails: React.FC = () => {
   const touchStart = useRef(0);
   const touchEnd = useRef(0);
   
-  // Animation Direction Logic
+  // Animation Logic:
+  // If we are in full screen mode, or starting in it, suppress the page slide animation to reduce clutter/flashing behind the viewer.
   const direction = (location.state as any)?.direction || 'fade';
-  const animationClass = direction === 'next' ? 'animate-slide-in-right' 
+  const shouldAnimatePage = !showFullScreen && !startInFullScreen;
+  const animationClass = shouldAnimatePage
+                       ? (direction === 'next' ? 'animate-slide-in-right' 
                        : direction === 'prev' ? 'animate-slide-in-left' 
-                       : 'animate-fade-in';
+                       : 'animate-fade-in')
+                       : '';
 
   // Ensure scroll resets immediately when ID changes
   useLayoutEffect(() => {
@@ -93,14 +100,13 @@ export const ProductDetails: React.FC = () => {
             const GUEST_LIMIT = 8;
 
             // SECURITY: STRICT GUEST LOCK
-            // If the user is a guest and tries to access an item outside the top 8, BLOCK IT.
             if (isGuest) {
                 const globalIndex = allItems.findIndex(p => p.id === fetchedProduct.id);
                 if (globalIndex >= GUEST_LIMIT) {
                     setIsRestricted(true);
-                    setProduct(fetchedProduct); // Load it but don't show details
+                    setProduct(fetchedProduct); 
                     setIsLoading(false);
-                    return; // Stop processing
+                    return; 
                 }
             }
 
@@ -117,7 +123,7 @@ export const ProductDetails: React.FC = () => {
             setStats(pStats);
             storeService.logEvent('view', safeProduct);
 
-            // Calculate Neighbors based on Restricted List
+            // Calculate Neighbors
             let navItems = allItems;
             if (isGuest) {
                 navItems = allItems.slice(0, GUEST_LIMIT);
@@ -157,7 +163,6 @@ export const ProductDetails: React.FC = () => {
 
   const handleToggleVisibility = async () => {
       if (!product) return;
-      // Optimistic update
       const newStatus = !product.isHidden;
       const updated = { ...product, isHidden: newStatus };
       setProduct(updated);
@@ -166,7 +171,6 @@ export const ProductDetails: React.FC = () => {
       try {
           await storeService.updateProduct(updated);
       } catch (e) {
-          // Revert if failed
           setProduct({ ...product, isHidden: !newStatus });
           alert("Failed to update visibility status.");
       }
@@ -197,7 +201,6 @@ export const ProductDetails: React.FC = () => {
       if (templates.length > 0) {
           setShowTemplateSelector({ mode, templates });
       } else {
-          // No templates, just run default
           runAIProcess(mode);
       }
   };
@@ -227,16 +230,13 @@ export const ProductDetails: React.FC = () => {
   };
 
   const handleApplyAI = async () => {
-     // Safety check: ensure we are modifying the currently viewed product
      if (!product || !aiComparison || product.id !== id) return;
-     
      setIsLoading(true);
      try {
         const optimizedUrl = await processImage(aiComparison.enhanced, { width: 1600, quality: 0.9, format: 'image/webp' });
         const updated = { ...product, images: [optimizedUrl, ...product.images] };
         await storeService.updateProduct(updated);
         
-        // Only update state if we are still on the same product
         if (id === updated.id) {
             setProduct(updated);
             setAiComparison(null);
@@ -580,9 +580,10 @@ export const ProductDetails: React.FC = () => {
         <ImageViewer 
             images={displayImages} 
             title={product.title} 
+            disableAnimation={startInFullScreen}
             onClose={() => setShowFullScreen(false)} 
-            onNextProduct={neighbors.next ? () => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } }) : undefined}
-            onPrevProduct={neighbors.prev ? () => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } }) : undefined}
+            onNextProduct={neighbors.next ? () => navigate(`/product/${neighbors.next}`, { state: { direction: 'next', startInFullScreen: true } }) : undefined}
+            onPrevProduct={neighbors.prev ? () => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev', startInFullScreen: true } }) : undefined}
         />
       )}
 

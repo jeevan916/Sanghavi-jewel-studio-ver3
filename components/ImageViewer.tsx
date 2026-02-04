@@ -9,6 +9,7 @@ interface ImageViewerProps {
   onClose: () => void;
   onNextProduct?: () => void;
   onPrevProduct?: () => void;
+  disableAnimation?: boolean;
 }
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({ 
@@ -17,7 +18,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   title, 
   onClose,
   onNextProduct,
-  onPrevProduct
+  onPrevProduct,
+  disableAnimation = false
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [scale, setScale] = useState(1);
@@ -150,7 +152,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black text-white flex flex-col h-[100dvh] animate-fade-in select-none">
+    <div className={`fixed inset-0 z-[100] bg-black text-white flex flex-col h-[100dvh] select-none ${disableAnimation ? '' : 'animate-fade-in'}`}>
       
       {/* 1. Header (Static - Reserves Space) */}
       <div className="flex-none p-4 flex justify-between items-center z-20 bg-black/50 backdrop-blur-sm border-b border-white/5">
@@ -263,7 +265,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             {images.map((_, idx) => (
                 <div 
                     key={idx} 
-                    className={`h-1 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-6 bg-gold-500' : 'w-2 bg-white/30'}`} 
+                    className={`h-1 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-6 bg-gold-50' : 'w-2 bg-white/30'}`} 
                 />
             ))}
          </div>
