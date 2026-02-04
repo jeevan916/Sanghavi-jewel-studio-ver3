@@ -95,14 +95,27 @@ export const ProductDetails: React.FC = () => {
             storeService.logEvent('view', safeProduct);
 
             // Fetch neighbors for navigation
-            const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); // Always fetch public for nav
-            const items = listData.items;
+            const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); 
+            let items = listData.items;
+
+            // SECURITY: GUEST NAVIGATION LOCK
+            // Guests can only navigate within the first 8 items (matching Gallery limit).
+            // This prevents guests from swiping "next" into restricted territory.
+            if (isGuest) {
+                const GUEST_LIMIT = 8;
+                items = items.slice(0, GUEST_LIMIT);
+            }
+
             const idx = items.findIndex(p => p.id === fetchedProduct.id);
             if (idx !== -1) {
                 setNeighbors({
                     prev: idx > 0 ? items[idx - 1].id : null,
                     next: idx < items.length - 1 ? items[idx + 1].id : null
                 });
+            } else {
+                // If current product is outside the allowed navigation list (e.g. direct link to #9),
+                // disable all navigation to isolate the user.
+                setNeighbors({ prev: null, next: null });
             }
         }
       } catch (e) {

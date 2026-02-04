@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.1.0 (Guest Guard & Privacy Engine)
+ * Version: 4.1.1 (Security Patch - Guest Navigation Lock)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -43,7 +43,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.1.0",
+    version: "4.1.1",
     identity: "Sanghavi Jewel Studio - Guest Guard & Privacy Engine",
     
     // THE VISUAL IDENTITY
@@ -137,7 +137,8 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
-        "Upgraded to v4.1.0: Integrated Privacy & Guest logic into Core Memory.",
+        "Upgraded to v4.1.1: Security Patch.",
+        "Fixed Guest Navigation Loophole: Restricted swipe navigation (Next/Prev) to first 8 items for guests.",
         "Implemented Guest View Limit (8 items) in Gallery.",
         "Applied Privacy Masks (Blur effects) to Product Details for guests.",
         "Refactored Admin Dashboard: Separated Trends and Activity tabs.",
