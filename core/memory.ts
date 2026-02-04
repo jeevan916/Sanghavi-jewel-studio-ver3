@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.2.1 (Enterprise Scale - 50k Capable)
+ * Version: 4.3.0 (Immersive UX Overhaul)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -29,6 +29,7 @@ export interface DesignDNA {
     aesthetics: {
         radius: string;    // 'rounded-xl' or 'rounded-2xl'
         animation: string; // 'animate-fade-in'
+        physics: string;   // 'cubic-bezier(0.19, 1, 0.22, 1)' (Apple-style)
     };
 }
 
@@ -43,7 +44,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.2.1",
+    version: "4.3.0",
     identity: "Sanghavi Jewel Studio - Enterprise Edition",
     
     // THE VISUAL IDENTITY
@@ -59,7 +60,8 @@ export const APP_MEMORY: AppMemory = {
         },
         aesthetics: {
             radius: "rounded-2xl",
-            animation: "animate-fade-in"
+            animation: "animate-fade-in",
+            physics: "cubic-bezier(0.19, 1, 0.22, 1)"
         }
     },
 
@@ -70,7 +72,8 @@ export const APP_MEMORY: AppMemory = {
         "API Logic: 'storeService' is the Single Source of Truth.",
         "Images: Pipeline -> Slugify -> Base64 -> AI -> Buffer -> Sharp -> CDN.",
         "Persistence: MySQL (System Settings) + LocalStorage (Session).",
-        "AI: Use @google/genai SDK with Flash models for speed."
+        "AI: Use @google/genai SDK with Flash models for speed.",
+        "Gestures: 1:1 Physics Tracking for all galleries."
     ],
 
     // USER MICRO-INSTRUCTIONS
@@ -79,11 +82,19 @@ export const APP_MEMORY: AppMemory = {
         "Ensure filenames are SEO-friendly.",
         "Always sanitize database inputs.",
         "Keep the 'ComparisonSlider' for AI enhancements.",
-        "Respect Guest View Limits (8 items max) in all new gallery implementations."
+        "Respect Guest View Limits (8 items max) in all new gallery implementations.",
+        "Ensure Haptic Feedback (Vibration) is present on all swipe actions."
     ],
 
     // FEATURES THAT ARE LOCKED AND PROTECTED
     locked_features: [
+        {
+            id: 'haptic_physics_engine',
+            name: 'Haptic Physics Engine',
+            status: 'stable',
+            critical: true,
+            description: "1:1 synchronized gesture tracking with cubic-bezier release physics and haptic ticks (10ms/20ms/30ms)."
+        },
         {
             id: 'infinite_scroll_engine',
             name: 'High-Performance Infinite Scroll',
@@ -144,12 +155,7 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
-        "Upgraded to v4.2.1: Thumbnail Repair Utility.",
-        "Implemented dedicated Thumbnail Repair tool in Maintenance to regenerate broken previews without data loss.",
-        "Upgraded Server Image Engine to output simultaneous 1080p and 300px assets.",
-        "Updated Upload Pipeline to correctly store distinct thumbnail URLs in database.",
-        "Upgraded to v4.2.0: Enterprise Scalability.",
-        "Implemented SQL Indexes for categories, analytics, and dates to support 50k+ rows.",
-        "Replaced Client-Side Pagination with Server-Side Infinite Scroll in Gallery."
-    ]
-};
+        "Upgraded to v4.3.0: Immersive UX Overhaul.",
+        "Implemented Apple-style 'Infused' animations using cubic-bezier(0.19, 1, 0.22, 1).",
+        "Added Haptic Feedback Engine for tactile swipe navigation.",
+        "Refined ProductDetails layout: 3:4 aspect ratio + object-cover for full-width mobile immersion
