@@ -7,7 +7,7 @@ import { Product, AnalyticsEvent, User, AppConfig } from '../types';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -271,6 +271,137 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           The Neural Template System is online and serving {((config?.aiConfig?.templates?.analysis?.length || 0) + (config?.aiConfig?.templates?.design?.length || 0))} custom prompts.
                       </p>
                   </div>
+              </div>
+          </div>
+      )}
+
+      {activeView === 'leads' && (
+          <div className="space-y-6 animate-in fade-in">
+              <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
+                  <h3 className="font-serif text-xl text-stone-800 mb-6 flex items-center gap-2">
+                      <UserCheck size={24} className="text-green-600"/> Registered Clients ({customers.length})
+                  </h3>
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                          <thead>
+                              <tr className="border-b border-stone-100 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                                  <th className="pb-3 pl-4">Client</th>
+                                  <th className="pb-3">Contact</th>
+                                  <th className="pb-3">Location</th>
+                                  <th className="pb-3">Joined</th>
+                                  <th className="pb-3 text-right pr-4">Action</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-50">
+                              {customers.map(c => (
+                                  <tr key={c.id} className="hover:bg-stone-50 transition-colors">
+                                      <td className="py-4 pl-4">
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-8 h-8 rounded-full bg-gold-50 text-gold-600 flex items-center justify-center font-bold text-xs">
+                                                  {c.name.charAt(0)}
+                                              </div>
+                                              <div>
+                                                  <p className="font-bold text-stone-800 text-sm">{c.name}</p>
+                                                  <p className="text-[10px] text-stone-400 uppercase">{c.role}</p>
+                                              </div>
+                                          </div>
+                                      </td>
+                                      <td className="py-4 text-sm font-mono text-stone-600">{c.phone}</td>
+                                      <td className="py-4 text-sm text-stone-600">{c.pincode || 'N/A'}</td>
+                                      <td className="py-4 text-xs text-stone-400">{new Date(c.createdAt || Date.now()).toLocaleDateString()}</td>
+                                      <td className="py-4 text-right pr-4">
+                                          <button 
+                                              onClick={() => storeService.chatWithLead(c)}
+                                              className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-green-100 transition-colors flex items-center gap-2 ml-auto"
+                                          >
+                                              <MessageCircle size={14} /> Chat
+                                          </button>
+                                      </td>
+                                  </tr>
+                              ))}
+                              {customers.length === 0 && (
+                                  <tr>
+                                      <td colSpan={5} className="py-8 text-center text-stone-400 text-sm italic">
+                                          No clients have registered yet.
+                                      </td>
+                                  </tr>
+                              )}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {activeView === 'trends' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in">
+              {/* Activity Feed */}
+              <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm h-[600px] flex flex-col">
+                   <h3 className="font-serif text-xl text-stone-800 mb-6 flex items-center gap-2">
+                      <Activity size={24} className="text-blue-500"/> Live Activity Feed
+                   </h3>
+                   <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                       {analytics.length === 0 && <p className="text-stone-400 text-sm italic">No recent activity recorded.</p>}
+                       {analytics.map((event, idx) => (
+                           <div key={event.id || idx} className="flex gap-4 p-3 rounded-xl bg-stone-50 border border-stone-100">
+                               <div className={`p-2 rounded-full h-fit ${
+                                   event.type === 'like' ? 'bg-red-50 text-red-500' :
+                                   event.type === 'inquiry' ? 'bg-green-50 text-green-500' :
+                                   'bg-stone-200 text-stone-500'
+                               }`}>
+                                   {event.type === 'like' ? <Heart size={16}/> : 
+                                    event.type === 'inquiry' ? <MessageCircle size={16}/> : 
+                                    <Eye size={16}/>}
+                               </div>
+                               <div>
+                                   <p className="text-sm text-stone-800">
+                                       <span className="font-bold">{event.userName}</span> {event.type === 'inquiry' ? 'inquired about' : event.type === 'like' ? 'liked' : 'viewed'} <span className="font-bold">{event.productTitle || 'an item'}</span>
+                                   </p>
+                                   <p className="text-[10px] text-stone-400 mt-1">{new Date(event.timestamp).toLocaleString()}</p>
+                               </div>
+                           </div>
+                       ))}
+                   </div>
+              </div>
+
+              {/* Popular Products Calculation */}
+              <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm h-[600px] flex flex-col">
+                   <h3 className="font-serif text-xl text-stone-800 mb-6 flex items-center gap-2">
+                      <TrendingUp size={24} className="text-gold-500"/> Top Performing Assets
+                   </h3>
+                   <div className="flex-1 overflow-y-auto pr-2">
+                       {(() => {
+                           const productCounts: Record<string, {count: number, title: string, id: string}> = {};
+                           analytics.forEach(a => {
+                               if (a.productId && (a.type === 'like' || a.type === 'inquiry')) {
+                                   if (!productCounts[a.productId]) productCounts[a.productId] = { count: 0, title: a.productTitle || 'Unknown', id: a.productId };
+                                   productCounts[a.productId].count += (a.type === 'inquiry' ? 3 : 1); // Weight inquiries higher
+                               }
+                           });
+                           const sorted = Object.values(productCounts).sort((a, b) => b.count - a.count).slice(0, 10);
+                           
+                           if (sorted.length === 0) return <p className="text-stone-400 text-sm italic">Insufficient data for trends.</p>;
+
+                           return (
+                               <div className="space-y-3">
+                                   {sorted.map((item, i) => (
+                                       <div key={item.id} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
+                                           <div className="flex items-center gap-4">
+                                               <span className="text-2xl font-serif font-bold text-stone-200">#{i+1}</span>
+                                               <div>
+                                                   <p className="font-bold text-stone-800">{item.title}</p>
+                                                   <p className="text-[10px] text-stone-400 uppercase tracking-widest">Score: {item.count}</p>
+                                               </div>
+                                           </div>
+                                           <button onClick={() => navigate(`/product/${item.id}`)} className="p-2 hover:bg-white rounded-lg transition-colors text-stone-400 hover:text-gold-600">
+                                               <ArrowRight size={18}/>
+                                           </button>
+                                       </div>
+                                   ))}
+                               </div>
+                           );
+                       })()}
+                   </div>
               </div>
           </div>
       )}
