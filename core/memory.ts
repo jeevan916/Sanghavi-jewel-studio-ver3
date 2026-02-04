@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.1.2 (Feature Complete - Private Link Engine)
+ * Version: 4.1.3 (UX Polish - Stress-Free Split View)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -43,7 +43,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.1.2",
+    version: "4.1.3",
     identity: "Sanghavi Jewel Studio - Guest Guard & Privacy Engine",
     
     // THE VISUAL IDENTITY
@@ -137,15 +137,14 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
+        "Upgraded to v4.1.3: Product Details Layout Refactor.",
+        "Implemented Split-Screen View for Desktop (Image Left, Details Right) for 'Stress-Free' reading.",
+        "Fixed Sticky Header Z-Index collision with Global Navigation on desktop.",
         "Upgraded to v4.1.2: Implemented Server-Side Private Link Engine (SQL Table + API).",
         "Added UI Modal for generated private links in ProductDetails.",
         "Fixed Guest Navigation Loophole: Restricted swipe navigation (Next/Prev) to first 8 items for guests.",
         "Implemented Guest View Limit (8 items) in Gallery.",
         "Applied Privacy Masks (Blur effects) to Product Details for guests.",
-        "Refactored Admin Dashboard: Separated Trends and Activity tabs.",
-        "Added 'Make Private' toggle and 'Private Link' generator to Product Details UI.",
-        "Restored Admin Dashboard Neural Core visualization.",
-        "Fixed Image cropping issue in Product Details (Object-Contain).",
-        "Implemented SQL-based System Settings for dynamic AI configuration."
+        "Refactored Admin Dashboard: Separated Trends and Activity tabs."
     ]
 };

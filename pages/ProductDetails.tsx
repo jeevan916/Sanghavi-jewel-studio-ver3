@@ -293,101 +293,263 @@ export const ProductDetails: React.FC = () => {
   return (
     <div 
         key={product.id} 
-        className={`min-h-screen bg-stone-50 pb-20 ${animationClass}`}
+        className={`min-h-screen bg-stone-50 pb-20 pt-0 md:pt-16 ${animationClass}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{ overscrollBehaviorX: 'none' }}
     >
-      <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 z-30 transition-transform duration-300">
+      {/* HEADER: Adaptive Sticky Behavior */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between sticky top-0 md:top-16 z-30 transition-transform duration-300">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24} /></button>
-        <h2 className="font-serif font-bold text-stone-800 text-lg truncate flex-1 px-4 text-center">{product.title}</h2>
-        <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><Share2 size={20} /></button>
+        <h2 className="font-serif font-bold text-stone-800 text-lg truncate flex-1 px-4 text-center md:text-left">{product.title}</h2>
+        <div className="flex gap-2">
+            <button onClick={() => toggleLike()} className={`p-2 rounded-full transition-colors ${isLiked ? 'text-red-500 bg-red-50' : 'text-stone-400 hover:bg-stone-100'}`}>
+                <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
+            </button>
+            <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><Share2 size={20} /></button>
+        </div>
       </div>
 
-      <div className="relative aspect-square md:aspect-video bg-white overflow-hidden select-none group border-b border-stone-100">
-        {aiComparison ? (
-            <ComparisonSlider 
-                before={aiComparison.original} 
-                after={aiComparison.enhanced} 
-                onAccept={handleApplyAI} 
-                onDiscard={() => setAiComparison(null)} 
-            />
-        ) : (
-            <>
-                {displayImages.length > 0 ? (
-                    <img 
-                        src={displayImages[0]} 
-                        className="w-full h-full object-contain cursor-zoom-in active:scale-105 transition-transform duration-500 bg-stone-50" 
-                        onClick={() => setShowFullScreen(true)} 
-                        alt={product.title} 
-                    />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-400 italic">No image available</div>
-                )}
-                
-                <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {neighbors.prev && (
-                        <button 
-                            onClick={() => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } })} 
-                            className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"
-                        >
-                            <ChevronLeft size={24}/>
-                        </button>
+      <div className="max-w-7xl mx-auto md:p-6 lg:p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-12">
+            
+            {/* LEFT COLUMN: Visual Media (Sticky on Desktop) */}
+            <div className="lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)]">
+                <div className="relative aspect-square md:aspect-video lg:aspect-auto lg:h-full bg-white overflow-hidden select-none group rounded-none md:rounded-2xl border-b md:border border-stone-100 shadow-sm">
+                    {aiComparison ? (
+                        <ComparisonSlider 
+                            before={aiComparison.original} 
+                            after={aiComparison.enhanced} 
+                            onAccept={handleApplyAI} 
+                            onDiscard={() => setAiComparison(null)} 
+                        />
+                    ) : (
+                        <>
+                            {displayImages.length > 0 ? (
+                                <img 
+                                    src={displayImages[0]} 
+                                    className="w-full h-full object-contain bg-stone-50 cursor-zoom-in active:scale-105 transition-transform duration-500" 
+                                    onClick={() => setShowFullScreen(true)} 
+                                    alt={product.title} 
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-stone-400 italic">No image available</div>
+                            )}
+                            
+                            <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                {neighbors.prev && (
+                                    <button 
+                                        onClick={() => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } })} 
+                                        className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"
+                                    >
+                                        <ChevronLeft size={24}/>
+                                    </button>
+                                )}
+                                {neighbors.next && (
+                                    <button 
+                                        onClick={() => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } })} 
+                                        className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"
+                                    >
+                                        <ChevronRight size={24}/>
+                                    </button>
+                                )}
+                            </div>
+
+                            {isGuest && images.length > 1 && (
+                                <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-black/80 transition" onClick={() => navigate('/login')}>
+                                    <Lock size={12} /> +{images.length - 1} Private Views Locked
+                                </div>
+                            )}
+
+                            {isAdmin && (
+                                <div className="absolute bottom-4 left-4 flex gap-2 animate-fade-in z-20">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleToggleVisibility(); }}
+                                        className={`p-2 backdrop-blur rounded-lg shadow transition-colors ${product.isHidden ? 'bg-red-500 text-white' : 'bg-white/90 text-stone-700 hover:text-green-600'}`}
+                                        title={product.isHidden ? "Private (Hidden). Click to Make Public." : "Public. Click to Hide."}
+                                    >
+                                        {product.isHidden ? <EyeOff size={18}/> : <Eye size={18}/>}
+                                    </button>
+                                    
+                                    <button onClick={(e) => { e.stopPropagation(); handlePrivateLink(); }} className="p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600" title="Copy Private Link"><LinkIcon size={18}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing)} } className={`p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600 ${isEditing ? 'text-gold-600 ring-2 ring-gold-500' : ''}`} title="Edit Details"><Edit2 size={18}/></button>
+                                </div>
+                            )}
+                        </>
                     )}
-                    {neighbors.next && (
-                        <button 
-                            onClick={() => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } })} 
-                            className="p-3 bg-black/30 text-white rounded-full hover:bg-black/50 pointer-events-auto backdrop-blur transition-all active:scale-95"
-                        >
-                            <ChevronRight size={24}/>
-                        </button>
+
+                    {isProcessingAI && (
+                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center text-white z-40">
+                            <Loader2 className="animate-spin mb-4 text-gold-500" size={48} />
+                            <p className="font-serif text-lg animate-pulse">AI Vision Processing...</p>
+                        </div>
                     )}
                 </div>
 
-                {isGuest && images.length > 1 && (
-                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-black/80 transition" onClick={() => navigate('/login')}>
-                        <Lock size={12} /> +{images.length - 1} Private Views Locked
+                {isAdmin && isEditing && !aiComparison && (
+                    <div className="bg-stone-900 p-3 rounded-b-xl flex items-center justify-around gap-4 text-white -mt-1 md:mt-0">
+                        <button onClick={() => initiateAI('enhance')} className="flex flex-col items-center gap-1 text-[10px] font-bold uppercase tracking-widest hover:text-gold-500 transition"><Wand2 size={16}/> Enhance</button>
+                        <button onClick={() => initiateAI('cleanup')} className="flex flex-col items-center gap-1 text-[10px] font-bold uppercase tracking-widest hover:text-gold-500 transition"><Eraser size={16}/> Cleanup</button>
                     </div>
                 )}
-                <button onClick={toggleLike} className={`absolute top-4 right-4 p-3 rounded-full shadow-sm transition-transform active:scale-90 ${isLiked ? 'bg-red-500 text-white' : 'bg-white/70 text-stone-400'}`}>
-                        <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
-                </button>
-
-                {isAdmin && (
-                    <div className="absolute bottom-4 left-4 flex gap-2 animate-fade-in z-20">
-                        {/* Visibility Toggle */}
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); handleToggleVisibility(); }}
-                            className={`p-2 backdrop-blur rounded-lg shadow transition-colors ${product.isHidden ? 'bg-red-500 text-white' : 'bg-white/90 text-stone-700 hover:text-green-600'}`}
-                            title={product.isHidden ? "Private (Hidden). Click to Make Public." : "Public. Click to Hide."}
-                        >
-                            {product.isHidden ? <EyeOff size={18}/> : <Eye size={18}/>}
-                        </button>
-                        
-                        <button onClick={(e) => { e.stopPropagation(); handlePrivateLink(); }} className="p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600" title="Copy Private Link"><LinkIcon size={18}/></button>
-                        <button onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing)} } className={`p-2 bg-white/90 backdrop-blur rounded-lg shadow text-stone-700 hover:text-gold-600 ${isEditing ? 'text-gold-600 ring-2 ring-gold-500' : ''}`} title="Edit Details"><Edit2 size={18}/></button>
-                    </div>
-                )}
-            </>
-        )}
-
-        {isProcessingAI && (
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center text-white z-40">
-                <Loader2 className="animate-spin mb-4 text-gold-500" size={48} />
-                <p className="font-serif text-lg animate-pulse">AI Vision Processing...</p>
             </div>
-        )}
+
+            {/* RIGHT COLUMN: Product Details */}
+            <div className="p-6 md:p-0 space-y-8">
+                <div>
+                    <span className="text-gold-600 text-xs font-bold uppercase tracking-widest block mb-2">{product.category}</span>
+                    {isEditing ? (
+                        <input 
+                            value={editForm.title || ''} 
+                            onChange={e => setEditForm({...editForm, title: e.target.value})}
+                            className="w-full font-serif text-3xl md:text-4xl text-stone-900 bg-white border-b border-gold-500 outline-none placeholder:text-stone-300"
+                            placeholder="Product Title"
+                        />
+                    ) : (
+                        <h1 className="font-serif text-3xl md:text-4xl text-stone-900 leading-tight">{product.title}</h1>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-4 text-stone-500 text-sm mt-4">
+                        <span className="flex items-center gap-1 bg-stone-100 px-3 py-1 rounded-full text-xs font-bold uppercase"><Tag size={12}/> {product.subCategory || 'Bespoke'}</span>
+                        <div className="h-1 w-1 bg-stone-300 rounded-full"></div>
+                        {isEditing ? (
+                            <div className="flex items-center gap-1">
+                                <input 
+                                    type="number" 
+                                    value={editForm.weight || 0} 
+                                    onChange={e => setEditForm({...editForm, weight: parseFloat(e.target.value)})}
+                                    className="w-20 bg-white border-b border-gold-500 outline-none text-right font-mono"
+                                />
+                                <span>g</span>
+                            </div>
+                        ) : (
+                            <span className={`font-mono ${isGuest ? 'blur-sm select-none opacity-50' : 'text-stone-700 font-bold'}`}>
+                                {isGuest ? '00.00g' : `${product.weight}g`}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3">
+                    {[
+                        { icon: Heart, label: 'Likes', val: stats.like, color: 'text-red-400', bg: 'bg-red-50 border-red-100' },
+                        { icon: ShoppingBag, label: 'Inquiries', val: stats.inquiry, color: 'text-gold-600', bg: 'bg-gold-50 border-gold-100' },
+                        { icon: Gem, label: 'Sold', val: stats.purchase, color: 'text-blue-500', bg: 'bg-blue-50 border-blue-100' },
+                        { icon: BarChart2, label: 'Trend', val: 'High', color: 'text-stone-400', bg: 'bg-stone-50 border-stone-200' }
+                    ].map((s, idx) => (
+                        <div key={idx} className={`${s.bg} border rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-sm`}>
+                            <s.icon size={20} className={`mb-2 ${s.color}`} />
+                            <span className="font-bold text-stone-800 text-lg leading-none mb-1">{s.val}</span>
+                            <span className="text-[9px] uppercase font-bold text-stone-400 tracking-wider">{s.label}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="prose prose-stone max-w-none">
+                    <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2 mb-3"><Info size={16} /> Craftsmanship Story</h3>
+                    {isEditing ? (
+                        <textarea 
+                            value={editForm.description || ''} 
+                            onChange={e => setEditForm({...editForm, description: e.target.value})}
+                            className="w-full h-40 p-4 bg-white border border-stone-200 rounded-xl focus:ring-1 focus:ring-gold-500 outline-none text-stone-600 leading-relaxed resize-none"
+                        />
+                    ) : (
+                        <p className="text-stone-600 leading-relaxed font-light whitespace-pre-line text-lg">{product.description || "A bespoke masterpiece from the Sanghavi collection, crafted with precision and elegance."}</p>
+                    )}
+                </div>
+
+                {/* Specs */}
+                <div className="bg-stone-100 rounded-2xl p-6 space-y-4 border border-stone-200/50">
+                    <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                        <Info size={16} /> Technical Details
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-white rounded-lg text-stone-400 shadow-sm"><Calendar size={16} /></div>
+                            <div>
+                                <p className="text-[10px] font-bold uppercase text-stone-400 tracking-wide">Added On</p>
+                                <p className={`text-sm font-medium text-stone-700 ${isGuest ? 'blur-sm select-none opacity-50' : ''}`}>
+                                    {isGuest ? 'dd/mm/yyyy' : new Date(product.createdAt).toLocaleDateString()}
+                                </p>
+                            </div>
+                        </div>
+                        {product.meta?.cameraModel && !isGuest && (
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white rounded-lg text-stone-400 shadow-sm"><Camera size={16} /></div>
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase text-stone-400 tracking-wide">Captured On</p>
+                                    <p className="text-sm font-medium text-stone-700">{product.meta.cameraModel}</p>
+                                </div>
+                            </div>
+                        )}
+                        {isAdmin && product.supplier && (
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white rounded-lg text-stone-400 shadow-sm"><Package size={16} /></div>
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase text-stone-400 tracking-wide">Source</p>
+                                    <p className="text-sm font-medium text-stone-700">{product.supplier}</p>
+                                </div>
+                            </div>
+                        )}
+                        {product.meta?.location && !isGuest && (
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white rounded-lg text-stone-400 shadow-sm"><MapPin size={16} /></div>
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase text-stone-400 tracking-wide">Studio</p>
+                                    <p className="text-sm font-medium text-stone-700">{product.meta.location}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    {isGuest && (
+                         <div className="bg-white/50 p-3 rounded-lg border border-dashed border-stone-300 flex items-center justify-center gap-2 text-stone-500 text-xs italic mt-2">
+                             <Lock size={12}/> Detailed specifications are reserved for members.
+                         </div>
+                     )}
+                </div>
+
+                {product.tags && product.tags.length > 0 && !isGuest && (
+                    <div className="flex flex-wrap gap-2">
+                        {product.tags.map((tag, i) => (
+                            <span key={i} className="px-3 py-1 bg-white border border-stone-200 rounded-full text-xs font-bold text-stone-500 uppercase tracking-wide shadow-sm">
+                                #{tag}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                <div className="pt-4 sticky bottom-4 md:static z-20">
+                    {isEditing ? (
+                        <div className="flex gap-4">
+                            <button onClick={() => setIsEditing(false)} className="flex-1 py-4 bg-stone-200 text-stone-600 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-stone-300 transition">Cancel</button>
+                            <button onClick={handleSave} className="flex-1 py-4 bg-stone-900 text-white rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-gold-600 transition shadow-xl"><Save size={16}/> Save Changes</button>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={() => isGuest ? navigate('/login') : storeService.shareToWhatsApp(product)} 
+                            className="w-full py-4 bg-gold-600 text-white rounded-xl font-bold shadow-xl shadow-gold-200/50 flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-gold-700"
+                        >
+                            <MessageCircle size={22} /> 
+                            <span className="uppercase tracking-widest text-sm">{isGuest ? 'Login to Inquire' : 'Inquire on WhatsApp'}</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
       </div>
 
-      {isAdmin && isEditing && !aiComparison && (
-          <div className="bg-stone-900 p-4 flex items-center justify-around gap-4 text-white">
-               <button onClick={() => initiateAI('enhance')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Wand2 size={20}/> AI Enhance</button>
-               <button onClick={() => initiateAI('cleanup')} className="flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-widest hover:text-gold-500 transition"><Eraser size={20}/> Cleanup</button>
-          </div>
+      {/* MODALS */}
+      {showFullScreen && displayImages.length > 0 && (
+        <ImageViewer 
+            images={displayImages} 
+            title={product.title} 
+            onClose={() => setShowFullScreen(false)} 
+            onNextProduct={neighbors.next ? () => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } }) : undefined}
+            onPrevProduct={neighbors.prev ? () => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } }) : undefined}
+        />
       )}
 
-      {/* PRIVATE LINK MODAL */}
       {generatedLink && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
@@ -457,173 +619,6 @@ export const ProductDetails: React.FC = () => {
                   </div>
               </div>
           </div>
-      )}
-      
-      <div className="max-w-3xl mx-auto p-6 space-y-8">
-            {/* Header Details */}
-            <div>
-                <span className="text-gold-600 text-xs font-bold uppercase tracking-widest">{product.category}</span>
-                {isEditing ? (
-                    <input 
-                        value={editForm.title || ''} 
-                        onChange={e => setEditForm({...editForm, title: e.target.value})}
-                        className="w-full font-serif text-3xl text-stone-900 mt-1 bg-white border-b border-gold-500 outline-none"
-                    />
-                ) : (
-                    <h1 className="font-serif text-3xl text-stone-900 mt-1">{product.title}</h1>
-                )}
-
-                <div className="flex items-center gap-4 text-stone-500 text-sm mt-2">
-                    <span className="flex items-center gap-1"><Tag size={14}/> {product.subCategory || 'Bespoke'}</span>
-                    <span>•</span>
-                    {isEditing ? (
-                        <div className="flex items-center gap-1">
-                            <input 
-                                type="number" 
-                                value={editForm.weight || 0} 
-                                onChange={e => setEditForm({...editForm, weight: parseFloat(e.target.value)})}
-                                className="w-20 bg-white border-b border-gold-500 outline-none text-right"
-                            />
-                            <span>g</span>
-                        </div>
-                    ) : (
-                        // LIMITED VIEW: Hide weight for guests
-                        <span className={`${isGuest ? 'blur-sm select-none opacity-50' : ''}`}>
-                            {isGuest ? '00.00g' : `${product.weight}g`}
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-4 gap-2">
-            {[
-                { icon: Heart, label: 'Likes', val: stats.like, color: 'text-red-400' },
-                { icon: ShoppingBag, label: 'Inquiries', val: stats.inquiry, color: 'text-gold-600' },
-                { icon: Gem, label: 'Sold', val: stats.purchase, color: 'text-blue-500' },
-                { icon: BarChart2, label: 'Trend', val: 'High', color: 'text-stone-400' }
-            ].map((s, idx) => (
-                <div key={idx} className="bg-white border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-sm">
-                    <s.icon size={18} className={`mb-1 ${s.color}`} />
-                    <span className="font-bold text-stone-800">{s.val}</span>
-                    <span className="text-[9px] uppercase font-bold text-stone-400">{s.label}</span>
-                </div>
-            ))}
-            </div>
-
-            {/* Specifications Section */}
-            <div className="bg-stone-100 rounded-2xl p-6 space-y-4">
-                <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                    <Info size={16} /> Specifications
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="flex items-start gap-3">
-                         <Calendar size={18} className="text-stone-400 mt-0.5" />
-                         <div>
-                             <p className="text-xs font-bold uppercase text-stone-400">Date Added</p>
-                             {/* LIMITED VIEW: Hide Date */}
-                             <p className={`text-sm font-medium text-stone-700 ${isGuest ? 'blur-sm select-none opacity-50' : ''}`}>
-                                 {isGuest ? 'dd/mm/yyyy' : new Date(product.createdAt).toLocaleDateString()}
-                             </p>
-                         </div>
-                     </div>
-                     {product.meta?.cameraModel && !isGuest && (
-                        <div className="flex items-start gap-3 animate-fade-in">
-                            <Camera size={18} className="text-stone-400 mt-0.5" />
-                            <div>
-                                <p className="text-xs font-bold uppercase text-stone-400">Captured On</p>
-                                <p className="text-sm font-medium text-stone-700">{product.meta.cameraModel}</p>
-                            </div>
-                        </div>
-                     )}
-                     {isAdmin && product.supplier && (
-                        <div className="flex items-start gap-3">
-                            <Package size={18} className="text-stone-400 mt-0.5" />
-                            <div>
-                                <p className="text-xs font-bold uppercase text-stone-400">Supplier</p>
-                                <p className="text-sm font-medium text-stone-700">{product.supplier}</p>
-                            </div>
-                        </div>
-                     )}
-                     {isAdmin && product.uploadedBy && (
-                        <div className="flex items-start gap-3">
-                            <User size={18} className="text-stone-400 mt-0.5" />
-                            <div>
-                                <p className="text-xs font-bold uppercase text-stone-400">Uploaded By</p>
-                                <p className="text-sm font-medium text-stone-700">{product.uploadedBy}</p>
-                            </div>
-                        </div>
-                     )}
-                     {product.meta?.location && !isGuest && (
-                        <div className="flex items-start gap-3 animate-fade-in">
-                            <MapPin size={18} className="text-stone-400 mt-0.5" />
-                            <div>
-                                <p className="text-xs font-bold uppercase text-stone-400">Studio Location</p>
-                                <p className="text-sm font-medium text-stone-700">{product.meta.location}</p>
-                            </div>
-                        </div>
-                     )}
-                     {isGuest && (
-                         <div className="col-span-full bg-white/50 p-3 rounded-lg border border-dashed border-stone-300 flex items-center justify-center gap-2 text-stone-500 text-xs italic">
-                             <Lock size={12}/> Technical specifications are locked for guests.
-                         </div>
-                     )}
-                </div>
-
-                {product.tags && product.tags.length > 0 && !isGuest && (
-                    <div className="pt-4 border-t border-stone-200 animate-fade-in">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Hash size={16} className="text-stone-400" />
-                            <span className="text-xs font-bold uppercase text-stone-400">Tags</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {product.tags.map((tag, i) => (
-                                <span key={i} className="px-3 py-1 bg-white border border-stone-200 rounded-full text-xs font-medium text-stone-600">
-                                    #{tag}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Description Section */}
-            <div className="prose prose-stone max-w-none">
-                <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2 mb-2"><Info size={16} /> Craftsmanship Story</h3>
-                {isEditing ? (
-                    <textarea 
-                        value={editForm.description || ''} 
-                        onChange={e => setEditForm({...editForm, description: e.target.value})}
-                        className="w-full h-40 p-4 bg-white border border-stone-200 rounded-xl focus:ring-1 focus:ring-gold-500 outline-none"
-                    />
-                ) : (
-                    <p className="text-stone-600 leading-relaxed font-light whitespace-pre-line">{product.description || "A bespoke masterpiece from the Sanghavi collection."}</p>
-                )}
-            </div>
-
-            {isEditing ? (
-                 <div className="flex gap-4">
-                     <button onClick={() => setIsEditing(false)} className="flex-1 py-4 bg-stone-200 text-stone-600 rounded-xl font-bold uppercase tracking-widest text-xs">Cancel</button>
-                     <button onClick={handleSave} className="flex-1 py-4 bg-stone-900 text-white rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2"><Save size={16}/> Save Changes</button>
-                 </div>
-            ) : (
-                <button 
-                    onClick={() => isGuest ? navigate('/login') : storeService.shareToWhatsApp(product)} 
-                    className="w-full py-4 bg-gold-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
-                >
-                    <MessageCircle size={20} /> {isGuest ? 'Login to Inquire' : 'Inquire on WhatsApp'}
-                </button>
-            )}
-      </div>
-
-      {showFullScreen && displayImages.length > 0 && (
-        <ImageViewer 
-            images={displayImages} 
-            title={product.title} 
-            onClose={() => setShowFullScreen(false)} 
-            onNextProduct={neighbors.next ? () => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } }) : undefined}
-            onPrevProduct={neighbors.prev ? () => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } }) : undefined}
-        />
       )}
     </div>
   );
