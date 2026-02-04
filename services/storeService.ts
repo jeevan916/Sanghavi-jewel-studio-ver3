@@ -256,6 +256,7 @@ export const storeService = {
   
   addProduct: (p: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(p) }),
   updateProduct: (p: Product) => apiFetch(`/products/${p.id}`, { method: 'PUT', body: JSON.stringify(p) }),
+  deleteProduct: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
 
   getUnlockedCategories: () => {
     try {

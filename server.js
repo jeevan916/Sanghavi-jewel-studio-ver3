@@ -391,6 +391,13 @@ app.put('/api/products/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.delete('/api/products/:id', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Other Entities
 app.get('/api/customers', async (req, res) => {
     const [rows] = await pool.query('SELECT id, name, phone, pincode, role, createdAt FROM customers ORDER BY createdAt DESC');

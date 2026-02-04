@@ -6,7 +6,7 @@ import { Product, AnalyticsEvent, User, AppConfig } from '../types';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -28,6 +28,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Asset Management State
+  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set<string>());
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [moveCategory, setMoveCategory] = useState('');
+  const [moveSubCategory, setMoveSubCategory] = useState('');
 
   // Core Engine Data
   const memory = coreEngine.getMemory();
@@ -67,7 +73,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   const folders = useMemo(() => {
       if (!Array.isArray(products)) return ['All', 'Private'];
-      const cats = new Set(products.map(p => p?.category).filter(Boolean));
+      // Explicitly filter for strings to satisfy Set<string>
+      const cats = new Set(products.map(p => p?.category).filter((c): c is string => !!c));
       return ['All', 'Private', ...Array.from(cats)];
   }, [products]);
 
@@ -83,6 +90,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           return matchesFolder && matchesSearch;
       });
   }, [products, selectedFolder, searchQuery]);
+
+  // --- Asset Management Handlers ---
+  const toggleAssetSelection = (id: string) => {
+      const newSet = new Set(selectedAssets);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      setSelectedAssets(newSet);
+  };
+  
+  const handleBulkDelete = async () => {
+      if (!confirm(`Permanently delete ${selectedAssets.size} assets? This cannot be undone.`)) return;
+      setLoading(true);
+      try {
+          await Promise.all(Array.from(selectedAssets).map(id => storeService.deleteProduct(id)));
+          setSelectedAssets(new Set<string>());
+          refreshData(true);
+      } catch(e) { console.error(e); alert('Delete failed'); }
+      setLoading(false);
+  };
+
+  const handleBulkMove = async () => {
+      if (!moveCategory) return;
+      setLoading(true);
+      try {
+          const updates = products.filter(p => selectedAssets.has(p.id));
+          await Promise.all(updates.map(p => storeService.updateProduct({
+              ...p,
+              category: moveCategory,
+              subCategory: moveSubCategory
+          })));
+          setIsMoveModalOpen(false);
+          setSelectedAssets(new Set<string>());
+          refreshData(true);
+      } catch(e) { console.error(e); alert('Move failed'); }
+      setLoading(false);
+  };
+
+  const activeSubCategories = config?.categories?.find(c => c.name === moveCategory)?.subCategories || [];
 
   if (loading && products.length === 0) {
     return (
@@ -241,16 +286,77 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                      ))}
                  </div>
              </div>
-             <div className="flex-1 p-4 overflow-y-auto">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+             <div className="flex-1 p-4 overflow-y-auto relative">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
                     {filteredProducts.map(product => (
-                        <div key={product.id} className="relative aspect-square bg-stone-100 rounded-xl overflow-hidden border border-stone-200 group">
-                            <img src={product.thumbnails?.[0] || product.images?.[0]} className="w-full h-full object-cover" />
-                            <div className="absolute inset-x-0 bottom-0 p-2 bg-black/60 text-white text-[10px] truncate">{product.title}</div>
+                        <div key={product.id} 
+                             onClick={() => toggleAssetSelection(product.id)}
+                             className={`relative aspect-square bg-stone-100 rounded-xl overflow-hidden border cursor-pointer group transition-all ${selectedAssets.has(product.id) ? 'border-gold-500 ring-2 ring-gold-500 ring-offset-2' : 'border-stone-200 hover:border-gold-300'}`}>
+                            <img src={product.thumbnails?.[0] || product.images?.[0]} className={`w-full h-full object-cover transition-transform duration-500 ${selectedAssets.has(product.id) ? 'scale-90' : 'group-hover:scale-110'}`} />
+                            
+                            <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border border-white/50 flex items-center justify-center transition-colors ${selectedAssets.has(product.id) ? 'bg-gold-500 border-gold-500' : 'bg-black/30'}`}>
+                                {selectedAssets.has(product.id) && <CheckCircle size={14} className="text-white" />}
+                            </div>
+
+                            <div className="absolute inset-x-0 bottom-0 p-2 bg-black/60 text-white text-[10px] truncate">
+                                {product.title}
+                            </div>
                         </div>
                     ))}
                 </div>
+                
+                {/* Bulk Action Toolbar */}
+                {selectedAssets.size > 0 && (
+                    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-stone-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-6 z-50 animate-in slide-in-from-bottom-4">
+                        <span className="text-xs font-bold uppercase tracking-widest">{selectedAssets.size} Selected</span>
+                        <div className="h-4 w-px bg-stone-700"></div>
+                        <button onClick={() => setIsMoveModalOpen(true)} className="flex items-center gap-2 hover:text-gold-500 transition-colors">
+                            <FolderInput size={18} /> <span className="text-xs font-bold uppercase">Move</span>
+                        </button>
+                        <button onClick={handleBulkDelete} className="flex items-center gap-2 hover:text-red-500 transition-colors">
+                            <Trash2 size={18} /> <span className="text-xs font-bold uppercase">Delete</span>
+                        </button>
+                        <button onClick={() => setSelectedAssets(new Set())} className="p-1 hover:bg-stone-800 rounded-full">
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
              </div>
+          </div>
+      )}
+
+      {/* Move Assets Modal */}
+      {isMoveModalOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95">
+                  <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+                      <h3 className="font-bold text-stone-800 flex items-center gap-2"><FolderInput size={18}/> Move {selectedAssets.size} Assets</h3>
+                      <button onClick={() => setIsMoveModalOpen(false)}><X size={20}/></button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Destination Category</label>
+                          <select value={moveCategory} onChange={e => { setMoveCategory(e.target.value); setMoveSubCategory(''); }} className="w-full p-3 border border-stone-200 rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-gold-500">
+                              <option value="">Select Category...</option>
+                              {config?.categories?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </select>
+                      </div>
+                      
+                      {activeSubCategories.length > 0 && (
+                          <div>
+                              <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Sub-Category</label>
+                              <select value={moveSubCategory} onChange={e => setMoveSubCategory(e.target.value)} className="w-full p-3 border border-stone-200 rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-gold-500">
+                                  <option value="">Select Sub-Category...</option>
+                                  {activeSubCategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                              </select>
+                          </div>
+                      )}
+
+                      <button onClick={handleBulkMove} disabled={!moveCategory} className="w-full py-3 bg-stone-900 text-white rounded-xl font-bold disabled:opacity-50">
+                          Confirm Move
+                      </button>
+                  </div>
+              </div>
           </div>
       )}
     </div>
