@@ -174,7 +174,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
       {/* 2. Main Image Area (Flex-1 - Takes Remaining Safe Space) */}
       <div 
-        className="flex-1 w-full overflow-hidden relative touch-none flex items-center justify-center bg-stone-950"
+        className="flex-1 w-full overflow-hidden relative touch-none flex items-center justify-center bg-black"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}

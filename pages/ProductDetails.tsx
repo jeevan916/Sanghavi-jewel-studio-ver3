@@ -360,7 +360,12 @@ export const ProductDetails: React.FC = () => {
             
             {/* LEFT COLUMN: Visual Media (Sticky on Desktop) */}
             <div className="lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)]">
-                <div className="relative aspect-square md:aspect-video lg:aspect-auto lg:h-full bg-white overflow-hidden select-none group rounded-none md:rounded-2xl border-b md:border border-stone-100 shadow-sm">
+                {/* 
+                   UPDATED CONTAINER: 
+                   - Mobile: Aspect Ratio 3:4 to match phone width (object-cover)
+                   - Desktop: aspect-video or auto.
+                */}
+                <div className="relative w-full aspect-[3/4] md:h-auto md:aspect-video lg:aspect-auto lg:h-full bg-white overflow-hidden select-none group rounded-none md:rounded-2xl border-b md:border border-stone-100 shadow-sm">
                     {aiComparison ? (
                         <ComparisonSlider 
                             before={aiComparison.original} 
@@ -373,7 +378,8 @@ export const ProductDetails: React.FC = () => {
                             {displayImages.length > 0 ? (
                                 <img 
                                     src={displayImages[0]} 
-                                    className="w-full h-full object-contain bg-stone-50 cursor-zoom-in active:scale-105 transition-transform duration-500" 
+                                    // UPDATED IMAGE: object-cover fills the width nicely on mobile
+                                    className="w-full h-full object-cover bg-white cursor-zoom-in active:scale-105 transition-transform duration-500" 
                                     onClick={() => setShowFullScreen(true)} 
                                     alt={product.title} 
                                 />

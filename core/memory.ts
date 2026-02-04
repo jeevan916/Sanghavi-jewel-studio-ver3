@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.2.0 (Enterprise Scale - 50k Capable)
+ * Version: 4.2.1 (Enterprise Scale - 50k Capable)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -43,7 +43,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.2.0",
+    version: "4.2.1",
     identity: "Sanghavi Jewel Studio - Enterprise Edition",
     
     // THE VISUAL IDENTITY
@@ -132,15 +132,24 @@ export const APP_MEMORY: AppMemory = {
             status: 'stable',
             critical: true,
             description: "Restricts non-logged users to 8 gallery items and masks sensitive product specs (Weight, Date, Tags)."
+        },
+        {
+            id: 'thumbnail_pipeline',
+            name: 'Dual-Stream Image Pipeline',
+            status: 'stable',
+            critical: true,
+            description: "Uploads automatically generate both 1080p (Primary) and 300px (Thumbnail) WebP assets to ensure instant gallery loading."
         }
     ],
 
     // HISTORY OF STABILIZATION
     fix_log: [
+        "Upgraded to v4.2.1: Thumbnail Repair Utility.",
+        "Implemented dedicated Thumbnail Repair tool in Maintenance to regenerate broken previews without data loss.",
+        "Upgraded Server Image Engine to output simultaneous 1080p and 300px assets.",
+        "Updated Upload Pipeline to correctly store distinct thumbnail URLs in database.",
         "Upgraded to v4.2.0: Enterprise Scalability.",
         "Implemented SQL Indexes for categories, analytics, and dates to support 50k+ rows.",
-        "Replaced Client-Side Pagination with Server-Side Infinite Scroll in Gallery.",
-        "Upgraded to v4.1.5: Stabilized Zoom Mode Navigation.",
-        "Implemented seamless transitions when swiping between products in full-screen mode by suppressing background animations and viewer re-entry fades."
+        "Replaced Client-Side Pagination with Server-Side Infinite Scroll in Gallery."
     ]
 };

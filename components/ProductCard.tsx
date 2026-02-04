@@ -43,7 +43,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
         onClick?.(); 
       }}
     >
-      <div className="relative aspect-square overflow-hidden bg-stone-100">
+      <div className="relative aspect-square overflow-hidden bg-white">
         <img 
             src={displayImage} 
             alt={product.title} 
@@ -54,7 +54,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
         />
         
         {!isLoaded && (
-          <div className="absolute inset-0 bg-stone-100 flex items-center justify-center">
+          <div className="absolute inset-0 bg-stone-50 flex items-center justify-center">
              <div className="w-6 h-6 rounded-full border-2 border-stone-200 border-t-gold-400 animate-spin" />
           </div>
         )}
