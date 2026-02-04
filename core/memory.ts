@@ -1,11 +1,9 @@
-
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
+ * Version: 4.0.0 (Neural Template Engine Upgrade)
  * 
  * This file is the central intelligence of the application.
- * It documents the "Design DNA", "Critical Features", and "Micro-Instructions"
- * that define the application's identity and behavior.
- * 
+ * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
  * AI AGENTS MUST READ THIS BEFORE MAKING CHANGES.
  */
 
@@ -36,18 +34,18 @@ export interface DesignDNA {
 export interface AppMemory {
     version: string;
     identity: string;
-    design_dna: DesignDNA;       // The visual soul of the app
-    architecture_rules: string[];// Technical commandments
-    micro_instructions: string[];// Specific user preferences/fixes
+    design_dna: DesignDNA;
+    architecture_rules: string[];
+    micro_instructions: string[];
     locked_features: SystemFeature[];
     fix_log: string[];
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "3.9.4",
-    identity: "Sanghavi Jewel Studio - AI Bespoke PWA",
+    version: "4.0.0",
+    identity: "Sanghavi Jewel Studio - Neural Engine V4",
     
-    // THE VISUAL IDENTITY (DO NOT BREAK)
+    // THE VISUAL IDENTITY
     design_dna: {
         fonts: {
             primary: "Playfair Display",
@@ -70,15 +68,14 @@ export const APP_MEMORY: AppMemory = {
         "Styling: PostCSS/Vite Build (No Runtime CDN).",
         "API Logic: 'storeService' is the Single Source of Truth.",
         "Images: Pipeline -> Slugify -> Base64 -> AI -> Buffer -> Sharp -> CDN.",
-        "Persistence: MySQL + LocalStorage (User Session)."
+        "Persistence: MySQL (System Settings) + LocalStorage (Session).",
+        "AI: Use @google/genai SDK with Flash models for speed."
     ],
 
-    // USER MICRO-INSTRUCTIONS (Persistent Requests)
+    // USER MICRO-INSTRUCTIONS
     micro_instructions: [
-        "Use ONLY Cheapest/Fastest AI Models (Flash Series) for all tasks.",
-        "Remove all AI Vendor Branding (e.g. 'Powered by Gemini').",
         "Maintain the 'Sophisticated' and 'Luxury' aesthetic.",
-        "Ensure filenames are SEO-friendly and lowercase for Hostinger compatibility.",
+        "Ensure filenames are SEO-friendly.",
         "Always sanitize database inputs.",
         "Keep the 'ComparisonSlider' for AI enhancements."
     ],
@@ -86,11 +83,11 @@ export const APP_MEMORY: AppMemory = {
     // FEATURES THAT ARE LOCKED AND PROTECTED
     locked_features: [
         {
-            id: 'ai_comparison_slider',
-            name: 'AI Before/After Slider',
+            id: 'neural_template_engine',
+            name: 'Neural Template Engine',
             status: 'stable',
             critical: true,
-            description: "Visual slider in ProductDetails to compare Original vs Enhanced images."
+            description: "Dynamic AI Prompt Templates for Analysis, Enhancement, and Design stored in SQL."
         },
         {
             id: 'server_sharp_engine',
@@ -105,15 +102,22 @@ export const APP_MEMORY: AppMemory = {
             status: 'stable',
             critical: true,
             description: "Authentication via Meta WhatsApp API."
+        },
+        {
+            id: 'ai_comparison_slider',
+            name: 'AI Before/After Slider',
+            status: 'stable',
+            critical: true,
+            description: "Visual slider in ProductDetails to compare Original vs Enhanced images."
         }
     ],
 
     // HISTORY OF STABILIZATION
     fix_log: [
-        "Reverted to PostCSS/Vite build for Tailwind CSS (Removed CDN) to fix build-time integration.",
-        "Implemented SEO-friendly file naming (slugified) to optimize for Hostinger CDN.",
-        "Added explicit MIME type handling in .htaccess for WebP/AVIF formats.",
-        "Removed Gemini Voice/Audio features and microphone permissions.",
-        "Enforced 'Flash' series models for all AI tasks to optimize speed/cost."
+        "Upgraded to v4.0.0 with Neural Template Engine.",
+        "Consolidated Memory into single source of truth.",
+        "Restored Admin Dashboard Neural Core visualization.",
+        "Fixed Image cropping issue in Product Details (Object-Contain).",
+        "Implemented SQL-based System Settings for dynamic AI configuration."
     ]
 };

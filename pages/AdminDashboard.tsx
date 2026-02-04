@@ -2,11 +2,11 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storeService } from '../services/storeService';
 import { coreEngine } from '../services/coreEngine';
-import { Product, AnalyticsEvent, User } from '../types';
+import { Product, AnalyticsEvent, User, AppConfig } from '../types';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, 
-  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -24,13 +24,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [healthInfo, setHealthInfo] = useState<{mode?: string, healthy: boolean}>({healthy: false});
-  const [intelligence, setIntelligence] = useState<any>(null);
+  const [config, setConfig] = useState<AppConfig | null>(null);
 
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewStyle, setViewStyle] = useState<'grid' | 'list'>('grid');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [editProduct, setEditProduct] = useState<Product | null>(null);
 
   // Core Engine Data
   const memory = coreEngine.getMemory();
@@ -44,16 +41,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         setHealthInfo(h);
         
         if (h.healthy) {
-            const [pRes, a, c, intel] = await Promise.all([
+            const [pRes, a, c, conf] = await Promise.all([
               storeService.getProducts(1, 1000, { publicOnly: false }), 
               storeService.getAnalytics(),
               storeService.getCustomers(),
-              storeService.getBusinessIntelligence()
+              storeService.getConfig()
             ]);
             setProducts(Array.isArray(pRes?.items) ? pRes.items : []);
             setAnalytics(Array.isArray(a) ? a : []);
             setCustomers(Array.isArray(c) ? c : []);
-            setIntelligence(intel);
+            setConfig(conf);
         }
     } catch (e) {
         console.error("Dashboard Sync Failed", e);
@@ -86,34 +83,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           return matchesFolder && matchesSearch;
       });
   }, [products, selectedFolder, searchQuery]);
-
-  const recentInquiries = useMemo(() => {
-    if (!Array.isArray(analytics)) return [];
-    return analytics.filter(e => e?.type === 'inquiry').slice(0, 10);
-  }, [analytics]);
-
-  const trendingProducts = useMemo(() => {
-      if (!Array.isArray(analytics) || !Array.isArray(products)) return [];
-      const scores: Record<string, number> = {};
-      analytics.forEach(e => {
-          if (!e || !e.productId) return;
-          if (!scores[e.productId]) scores[e.productId] = 0;
-          
-          if (e.type === 'inquiry') scores[e.productId] += 10;
-          if (e.type === 'like') scores[e.productId] += 5;
-          if (e.type === 'view') scores[e.productId] += 1;
-          if (e.type === 'dislike') scores[e.productId] -= 3;
-      });
-
-      return Object.entries(scores)
-          .sort(([,scoreA], [,scoreB]) => scoreB - scoreA)
-          .slice(0, 10)
-          .map(([id]) => {
-              const product = products.find(p => p && p.id === id);
-              return product ? { ...product, score: scores[id] } : null;
-          })
-          .filter(Boolean) as (Product & { score: number })[];
-  }, [analytics, products]);
 
   if (loading && products.length === 0) {
     return (
@@ -169,6 +138,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     <div className="p-3 bg-green-50 text-green-600 rounded-xl"><UserCheck size={24} /></div>
                     <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Leads</p><p className="text-2xl font-bold text-stone-800">{customers.length}</p></div>
                 </div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4">
+                    <div className="p-3 bg-gold-50 text-gold-600 rounded-xl"><Zap size={24} /></div>
+                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">AI Ops</p><p className="text-2xl font-bold text-stone-800">{config ? 'Active' : 'Offline'}</p></div>
+                </div>
           </div>
       )}
 
@@ -186,6 +159,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                   </div>
                   
                   <div className="space-y-6">
+                      {/* Active Abilities Section */}
+                      <div>
+                           <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Zap size={12}/> Active Capabilities</h4>
+                           <div className="grid grid-cols-2 gap-2">
+                               <div className="p-3 bg-stone-800 rounded-xl border border-stone-700">
+                                   <p className="text-[10px] text-stone-400 uppercase">Analysis Model</p>
+                                   <p className="text-xs font-mono text-teal-400 truncate">{config?.aiConfig?.models?.analysis || 'System Default'}</p>
+                               </div>
+                               <div className="p-3 bg-stone-800 rounded-xl border border-stone-700">
+                                   <p className="text-[10px] text-stone-400 uppercase">Design Model</p>
+                                   <p className="text-xs font-mono text-teal-400 truncate">{config?.aiConfig?.models?.design || 'System Default'}</p>
+                               </div>
+                               <div className="p-3 bg-stone-800 rounded-xl border border-stone-700">
+                                   <p className="text-[10px] text-stone-400 uppercase">Analysis Templates</p>
+                                   <p className="text-xl font-bold text-white">{config?.aiConfig?.templates?.analysis?.length || 0}</p>
+                               </div>
+                               <div className="p-3 bg-stone-800 rounded-xl border border-stone-700">
+                                   <p className="text-[10px] text-stone-400 uppercase">Design Templates</p>
+                                   <p className="text-xl font-bold text-white">{config?.aiConfig?.templates?.design?.length || 0}</p>
+                               </div>
+                           </div>
+                      </div>
+
                       <div>
                           <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Lock size={12}/> Locked Features (Immutable)</h4>
                           <div className="grid grid-cols-1 gap-2">
@@ -196,17 +192,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                           <span className="font-medium text-sm text-stone-200">{f.name}</span>
                                       </div>
                                       <ShieldCheck size={16} className="text-gold-500/50" />
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-
-                      <div>
-                          <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Cpu size={12}/> Architecture Rules</h4>
-                          <div className="space-y-2">
-                              {memory.architecture_rules.map((rule, i) => (
-                                  <div key={i} className="text-xs font-mono text-stone-400 bg-black/20 p-2 rounded border-l-2 border-gold-500/50">
-                                      {rule}
                                   </div>
                               ))}
                           </div>
@@ -237,7 +222,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       </div>
                       <p className="text-sm text-blue-800/80 leading-relaxed">
                           The Core Engine is actively monitoring the codebase for regression. 
-                          Critical features like the AI Slider and Server-Side Sharp processing are locked and protected.
+                          The Neural Template System is online and serving {((config?.aiConfig?.templates?.analysis?.length || 0) + (config?.aiConfig?.templates?.design?.length || 0))} custom prompts.
                       </p>
                   </div>
               </div>

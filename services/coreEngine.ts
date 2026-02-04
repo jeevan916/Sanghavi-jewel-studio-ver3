@@ -1,4 +1,3 @@
-
 import { APP_MEMORY } from '../core/memory';
 
 /**
@@ -30,18 +29,11 @@ class CoreEngine {
 
     private validateDesignDNA() {
         const dna = this.memory.design_dna;
-        // In a real scenario, this would check DOM computed styles.
-        // Here, we simply assert the contract is loaded.
         console.log(`%c[Design DNA] Primary Font: ${dna.fonts.primary}`, 'color: #c68a36');
         console.log(`%c[Design DNA] Brand Color: ${dna.palette.gold}`, 'color: #c68a36');
     }
 
     private enforceArchitecture() {
-        // Validate Micro-Instructions
-        this.memory.micro_instructions.forEach(instruction => {
-             // Logic to ensure instructions are met (placeholder)
-        });
-        
         // Environment Check (CDN vs Build)
         const hasTailwindCDN = !!document.querySelector('script[src*="cdn.tailwindcss.com"]');
         
