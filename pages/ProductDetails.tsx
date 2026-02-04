@@ -269,7 +269,7 @@ export const ProductDetails: React.FC = () => {
         <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors"><Share2 size={20} /></button>
       </div>
 
-      <div className="relative aspect-square md:aspect-video bg-stone-200 overflow-hidden select-none group">
+      <div className="relative aspect-square md:aspect-video bg-white overflow-hidden select-none group border-b border-stone-100">
         {aiComparison ? (
             <ComparisonSlider 
                 before={aiComparison.original} 
@@ -282,7 +282,7 @@ export const ProductDetails: React.FC = () => {
                 {displayImages.length > 0 ? (
                     <img 
                         src={displayImages[0]} 
-                        className="w-full h-full object-cover cursor-zoom-in active:scale-105 transition-transform duration-500" 
+                        className="w-full h-full object-contain cursor-zoom-in active:scale-105 transition-transform duration-500 bg-stone-50" 
                         onClick={() => setShowFullScreen(true)} 
                         alt={product.title} 
                     />
