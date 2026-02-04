@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
 import { AppConfig, Supplier, CategoryConfig, StaffAccount, PromptTemplate } from '../types';
-import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles, BrainCircuit, FilePlus, ChevronDown } from 'lucide-react';
+import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles, BrainCircuit, FilePlus, ChevronDown, FileText } from 'lucide-react';
 import { Maintenance } from './Maintenance';
 
 interface SettingsProps {
@@ -109,30 +109,49 @@ const PromptSection = ({
                         </div>
                     ) : (
                         <div>
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                <FilePlus size={12}/> Saved Templates
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <FilePlus size={12}/> Saved Templates ({templates.length})
                             </p>
-                            <div className="flex flex-wrap gap-2">
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
                                 {templates.map(t => (
                                     <div 
                                         key={t.id} 
                                         onClick={() => onPromptChange(t.content)}
-                                        className="group cursor-pointer flex items-center gap-2 pl-3 pr-2 py-1.5 bg-white border border-stone-200 hover:border-gold-400 hover:shadow-sm rounded-lg transition-all"
-                                        title={t.content.slice(0, 100) + '...'}
+                                        className="group relative flex flex-col gap-2 p-3 bg-stone-50 border border-stone-200 rounded-xl hover:bg-white hover:border-gold-400 hover:shadow-sm cursor-pointer transition-all h-full"
                                     >
-                                        <span className="text-xs font-medium text-stone-600 group-hover:text-gold-700">{t.label}</span>
-                                        <div className="w-px h-3 bg-stone-200 group-hover:bg-gold-200 transition-colors"></div>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); if(confirm('Delete this template?')) onDeleteTemplate(t.id); }}
-                                            className="p-1 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                        >
-                                            <Trash2 size={12}/>
-                                        </button>
+                                        <div className="flex justify-between items-center pb-2 border-b border-stone-200/50">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <FileText size={12} className="text-stone-400 group-hover:text-gold-500 transition-colors shrink-0"/>
+                                                <span className="text-xs font-bold text-stone-700 group-hover:text-gold-700 truncate">{t.label}</span>
+                                            </div>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); if(confirm('Delete this template?')) onDeleteTemplate(t.id); }}
+                                                className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                            >
+                                                <Trash2 size={12}/>
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="flex-1 bg-white rounded border border-stone-100 p-2 overflow-hidden">
+                                            <p className="text-[9px] text-stone-500 font-mono leading-relaxed line-clamp-3">
+                                                {t.content}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="text-[9px] font-bold text-gold-600 uppercase tracking-widest text-center pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            Apply Template
+                                        </div>
                                     </div>
                                 ))}
+                                
                                 {templates.length === 0 && (
-                                    <div className="px-4 py-3 border border-dashed border-stone-200 rounded-lg text-xs text-stone-400 w-full text-center">
-                                        No templates saved. Write a prompt above and click "Save Preset".
+                                    <div className="col-span-full px-4 py-6 border-2 border-dashed border-stone-100 rounded-xl flex flex-col items-center justify-center text-stone-400 gap-2">
+                                        <Sparkles size={20} className="opacity-20" />
+                                        <p className="text-xs">No saved templates found.</p>
+                                        <button onClick={() => setIsSaving(true)} className="text-[10px] font-bold uppercase text-gold-600 hover:underline">
+                                            Save current prompt as first template
+                                        </button>
                                     </div>
                                 )}
                             </div>
