@@ -10,12 +10,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, envDir, '');
   
   return {
-    base: '/', // Changed from './' to '/' to support clean URL rewriting
+    base: '/', // ABSOLUTE PATH: Critical for .htaccess routing to work correctly
     plugins: [react()],
     define: {
-      /**
-       * In Vite, 'define' is used for build-time replacement of global variables.
-       */
       'process.env.API_KEY': JSON.stringify(
         env.VITE_GEMINI_API_KEY || 
         env.API_KEY || 
@@ -47,9 +44,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            // Keep AI SDK separate as it's large
             if (id.includes('@google/genai')) return 'vendor-ai';
-            // Bundle core React deps together
             if (id.includes('node_modules')) {
               if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
                 return 'vendor-react';

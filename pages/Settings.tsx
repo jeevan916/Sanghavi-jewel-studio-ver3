@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { storeService } from '../services/storeService';
 import { AppConfig, Supplier, CategoryConfig, StaffAccount, PromptTemplate } from '../types';
-import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles, BrainCircuit, FilePlus, ChevronDown, FileText } from 'lucide-react';
+import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles, BrainCircuit, FilePlus, ChevronDown, FileText, Edit2 } from 'lucide-react';
 import { Maintenance } from './Maintenance';
 
 interface SettingsProps {
@@ -170,8 +170,18 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [isInitializing, setIsInitializing] = useState(true);
   
   const [staffList, setStaffList] = useState<StaffAccount[]>([]);
-  const [showAddStaff, setShowAddStaff] = useState(false);
-  const [newStaff, setNewStaff] = useState({ username: '', password: '', name: '', role: 'contributor' as const });
+  
+  // Unified Staff Modal State
+  const [staffModal, setStaffModal] = useState<{
+    isOpen: boolean;
+    mode: 'add' | 'edit';
+    id?: string;
+    name: string;
+    username: string;
+    password: string;
+    role: 'admin' | 'contributor';
+  }>({ isOpen: false, mode: 'add', name: '', username: '', password: '', role: 'contributor' });
+
   const [showPassword, setShowPassword] = useState(false);
 
   const currentUser = storeService.getCurrentUser();
@@ -181,7 +191,6 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newSubCategory, setNewSubCategory] = useState<{catId: string, val: string}>({catId: '', val: ''});
 
-  // Available Gemini Models for Dropdowns
   const modelOptions = [
       { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Fastest Text)' },
       { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Complex Reasoning)' },
@@ -218,6 +227,58 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     }
   };
 
+  // --- STAFF MANAGEMENT HANDLERS ---
+  const openAddStaff = () => {
+    setStaffModal({ isOpen: true, mode: 'add', name: '', username: '', password: '', role: 'contributor' });
+  };
+
+  const openEditStaff = (s: StaffAccount) => {
+    setStaffModal({ 
+        isOpen: true, 
+        mode: 'edit', 
+        id: s.id, 
+        name: s.name, 
+        username: s.username, 
+        password: '', // Empty means no change
+        role: s.role 
+    });
+  };
+
+  const handleStaffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+        if (staffModal.mode === 'add') {
+            const added = await storeService.addStaff({
+                name: staffModal.name,
+                username: staffModal.username,
+                password: staffModal.password,
+                role: staffModal.role,
+                isActive: true
+            });
+            setStaffList([...staffList, added]);
+        } else {
+            const updates: any = {
+                name: staffModal.name,
+                username: staffModal.username,
+                role: staffModal.role
+            };
+            if (staffModal.password) updates.password = staffModal.password;
+            
+            await storeService.updateStaff(staffModal.id!, updates);
+            // Re-fetch list to ensure sync or update locally
+            const updatedList = staffList.map(s => s.id === staffModal.id ? { ...s, ...updates } : s);
+            setStaffList(updatedList);
+        }
+        setStaffModal({ ...staffModal, isOpen: false });
+    } catch (err) {
+        alert("Operation failed. Username might be taken.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  // --- CONFIG HANDLERS ---
   const updateAIModel = (key: keyof AppConfig['aiConfig']['models'], value: string) => {
       if (!config) return;
       setConfig({
@@ -478,7 +539,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-stone-700 flex items-center gap-2"><Users size={20}/> Active Personnel</h3>
-                    <button onClick={() => setShowAddStaff(true)} className="flex items-center gap-2 px-4 py-2 bg-gold-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-gold-700 transition"><UserPlus size={16}/> Add Staff</button>
+                    <button onClick={openAddStaff} className="flex items-center gap-2 px-4 py-2 bg-gold-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-gold-700 transition"><UserPlus size={16}/> Add Staff</button>
                 </div>
                 <div className="space-y-3">
                     {staffList.map(s => (
@@ -493,19 +554,22 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
+                                <button onClick={() => openEditStaff(s)} className="p-2 text-stone-400 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors" title="Edit / Reset Password">
+                                    <Edit2 size={18} />
+                                </button>
                                 <button onClick={async () => {
                                     const updated = await storeService.updateStaff(s.id, { isActive: !s.isActive });
-                                    setStaffList(staffList.map(item => item.id === s.id ? updated : item));
-                                }} className={`p-2 rounded-lg transition ${s.isActive ? 'text-green-500 hover:bg-green-50' : 'text-stone-400 hover:bg-stone-200'}`}>
+                                    setStaffList(staffList.map(item => item.id === s.id ? { ...item, isActive: !item.isActive } : item)); // Optimistic local update as updateStaff returns status
+                                }} className={`p-2 rounded-lg transition ${s.isActive ? 'text-green-500 hover:bg-green-50' : 'text-stone-400 hover:bg-stone-200'}`} title={s.isActive ? "Lock Account" : "Unlock Account"}>
                                     {s.isActive ? <Unlock size={18}/> : <Lock size={18}/>}
                                 </button>
                                 <button onClick={async () => {
                                     if (s.id === currentUser?.id) return alert("Cannot delete self.");
-                                    if (window.confirm("Delete staff member?")) {
+                                    if (window.confirm("Delete staff member? This cannot be undone.")) {
                                         await storeService.deleteStaff(s.id);
                                         setStaffList(staffList.filter(item => item.id !== s.id));
                                     }
-                                }} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition">
+                                }} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition" title="Delete Account">
                                     <Trash2 size={18}/>
                                 </button>
                             </div>
@@ -535,31 +599,57 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         </div>
       )}
 
-      {showAddStaff && (
+      {staffModal.isOpen && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95">
                   <div className="p-4 border-b flex justify-between items-center bg-stone-50">
-                      <h3 className="font-bold text-stone-800">New Team Member</h3>
-                      <button onClick={() => setShowAddStaff(false)}><X size={20}/></button>
+                      <h3 className="font-bold text-stone-800">
+                        {staffModal.mode === 'add' ? 'New Team Member' : 'Edit Staff Profile'}
+                      </h3>
+                      <button onClick={() => setStaffModal({...staffModal, isOpen: false})}><X size={20}/></button>
                   </div>
-                  <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const added = await storeService.addStaff({ ...newStaff, isActive: true });
-                      setStaffList([...staffList, added]);
-                      setShowAddStaff(false);
-                      setNewStaff({ username: '', password: '', name: '', role: 'contributor' });
-                  }} className="p-6 space-y-4">
-                      <input required value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} placeholder="Full Name" className="w-full p-3 border rounded-xl text-stone-900" />
-                      <input required value={newStaff.username} onChange={e => setNewStaff({...newStaff, username: e.target.value})} placeholder="Username" className="w-full p-3 border rounded-xl text-stone-900" />
-                      <div className="relative">
-                        <input required type={showPassword ? 'text' : 'password'} value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} placeholder="Password" className="w-full p-3 border rounded-xl text-stone-900" />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400">{showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                  <form onSubmit={handleStaffSubmit} className="p-6 space-y-4">
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest ml-1">Full Name</label>
+                          <input required value={staffModal.name} onChange={e => setStaffModal({...staffModal, name: e.target.value})} placeholder="Full Name" className="w-full p-3 border rounded-xl text-stone-900 focus:ring-2 focus:ring-gold-500/20 outline-none" />
                       </div>
-                      <select value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value as any})} className="w-full p-3 border rounded-xl text-stone-900">
-                          <option value="contributor">Contributor</option>
-                          <option value="admin">Administrator</option>
-                      </select>
-                      <button type="submit" className="w-full py-3 bg-stone-900 text-white rounded-xl font-bold shadow-lg">Create Account</button>
+                      
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest ml-1">Username</label>
+                          <input required value={staffModal.username} onChange={e => setStaffModal({...staffModal, username: e.target.value})} placeholder="Username" className="w-full p-3 border rounded-xl text-stone-900 focus:ring-2 focus:ring-gold-500/20 outline-none" />
+                      </div>
+                      
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest ml-1">
+                             {staffModal.mode === 'add' ? 'Password' : 'Reset Password (Optional)'}
+                          </label>
+                          <div className="relative">
+                            <input 
+                                required={staffModal.mode === 'add'} 
+                                type={showPassword ? 'text' : 'password'} 
+                                value={staffModal.password} 
+                                onChange={e => setStaffModal({...staffModal, password: e.target.value})} 
+                                placeholder={staffModal.mode === 'add' ? "Secret Key" : "Leave blank to keep current"} 
+                                className="w-full p-3 border rounded-xl text-stone-900 focus:ring-2 focus:ring-gold-500/20 outline-none" 
+                            />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+                                {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+                            </button>
+                          </div>
+                      </div>
+
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest ml-1">Access Role</label>
+                          <select value={staffModal.role} onChange={e => setStaffModal({...staffModal, role: e.target.value as any})} className="w-full p-3 border rounded-xl text-stone-900 focus:ring-2 focus:ring-gold-500/20 outline-none">
+                              <option value="contributor">Contributor (Standard)</option>
+                              <option value="admin">Administrator (Full Access)</option>
+                          </select>
+                      </div>
+
+                      <button type="submit" disabled={isLoading} className="w-full py-3 bg-stone-900 text-white rounded-xl font-bold shadow-lg hover:bg-stone-800 transition flex items-center justify-center gap-2">
+                          {isLoading ? <Loader2 className="animate-spin" size={18} /> : (staffModal.mode === 'add' ? <Plus size={18}/> : <Save size={18}/>)}
+                          {staffModal.mode === 'add' ? 'Create Account' : 'Save Changes'}
+                      </button>
                   </form>
               </div>
           </div>

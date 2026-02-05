@@ -14,22 +14,22 @@
   # 1. API Passthrough: Let Node.js handle /api requests
   RewriteRule ^api/ - [L]
 
-  # 2. Serve existing files in root (uploads, etc) directly
+  # 2. Priority: Production Assets
+  # If the requested file exists in /dist, serve it from there.
+  # This handles /assets/..., /favicon.ico, /sw.js, etc.
+  RewriteCond %{DOCUMENT_ROOT}/dist/$1 -f
+  RewriteRule ^(.*)$ dist/$1 [L]
+
+  # 3. Secondary: Root Static Files (Uploads, etc)
+  # Allow serving existing files in root, BUT EXCLUDE index.html (source file).
+  RewriteCond %{REQUEST_URI} !^/index\.html$
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 3. Intelligent Asset Routing: 
-  # If a requested file exists in /dist, serve it from there.
-  # This handles /assets/..., /favicon.ico, etc.
-  RewriteCond %{DOCUMENT_ROOT}/dist/$1 -f
-  RewriteRule ^(.*)$ dist/$1 [L]
-
-  # 4. Root URL Fix: Explicitly serve the app entry point
-  RewriteRule ^$ dist/index.html [L]
-
-  # 5. SPA Catch-All: Route everything else to the app entry point
-  RewriteRule ^.*$ dist/index.html [L]
+  # 4. SPA Catch-All (The Fix)
+  # Route everything else (/, /index.html, /shared/...) to the production entry point.
+  RewriteRule ^ dist/index.html [L]
 </IfModule>
 
 # ----------------------------------------------------------------------

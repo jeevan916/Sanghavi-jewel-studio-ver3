@@ -1,7 +1,7 @@
 
 /**
  * SANGHAVI JEWEL STUDIO - CORE MEMORY (THE BRAIN)
- * Version: 4.3.3 (Routing Matrix Fix)
+ * Version: 4.3.5 (Staff Ops & Auth Upgrade)
  * 
  * This file is the central intelligence of the application.
  * It documents the "Design DNA", "Critical Features", and "Micro-Instructions".
@@ -44,7 +44,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.3.3",
+    version: "4.3.5",
     identity: "Sanghavi Jewel Studio - Enterprise Edition",
     
     // THE VISUAL IDENTITY
@@ -74,7 +74,7 @@ export const APP_MEMORY: AppMemory = {
         "Persistence: MySQL (System Settings) + LocalStorage (Session).",
         "AI: Use @google/genai SDK with Flash models for speed.",
         "Gestures: 1:1 Physics Tracking for all galleries.",
-        "Deployment: 'npm start' automatically removes root index.html to prevent collisions."
+        "Deployment: .htaccess MUST force /dist/ content to avoid source file leakage."
     ],
 
     // USER MICRO-INSTRUCTIONS
@@ -156,10 +156,10 @@ export const APP_MEMORY: AppMemory = {
 
     // HISTORY OF STABILIZATION
     fix_log: [
-        "Upgraded to v4.3.3: Routing Matrix Fix.",
-        "Resolved critical issue where root URL failed to load by implementing strict .htaccess rewriting to /dist/index.html.",
-        "Changed Vite base to absolute '/' to ensure asset paths resolve correctly during rewrites.",
-        "Upgraded to v4.3.2: Sharing Logic Repair.",
-        "Fixed issue where private links were blocked by Guest Access Control logic."
+        "Upgraded to v4.3.5: Staff Ops & Auth Upgrade.",
+        "Implemented DELETE route for Staff in server.js.",
+        "Overhauled Settings.tsx Staff Management to support Add, Edit, Delete, and Password Reset.",
+        "Upgraded to v4.3.4: Production Hardening.",
+        "Rewrote .htaccess to strictly prioritize /dist/ assets over root source files."
     ]
 };

@@ -494,6 +494,13 @@ app.put('/api/staff/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+app.delete('/api/staff/:id', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM staff WHERE id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/analytics', async (req, res) => {
     const event = { id: crypto.randomUUID(), ...req.body, timestamp: new Date() };
     await pool.query('INSERT INTO analytics SET ?', event);
