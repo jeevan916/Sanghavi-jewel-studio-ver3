@@ -90,7 +90,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    // e.stopPropagation(); // Removed to allow potential bubble up if needed, but usually we trap here.
+    e.stopPropagation(); // CRITICAL: Stop bubble to ProductDetails navigation logic
     setIsDragging(true);
     swipeLocked.current = null;
 
@@ -104,6 +104,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation(); // CRITICAL: Stop bubble to ProductDetails navigation logic
+    
     if (e.touches.length === 2 && initialPinchDistance.current !== null) {
       // PINCH ZOOM
       e.preventDefault();
@@ -144,8 +146,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             setSwipeX(prev => prev + effectiveDx);
         } else if (swipeLocked.current === 'y') {
             // Let native scroll happen or handle vertical product swipe logic if we want to drag content
-            // For now, we rely on touchEnd to detect the vertical swipe gesture, 
-            // but we don't drag the image vertically to avoid confusion with closing.
         }
       }
       lastTouchPos.current = { x: currentX, y: currentY };
@@ -153,6 +153,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation(); // CRITICAL: Stop bubble to ProductDetails navigation logic
     setIsDragging(false); // Re-enable transitions
     initialPinchDistance.current = null;
 
