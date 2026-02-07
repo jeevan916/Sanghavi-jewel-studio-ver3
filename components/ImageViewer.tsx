@@ -33,36 +33,33 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   // Gesture Tracking Refs
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
   const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
+  const lastTouchCount = useRef<number>(0);
   const initialPinchDistance = useRef<number | null>(null);
   const initialPinchScale = useRef<number>(1);
   const swipeLocked = useRef<'x' | 'y' | null>(null); // Locks axis during swipe
 
+  // Safely determine which image to show
+  // If currentIndex is out of bounds (e.g. data changed), default to 0 to prevent crashes/broken images
+  const safeIndex = currentIndex < images.length ? currentIndex : 0;
+  const activeImageSrc = images[safeIndex];
+
+  // Effect to sync state if we detect mismatch or change
+  useEffect(() => {
+     if (currentIndex >= images.length) {
+         setCurrentIndex(0);
+         resetView();
+     }
+  }, [images, currentIndex]);
+
   // Reset view when image or index changes
   useEffect(() => {
-    resetView();
+    // Ensure we are reset when the index changes (fallback)
+    if (scale !== 1 || pan.x !== 0 || pan.y !== 0) resetView();
     setLoadError(false);
   }, [currentIndex]);
 
   const vibrate = (pattern: number | number[] = 10) => {
     if (navigator.vibrate) navigator.vibrate(pattern);
-  };
-
-  const nextImage = () => {
-    if (currentIndex < images.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      vibrate(10);
-    } else {
-      vibrate(20); 
-    }
-  };
-
-  const prevImage = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-      vibrate(10);
-    } else {
-      vibrate(20);
-    }
   };
 
   const resetView = () => {
@@ -71,6 +68,27 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setSwipeX(0);
     setIsDragging(false);
     swipeLocked.current = null;
+    lastTouchCount.current = 0;
+  };
+
+  const nextImage = () => {
+    resetView(); // Reset immediately before state update to prevent flash
+    if (currentIndex < images.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+      vibrate(10);
+    } else {
+      vibrate(20); // Rubber band effect
+    }
+  };
+
+  const prevImage = () => {
+    resetView(); // Reset immediately before state update
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+      vibrate(10);
+    } else {
+      vibrate(20);
+    }
   };
 
   // Preload neighboring images
@@ -94,6 +112,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     e.stopPropagation(); 
     setIsDragging(true);
     swipeLocked.current = null;
+    lastTouchCount.current = e.touches.length;
 
     if (e.touches.length === 2) {
       initialPinchDistance.current = getDistance(e.touches);
@@ -105,15 +124,35 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
+    e.preventDefault(); // Prevent browser scrolling/navigation
     
-    if (e.touches.length === 2 && initialPinchDistance.current !== null) {
-      // PINCH ZOOM
-      e.preventDefault();
+    const touchCount = e.touches.length;
+
+    // 1. Handle Finger Count Change (Prevent Jumps)
+    if (touchCount !== lastTouchCount.current) {
+        lastTouchCount.current = touchCount;
+        if (touchCount === 1) {
+            // Re-anchor drag if we went from 2 fingers to 1
+            lastTouchPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        } else if (touchCount === 2) {
+            // Re-anchor pinch if we went from 1 finger to 2
+            initialPinchDistance.current = getDistance(e.touches);
+            initialPinchScale.current = scale;
+        }
+        return;
+    }
+    
+    // 2. PINCH ZOOM Logic
+    if (touchCount === 2 && initialPinchDistance.current !== null) {
       const currentDistance = getDistance(e.touches);
       const newScale = (currentDistance / initialPinchDistance.current) * initialPinchScale.current;
       setScale(Math.max(1, Math.min(5, newScale)));
-    } else if (e.touches.length === 1 && lastTouchPos.current && touchStartPos.current) {
+      return;
+    } 
+    
+    // 3. PAN & SWIPE Logic (1 Finger)
+    if (touchCount === 1 && lastTouchPos.current && touchStartPos.current) {
       const currentX = e.touches[0].clientX;
       const currentY = e.touches[0].clientY;
       const dx = currentX - lastTouchPos.current.x;
@@ -123,11 +162,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       const totalDy = currentY - touchStartPos.current.y;
 
       if (scale > 1) {
-        // PANNING (Zoomed) with Constraints
-        e.preventDefault(); 
+        // PANNING (Zoomed) - Strictly constrained to image boundaries
         
         // Calculate max allowed pan based on screen size and scale
-        // This ensures the image edges don't come too far into the center
+        // Logic: The image overflows the screen by (width * scale - width) / 2 on each side
         const w = window.innerWidth;
         const h = window.innerHeight;
         const maxPanX = (w * (scale - 1)) / 2;
@@ -139,6 +177,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         }));
       } else {
         // SWIPING (Not Zoomed)
+        
         // Determine Axis Lock if not yet set
         if (!swipeLocked.current) {
             if (Math.abs(totalDx) > 10 && Math.abs(totalDx) > Math.abs(totalDy)) {
@@ -149,7 +188,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         }
 
         if (swipeLocked.current === 'x') {
-            e.preventDefault(); 
             // Resistance at edges
             let effectiveDx = dx;
             if ((currentIndex === 0 && swipeX > 0) || (currentIndex === images.length - 1 && swipeX < 0)) {
@@ -166,6 +204,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     e.stopPropagation(); 
     setIsDragging(false); 
     initialPinchDistance.current = null;
+    lastTouchCount.current = e.touches.length; // Update count for remaining fingers
 
     if (scale === 1 && touchStartPos.current) {
       const touchEndX = e.changedTouches[0].clientX;
@@ -200,27 +239,30 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       }
     }
 
-    // Auto-reset zoom bounds
+    // Auto-reset zoom bounds if zoomed out too far
     if (scale < 1.1) {
       resetView();
     }
 
-    touchStartPos.current = null;
-    lastTouchPos.current = null;
-    swipeLocked.current = null;
+    // Don't nullify touchStartPos if fingers remain, but usually lift = end of gesture
+    if (e.touches.length === 0) {
+        touchStartPos.current = null;
+        lastTouchPos.current = null;
+        swipeLocked.current = null;
+    }
   };
 
   return (
     <div 
         className={`fixed inset-0 z-[100] bg-black text-white flex flex-col h-[100dvh] select-none touch-none ${disableAnimation ? '' : 'animate-fade-in'}`}
-        style={{ overscrollBehavior: 'none' }}
+        style={{ touchAction: 'none' }} // Critical for stopping browser gestures
     >
       
       {/* 1. Header */}
       <div className="flex-none p-4 flex justify-between items-center z-20 bg-black/50 backdrop-blur-sm border-b border-white/5">
         <div className="flex flex-col">
             <h3 className="font-serif text-lg font-medium truncate max-w-[200px] md:max-w-md">{title}</h3>
-            <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">{currentIndex + 1} of {images.length}</span>
+            <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">{safeIndex + 1} of {images.length}</span>
         </div>
         <div className="flex gap-2">
             {scale !== 1 && (
@@ -241,15 +283,15 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-         {loadError ? (
+         {loadError || !activeImageSrc ? (
              <div className="flex flex-col items-center gap-2 text-stone-500">
                  <AlertCircle size={48} />
                  <p className="text-xs uppercase font-bold tracking-widest">Image Unavailable</p>
              </div>
          ) : (
              <img 
-                key={currentIndex} 
-                src={images[currentIndex]} 
+                key={safeIndex} 
+                src={activeImageSrc} 
                 alt="Zoom View"
                 draggable={false}
                 onError={() => setLoadError(true)}
@@ -264,7 +306,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
          
          {/* Desktop Navigation Arrows */}
          <div className="hidden md:block">
-            {currentIndex > 0 && (
+            {safeIndex > 0 && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); prevImage(); }}
                     className="absolute left-6 top-1/2 -translate-y-1/2 p-4 bg-black/40 rounded-full hover:bg-black/60 backdrop-blur transition-all border border-white/10"
@@ -272,7 +314,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                     <ChevronLeft size={32} />
                 </button>
             )}
-            {currentIndex < images.length - 1 && (
+            {safeIndex < images.length - 1 && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); nextImage(); }}
                     className="absolute right-6 top-1/2 -translate-y-1/2 p-4 bg-black/40 rounded-full hover:bg-black/60 backdrop-blur transition-all border border-white/10"
@@ -336,7 +378,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             {images.map((_, idx) => (
                 <div 
                     key={idx} 
-                    className={`h-1 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-6 bg-gold-50' : 'w-2 bg-white/30'}`} 
+                    className={`h-1 rounded-full transition-all duration-300 ${idx === safeIndex ? 'w-6 bg-gold-50' : 'w-2 bg-white/30'}`} 
                 />
             ))}
          </div>

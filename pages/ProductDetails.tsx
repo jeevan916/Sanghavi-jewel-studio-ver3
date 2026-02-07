@@ -1,4 +1,6 @@
 
+// ... (Previous imports)
+// We need to keep the file content intact but add key={product.id}
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '../types';
@@ -598,6 +600,7 @@ export const ProductDetails: React.FC = () => {
       {/* MODALS */}
       {showFullScreen && displayImages.length > 0 && (
         <ImageViewer 
+            key={product.id}
             images={displayImages} 
             title={product.title} 
             disableAnimation={startInFullScreen}
