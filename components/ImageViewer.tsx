@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
 
 interface ImageViewerProps {
   images: string[];
@@ -28,6 +28,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 }); // For zoomed panning
   const [swipeX, setSwipeX] = useState(0);        // For unzoomed image swiping
   const [isDragging, setIsDragging] = useState(false); // Disables transition during drag
+  const [loadError, setLoadError] = useState(false);
 
   // Gesture Tracking Refs
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
@@ -39,6 +40,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   // Reset view when image or index changes
   useEffect(() => {
     resetView();
+    setLoadError(false);
   }, [currentIndex]);
 
   const vibrate = (pattern: number | number[] = 10) => {
@@ -50,7 +52,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       setCurrentIndex(prev => prev + 1);
       vibrate(10);
     } else {
-      // Bounds effect (Rubber band release)
       vibrate(20); 
     }
   };
@@ -90,7 +91,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.stopPropagation(); // CRITICAL: Stop bubble to ProductDetails navigation logic
+    e.stopPropagation(); 
     setIsDragging(true);
     swipeLocked.current = null;
 
@@ -104,7 +105,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    e.stopPropagation(); // CRITICAL: Stop bubble to ProductDetails navigation logic
+    e.stopPropagation(); 
     
     if (e.touches.length === 2 && initialPinchDistance.current !== null) {
       // PINCH ZOOM
@@ -122,9 +123,20 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       const totalDy = currentY - touchStartPos.current.y;
 
       if (scale > 1) {
-        // PANNING (Zoomed)
-        e.preventDefault(); // Prevent scroll
-        setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+        // PANNING (Zoomed) with Constraints
+        e.preventDefault(); 
+        
+        // Calculate max allowed pan based on screen size and scale
+        // This ensures the image edges don't come too far into the center
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const maxPanX = (w * (scale - 1)) / 2;
+        const maxPanY = (h * (scale - 1)) / 2;
+
+        setPan(prev => ({ 
+            x: Math.max(-maxPanX, Math.min(maxPanX, prev.x + dx)),
+            y: Math.max(-maxPanY, Math.min(maxPanY, prev.y + dy)) 
+        }));
       } else {
         // SWIPING (Not Zoomed)
         // Determine Axis Lock if not yet set
@@ -137,15 +149,13 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         }
 
         if (swipeLocked.current === 'x') {
-            e.preventDefault(); // Prevent browser nav
+            e.preventDefault(); 
             // Resistance at edges
             let effectiveDx = dx;
             if ((currentIndex === 0 && swipeX > 0) || (currentIndex === images.length - 1 && swipeX < 0)) {
                 effectiveDx *= 0.3; // High resistance
             }
             setSwipeX(prev => prev + effectiveDx);
-        } else if (swipeLocked.current === 'y') {
-            // Let native scroll happen or handle vertical product swipe logic if we want to drag content
         }
       }
       lastTouchPos.current = { x: currentX, y: currentY };
@@ -153,8 +163,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    e.stopPropagation(); // CRITICAL: Stop bubble to ProductDetails navigation logic
-    setIsDragging(false); // Re-enable transitions
+    e.stopPropagation(); 
+    setIsDragging(false); 
     initialPinchDistance.current = null;
 
     if (scale === 1 && touchStartPos.current) {
@@ -169,7 +179,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           const threshold = window.innerWidth * 0.25; // Swipe 25% to trigger
           if (swipeX < -threshold && currentIndex < images.length - 1) {
               nextImage();
-              setSwipeX(0); // Transition handled by key change or we can animate out
+              setSwipeX(0); 
           } else if (swipeX > threshold && currentIndex > 0) {
               prevImage();
               setSwipeX(0);
@@ -181,7 +191,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       // Handle Vertical Swipe (Product Nav) - Only if we haven't locked X
       else if (swipeLocked.current !== 'x' && Math.abs(diffY) > 60 && Math.abs(diffY) > Math.abs(diffX)) {
          if (diffY > 0 && onNextProduct) { 
-            vibrate(30); // Distinct vibration
+            vibrate(30); 
             onNextProduct();
          } else if (diffY < 0 && onPrevProduct) {
             vibrate(30);
@@ -201,7 +211,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   return (
-    <div className={`fixed inset-0 z-[100] bg-black text-white flex flex-col h-[100dvh] select-none ${disableAnimation ? '' : 'animate-fade-in'}`}>
+    <div 
+        className={`fixed inset-0 z-[100] bg-black text-white flex flex-col h-[100dvh] select-none touch-none ${disableAnimation ? '' : 'animate-fade-in'}`}
+        style={{ overscrollBehavior: 'none' }}
+    >
       
       {/* 1. Header */}
       <div className="flex-none p-4 flex justify-between items-center z-20 bg-black/50 backdrop-blur-sm border-b border-white/5">
@@ -223,24 +236,31 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
       {/* 2. Main Image Area */}
       <div 
-        className="flex-1 w-full overflow-hidden relative touch-none flex items-center justify-center bg-black"
+        className="flex-1 w-full overflow-hidden relative flex items-center justify-center bg-black"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-         <img 
-            key={images[currentIndex]} 
-            src={images[currentIndex]} 
-            alt="Full Screen"
-            draggable={false}
-            className="max-w-full max-h-full object-contain will-change-transform"
-            style={{ 
-              // Synchronized Physics Transform
-              transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
-              transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.19, 1, 0.22, 1)', // Apple-like ease-out-expo
-              cursor: scale > 1 ? 'move' : 'grab'
-            }}
-         />
+         {loadError ? (
+             <div className="flex flex-col items-center gap-2 text-stone-500">
+                 <AlertCircle size={48} />
+                 <p className="text-xs uppercase font-bold tracking-widest">Image Unavailable</p>
+             </div>
+         ) : (
+             <img 
+                key={currentIndex} 
+                src={images[currentIndex]} 
+                alt="Zoom View"
+                draggable={false}
+                onError={() => setLoadError(true)}
+                className="max-w-full max-h-full object-contain will-change-transform"
+                style={{ 
+                  transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
+                  transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.19, 1, 0.22, 1)', 
+                  cursor: scale > 1 ? 'move' : 'grab'
+                }}
+             />
+         )}
          
          {/* Desktop Navigation Arrows */}
          <div className="hidden md:block">
