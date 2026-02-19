@@ -30,6 +30,41 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [isDragging, setIsDragging] = useState(false); // Disables transition during drag
   const [loadError, setLoadError] = useState(false);
 
+  // Lock body scroll when viewer is open
+  useEffect(() => {
+    const originalStyle = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    
+    // Prevent mouse wheel from scrolling background
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      
+      // Optional: Implement wheel-to-zoom
+      if (e.ctrlKey || e.metaKey) {
+        const delta = -e.deltaY;
+        setScale(s => Math.max(1, Math.min(5, s + delta * 0.01)));
+      } else if (scale > 1) {
+        // Implement wheel-to-pan when zoomed
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const maxPanX = (w * (scale - 1)) / 2;
+        const maxPanY = (h * (scale - 1)) / 2;
+        
+        setPan(prev => ({
+          x: Math.max(-maxPanX, Math.min(maxPanX, prev.x - e.deltaX)),
+          y: Math.max(-maxPanY, Math.min(maxPanY, prev.y - e.deltaY))
+        }));
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      document.body.style.overflow = originalStyle;
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, [scale]);
+
   // Gesture Tracking Refs
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
   const lastTouchPos = useRef<{ x: number; y: number } | null>(null);

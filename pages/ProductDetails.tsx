@@ -96,24 +96,32 @@ export const ProductDetails: React.FC = () => {
         setConfig(fetchedConfig);
 
         if (fetchedProduct) {
-            // Fetch neighbors for navigation
-            const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); 
-            const allItems = listData.items;
             const GUEST_LIMIT = 8;
             
             // Check if this specific product has been unlocked via shared link
             const isUnlocked = storeService.getUnlockedProducts().includes(fetchedProduct.id);
             const isSharedAccess = (location.state as any)?.fromSharedLink || isUnlocked;
 
+            // Optimization: Use cached products if available to avoid massive fetch
+            const cached = storeService.getCached();
+            let navItems = cached.products || [];
+            
+            if (navItems.length === 0 || !navItems.find(p => p.id === fetchedProduct.id)) {
+                const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); 
+                navItems = listData.items;
+            }
+
             // SECURITY: STRICT GUEST LOCK (Bypassed if shared)
             if (isGuest && !isSharedAccess) {
-                const globalIndex = allItems.findIndex(p => p.id === fetchedProduct.id);
+                const globalIndex = navItems.findIndex(p => p.id === fetchedProduct.id);
                 if (globalIndex >= GUEST_LIMIT) {
                     setIsRestricted(true);
                     setProduct(fetchedProduct); 
                     setIsLoading(false);
                     return; 
                 }
+                // Restrict navigation for guests
+                navItems = navItems.slice(0, GUEST_LIMIT);
             }
 
             const safeProduct = {
@@ -130,11 +138,6 @@ export const ProductDetails: React.FC = () => {
             storeService.logEvent('view', safeProduct);
 
             // Calculate Neighbors
-            let navItems = allItems;
-            if (isGuest && !isSharedAccess) {
-                navItems = allItems.slice(0, GUEST_LIMIT);
-            }
-
             const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
             if (idx !== -1) {
                 setNeighbors({
