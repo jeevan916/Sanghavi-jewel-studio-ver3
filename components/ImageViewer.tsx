@@ -32,11 +32,30 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   // Lock body scroll when viewer is open
   useEffect(() => {
+    const scrollY = window.scrollY;
     const originalStyle = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     
+    // Modern scroll lock for mobile (prevents background scrolling)
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    
+    return () => {
+      document.body.style.overflow = originalStyle;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
+  // Separate effect for wheel handling
+  useEffect(() => {
     // Prevent mouse wheel from scrolling background
     const handleWheel = (e: WheelEvent) => {
+      if (scale === 1) return; // Allow normal behavior if not zoomed (though viewer is fixed)
+      
       e.preventDefault();
       
       // Optional: Implement wheel-to-zoom
@@ -58,11 +77,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
-    
-    return () => {
-      document.body.style.overflow = originalStyle;
-      window.removeEventListener('wheel', handleWheel);
-    };
+    return () => window.removeEventListener('wheel', handleWheel);
   }, [scale]);
 
   // Gesture Tracking Refs
