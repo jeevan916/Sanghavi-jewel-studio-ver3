@@ -64,7 +64,6 @@ export const ProductDetails: React.FC = () => {
     if (!id) return;
     
     // Reset interaction states on navigation to prevent data crossover
-    setProduct(null);
     setAiComparison(null);
     setIsProcessingAI(false);
     setIsEditing(false);
@@ -348,7 +347,6 @@ export const ProductDetails: React.FC = () => {
 
   return (
     <div 
-        key={id}
         className="min-h-screen bg-stone-50 pb-20 pt-0 md:pt-16"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

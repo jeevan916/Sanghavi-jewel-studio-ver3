@@ -1,10 +1,9 @@
 
 import dotenv from 'dotenv';
-console.log('🚀 [Sanghavi Studio] Server process starting...');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
@@ -15,9 +14,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Robust Path Resolution for Config
-dotenv.config(); // Load from root .env
 const envPath = path.resolve(__dirname, '.builds/config/.env');
-if (existsSync(envPath)) dotenv.config({ path: envPath });
+dotenv.config({ path: envPath });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,156 +54,19 @@ app.use('/uploads', express.static(UPLOADS_ROOT, {
 // Database Config
 const dbConfig = {
   host: (process.env.DB_HOST || 'localhost').toLowerCase() === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'sanghavi_studio',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10
 };
 
 let pool;
 
-// --- JSON FALLBACK DATABASE (For AI Studio/No MySQL environments) ---
-class JSONPool {
-  constructor(dbPath) {
-    this.dbPath = dbPath;
-    this.data = {
-      products: [],
-      staff: [{ id: 'admin-1', username: 'admin', password: 'password123', role: 'admin', name: 'Admin', isActive: true, createdAt: new Date() }],
-      analytics: [],
-      customers: [],
-      designs: [],
-      links: [],
-      suppliers: [],
-      categories: [],
-      sub_categories: [],
-      system_settings: [
-        { setting_key: 'linkExpiryHours', setting_value: '24' },
-        { setting_key: 'ai_model_analysis', setting_value: 'gemini-3-flash-preview' },
-        { setting_key: 'ai_model_enhancement', setting_value: 'gemini-2.5-flash-image' },
-        { setting_key: 'ai_model_watermark', setting_value: 'gemini-2.5-flash-image' },
-        { setting_key: 'ai_model_design', setting_value: 'gemini-2.5-flash-image' },
-        { setting_key: 'ai_prompt_analysis', setting_value: 'Analyze this luxury jewelry piece...' },
-        { setting_key: 'ai_prompt_enhancement', setting_value: "Jewelry Studio Retouching..." },
-        { setting_key: 'ai_prompt_watermark', setting_value: "Seamlessly remove any watermarks..." },
-        { setting_key: 'ai_prompt_design', setting_value: "Hyper-realistic macro studio photography..." }
-      ]
-    };
-    this.load();
-  }
-
-  load() {
-    if (existsSync(this.dbPath)) {
-      try {
-        const content = readFileSync(this.dbPath, 'utf8');
-        this.data = JSON.parse(content);
-      } catch (e) { console.error('Failed to load JSON DB', e); }
-    }
-  }
-
-  save() {
-    try {
-      writeFileSync(this.dbPath, JSON.stringify(this.data, null, 2));
-    } catch (e) { console.error('Failed to save JSON DB', e); }
-  }
-
-  async query(sql, params = []) {
-    // Very basic SQL-like parser for the most common queries used in this app
-    const lowerSql = sql.toLowerCase().trim();
-    
-    if (lowerSql.startsWith('select * from system_settings')) {
-      return [this.data.system_settings];
-    }
-    if (lowerSql.startsWith('select * from suppliers')) {
-      return [this.data.suppliers];
-    }
-    if (lowerSql.startsWith('select * from categories')) {
-      return [this.data.categories];
-    }
-    if (lowerSql.startsWith('select * from sub_categories')) {
-      return [this.data.sub_categories];
-    }
-    if (lowerSql.startsWith('select * from products')) {
-      let items = [...this.data.products];
-      if (lowerSql.includes('where ishidden = 0')) {
-        items = items.filter(p => !p.isHidden);
-      }
-      if (lowerSql.includes('where id = ?')) {
-        return [items.filter(p => p.id === params[0])];
-      }
-      if (lowerSql.includes('order by createdat desc')) {
-        items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      }
-      if (lowerSql.includes('limit')) {
-        const limitMatch = lowerSql.match(/limit (\d+)/);
-        if (limitMatch) items = items.slice(0, parseInt(limitMatch[1]));
-      }
-      return [items];
-    }
-    if (lowerSql.startsWith('insert into analytics')) {
-        this.data.analytics.push({ id: params[0], ...params[1], timestamp: new Date() });
-        this.save();
-        return [{ insertId: 1 }];
-    }
-    if (lowerSql.startsWith('select type, count(*) as c from analytics')) {
-        const productId = params[0];
-        const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
-        this.data.analytics.filter(a => a.productId === productId).forEach(a => {
-            if (stats[a.type] !== undefined) stats[a.type]++;
-        });
-        return [Object.entries(stats).map(([type, c]) => ({ type, c }))];
-    }
-    if (lowerSql.startsWith('select count(*)')) {
-      if (lowerSql.includes('from products')) return [[{ total: this.data.products.length }]];
-      if (lowerSql.includes('from suppliers')) return [[{ c: this.data.suppliers.length }]];
-      if (lowerSql.includes('from categories')) return [[{ c: this.data.categories.length }]];
-      return [[{ c: 0 }]];
-    }
-    if (lowerSql.startsWith('insert ignore into system_settings') || lowerSql.startsWith('insert into system_settings')) {
-      const [key, val] = params;
-      if (!this.data.system_settings.find(s => s.setting_key === key)) {
-        this.data.system_settings.push({ setting_key: key, setting_value: val });
-        this.save();
-      }
-      return [{ insertId: 1 }];
-    }
-    if (lowerSql.startsWith('select id, username, role, name, isactive from staff')) {
-        return [this.data.staff.filter(s => s.username === params[0] && s.password === params[1])];
-    }
-
-    // Default empty response for unsupported queries during fallback
-    console.warn('JSON DB Fallback: Unsupported query', sql);
-    return [[]];
-  }
-
-  async getConnection() {
-    return {
-      query: this.query.bind(this),
-      beginTransaction: async () => {},
-      commit: async () => {},
-      rollback: async () => {},
-      release: () => {}
-    };
-  }
-}
-
 // --- DATABASE INITIALIZATION & MIGRATION ---
 const initDB = async () => {
   try {
-    // 0. Ensure Database Exists (Only if DB_HOST is provided)
-    if (process.env.DB_HOST) {
-        const connection = await mysql.createConnection({
-          host: dbConfig.host,
-          user: dbConfig.user,
-          password: dbConfig.password
-        });
-        await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
-        await connection.end();
-        pool = mysql.createPool(dbConfig);
-        console.log('[Database] MySQL Connected');
-    } else {
-        throw new Error('No DB_HOST provided, falling back to JSON');
-    }
+    pool = mysql.createPool(dbConfig);
     
     // 1. Core Data Tables
     await pool.query(`CREATE TABLE IF NOT EXISTS products (id VARCHAR(255) PRIMARY KEY, title VARCHAR(255), category VARCHAR(255), subCategory VARCHAR(255), weight FLOAT, description TEXT, tags JSON, images JSON, thumbnails JSON, supplier VARCHAR(255), uploadedBy VARCHAR(255), isHidden BOOLEAN, createdAt DATETIME, meta JSON)`);
@@ -236,7 +97,19 @@ const initDB = async () => {
       try { await pool.query(query); } catch (e) { /* Ignore if index exists */ }
     }
 
-    // 4. Seed Defaults
+    // 4. Migration Logic
+    const [legacyConfig] = await pool.query("SHOW TABLES LIKE 'config'");
+    if (legacyConfig.length > 0) {
+        const [rows] = await pool.query('SELECT data FROM config WHERE id = 1');
+        if (rows.length > 0) {
+             const [supCount] = await pool.query('SELECT COUNT(*) as c FROM suppliers');
+             if (supCount[0].c === 0) {
+                 console.log('[Database] ⚠️ Detected Legacy JSON Config. Migrating...');
+             }
+        }
+    }
+
+    // 5. Seed Defaults
     const defaults = {
         linkExpiryHours: '24',
         ai_model_analysis: 'gemini-3-flash-preview',
@@ -255,8 +128,8 @@ const initDB = async () => {
 
     console.log('[Database] Schema Verified and Ready');
   } catch (err) {
-    console.warn('[Database] MySQL Unavailable. Falling back to JSON persistence.', err.message);
-    pool = new JSONPool(path.join(DATA_ROOT, 'db.json'));
+    console.error('[Database] Critical Init Error:', err.message);
+    setTimeout(initDB, 5000);
   }
 };
 initDB();
@@ -658,24 +531,13 @@ app.get('/api/backups', (req, res) => {
     res.json(readdirSync(BACKUPS_ROOT).filter(f => f.endsWith('.json')).map(f => ({ name: f, date: statSync(path.join(BACKUPS_ROOT, f)).mtime, size: statSync(path.join(BACKUPS_ROOT, f)).size })));
 });
 
-app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error', message: err.message }); });
-
-// API 404 Handler - Ensures /api/* always returns JSON
-app.use('/api/*', (req, res) => {
-  res.status(404).json({ error: 'API Route Not Found', path: req.originalUrl });
-});
+app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error' }); });
 
 // --- SERVE FRONTEND ---
+// Use __dirname to locate dist consistently
 const distPath = path.resolve(__dirname, 'dist');
 
-if (process.env.NODE_ENV !== 'production') {
-  const { createServer: createViteServer } = await import('vite');
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa',
-  });
-  app.use(vite.middlewares);
-} else if (existsSync(distPath)) {
+if (existsSync(distPath)) {
   // Serve static files from 'dist', but disable automatic index.html serving 
   // so we can explicitly handle the root route below.
   app.use(express.static(distPath, { index: false }));
