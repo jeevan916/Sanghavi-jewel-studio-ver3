@@ -60,6 +60,13 @@ export const ProductDetails: React.FC = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
+  // Sync full screen state when navigating with startInFullScreen
+  useEffect(() => {
+    if ((location.state as any)?.startInFullScreen) {
+      setShowFullScreen(true);
+    }
+  }, [location.state]);
+
   useEffect(() => {
     if (!id) return;
     
@@ -366,7 +373,7 @@ export const ProductDetails: React.FC = () => {
       </div>
 
       {/* CONTENT: Animated Wrapper */}
-      <div key={product.id} className={`max-w-7xl mx-auto md:p-6 lg:p-8 ${animationClass}`}>
+      <div className={`max-w-7xl mx-auto md:p-6 lg:p-8 ${animationClass}`}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-12">
             
             {/* LEFT COLUMN: Visual Media (Sticky on Desktop) */}
