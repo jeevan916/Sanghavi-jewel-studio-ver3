@@ -4,7 +4,7 @@ console.log('🚀 [Sanghavi Studio] Server process starting...');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync } from 'fs';
 import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
@@ -27,14 +27,23 @@ const __dirname = path.dirname(__filename);
 dotenv.config(); // Load from root .env
 const envPath = path.resolve(__dirname, 'public_html', '.builds', 'config', '.env');
 if (existsSync(envPath)) {
-  dotenv.config({ path: envPath });
+  dotenv.config({ path: envPath, override: true });
 } else {
   // Fallback to root .builds for local development
   const fallbackPath = path.resolve(__dirname, '.builds', 'config', '.env');
-  if (existsSync(fallbackPath)) dotenv.config({ path: fallbackPath });
+  if (existsSync(fallbackPath)) dotenv.config({ path: fallbackPath, override: true });
 }
 
 const app = express();
+
+// Hostinger Startup Verification
+const startupLog = path.resolve(__dirname, 'public_html', 'server_status.txt');
+try {
+  const logMsg = `[${new Date().toISOString()}] Server attempting start on PORT: ${process.env.PORT || 3000}\n`;
+  appendFileSync(startupLog, logMsg);
+} catch (e) {
+  console.error('Failed to write startup log', e);
+}
 
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
@@ -252,6 +261,7 @@ app.get('/api/links/:token', async (req, res) => {
 // --- CONFIG API ---
 app.get('/api/config', async (req, res) => {
     try {
+        if (!pool) throw new Error('Database connection not initialized. Check your .env configuration.');
         const [suppliers] = await pool.query('SELECT * FROM suppliers');
         const [categories] = await pool.query('SELECT * FROM categories');
         const [subCats] = await pool.query('SELECT * FROM sub_categories');
