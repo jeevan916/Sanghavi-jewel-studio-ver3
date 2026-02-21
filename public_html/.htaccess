@@ -11,23 +11,26 @@
   RewriteCond %{HTTPS} off
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  # 1. API Passthrough: Let Node.js handle /api requests
-  RewriteRule ^api/ - [L]
+  # 1. API Passthrough: Proxy /api requests to Node.js server
+  RewriteRule ^api/(.*)$ http://127.0.0.1:3000/api/$1 [P,L]
 
-  # 2. Priority: Production Assets
+  # 2. Uploads Passthrough: Proxy /uploads requests to Node.js server
+  RewriteRule ^uploads/(.*)$ http://127.0.0.1:3000/uploads/$1 [P,L]
+
+  # 3. Priority: Production Assets
   # If the requested file exists in /dist, serve it from there.
   # This handles /assets/..., /favicon.ico, /sw.js, etc.
   RewriteCond %{DOCUMENT_ROOT}/dist/$1 -f
   RewriteRule ^(.*)$ dist/$1 [L]
 
-  # 3. Secondary: Root Static Files (Uploads, etc)
+  # 4. Secondary: Root Static Files
   # Allow serving existing files in root, BUT EXCLUDE index.html (source file).
   RewriteCond %{REQUEST_URI} !^/index\.html$
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 4. SPA Catch-All (The Fix)
+  # 5. SPA Catch-All (The Fix)
   # Route everything else (/, /index.html, /shared/...) to the production entry point.
   RewriteRule ^ dist/index.html [L]
 </IfModule>
