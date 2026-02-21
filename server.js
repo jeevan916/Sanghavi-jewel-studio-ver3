@@ -548,6 +548,16 @@ app.get('/api/backups', (req, res) => {
 
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error', message: err.message }); });
 
+// --- API ROUTES ---
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    db: pool ? 'connected' : 'not initialized'
+  });
+});
+
 // API 404 Handler - Ensures /api/* always returns JSON
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'API Route Not Found', path: req.originalUrl });
@@ -555,6 +565,8 @@ app.use('/api/*', (req, res) => {
 
 // --- SERVE FRONTEND ---
 const distPath = path.resolve(__dirname, 'public_html', 'dist');
+console.log(`📂 [Sanghavi Studio] Serving frontend from: ${distPath}`);
+console.log(`🔍 [Sanghavi Studio] distPath exists: ${existsSync(distPath)}`);
 
 if (process.env.NODE_ENV !== 'production') {
   const { createServer: createViteServer } = await import('vite');
