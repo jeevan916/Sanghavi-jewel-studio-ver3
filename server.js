@@ -1,25 +1,55 @@
 
 import dotenv from 'dotenv';
+console.log('🚀 [Sanghavi Studio] Server process starting...');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync } from 'fs';
 import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
 import multer from 'multer';
 import sharp from 'sharp';
 
+// Global Error Handlers to prevent silent crashes
+process.on('uncaughtException', (err) => {
+  console.error('🔥 [Sanghavi Studio] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🔥 [Sanghavi Studio] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Robust Path Resolution for Config
-const envPath = path.resolve(__dirname, '.builds/config/.env');
-dotenv.config({ path: envPath });
+dotenv.config(); // Load from root .env
+const envPath = path.resolve(__dirname, 'public_html', '.builds', 'config', '.env');
+if (existsSync(envPath)) {
+  console.log(`[Config] Loading environment from: ${envPath}`);
+  dotenv.config({ path: envPath, override: true });
+} else {
+  // Fallback to root .builds for local development
+  const fallbackPath = path.resolve(__dirname, '.builds', 'config', '.env');
+  if (existsSync(fallbackPath)) {
+    console.log(`[Config] Loading environment from fallback: ${fallbackPath}`);
+    dotenv.config({ path: fallbackPath, override: true });
+  } else {
+    console.log('[Config] No specific .env file found, using process environment.');
+  }
+}
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0';
+
+// Hostinger Startup Verification
+const startupLog = path.resolve(__dirname, 'public_html', 'server_status.txt');
+try {
+  const logMsg = `[${new Date().toISOString()}] Server attempting start on PORT: ${process.env.PORT || 3000}\n`;
+  appendFileSync(startupLog, logMsg);
+} catch (e) {
+  console.error('Failed to write startup log', e);
+}
 
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
@@ -54,9 +84,9 @@ app.use('/uploads', express.static(UPLOADS_ROOT, {
 // Database Config
 const dbConfig = {
   host: (process.env.DB_HOST || 'localhost').toLowerCase() === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'sanghavi_studio',
   waitForConnections: true,
   connectionLimit: 10
 };
@@ -66,7 +96,20 @@ let pool;
 // --- DATABASE INITIALIZATION & MIGRATION ---
 const initDB = async () => {
   try {
-    pool = mysql.createPool(dbConfig);
+    // 0. Ensure Database Exists (Only if DB_HOST is provided)
+    if (process.env.DB_HOST) {
+        const connection = await mysql.createConnection({
+          host: dbConfig.host,
+          user: dbConfig.user,
+          password: dbConfig.password
+        });
+        await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
+        await connection.end();
+        pool = mysql.createPool(dbConfig);
+        console.log('[Database] MySQL Connected');
+    } else {
+        throw new Error('No DB_HOST provided, falling back to JSON');
+    }
     
     // 1. Core Data Tables
     await pool.query(`CREATE TABLE IF NOT EXISTS products (id VARCHAR(255) PRIMARY KEY, title VARCHAR(255), category VARCHAR(255), subCategory VARCHAR(255), weight FLOAT, description TEXT, tags JSON, images JSON, thumbnails JSON, supplier VARCHAR(255), uploadedBy VARCHAR(255), isHidden BOOLEAN, createdAt DATETIME, meta JSON)`);
@@ -97,19 +140,7 @@ const initDB = async () => {
       try { await pool.query(query); } catch (e) { /* Ignore if index exists */ }
     }
 
-    // 4. Migration Logic
-    const [legacyConfig] = await pool.query("SHOW TABLES LIKE 'config'");
-    if (legacyConfig.length > 0) {
-        const [rows] = await pool.query('SELECT data FROM config WHERE id = 1');
-        if (rows.length > 0) {
-             const [supCount] = await pool.query('SELECT COUNT(*) as c FROM suppliers');
-             if (supCount[0].c === 0) {
-                 console.log('[Database] ⚠️ Detected Legacy JSON Config. Migrating...');
-             }
-        }
-    }
-
-    // 5. Seed Defaults
+    // 4. Seed Defaults
     const defaults = {
         linkExpiryHours: '24',
         ai_model_analysis: 'gemini-3-flash-preview',
@@ -128,11 +159,10 @@ const initDB = async () => {
 
     console.log('[Database] Schema Verified and Ready');
   } catch (err) {
-    console.error('[Database] Critical Init Error:', err.message);
-    setTimeout(initDB, 5000);
+    console.error('❌ [Database] MySQL Connection Failed:', err.message);
+    throw err; // Re-throw to trigger startServer catch block
   }
 };
-initDB();
 
 // --- IMAGE PROCESSING ---
 const upload = multer({
@@ -237,6 +267,7 @@ app.get('/api/links/:token', async (req, res) => {
 // --- CONFIG API ---
 app.get('/api/config', async (req, res) => {
     try {
+        if (!pool) throw new Error('Database connection not initialized. Check your .env configuration.');
         const [suppliers] = await pool.query('SELECT * FROM suppliers');
         const [categories] = await pool.query('SELECT * FROM categories');
         const [subCats] = await pool.query('SELECT * FROM sub_categories');
@@ -531,13 +562,36 @@ app.get('/api/backups', (req, res) => {
     res.json(readdirSync(BACKUPS_ROOT).filter(f => f.endsWith('.json')).map(f => ({ name: f, date: statSync(path.join(BACKUPS_ROOT, f)).mtime, size: statSync(path.join(BACKUPS_ROOT, f)).size })));
 });
 
-app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error' }); });
+app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error', message: err.message }); });
+
+// --- API ROUTES ---
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    db: pool ? 'connected' : 'not initialized'
+  });
+});
+
+// API 404 Handler - Ensures /api/* always returns JSON
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: 'API Route Not Found', path: req.originalUrl });
+});
 
 // --- SERVE FRONTEND ---
-// Use __dirname to locate dist consistently
-const distPath = path.resolve(__dirname, 'dist');
+const distPath = path.resolve(__dirname, 'public_html', 'dist');
+console.log(`📂 [Sanghavi Studio] Serving frontend from: ${distPath}`);
+console.log(`🔍 [Sanghavi Studio] distPath exists: ${existsSync(distPath)}`);
 
-if (existsSync(distPath)) {
+if (process.env.NODE_ENV !== 'production') {
+  const { createServer: createViteServer } = await import('vite');
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'spa',
+  });
+  app.use(vite.middlewares);
+} else if (existsSync(distPath)) {
   // Serve static files from 'dist', but disable automatic index.html serving 
   // so we can explicitly handle the root route below.
   app.use(express.static(distPath, { index: false }));
@@ -555,4 +609,24 @@ if (existsSync(distPath)) {
     console.warn(`[Warning] Frontend build not found at ${distPath}. Run 'npm run build' first.`);
 }
 
-app.listen(PORT, HOST, () => console.log(`[Sanghavi Studio] Server Online on Port ${PORT}`));
+async function startServer() {
+  try {
+    const PORT = process.env.PORT || 3000;
+    const HOST = '0.0.0.0';
+
+    app.listen(PORT, HOST, () => {
+      console.log(`[Sanghavi Studio] Server Online on Port ${PORT}`);
+      
+      // Initialize Database in background after server starts listening
+      console.log('🚀 [Sanghavi Studio] Initializing Database in background...');
+      initDB().catch(err => {
+        console.error('❌ [Sanghavi Studio] Database Initialization Failed:', err);
+      });
+    });
+  } catch (err) {
+    console.error('❌ [Sanghavi Studio] Critical Startup Failure:', err);
+    process.exit(1);
+  }
+}
+
+startServer();

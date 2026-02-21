@@ -30,6 +30,56 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [isDragging, setIsDragging] = useState(false); // Disables transition during drag
   const [loadError, setLoadError] = useState(false);
 
+  // Lock body scroll when viewer is open
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    const originalStyle = document.body.style.overflow;
+    
+    // Modern scroll lock for mobile (prevents background scrolling)
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    
+    return () => {
+      document.body.style.overflow = originalStyle;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
+  // Separate effect for wheel handling
+  useEffect(() => {
+    // Prevent mouse wheel from scrolling background
+    const handleWheel = (e: WheelEvent) => {
+      if (scale === 1) return; // Allow normal behavior if not zoomed (though viewer is fixed)
+      
+      e.preventDefault();
+      
+      // Optional: Implement wheel-to-zoom
+      if (e.ctrlKey || e.metaKey) {
+        const delta = -e.deltaY;
+        setScale(s => Math.max(1, Math.min(5, s + delta * 0.01)));
+      } else if (scale > 1) {
+        // Implement wheel-to-pan when zoomed
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const maxPanX = (w * (scale - 1)) / 2;
+        const maxPanY = (h * (scale - 1)) / 2;
+        
+        setPan(prev => ({
+          x: Math.max(-maxPanX, Math.min(maxPanX, prev.x - e.deltaX)),
+          y: Math.max(-maxPanY, Math.min(maxPanY, prev.y - e.deltaY))
+        }));
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, [scale]);
+
   // Gesture Tracking Refs
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
   const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
