@@ -6,7 +6,11 @@ import process from 'process';
 
 export default defineConfig(({ mode }) => {
   // Point loadEnv to the user-specified configuration directory
-  const envDir = path.resolve(process.cwd(), '.builds/config');
+  let envDir = path.resolve(process.cwd(), 'public_html', '.builds', 'config');
+  if (!path.resolve(envDir)) {
+     // Fallback
+     envDir = path.resolve(process.cwd(), '.builds', 'config');
+  }
   const env = loadEnv(mode, envDir, '');
   
   return {

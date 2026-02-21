@@ -25,8 +25,14 @@ const __dirname = path.dirname(__filename);
 
 // Robust Path Resolution for Config
 dotenv.config(); // Load from root .env
-const envPath = path.resolve(__dirname, '.builds/config/.env');
-if (existsSync(envPath)) dotenv.config({ path: envPath });
+const envPath = path.resolve(__dirname, 'public_html', '.builds', 'config', '.env');
+if (existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+} else {
+  // Fallback to root .builds for local development
+  const fallbackPath = path.resolve(__dirname, '.builds', 'config', '.env');
+  if (existsSync(fallbackPath)) dotenv.config({ path: fallbackPath });
+}
 
 const app = express();
 
