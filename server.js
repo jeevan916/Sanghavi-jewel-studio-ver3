@@ -554,7 +554,7 @@ app.use('/api/*', (req, res) => {
 });
 
 // --- SERVE FRONTEND ---
-const distPath = path.resolve(__dirname, 'dist');
+const distPath = path.resolve(__dirname, 'public_html', 'dist');
 
 if (process.env.NODE_ENV !== 'production') {
   const { createServer: createViteServer } = await import('vite');
