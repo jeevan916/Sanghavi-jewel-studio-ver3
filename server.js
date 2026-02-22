@@ -580,7 +580,7 @@ app.use('/api/*', (req, res) => {
 });
 
 // --- SERVE FRONTEND ---
-const distPath = path.resolve(__dirname, 'public_html', 'dist');
+const distPath = path.resolve(__dirname, 'dist');
 console.log(`📂 [Sanghavi Studio] Serving frontend from: ${distPath}`);
 console.log(`🔍 [Sanghavi Studio] distPath exists: ${existsSync(distPath)}`);
 
