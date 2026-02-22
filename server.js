@@ -24,23 +24,33 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Robust Path Resolution for Config
-// Hostinger injects environment variables directly. We only load .env for local dev if needed.
+// Always try to load .env, but do NOT override existing process.env variables (Hostinger injection takes precedence)
 const envPath = path.resolve(__dirname, 'public_html', '.builds', 'config', '.env');
 const fallbackPath = path.resolve(__dirname, '.builds', 'config', '.env');
+const rootPath = path.resolve(__dirname, '.env');
 
-if (process.env.NODE_ENV !== 'production') {
-  if (existsSync(envPath)) {
-    console.log(`[Config] Loading environment from: ${envPath}`);
-    dotenv.config({ path: envPath });
-  } else if (existsSync(fallbackPath)) {
-    console.log(`[Config] Loading environment from fallback: ${fallbackPath}`);
-    dotenv.config({ path: fallbackPath });
-  } else {
-    dotenv.config(); // Load from root .env if present
-  }
+console.log('[Config] Checking for .env files...');
+
+if (existsSync(envPath)) {
+  console.log(`[Config] Loading .env from: ${envPath}`);
+  dotenv.config({ path: envPath });
+} else if (existsSync(fallbackPath)) {
+  console.log(`[Config] Loading .env from fallback: ${fallbackPath}`);
+  dotenv.config({ path: fallbackPath });
+} else if (existsSync(rootPath)) {
+  console.log(`[Config] Loading .env from root: ${rootPath}`);
+  dotenv.config({ path: rootPath });
 } else {
-   console.log('[Config] Production mode: Relying on Hostinger Environment Variables.');
+  console.log('[Config] No .env file found. Relying on system environment variables.');
 }
+
+// Debug DB Config (Masked)
+console.log('[Debug] DB Config:', {
+    host: process.env.DB_HOST || '(not set)',
+    user: process.env.DB_USER || '(not set)',
+    db: process.env.DB_NAME || '(not set)',
+    hasPassword: !!process.env.DB_PASSWORD
+});
 
 const app = express();
 
