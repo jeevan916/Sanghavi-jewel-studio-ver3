@@ -113,6 +113,12 @@ export const Gallery: React.FC = () => {
   }, [activeCategory, search]);
 
   // 3. Infinite Scroll Observer
+  useEffect(() => {
+    return () => {
+      if (observer.current) observer.current.disconnect();
+    };
+  }, []);
+
   const lastProductElementRef = useCallback((node: HTMLDivElement) => {
       if (isFetchingMore) return;
       if (observer.current) observer.current.disconnect();
