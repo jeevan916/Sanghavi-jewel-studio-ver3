@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      outDir: 'public_html/dist',
+      outDir: 'dist',
       assetsDir: 'assets',
       minify: 'esbuild',
       sourcemap: false,

@@ -24,20 +24,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Robust Path Resolution for Config
-dotenv.config(); // Load from root .env
+// Hostinger injects environment variables directly. We only load .env for local dev if needed.
 const envPath = path.resolve(__dirname, 'public_html', '.builds', 'config', '.env');
-if (existsSync(envPath)) {
-  console.log(`[Config] Loading environment from: ${envPath}`);
-  dotenv.config({ path: envPath, override: true });
-} else {
-  // Fallback to root .builds for local development
-  const fallbackPath = path.resolve(__dirname, '.builds', 'config', '.env');
-  if (existsSync(fallbackPath)) {
+const fallbackPath = path.resolve(__dirname, '.builds', 'config', '.env');
+
+if (process.env.NODE_ENV !== 'production') {
+  if (existsSync(envPath)) {
+    console.log(`[Config] Loading environment from: ${envPath}`);
+    dotenv.config({ path: envPath });
+  } else if (existsSync(fallbackPath)) {
     console.log(`[Config] Loading environment from fallback: ${fallbackPath}`);
-    dotenv.config({ path: fallbackPath, override: true });
+    dotenv.config({ path: fallbackPath });
   } else {
-    console.log('[Config] No specific .env file found, using process environment.');
+    dotenv.config(); // Load from root .env if present
   }
+} else {
+   console.log('[Config] Production mode: Relying on Hostinger Environment Variables.');
 }
 
 const app = express();
