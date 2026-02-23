@@ -25,18 +25,22 @@ const __dirname = path.dirname(__filename);
 
 // Robust Path Resolution for Config
 // Always try to load .env, but do NOT override existing process.env variables (Hostinger injection takes precedence)
-const envPath = path.resolve(__dirname, 'public_html', '.builds', 'config', '.env');
-const fallbackPath = path.resolve(__dirname, '.builds', 'config', '.env');
+const envPath1 = path.resolve(__dirname, 'public_html', '.builds', 'config', '.env');
+const envPath2 = path.resolve(__dirname, '.builds', 'config', '.env');
+const envPath3 = path.resolve(__dirname, '..', '.builds', 'config', '.env');
 const rootPath = path.resolve(__dirname, '.env');
 
 console.log('[Config] Checking for .env files...');
 
-if (existsSync(envPath)) {
-  console.log(`[Config] Loading .env from: ${envPath}`);
-  dotenv.config({ path: envPath });
-} else if (existsSync(fallbackPath)) {
-  console.log(`[Config] Loading .env from fallback: ${fallbackPath}`);
-  dotenv.config({ path: fallbackPath });
+if (existsSync(envPath1)) {
+  console.log(`[Config] Loading .env from: ${envPath1}`);
+  dotenv.config({ path: envPath1 });
+} else if (existsSync(envPath2)) {
+  console.log(`[Config] Loading .env from: ${envPath2}`);
+  dotenv.config({ path: envPath2 });
+} else if (existsSync(envPath3)) {
+  console.log(`[Config] Loading .env from: ${envPath3}`);
+  dotenv.config({ path: envPath3 });
 } else if (existsSync(rootPath)) {
   console.log(`[Config] Loading .env from root: ${rootPath}`);
   dotenv.config({ path: rootPath });
@@ -97,8 +101,11 @@ app.use('/uploads', express.static(UPLOADS_ROOT, {
 const cleanEnv = (val) => val ? val.toString().replace(/^['"]|['"]$/g, '').trim() : '';
 
 // Database Config
+let host = cleanEnv(process.env.DB_HOST) || 'localhost';
+if (host === '127.0.0.1') host = 'localhost'; // Hostinger prefers localhost for socket connections
+
 const dbConfig = {
-  host: cleanEnv(process.env.DB_HOST) === 'localhost' || !cleanEnv(process.env.DB_HOST) ? '127.0.0.1' : cleanEnv(process.env.DB_HOST),
+  host: host,
   user: cleanEnv(process.env.DB_USER) || 'root',
   password: cleanEnv(process.env.DB_PASSWORD) || '',
   database: cleanEnv(process.env.DB_NAME) || 'sanghavi_studio',
