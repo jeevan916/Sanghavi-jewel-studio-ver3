@@ -2,8 +2,11 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import process from 'process';
 import { existsSync } from 'fs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ mode }) => {
   // Point loadEnv to the user-specified configuration directory
@@ -43,7 +46,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(process.cwd(), 'src'),
+        '@': path.resolve(__dirname, 'src'),
       },
     },
     build: {
