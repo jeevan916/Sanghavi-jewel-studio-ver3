@@ -41,6 +41,11 @@ export default defineConfig(({ mode }) => {
         }
       },
     },
+    resolve: {
+      alias: {
+        '@': path.resolve(process.cwd(), 'src'),
+      },
+    },
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
