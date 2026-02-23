@@ -95,6 +95,8 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
              // Call Gemini Service
              const enhancedBase64Raw = await enhanceJewelryImage(base64);
              
+             if (!enhancedBase64Raw) throw new Error("AI Enhancement returned empty data");
+
              // Convert Raw Base64 back to Blob (Buffer)
              const byteCharacters = atob(enhancedBase64Raw);
              const byteNumbers = new Array(byteCharacters.length);

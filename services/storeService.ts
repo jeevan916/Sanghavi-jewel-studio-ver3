@@ -329,5 +329,7 @@ export const storeService = {
   createBackup: () => apiFetch('/backups', { method: 'POST' }),
   deleteBackup: (name: string) => apiFetch(`/backups/${name}`, { method: 'DELETE' }),
   downloadBackupUrl: (name: string) => `${API_BASE}/backups/download/${name}?key=${process.env.API_KEY}`,
-  getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message }))
+  getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message })),
+  getDebugEnv: () => apiFetch('/debug-env').catch(e => ({ status: 'error', error: e.message })),
+  retryDatabase: () => apiFetch('/retry-db', { method: 'GET' }).catch(e => ({ status: 'error', error: e.message }))
 };

@@ -284,6 +284,26 @@ app.get('/api/diagnostics', async (req, res) => {
     }
 });
 
+app.get('/api/debug-env', (req, res) => {
+    res.json({
+        DB_HOST: process.env.DB_HOST || 'Not Set',
+        DB_USER: process.env.DB_USER || 'Not Set',
+        DB_NAME: process.env.DB_NAME || 'Not Set',
+        DB_PASSWORD_LENGTH: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0,
+        NODE_ENV: process.env.NODE_ENV,
+        dbInitError: global.dbInitError || null
+    });
+});
+
+app.get('/api/retry-db', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        res.json({ status: 'success', message: 'Database connection active' });
+    } catch (e) {
+        res.status(500).json({ status: 'error', message: e.message });
+    }
+});
+
 // --- LINKS API ---
 app.post('/api/links', async (req, res) => {
     try {

@@ -5,7 +5,7 @@ import { useUpload } from '../contexts/UploadContext';
 import { Product } from '../types';
 import { 
   Loader2, ArrowLeft, Database, Download, Trash2, Archive, Shield, History, Cpu,
-  Activity, FileJson, Server, Image as ImageIcon
+  Activity, FileJson, Server, Image as ImageIcon, RefreshCw
 } from 'lucide-react';
 
 interface MaintenanceProps {
@@ -150,9 +150,29 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
 
       {/* DIAGNOSTICS PANEL */}
       <div className="bg-stone-900 text-white p-6 rounded-2xl shadow-xl mb-8">
-          <div className="flex items-center gap-2 mb-4">
-              <Activity className="text-teal-400" size={20} />
-              <h3 className="font-bold uppercase tracking-widest text-sm">System Diagnostics (Normalized DB)</h3>
+          <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                  <Activity className="text-teal-400" size={20} />
+                  <h3 className="font-bold uppercase tracking-widest text-sm">System Diagnostics (Normalized DB)</h3>
+              </div>
+              <button 
+                onClick={async () => {
+                    setIsProcessing(true);
+                    addLog("Attempting database re-sync...");
+                    const res = await storeService.retryDatabase();
+                    if (res.status === 'success') {
+                        addLog("Database re-sync successful!");
+                        storeService.getDiagnostics().then(setDiagnostics);
+                    } else {
+                        addLog(`Re-sync failed: ${res.message}`);
+                    }
+                    setIsProcessing(false);
+                }}
+                disabled={isProcessing}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
+              >
+                  <RefreshCw size={12} className={isProcessing ? 'animate-spin' : ''} /> Re-Sync DB
+              </button>
           </div>
           
           {diagnostics ? (
@@ -198,6 +218,45 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                   <Loader2 className="animate-spin" size={16} /> Running diagnostics...
               </div>
           )}
+      </div>
+
+      {/* NEURAL CORE DEBUG */}
+      <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm mb-8">
+          <div className="flex items-center gap-2 mb-6">
+              <Shield className="text-gold-600" size={20} />
+              <h3 className="font-bold uppercase tracking-widest text-sm">Neural Core Debug (Environment)</h3>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+              <button 
+                onClick={async () => {
+                    const env = await storeService.getDebugEnv();
+                    addLog(`DB_HOST: ${env.DB_HOST}`);
+                    addLog(`DB_USER: ${env.DB_USER}`);
+                    addLog(`DB_NAME: ${env.DB_NAME}`);
+                    addLog(`DB_PASS_LEN: ${env.DB_PASSWORD_LENGTH}`);
+                    if (env.dbInitError) addLog(`INIT_ERR: ${env.dbInitError}`);
+                }}
+                className="p-4 bg-stone-50 border border-stone-200 rounded-xl hover:bg-stone-100 transition flex items-center justify-between group"
+              >
+                  <div className="flex items-center gap-3">
+                      <FileJson className="text-stone-400 group-hover:text-gold-600" size={20} />
+                      <div className="text-left">
+                          <p className="text-xs font-bold text-stone-700">Inspect Environment</p>
+                          <p className="text-[10px] text-stone-500">Verify Hostinger DB credentials</p>
+                      </div>
+                  </div>
+                  <ArrowLeft className="rotate-180 text-stone-300 group-hover:text-gold-600 transition-transform" size={16} />
+              </button>
+
+              <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl flex items-center gap-3">
+                  <History className="text-stone-400" size={20} />
+                  <div>
+                      <p className="text-xs font-bold text-stone-700">Engine Version</p>
+                      <p className="text-[10px] text-stone-500">v3.6.0-stable (MySQL Persistence)</p>
+                  </div>
+              </div>
+          </div>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

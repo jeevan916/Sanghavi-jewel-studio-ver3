@@ -279,7 +279,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   };
 
   // --- CONFIG HANDLERS ---
-  const updateAIModel = (key: keyof AppConfig['aiConfig']['models'], value: string) => {
+  const updateAIModel = (key: 'analysis' | 'enhancement' | 'watermark' | 'design', value: string) => {
       if (!config) return;
       setConfig({
           ...config,
@@ -290,7 +290,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       });
   };
 
-  const updateAIPrompt = (key: keyof AppConfig['aiConfig']['prompts'], value: string) => {
+  const updateAIPrompt = (key: 'analysis' | 'enhancement' | 'watermark' | 'design', value: string) => {
       if (!config) return;
       setConfig({
           ...config,
@@ -301,32 +301,36 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       });
   };
 
-  const addTemplate = (key: keyof AppConfig['aiConfig']['templates'], label: string, content: string) => {
+  const addTemplate = (key: 'analysis' | 'enhancement' | 'watermark' | 'design', label: string, content: string) => {
       if (!config) return;
       const newTemplate: PromptTemplate = { id: Date.now().toString(), label, content };
-      const currentTemplates = config.aiConfig.templates?.[key] || [];
+      const templates = config.aiConfig.templates || { analysis: [], enhancement: [], watermark: [], design: [] };
+      const currentTemplates = templates[key] || [];
+      
       setConfig({
           ...config,
           aiConfig: {
               ...config.aiConfig,
               templates: {
-                  ...config.aiConfig.templates,
+                  ...templates,
                   [key]: [...currentTemplates, newTemplate]
               }
           }
       });
   };
 
-  const deleteTemplate = (key: keyof AppConfig['aiConfig']['templates'], id: string) => {
+  const deleteTemplate = (key: 'analysis' | 'enhancement' | 'watermark' | 'design', id: string) => {
       if (!config) return;
-      const currentTemplates = config.aiConfig.templates?.[key] || [];
+      const templates = config.aiConfig.templates || { analysis: [], enhancement: [], watermark: [], design: [] };
+      const currentTemplates = templates[key] || [];
+      
       setConfig({
           ...config,
           aiConfig: {
               ...config.aiConfig,
               templates: {
-                  ...config.aiConfig.templates,
-                  [key]: currentTemplates.filter(t => t.id !== id)
+                  ...templates,
+                  [key]: currentTemplates.filter((t: PromptTemplate) => t.id !== id)
               }
           }
       });

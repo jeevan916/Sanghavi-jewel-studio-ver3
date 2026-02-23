@@ -278,7 +278,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           }
       }
       // Handle Vertical Swipe (Product Nav) - Only if we haven't locked X
-      else if (swipeLocked.current !== 'x' && Math.abs(diffY) > 60 && Math.abs(diffY) > Math.abs(diffX)) {
+      else if (Math.abs(diffY) > 60 && Math.abs(diffY) > Math.abs(diffX)) {
          if (diffY > 0 && onNextProduct) { 
             vibrate(30); 
             onNextProduct();
