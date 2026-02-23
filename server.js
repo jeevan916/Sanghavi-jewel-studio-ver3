@@ -263,9 +263,28 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
   }
 });
 
+// --- MIDDLEWARE ---
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/') && !pool && req.path !== '/api/health' && req.path !== '/api/retry-db') {
+        return res.status(503).json({ 
+            error: 'Database not initialized', 
+            details: dbInitError || 'Initializing...' 
+        });
+    }
+    next();
+});
+
 // --- API ROUTES ---
 
-app.get('/api/health', (req, res) => res.json({ status: 'online' }));
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    db: pool ? 'connected' : 'not initialized',
+    dbError: dbInitError
+  });
+});
 
 app.get('/api/diagnostics', async (req, res) => {
     try {
@@ -297,8 +316,8 @@ app.get('/api/debug-env', (req, res) => {
 
 app.get('/api/retry-db', async (req, res) => {
     try {
-        await pool.query('SELECT 1');
-        res.json({ status: 'success', message: 'Database connection active' });
+        await initDB();
+        res.json({ status: 'success', message: 'Database connected successfully' });
     } catch (e) {
         res.status(500).json({ status: 'error', message: e.message });
     }
@@ -503,15 +522,19 @@ app.get('/api/products/curated', async (req, res) => {
 });
 
 app.get('/api/products/:id', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
-    rows[0] ? res.json(sanitizeProduct(rows[0])) : res.status(404).json({ error: 'Not found' });
+    try {
+        const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+        rows[0] ? res.json(sanitizeProduct(rows[0])) : res.status(404).json({ error: 'Not found' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/products/:id/stats', async (req, res) => {
-    const [rows] = await pool.query('SELECT type, COUNT(*) as c FROM analytics WHERE productId = ? GROUP BY type', [req.params.id]);
-    const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
-    rows.forEach(r => { if(stats.hasOwnProperty(r.type)) stats[r.type] = r.c; });
-    res.json(stats);
+    try {
+        const [rows] = await pool.query('SELECT type, COUNT(*) as c FROM analytics WHERE productId = ? GROUP BY type', [req.params.id]);
+        const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
+        rows.forEach(r => { if(stats.hasOwnProperty(r.type)) stats[r.type] = r.c; });
+        res.json(stats);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/products', async (req, res) => {
@@ -548,13 +571,17 @@ app.delete('/api/products/:id', async (req, res) => {
 
 // Other Entities
 app.get('/api/customers', async (req, res) => {
-    const [rows] = await pool.query('SELECT id, name, phone, pincode, role, createdAt FROM customers ORDER BY createdAt DESC');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT id, name, phone, pincode, role, createdAt FROM customers ORDER BY createdAt DESC');
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/customers/check/:phone', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [req.params.phone]);
-    res.json({ exists: rows.length > 0, user: rows[0] || null });
+    try {
+        const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [req.params.phone]);
+        res.json({ exists: rows.length > 0, user: rows[0] || null });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/customers/login', async (req, res) => {
@@ -574,25 +601,33 @@ app.post('/api/customers/login', async (req, res) => {
 });
 
 app.post('/api/login', async (req, res) => {
-    const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [req.body.username, req.body.password]);
-    if (rows[0] && rows[0].isActive) res.json({ user: rows[0] });
-    else res.status(401).json({ error: 'Invalid or Disabled' });
+    try {
+        const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [req.body.username, req.body.password]);
+        if (rows[0] && rows[0].isActive) res.json({ user: rows[0] });
+        else res.status(401).json({ error: 'Invalid or Disabled' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/staff', async (req, res) => {
-    const [rows] = await pool.query('SELECT id, username, role, name, isActive, createdAt FROM staff');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT id, username, role, name, isActive, createdAt FROM staff');
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/staff', async (req, res) => {
-    const s = { id: crypto.randomUUID(), ...req.body, createdAt: new Date() };
-    await pool.query('INSERT INTO staff SET ?', s);
-    res.status(201).json(s);
+    try {
+        const s = { id: crypto.randomUUID(), ...req.body, createdAt: new Date() };
+        await pool.query('INSERT INTO staff SET ?', s);
+        res.status(201).json(s);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/staff/:id', async (req, res) => {
-    await pool.query('UPDATE staff SET ? WHERE id = ?', [req.body, req.params.id]);
-    res.json({ success: true });
+    try {
+        await pool.query('UPDATE staff SET ? WHERE id = ?', [req.body, req.params.id]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/staff/:id', async (req, res) => {
@@ -603,21 +638,27 @@ app.delete('/api/staff/:id', async (req, res) => {
 });
 
 app.post('/api/analytics', async (req, res) => {
-    const event = { id: crypto.randomUUID(), ...req.body, timestamp: new Date() };
-    await pool.query('INSERT INTO analytics SET ?', event);
-    res.status(201).json(event);
+    try {
+        const event = { id: crypto.randomUUID(), ...req.body, timestamp: new Date() };
+        await pool.query('INSERT INTO analytics SET ?', event);
+        res.status(201).json(event);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/analytics', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
-    res.json(rows);
+    try {
+        const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/intelligence', async (req, res) => {
-    const [p] = await pool.query('SELECT COUNT(*) as c FROM products');
-    const [cust] = await pool.query('SELECT COUNT(*) as c FROM customers');
-    const [inq] = await pool.query('SELECT COUNT(*) as c FROM analytics WHERE type="inquiry"');
-    res.json({ summary: { totalInventory: p[0].c, totalLeads: cust[0].c, activeInquiries: inq[0].c } });
+    try {
+        const [p] = await pool.query('SELECT COUNT(*) as c FROM products');
+        const [cust] = await pool.query('SELECT COUNT(*) as c FROM customers');
+        const [inq] = await pool.query('SELECT COUNT(*) as c FROM analytics WHERE type="inquiry"');
+        res.json({ summary: { totalInventory: p[0].c, totalLeads: cust[0].c, activeInquiries: inq[0].c } });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/backups', async (req, res) => {
@@ -635,36 +676,7 @@ app.get('/api/backups', (req, res) => {
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error', message: err.message }); });
 
 // --- API ROUTES ---
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV,
-    db: pool ? 'connected' : 'not initialized',
-    dbError: dbInitError
-  });
-});
-
-app.get('/api/debug-env', (req, res) => {
-  res.json({
-    DB_HOST: process.env.DB_HOST || 'not set',
-    DB_USER: process.env.DB_USER || 'not set',
-    DB_NAME: process.env.DB_NAME || 'not set',
-    DB_PASSWORD_LENGTH: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0,
-    NODE_ENV: process.env.NODE_ENV || 'not set',
-    PORT: process.env.PORT || 'not set',
-    dbInitError: dbInitError
-  });
-});
-
-app.get('/api/retry-db', async (req, res) => {
-  try {
-    await initDB();
-    res.json({ status: 'success', message: 'Database connected successfully' });
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: err.message, stack: err.stack });
-  }
-});
+// (Moved to top)
 
 // API 404 Handler - Ensures /api/* always returns JSON
 app.use('/api/*', (req, res) => {
