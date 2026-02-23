@@ -118,22 +118,17 @@ let pool;
 // --- DATABASE INITIALIZATION & MIGRATION ---
 const initDB = async () => {
   try {
-    // 0. Ensure Database Exists (Only if DB_HOST is provided)
-    if (dbConfig.host) {
-        const connection = await mysql.createConnection({
-          host: dbConfig.host,
-          user: dbConfig.user,
-          password: dbConfig.password
-        });
-        await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
-        await connection.end();
-        pool = mysql.createPool(dbConfig);
-        console.log('[Database] MySQL Connected');
-    } else {
-        throw new Error('No DB_HOST provided, falling back to JSON');
-    }
+    console.log('[Database] Initializing connection pool...');
     
-    // 1. Core Data Tables
+    // 1. Create Pool Directly (Assume DB exists on Hostinger)
+    pool = mysql.createPool(dbConfig);
+    
+    // 2. Verify Connection
+    const connection = await pool.getConnection();
+    console.log('[Database] MySQL Connected Successfully');
+    connection.release();
+    
+    // 3. Core Data Tables
     await pool.query(`CREATE TABLE IF NOT EXISTS products (id VARCHAR(255) PRIMARY KEY, title VARCHAR(255), category VARCHAR(255), subCategory VARCHAR(255), weight FLOAT, description TEXT, tags JSON, images JSON, thumbnails JSON, supplier VARCHAR(255), uploadedBy VARCHAR(255), isHidden BOOLEAN, createdAt DATETIME, meta JSON)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS staff (id VARCHAR(255) PRIMARY KEY, username VARCHAR(255) UNIQUE, password VARCHAR(255), role VARCHAR(50), name VARCHAR(255), isActive BOOLEAN, createdAt DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`);
