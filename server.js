@@ -93,15 +93,25 @@ app.use('/uploads', express.static(UPLOADS_ROOT, {
   }
 }));
 
+// Helper to strip quotes if user accidentally added them in Hostinger UI or .env
+const cleanEnv = (val) => val ? val.toString().replace(/^['"]|['"]$/g, '').trim() : '';
+
 // Database Config
 const dbConfig = {
-  host: (process.env.DB_HOST || 'localhost').toLowerCase() === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'sanghavi_studio',
+  host: cleanEnv(process.env.DB_HOST) === 'localhost' ? '127.0.0.1' : cleanEnv(process.env.DB_HOST),
+  user: cleanEnv(process.env.DB_USER) || 'root',
+  password: cleanEnv(process.env.DB_PASSWORD) || '',
+  database: cleanEnv(process.env.DB_NAME) || 'sanghavi_studio',
   waitForConnections: true,
   connectionLimit: 10
 };
+
+console.log('[Debug] Sanitized DB Config:', {
+    host: dbConfig.host,
+    user: dbConfig.user,
+    db: dbConfig.database,
+    hasPassword: !!dbConfig.password
+});
 
 let pool;
 
@@ -109,7 +119,7 @@ let pool;
 const initDB = async () => {
   try {
     // 0. Ensure Database Exists (Only if DB_HOST is provided)
-    if (process.env.DB_HOST) {
+    if (dbConfig.host) {
         const connection = await mysql.createConnection({
           host: dbConfig.host,
           user: dbConfig.user,
