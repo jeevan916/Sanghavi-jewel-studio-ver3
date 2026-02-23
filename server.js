@@ -726,18 +726,9 @@ async function startServer() {
       }
     }
 
-    // Sanitize PORT to support both numbers and named pipes (Unix sockets used by Passenger on Hostinger)
-    let PORT = process.env.PORT || 3000;
-    if (typeof PORT === 'string') {
-      PORT = PORT.replace(/^['"]|['"]$/g, '').trim();
-      // If it's purely numeric, parse it. Otherwise, keep it as a string for named pipes.
-      if (/^\d+$/.test(PORT)) {
-        PORT = parseInt(PORT, 10);
-      }
-    }
-
-    const server = app.listen(PORT, () => {
-      console.log(`[Sanghavi Studio] Server Online on Port ${PORT}`);
+    const PORT = process.env.PORT || 3000;
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log("Server running on port", PORT);
       
       // Initialize Database in background after server starts listening
       console.log('🚀 [Sanghavi Studio] Initializing Database in background...');
