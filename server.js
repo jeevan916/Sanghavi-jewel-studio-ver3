@@ -69,8 +69,22 @@ try {
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 
-// Use __dirname to ensure paths are correct regardless of where 'npm start' is run
-const DATA_ROOT = path.resolve(__dirname, '.builds', 'sanghavi_persistence');
+// Debug Middleware
+app.use((req, res, next) => {
+    console.log(`[Request] ${req.method} ${req.url}`);
+    next();
+});
+
+// --- MIDDLEWARE ---
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/') && (!pool || dbInitError) && req.path !== '/api/health' && req.path !== '/api/retry-db') {
+        return res.status(503).json({ 
+            error: 'Database not initialized', 
+            details: dbInitError || 'Initializing...' 
+        });
+    }
+    next();
+});
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
@@ -261,17 +275,6 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Image processing failed', details: error.message });
   }
-});
-
-// --- MIDDLEWARE ---
-app.use((req, res, next) => {
-    if (req.path.startsWith('/api/') && !pool && req.path !== '/api/health' && req.path !== '/api/retry-db') {
-        return res.status(503).json({ 
-            error: 'Database not initialized', 
-            details: dbInitError || 'Initializing...' 
-        });
-    }
-    next();
 });
 
 // --- API ROUTES ---
