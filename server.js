@@ -98,7 +98,7 @@ const cleanEnv = (val) => val ? val.toString().replace(/^['"]|['"]$/g, '').trim(
 
 // Database Config
 const dbConfig = {
-  host: cleanEnv(process.env.DB_HOST) === 'localhost' ? '127.0.0.1' : cleanEnv(process.env.DB_HOST),
+  host: cleanEnv(process.env.DB_HOST) === 'localhost' || !cleanEnv(process.env.DB_HOST) ? '127.0.0.1' : cleanEnv(process.env.DB_HOST),
   user: cleanEnv(process.env.DB_USER) || 'root',
   password: cleanEnv(process.env.DB_PASSWORD) || '',
   database: cleanEnv(process.env.DB_NAME) || 'sanghavi_studio',
@@ -114,11 +114,13 @@ console.log('[Debug] Sanitized DB Config:', {
 });
 
 let pool;
+let dbInitError = null;
 
 // --- DATABASE INITIALIZATION & MIGRATION ---
 const initDB = async () => {
   try {
     console.log('[Database] Initializing connection pool...');
+    dbInitError = null;
     
     // 1. Create Pool Directly (Assume DB exists on Hostinger)
     pool = mysql.createPool(dbConfig);
@@ -174,8 +176,24 @@ const initDB = async () => {
         await pool.query('INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES (?, ?)', [key, val]);
     }
 
+    // 5. Seed Default Admin User
+    const [adminCheck] = await pool.query('SELECT id FROM staff WHERE role = "admin" LIMIT 1');
+    if (adminCheck.length === 0) {
+        console.log('[Database] Seeding default admin user...');
+        await pool.query('INSERT INTO staff (id, username, password, role, name, isActive, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+            crypto.randomUUID(),
+            'admin',
+            'admin123', // Default password
+            'admin',
+            'System Admin',
+            true,
+            new Date()
+        ]);
+    }
+
     console.log('[Database] Schema Verified and Ready');
   } catch (err) {
+    dbInitError = err.message;
     console.error('❌ [Database] MySQL Connection Failed:', err.message);
     throw err; // Re-throw to trigger startServer catch block
   }
@@ -587,7 +605,8 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
-    db: pool ? 'connected' : 'not initialized'
+    db: pool ? 'connected' : 'not initialized',
+    dbError: dbInitError
   });
 });
 
