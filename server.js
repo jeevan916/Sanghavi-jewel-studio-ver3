@@ -104,11 +104,8 @@ app.use('/uploads', express.static(UPLOADS_ROOT, {
 const cleanEnv = (val) => val ? val.toString().replace(/^['"]|['"]$/g, '').trim() : '';
 
 // Database Config
-let host = cleanEnv(process.env.DB_HOST) || 'localhost';
-if (host === '127.0.0.1') host = 'localhost'; // Hostinger prefers localhost for socket connections
-
 const dbConfig = {
-  host: host,
+  host: cleanEnv(process.env.DB_HOST) || 'localhost',
   user: cleanEnv(process.env.DB_USER) || 'root',
   password: cleanEnv(process.env.DB_PASSWORD) || '',
   database: cleanEnv(process.env.DB_NAME) || 'sanghavi_studio',
@@ -626,6 +623,27 @@ app.get('/api/health', (req, res) => {
     db: pool ? 'connected' : 'not initialized',
     dbError: dbInitError
   });
+});
+
+app.get('/api/debug-env', (req, res) => {
+  res.json({
+    DB_HOST: process.env.DB_HOST || 'not set',
+    DB_USER: process.env.DB_USER || 'not set',
+    DB_NAME: process.env.DB_NAME || 'not set',
+    DB_PASSWORD_LENGTH: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0,
+    NODE_ENV: process.env.NODE_ENV || 'not set',
+    PORT: process.env.PORT || 'not set',
+    dbInitError: dbInitError
+  });
+});
+
+app.get('/api/retry-db', async (req, res) => {
+  try {
+    await initDB();
+    res.json({ status: 'success', message: 'Database connected successfully' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message, stack: err.stack });
+  }
 });
 
 // API 404 Handler - Ensures /api/* always returns JSON
