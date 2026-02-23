@@ -9,7 +9,6 @@ import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
 import multer from 'multer';
-import sharp from 'sharp';
 
 // Global Error Handlers to prevent silent crashes
 process.on('uncaughtException', (err) => {
@@ -76,14 +75,18 @@ const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
 const ensureFolders = () => {
-  [DATA_ROOT, UPLOADS_ROOT, BACKUPS_ROOT].forEach(dir => {
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
-  });
-  // Engine Folders - Added 300 for Thumbnails
-  ['300', '720', '1080'].forEach(size => {
-    const dir = path.join(UPLOADS_ROOT, size);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
-  });
+  try {
+    [DATA_ROOT, UPLOADS_ROOT, BACKUPS_ROOT].forEach(dir => {
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
+    });
+    // Engine Folders - Added 300 for Thumbnails
+    ['300', '720', '1080'].forEach(size => {
+      const dir = path.join(UPLOADS_ROOT, size);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
+    });
+  } catch (err) {
+    console.error('❌ [Sanghavi Studio] Failed to create necessary directories. Check permissions:', err.message);
+  }
 };
 ensureFolders();
 
@@ -233,7 +236,15 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
       const processVariant = async (width, format, quality) => {
         const filename = `${safeName}-${width}w-${hash}.${format}`;
         const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
-        await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
+        try {
+          const { default: sharp } = await import('sharp');
+          await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
+        } catch (e) {
+          console.error('Sharp processing failed, saving raw file instead:', e);
+          // Fallback: just save the raw buffer if sharp fails
+          const fs = await import('fs');
+          fs.writeFileSync(filepath, file.buffer);
+        }
         return `/uploads/${width}/${filename}`;
       };
 
@@ -627,14 +638,8 @@ const distPath = path.resolve(__dirname, 'dist');
 console.log(`📂 [Sanghavi Studio] Serving frontend from: ${distPath}`);
 console.log(`🔍 [Sanghavi Studio] distPath exists: ${existsSync(distPath)}`);
 
-if (process.env.NODE_ENV !== 'production') {
-  const { createServer: createViteServer } = await import('vite');
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa',
-  });
-  app.use(vite.middlewares);
-} else if (existsSync(distPath)) {
+if (existsSync(distPath)) {
+  console.log('[Sanghavi Studio] Production build found. Serving static files.');
   // Serve static files from 'dist', but disable automatic index.html serving 
   // so we can explicitly handle the root route below.
   app.use(express.static(distPath, { index: false }));
@@ -648,16 +653,36 @@ if (process.env.NODE_ENV !== 'production') {
   app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
-} else {
-    console.warn(`[Warning] Frontend build not found at ${distPath}. Run 'npm run build' first.`);
 }
 
 async function startServer() {
   try {
-    const PORT = process.env.PORT || 3000;
-    const HOST = '0.0.0.0';
+    if (!existsSync(distPath)) {
+      console.log('[Sanghavi Studio] No production build found. Attempting to start Vite dev server...');
+      try {
+        const { createServer: createViteServer } = await import('vite');
+        const vite = await createViteServer({
+          server: { middlewareMode: true },
+          appType: 'spa',
+        });
+        app.use(vite.middlewares);
+      } catch (e) {
+        console.error('❌ [Sanghavi Studio] Failed to start Vite dev server. Is Vite installed?', e);
+        app.use((req, res) => res.status(500).send('Frontend build not found and Vite dev server failed to start.'));
+      }
+    }
 
-    app.listen(PORT, HOST, () => {
+    // Sanitize PORT to support both numbers and named pipes (Unix sockets used by Passenger on Hostinger)
+    let PORT = process.env.PORT || 3000;
+    if (typeof PORT === 'string') {
+      PORT = PORT.replace(/^['"]|['"]$/g, '').trim();
+      // If it's purely numeric, parse it. Otherwise, keep it as a string for named pipes.
+      if (/^\d+$/.test(PORT)) {
+        PORT = parseInt(PORT, 10);
+      }
+    }
+
+    const server = app.listen(PORT, () => {
       console.log(`[Sanghavi Studio] Server Online on Port ${PORT}`);
       
       // Initialize Database in background after server starts listening
@@ -666,6 +691,12 @@ async function startServer() {
         console.error('❌ [Sanghavi Studio] Database Initialization Failed:', err);
       });
     });
+
+    server.on('error', (err) => {
+      console.error('❌ [Sanghavi Studio] Server failed to start:', err);
+      process.exit(1);
+    });
+
   } catch (err) {
     console.error('❌ [Sanghavi Studio] Critical Startup Failure:', err);
     process.exit(1);
