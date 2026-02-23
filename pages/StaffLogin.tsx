@@ -10,6 +10,8 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [showDebug, setShowDebug] = useState(false);
   const navigate = useNavigate();
 
   // Check system health on load to ensure backend is reachable
@@ -138,10 +140,64 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
         </div>
         
         {!health?.healthy && health?.reason && (
-            <div className="mt-4 p-3 bg-red-950/30 rounded-xl border border-red-900/50">
-               <p className="text-[10px] text-red-300 text-center font-mono">
-                 Diagnostic: {health.reason}
-               </p>
+            <div className="mt-4 space-y-3">
+               <div className="p-3 bg-red-950/30 rounded-xl border border-red-900/50">
+                  <p className="text-[10px] text-red-300 text-center font-mono">
+                    Diagnostic: {health.reason}
+                  </p>
+               </div>
+               
+               <button 
+                 type="button"
+                 onClick={async () => {
+                   setIsLoading(true);
+                   try {
+                     const env = await storeService.getDebugEnv();
+                     setDebugInfo(env);
+                     setShowDebug(true);
+                   } catch (e) {
+                     setError("Failed to fetch debug info");
+                   } finally {
+                     setIsLoading(false);
+                   }
+                 }}
+                 className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-700"
+               >
+                 Inspect Environment
+               </button>
+
+               {showDebug && debugInfo && (
+                 <div className="p-4 bg-black/40 rounded-2xl border border-slate-800 font-mono text-[9px] text-slate-400 space-y-2 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex justify-between border-b border-slate-800 pb-1">
+                      <span>DB_HOST</span>
+                      <span className="text-teal-400">{debugInfo.DB_HOST}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800 pb-1">
+                      <span>DB_USER</span>
+                      <span className="text-teal-400">{debugInfo.DB_USER}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800 pb-1">
+                      <span>DB_NAME</span>
+                      <span className="text-teal-400">{debugInfo.DB_NAME}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800 pb-1">
+                      <span>DB_PASS_LEN</span>
+                      <span className="text-teal-400">{debugInfo.DB_PASSWORD_LENGTH}</span>
+                    </div>
+                    {debugInfo.dbInitError && (
+                      <div className="text-red-400 pt-1 break-words">
+                        Error: {debugInfo.dbInitError}
+                      </div>
+                    )}
+                    <button 
+                      type="button"
+                      onClick={() => setShowDebug(false)}
+                      className="w-full mt-2 py-1 text-slate-500 hover:text-white uppercase tracking-tighter"
+                    >
+                      [ Close Debug ]
+                    </button>
+                 </div>
+               )}
             </div>
         )}
       </div>

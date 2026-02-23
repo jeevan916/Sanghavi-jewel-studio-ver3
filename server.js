@@ -150,6 +150,7 @@ const initDB = async () => {
     const connection = await pool.getConnection();
     console.log('[Database] MySQL Connected Successfully');
     connection.release();
+    dbInitError = null; // Clear any previous error on success
     
     // 3. Core Data Tables
     await pool.query(`CREATE TABLE IF NOT EXISTS products (id VARCHAR(255) PRIMARY KEY, title VARCHAR(255), category VARCHAR(255), subCategory VARCHAR(255), weight FLOAT, description TEXT, tags JSON, images JSON, thumbnails JSON, supplier VARCHAR(255), uploadedBy VARCHAR(255), isHidden BOOLEAN, createdAt DATETIME, meta JSON)`);
@@ -313,7 +314,7 @@ app.get('/api/debug-env', (req, res) => {
         DB_NAME: process.env.DB_NAME || 'Not Set',
         DB_PASSWORD_LENGTH: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0,
         NODE_ENV: process.env.NODE_ENV,
-        dbInitError: global.dbInitError || null
+        dbInitError: dbInitError || null
     });
 });
 
