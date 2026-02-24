@@ -4,7 +4,7 @@ console.log('🚀 [Sanghavi Studio] Server process starting...');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync } from 'fs';
 import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
@@ -85,6 +85,7 @@ app.use((req, res, next) => {
     }
     next();
 });
+const DATA_ROOT = path.resolve(__dirname, 'data');
 const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
