@@ -283,11 +283,13 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ 
-    status: 'ok', 
+    status: 'online', 
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
     db: pool ? 'connected' : 'not initialized',
-    dbError: dbInitError
+    dbError: dbInitError,
+    distPath: distPath,
+    distExists: existsSync(distPath)
   });
 });
 
@@ -690,24 +692,27 @@ app.use('/api/*', (req, res) => {
 
 // --- SERVE FRONTEND ---
 const distPath = path.resolve(__dirname, 'dist');
-console.log(`📂 [Sanghavi Studio] Serving frontend from: ${distPath}`);
-console.log(`🔍 [Sanghavi Studio] distPath exists: ${existsSync(distPath)}`);
+const altDistPath = path.resolve(__dirname, 'public_html', 'dist');
 
-if (existsSync(distPath)) {
-  console.log('[Sanghavi Studio] Production build found. Serving static files.');
-  // Serve static files from 'dist', but disable automatic index.html serving 
-  // so we can explicitly handle the root route below.
-  app.use(express.static(distPath, { index: false }));
+console.log(`📂 [Sanghavi Studio] Primary distPath: ${distPath} (Exists: ${existsSync(distPath)})`);
+console.log(`📂 [Sanghavi Studio] Secondary distPath: ${altDistPath} (Exists: ${existsSync(altDistPath)})`);
+
+const activeDistPath = existsSync(distPath) ? distPath : (existsSync(altDistPath) ? altDistPath : null);
+
+if (activeDistPath) {
+  console.log(`[Sanghavi Studio] Serving frontend from: ${activeDistPath}`);
+  app.use(express.static(activeDistPath, { index: false }));
   
-  // Explicitly serve index.html for root route to fix "Cannot open directly" issues
   app.get('/', (req, res) => {
-     res.sendFile(path.join(distPath, 'index.html'));
+     res.sendFile(path.join(activeDistPath, 'index.html'));
   });
 
-  // Catch-all for SPA client-side routing
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    res.sendFile(path.join(activeDistPath, 'index.html'));
   });
+} else {
+  console.warn('⚠️ [Sanghavi Studio] No production build (dist) found in any expected location.');
 }
 
 async function startServer() {
