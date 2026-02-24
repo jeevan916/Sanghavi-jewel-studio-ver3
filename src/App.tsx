@@ -1,10 +1,10 @@
 
 import React, { Component, useState, Suspense, lazy, useEffect, ReactNode, ErrorInfo } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Navigation } from './components/Navigation';
-import { storeService } from './services/storeService';
-import { User } from './types';
-import { UploadProvider } from './contexts/UploadContext';
+import { Navigation } from '@/components/Navigation.tsx';
+import { storeService } from '@/services/storeService.ts';
+import { User } from '@/types.ts';
+import { UploadProvider } from '@/contexts/UploadContext.tsx';
 
 // Safe Loader Component (No external dependencies)
 const SafeLoader = () => (
@@ -79,16 +79,16 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 // Lazy Load Pages
-const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })));
-const Gallery = lazy(() => import('./pages/Gallery').then(m => ({ default: m.Gallery })));
-const UploadWizard = lazy(() => import('./pages/UploadWizard').then(m => ({ default: m.UploadWizard })));
-const DesignStudio = lazy(() => import('./pages/DesignStudio').then(m => ({ default: m.DesignStudio })));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
-const CustomerLogin = lazy(() => import('./pages/CustomerLogin').then(m => ({ default: m.CustomerLogin })));
-const StaffLogin = lazy(() => import('./pages/StaffLogin').then(m => ({ default: m.StaffLogin })));
-const ProductDetails = lazy(() => import('./pages/ProductDetails').then(m => ({ default: m.ProductDetails })));
-const SharedLanding = lazy(() => import('./pages/SharedLanding').then(m => ({ default: m.SharedLanding })));
+const Landing = lazy(() => import('@/pages/Landing.tsx').then(m => ({ default: m.Landing })));
+const Gallery = lazy(() => import('@/pages/Gallery.tsx').then(m => ({ default: m.Gallery })));
+const UploadWizard = lazy(() => import('@/pages/UploadWizard.tsx').then(m => ({ default: m.UploadWizard })));
+const DesignStudio = lazy(() => import('@/pages/DesignStudio.tsx').then(m => ({ default: m.DesignStudio })));
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard.tsx').then(m => ({ default: m.AdminDashboard })));
+const Settings = lazy(() => import('@/pages/Settings.tsx').then(m => ({ default: m.Settings })));
+const CustomerLogin = lazy(() => import('@/pages/CustomerLogin.tsx').then(m => ({ default: m.CustomerLogin })));
+const StaffLogin = lazy(() => import('@/pages/StaffLogin.tsx').then(m => ({ default: m.StaffLogin })));
+const ProductDetails = lazy(() => import('@/pages/ProductDetails.tsx').then(m => ({ default: m.ProductDetails })));
+const SharedLanding = lazy(() => import('@/pages/SharedLanding.tsx').then(m => ({ default: m.SharedLanding })));
 
 interface AuthGuardProps {
   children?: ReactNode;

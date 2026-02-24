@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { storeService } from '../services/storeService';
-import { coreEngine } from '@/services/coreEngine';
-import { Product, AnalyticsEvent, User, AppConfig } from '../types';
+import { storeService } from '@/services/storeService.ts';
+import { coreEngine } from '@/services/coreEngine.ts';
+import { Product, AnalyticsEvent, User, AppConfig } from '@/types.ts';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, 
