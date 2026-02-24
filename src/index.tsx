@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App';
 import './index.css'; 
-import { coreEngine } from '@/services/coreEngine.ts';
+import { coreEngine } from './services/coreEngine';
 
 // Initialize the Brain
 coreEngine.initialize();

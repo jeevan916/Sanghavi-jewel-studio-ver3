@@ -3,13 +3,13 @@
 // We need to keep the file content intact but add key={product.id}
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Product, ProductStats, PromptTemplate, AppConfig } from '../types';
+import { Product, ProductStats, PromptTemplate, AppConfig } from '@/types.ts';
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy } from 'lucide-react';
-import { ImageViewer } from '../components/ImageViewer';
-import { ComparisonSlider } from '../components/ComparisonSlider';
-import { storeService } from '../services/storeService';
-import { enhanceJewelryImage, removeWatermark } from '../services/geminiService';
-import { useUpload } from '../contexts/UploadContext';
+import { ImageViewer } from '@/components/ImageViewer.tsx';
+import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
+import { storeService } from '@/services/storeService.ts';
+import { enhanceJewelryImage, removeWatermark } from '@/services/geminiService.ts';
+import { useUpload } from '@/contexts/UploadContext.tsx';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();

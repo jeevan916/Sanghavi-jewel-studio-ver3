@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { storeService } from '../services/storeService';
-import { whatsappService } from '../services/whatsappService';
-import { User } from '../types';
+import { storeService } from '@/services/storeService.ts';
+import { whatsappService } from '@/services/whatsappService.ts';
+import { User } from '@/types.ts';
 import { ArrowLeft, Loader2, Info, ShieldCheck, MessageCircle, Phone, ArrowRight, CheckCircle2, AlertTriangle, User as UserIcon, MapPin, Locate } from 'lucide-react';
 
 export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ onLoginSuccess }) => {

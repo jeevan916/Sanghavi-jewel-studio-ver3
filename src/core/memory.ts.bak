@@ -1,0 +1,27 @@
+
+export const APP_MEMORY = {
+    version: "3.6.0",
+    identity: "Sanghavi Studio Neural Core",
+    design_dna: {
+        fonts: {
+            primary: "Inter",
+            serif: "Playfair Display"
+        },
+        palette: {
+            gold: "#c68a36",
+            stone: "#fbf8f1",
+            ink: "#1c1917"
+        }
+    },
+    locked_features: [
+        { id: "vault", name: "Secure Vault Access", status: "stable", critical: true },
+        { id: "ai_retouch", name: "AI Studio Retouching", status: "stable", critical: true },
+        { id: "whatsapp", name: "WhatsApp Lead Sync", status: "stable", critical: true }
+    ],
+    fix_log: [
+        "Resolved MySQL connection pooling issues",
+        "Optimized image delivery via Sharp",
+        "Implemented Neural Template System",
+        "Fixed PWA service worker registration"
+    ]
+};

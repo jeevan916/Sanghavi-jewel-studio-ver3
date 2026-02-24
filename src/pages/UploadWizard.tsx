@@ -1,10 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Loader2, Save, X, Plus, Image as ImageIcon, Briefcase, Layers, CheckCircle, AlertCircle, Trash2, Smartphone, ImagePlus, ArrowRight, Tag as TagIcon, Eye } from 'lucide-react';
-import { analyzeJewelryImage } from '../services/geminiService';
-import { storeService } from '../services/storeService';
-import { Product, AppConfig } from '../types';
-import { useUpload } from '../contexts/UploadContext';
+import { analyzeJewelryImage } from '@/services/geminiService.ts';
+import { storeService } from '@/services/storeService.ts';
+import { Product, AppConfig } from '@/types.ts';
+import { useUpload } from '@/contexts/UploadContext.tsx';
 
 type UploadMode = 'single' | 'batch';
 

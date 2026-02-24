@@ -1,0 +1,33 @@
+
+import { APP_MEMORY } from '../core/memory';
+
+class CoreEngine {
+    private memory = APP_MEMORY;
+
+    public initialize() {
+        console.group(`%c✦ SANGHAVI STUDIO CORE ENGINE v${this.memory.version}`, 'color: #c68a36; font-family: serif; font-size: 14px; font-weight: bold; padding: 4px;');
+        this.verifyIdentity();
+        this.validateDesignDNA();
+        console.log(`%c✓ Neural Link Established`, 'color: #4caf50; font-family: sans-serif;');
+        console.groupEnd();
+    }
+
+    private verifyIdentity() {
+        console.log(`%cIdentity Verified: ${this.memory.identity}`, 'color: #888; font-size: 10px;');
+    }
+
+    private validateDesignDNA() {
+        const dna = this.memory.design_dna;
+        console.log(`%c[Design DNA] Primary Font: ${dna.fonts.primary}`, 'color: #c68a36');
+    }
+
+    public getMemory() {
+        return this.memory;
+    }
+
+    public getFixHistory() {
+        return this.memory.fix_log;
+    }
+}
+
+export const coreEngine = new CoreEngine();

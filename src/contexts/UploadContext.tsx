@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Product, QueueItem } from '../types';
-import { analyzeJewelryImage, enhanceJewelryImage } from '../services/geminiService';
-import { storeService } from '../services/storeService';
+import { Product, QueueItem } from '@/types.ts';
+import { analyzeJewelryImage, enhanceJewelryImage } from '@/services/geminiService.ts';
+import { storeService } from '@/services/storeService.ts';
 
 interface ProcessOptions {
   enhance?: boolean;

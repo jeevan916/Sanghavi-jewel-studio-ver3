@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { generateJewelryDesign } from '../services/geminiService';
-import { GeneratedDesign, AspectRatio, AppConfig } from '../types';
-import { storeService } from '../services/storeService';
+import { generateJewelryDesign } from '@/services/geminiService.ts';
+import { GeneratedDesign, AspectRatio, AppConfig } from '@/types.ts';
+import { storeService } from '@/services/storeService.ts';
 import { Loader2, Download, Sparkles, Zap, ChevronDown } from 'lucide-react';
 
 export const DesignStudio: React.FC = () => {

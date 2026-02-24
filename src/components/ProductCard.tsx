@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Product } from '../types';
+import { Product } from '@/types.ts';
 import { Heart } from 'lucide-react';
-import { storeService } from '../services/storeService';
+import { storeService } from '@/services/storeService.ts';
 
 interface ProductCardProps {
   product: Product;

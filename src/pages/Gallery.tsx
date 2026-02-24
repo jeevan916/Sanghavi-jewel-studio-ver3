@@ -1,10 +1,10 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ProductCard } from '../components/ProductCard';
-import { storeService, CuratedCollections } from '../services/storeService';
+import { ProductCard } from '@/components/ProductCard.tsx';
+import { storeService, CuratedCollections } from '@/services/storeService.ts';
 import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight } from 'lucide-react';
-import { Product, AppConfig } from '../types';
+import { Product, AppConfig } from '@/types.ts';
 
 export const Gallery: React.FC = () => {
   const navigate = useNavigate();
