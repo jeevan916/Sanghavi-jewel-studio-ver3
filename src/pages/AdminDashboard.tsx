@@ -171,8 +171,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   if (loading && products.length === 0) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-stone-50">
-        <Loader2 className="animate-spin text-gold-500 mb-4" size={32} />
+      <div className="h-screen flex flex-col items-center justify-center bg-white">
+        <Loader2 className="animate-spin text-brand-gold mb-4" size={32} />
         <p className="text-stone-400 text-xs uppercase tracking-widest">Connecting to Vault...</p>
       </div>
     );
@@ -183,18 +183,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       <header className="flex-none mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex justify-between items-start w-full md:w-auto">
            <div>
-              <h2 className="font-serif text-3xl text-stone-900">Vault Administration</h2>
+              <h2 className="font-sans font-bold text-3xl text-brand-dark uppercase tracking-tight">Vault Administration</h2>
               <div className="flex items-center gap-2 mt-1">
-                 <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-teal-500' : 'bg-red-500 animate-pulse'}`} />
-                 <p className="text-stone-500 text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
+                 <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-green-500' : 'bg-brand-red animate-pulse'}`} />
+                 <p className="text-stone-400 text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
                     {healthInfo.healthy ? 'Live SQL Synchronized' : 'DB Disconnected - Retrying...'}
-                    {isSyncing && <RefreshCw size={10} className="animate-spin text-gold-500" />}
+                    {isSyncing && <RefreshCw size={10} className="animate-spin text-brand-gold" />}
                  </p>
               </div>
            </div>
         </div>
         
-        <div className="flex bg-stone-100 p-1 rounded-xl items-center overflow-x-auto">
+        <div className="flex bg-stone-50 p-1 rounded-xl items-center overflow-x-auto border border-stone-100">
             {[
               { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
               { id: 'files', icon: FolderOpen, label: 'Assets' },
@@ -206,7 +206,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               <button 
                 key={tab.id}
                 onClick={() => setActiveView(tab.id as ViewMode)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeView === tab.id ? 'bg-white shadow text-stone-900' : 'text-stone-500 hover:text-stone-700'}`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap uppercase tracking-tighter ${activeView === tab.id ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400 hover:text-brand-dark'}`}
               >
                   <tab.icon size={16} /> {tab.label}
               </button>
@@ -220,42 +220,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     onClick={() => setActiveView('files')}
                     className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all group"
                 >
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform"><HardDrive size={24} /></div>
-                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Inventory</p><p className="text-2xl font-bold text-stone-800">{products.length}</p></div>
+                    <div className="p-3 bg-brand-gold/5 text-brand-gold rounded-xl group-hover:scale-110 transition-transform"><HardDrive size={24} /></div>
+                    <div><p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">Inventory</p><p className="text-2xl font-bold text-brand-dark">{products.length}</p></div>
                 </div>
                 <div 
                     onClick={() => setActiveView('leads')}
                     className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all group"
                 >
-                    <div className="p-3 bg-green-50 text-green-600 rounded-xl group-hover:scale-110 transition-transform"><UserCheck size={24} /></div>
-                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Leads</p><p className="text-2xl font-bold text-stone-800">{customers.length}</p></div>
+                    <div className="p-3 bg-brand-red/5 text-brand-red rounded-xl group-hover:scale-110 transition-transform"><UserCheck size={24} /></div>
+                    <div><p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">Leads</p><p className="text-2xl font-bold text-brand-dark">{customers.length}</p></div>
                 </div>
                 <div 
                     onClick={() => setActiveView('activity')}
                     className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all group"
                 >
-                    <div className="p-3 bg-purple-50 text-purple-600 rounded-xl group-hover:scale-110 transition-transform"><Activity size={24} /></div>
-                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Activity</p><p className="text-2xl font-bold text-stone-800">{analytics.length}</p></div>
+                    <div className="p-3 bg-brand-dark/5 text-brand-dark rounded-xl group-hover:scale-110 transition-transform"><Activity size={24} /></div>
+                    <div><p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">Activity</p><p className="text-2xl font-bold text-brand-dark">{analytics.length}</p></div>
                 </div>
                 <div 
                     onClick={() => setActiveView('trends')}
                     className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all group"
                 >
-                    <div className="p-3 bg-orange-50 text-orange-600 rounded-xl group-hover:scale-110 transition-transform"><TrendingUp size={24} /></div>
-                    <div><p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Insights</p><p className="text-2xl font-bold text-stone-800">Top 10</p></div>
+                    <div className="p-3 bg-brand-gold/10 text-brand-gold rounded-xl group-hover:scale-110 transition-transform"><TrendingUp size={24} /></div>
+                    <div><p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">Insights</p><p className="text-2xl font-bold text-brand-dark">Top 10</p></div>
                 </div>
           </div>
       )}
 
       {activeView === 'neural' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
-              <div className="bg-stone-900 text-white p-8 rounded-3xl shadow-xl border border-stone-800">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+              <div className="bg-brand-dark text-white p-8 rounded-3xl shadow-xl border border-white/5">
                   <div className="flex items-center gap-3 mb-6">
-                      <div className="p-3 bg-gold-500/10 rounded-xl border border-gold-500/20">
-                          <BrainCircuit size={24} className="text-gold-500" />
+                      <div className="p-3 bg-brand-gold/10 rounded-xl border border-brand-gold/20">
+                          <BrainCircuit size={24} className="text-brand-gold" />
                       </div>
                       <div>
-                          <h3 className="font-serif text-2xl text-gold-500">Core Engine v{memory.version}</h3>
+                          <h3 className="font-sans font-bold text-2xl text-brand-gold uppercase tracking-tight">Core Engine v{memory.version}</h3>
                           <p className="text-stone-400 text-xs uppercase tracking-widest">{memory.identity}</p>
                       </div>
                   </div>
@@ -265,19 +265,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       <div>
                            <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Zap size={12}/> Active Capabilities</h4>
                            <div className="grid grid-cols-2 gap-2">
-                               <div className="p-3 bg-stone-800 rounded-xl border border-stone-700">
+                               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                                    <p className="text-[10px] text-stone-400 uppercase">Analysis Model</p>
-                                   <p className="text-xs font-mono text-teal-400 truncate">{config?.aiConfig?.models?.analysis || 'System Default'}</p>
+                                   <p className="text-xs font-mono text-brand-gold truncate">{config?.aiConfig?.models?.analysis || 'System Default'}</p>
                                </div>
-                               <div className="p-3 bg-stone-800 rounded-xl border border-stone-700">
+                               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                                    <p className="text-[10px] text-stone-400 uppercase">Design Model</p>
-                                   <p className="text-xs font-mono text-teal-400 truncate">{config?.aiConfig?.models?.design || 'System Default'}</p>
+                                   <p className="text-xs font-mono text-brand-gold truncate">{config?.aiConfig?.models?.design || 'System Default'}</p>
                                </div>
-                               <div className="p-3 bg-stone-800 rounded-xl border border-stone-700">
+                               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                                    <p className="text-[10px] text-stone-400 uppercase">Analysis Templates</p>
                                    <p className="text-xl font-bold text-white">{config?.aiConfig?.templates?.analysis?.length || 0}</p>
                                </div>
-                               <div className="p-3 bg-stone-800 rounded-xl border border-stone-700">
+                               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                                    <p className="text-[10px] text-stone-400 uppercase">Design Templates</p>
                                    <p className="text-xl font-bold text-white">{config?.aiConfig?.templates?.design?.length || 0}</p>
                                </div>
@@ -288,12 +288,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Lock size={12}/> Locked Features (Immutable)</h4>
                           <div className="grid grid-cols-1 gap-2">
                               {memory.locked_features.map(f => (
-                                  <div key={f.id} className="p-3 bg-stone-800/50 rounded-xl border border-stone-700/50 flex justify-between items-center">
+                                  <div key={f.id} className="p-3 bg-white/5 rounded-xl border border-white/5 flex justify-between items-center">
                                       <div className="flex items-center gap-3">
-                                          <div className={`w-2 h-2 rounded-full ${f.status === 'stable' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                                          <span className="font-medium text-sm text-stone-200">{f.name}</span>
+                                          <div className={`w-2 h-2 rounded-full ${f.status === 'stable' ? 'bg-green-500' : 'bg-brand-gold'}`} />
+                                          <span className="font-bold text-sm text-stone-200 uppercase tracking-tight">{f.name}</span>
                                       </div>
-                                      <ShieldCheck size={16} className="text-gold-500/50" />
+                                      <ShieldCheck size={16} className="text-brand-gold/50" />
                                   </div>
                               ))}
                           </div>
@@ -302,27 +302,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               </div>
 
               <div className="space-y-6">
-                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-200">
-                      <h4 className="font-serif text-xl text-stone-800 mb-4 flex items-center gap-2">
-                          <Activity size={20} className="text-blue-500" /> Recent Fix Memory
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+                      <h4 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight mb-4 flex items-center gap-2">
+                          <Activity size={20} className="text-brand-red" /> Recent Fix Memory
                       </h4>
                       <div className="space-y-3">
                           {fixHistory.map((fix, i) => (
                               <div key={i} className="flex gap-3 items-start">
                                   <CheckCircle size={16} className="text-green-500 mt-0.5 shrink-0" />
-                                  <p className="text-sm text-stone-600">{fix}</p>
+                                  <p className="text-sm text-stone-500">{fix}</p>
                               </div>
                           ))}
                       </div>
                   </div>
                   
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-3xl border border-blue-100">
-                      <h4 className="font-serif text-xl text-blue-900 mb-2">Engine Status</h4>
+                  <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100">
+                      <h4 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight mb-2">Engine Status</h4>
                       <div className="flex items-center gap-2 mb-4">
                           <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase">Active</span>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase">Monitoring</span>
+                          <span className="px-2 py-1 bg-brand-gold/10 text-brand-gold rounded text-[10px] font-bold uppercase">Monitoring</span>
                       </div>
-                      <p className="text-sm text-blue-800/80 leading-relaxed">
+                      <p className="text-sm text-stone-500 leading-relaxed font-serif italic">
                           The Core Engine is actively monitoring the codebase for regression. 
                           The Neural Template System is online and serving {((config?.aiConfig?.templates?.analysis?.length || 0) + (config?.aiConfig?.templates?.design?.length || 0))} custom prompts.
                       </p>
@@ -332,19 +332,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       )}
 
       {activeView === 'leads' && (
-          <div className="space-y-6 animate-in fade-in">
-              <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
+          <div className="space-y-6 animate-fade-in">
+              <div className="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm">
                   <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2">
-                        <UserCheck size={24} className="text-green-600"/> Registered Clients ({customers.length})
+                    <h3 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight flex items-center gap-2">
+                        <UserCheck size={24} className="text-brand-red"/> Registered Clients ({customers.length})
                     </h3>
-                    <button onClick={() => refreshData(true)} className="p-2 text-stone-400 hover:text-stone-800 transition"><RefreshCw size={16}/></button>
+                    <button onClick={() => refreshData(true)} className="p-2 text-stone-300 hover:text-brand-dark transition"><RefreshCw size={16}/></button>
                   </div>
 
                   <div className="overflow-x-auto">
                       <table className="w-full text-left">
                           <thead>
-                              <tr className="border-b border-stone-100 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                              <tr className="border-b border-stone-50 text-[10px] font-bold uppercase tracking-widest text-stone-300">
                                   <th className="pb-3 pl-4">Client</th>
                                   <th className="pb-3">Contact</th>
                                   <th className="pb-3">Location</th>
@@ -357,22 +357,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                   <tr key={c.id} className="hover:bg-stone-50 transition-colors">
                                       <td className="py-4 pl-4">
                                           <div className="flex items-center gap-3">
-                                              <div className="w-8 h-8 rounded-full bg-gold-50 text-gold-600 flex items-center justify-center font-bold text-xs">
+                                              <div className="w-8 h-8 rounded-full bg-brand-gold/10 text-brand-gold flex items-center justify-center font-bold text-xs">
                                                   {c.name.charAt(0).toUpperCase()}
                                               </div>
                                               <div>
-                                                  <p className="font-bold text-stone-800 text-sm">{c.name}</p>
-                                                  <p className="text-[10px] text-stone-400 uppercase">{c.role}</p>
+                                                  <p className="font-bold text-brand-dark text-sm">{c.name}</p>
+                                                  <p className="text-[10px] text-stone-300 uppercase font-bold tracking-tighter">{c.role}</p>
                                               </div>
                                           </div>
                                       </td>
-                                      <td className="py-4 text-sm font-mono text-stone-600">{c.phone}</td>
-                                      <td className="py-4 text-sm text-stone-600">{c.pincode || 'N/A'}</td>
-                                      <td className="py-4 text-xs text-stone-400">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'N/A'}</td>
+                                      <td className="py-4 text-sm font-mono text-stone-500">{c.phone}</td>
+                                      <td className="py-4 text-sm text-stone-500">{c.pincode || 'N/A'}</td>
+                                      <td className="py-4 text-xs text-stone-300">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'N/A'}</td>
                                       <td className="py-4 text-right pr-4">
                                           <button 
                                               onClick={() => storeService.chatWithLead(c)}
-                                              className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-green-100 transition-colors flex items-center gap-2 ml-auto"
+                                              className="px-3 py-1.5 bg-brand-gold/10 text-brand-gold rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-brand-gold/20 transition-colors flex items-center gap-2 ml-auto"
                                           >
                                               <MessageCircle size={14} /> Chat
                                           </button>
@@ -381,8 +381,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                               )) : (
                                   <tr>
                                       <td colSpan={5} className="py-12 text-center">
-                                          <UserCheck size={32} className="mx-auto text-stone-200 mb-2"/>
-                                          <p className="text-stone-400 text-sm italic">No registered clients found yet.</p>
+                                          <UserCheck size={32} className="mx-auto text-stone-100 mb-2"/>
+                                          <p className="text-stone-300 text-sm italic font-serif">No registered clients found yet.</p>
                                       </td>
                                   </tr>
                               )}
@@ -394,31 +394,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       )}
 
       {activeView === 'activity' && (
-          <div className="space-y-6 animate-in fade-in">
-              <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col h-full min-h-[600px]">
+          <div className="space-y-6 animate-fade-in">
+              <div className="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full min-h-[600px]">
                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-serif text-xl text-stone-800 flex items-center gap-2">
-                            <Activity size={24} className="text-purple-500"/> Live Activity Feed
+                        <h3 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight flex items-center gap-2">
+                            <Activity size={24} className="text-brand-red"/> Live Activity Feed
                         </h3>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase bg-stone-100 text-stone-500 px-2 py-1 rounded-lg">{analytics.length} Events</span>
-                            <button onClick={() => refreshData(true)} className="p-2 text-stone-400 hover:text-stone-800 transition"><RefreshCw size={16}/></button>
+                            <span className="text-[10px] font-bold uppercase bg-stone-50 text-stone-400 px-2 py-1 rounded-lg">{analytics.length} Events</span>
+                            <button onClick={() => refreshData(true)} className="p-2 text-stone-300 hover:text-brand-dark transition"><RefreshCw size={16}/></button>
                         </div>
                    </div>
                    
-                   <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                   <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
                        {analytics.length === 0 ? (
-                           <div className="h-full flex flex-col items-center justify-center text-stone-300">
+                           <div className="h-full flex flex-col items-center justify-center text-stone-200">
                                <Activity size={40} className="mb-2 opacity-50"/>
-                               <p className="text-sm">No activity recorded yet.</p>
+                               <p className="text-sm font-serif italic">No activity recorded yet.</p>
                            </div>
                        ) : (
                            analytics.map((event, idx) => (
                                <div key={event.id || idx} className="flex gap-4 p-4 rounded-xl bg-stone-50 border border-stone-100 hover:bg-white hover:shadow-sm transition-all animate-fade-in items-center">
                                    <div className={`p-3 rounded-full shrink-0 ${
-                                       event.type === 'like' ? 'bg-red-50 text-red-500' :
-                                       event.type === 'inquiry' ? 'bg-green-50 text-green-500' :
-                                       'bg-blue-50 text-blue-500'
+                                       event.type === 'like' ? 'bg-brand-red/5 text-brand-red' :
+                                       event.type === 'inquiry' ? 'bg-brand-gold/5 text-brand-gold' :
+                                       'bg-brand-dark/5 text-brand-dark'
                                    }`}>
                                        {event.type === 'like' ? <Heart size={18}/> : 
                                         event.type === 'inquiry' ? <MessageCircle size={18}/> : 
@@ -426,17 +426,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                    </div>
                                    <div className="flex-1 min-w-0">
                                        <div className="flex justify-between items-start">
-                                          <p className="text-sm text-stone-800 truncate pr-2">
+                                          <p className="text-sm text-brand-dark truncate pr-2">
                                               <span className="font-bold">{event.userName || 'Guest'}</span> 
                                               {event.type === 'inquiry' ? ' inquired about' : event.type === 'like' ? ' liked' : ' viewed'} 
-                                              <span className="font-bold"> {event.productTitle || 'an item'}</span>
+                                              <span className="font-bold text-brand-red"> {event.productTitle || 'an item'}</span>
                                           </p>
-                                          <span className="text-[10px] text-stone-400 whitespace-nowrap flex items-center gap-1 shrink-0">
+                                          <span className="text-[10px] text-stone-300 whitespace-nowrap flex items-center gap-1 shrink-0 font-bold uppercase tracking-tighter">
                                                <ClockIcon size={10}/> {event.timestamp ? new Date(event.timestamp).toLocaleString() : 'Just now'}
                                           </span>
                                        </div>
                                        {event.userPhone && (
-                                            <p className="text-[10px] text-stone-400 font-mono mt-0.5">{event.userPhone}</p>
+                                            <p className="text-[10px] text-stone-300 font-mono mt-0.5">{event.userPhone}</p>
                                        )}
                                    </div>
                                </div>
@@ -448,37 +448,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       )}
 
       {activeView === 'trends' && (
-          <div className="space-y-6 animate-in fade-in">
+          <div className="space-y-6 animate-fade-in">
               {/* Popular Products Calculation */}
-              <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm min-h-[600px] flex flex-col">
-                   <h3 className="font-serif text-xl text-stone-800 mb-6 flex items-center gap-2">
-                      <TrendingUp size={24} className="text-orange-500"/> Top Performing Assets
+              <div className="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm min-h-[600px] flex flex-col">
+                   <h3 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight mb-6 flex items-center gap-2">
+                      <TrendingUp size={24} className="text-brand-gold"/> Top Performing Assets
                    </h3>
-                   <div className="flex-1 overflow-y-auto pr-2">
+                   <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide">
                        {trendingProducts.length === 0 ? (
-                           <div className="h-full flex flex-col items-center justify-center text-stone-300">
+                           <div className="h-full flex flex-col items-center justify-center text-stone-200">
                                <TrendingUp size={40} className="mb-2 opacity-50"/>
-                               <p className="text-sm">Insufficient data for analysis.</p>
+                               <p className="text-sm font-serif italic">Insufficient data for analysis.</p>
                            </div>
                        ) : (
                            <div className="space-y-3">
                                {trendingProducts.map((item, i) => (
                                    <div key={item.id} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100 hover:bg-white hover:shadow-sm transition-all group">
                                        <div className="flex items-center gap-4">
-                                           <span className={`text-2xl font-serif font-bold w-12 text-center ${i < 3 ? 'text-gold-500' : 'text-stone-300'}`}>#{i+1}</span>
+                                           <span className={`text-2xl font-sans font-bold w-12 text-center ${i < 3 ? 'text-brand-gold' : 'text-stone-200'}`}>#{i+1}</span>
                                            <div>
-                                               <p className="font-bold text-stone-800 line-clamp-1 text-lg">{item.title}</p>
+                                               <p className="font-bold text-brand-dark line-clamp-1 text-lg uppercase tracking-tight">{item.title}</p>
                                                <div className="flex items-center gap-4 mt-2">
                                                    <div className="flex items-center gap-2">
-                                                        <div className="h-2 w-32 bg-stone-200 rounded-full overflow-hidden">
-                                                            <div className="h-full bg-gold-500" style={{ width: `${Math.min(100, item.score * 5)}%` }}></div>
+                                                        <div className="h-2 w-32 bg-stone-100 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-brand-gold" style={{ width: `${Math.min(100, item.score * 5)}%` }}></div>
                                                         </div>
                                                         <span className="text-[10px] text-stone-400 uppercase tracking-widest font-bold">Score: {item.score}</span>
                                                    </div>
                                                </div>
                                            </div>
                                        </div>
-                                       <button onClick={() => navigate(`/product/${item.id}`)} className="px-4 py-2 bg-white rounded-lg border border-stone-100 text-stone-400 hover:text-gold-600 hover:border-gold-200 transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                                       <button onClick={() => navigate(`/product/${item.id}`)} className="px-4 py-2 bg-white rounded-lg border border-stone-100 text-stone-300 hover:text-brand-red hover:border-brand-red/20 transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
                                            View Asset <ArrowRight size={14}/>
                                        </button>
                                    </div>
@@ -491,30 +491,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       )}
 
       {activeView === 'files' && (
-          <div className="flex-1 flex flex-col md:flex-row bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden min-h-[500px]">
-             <div className="w-full md:w-64 bg-stone-50 border-r border-stone-200 flex flex-col p-4">
-                 <button onClick={() => onNavigate?.('upload')} className="w-full py-2.5 bg-stone-900 text-white rounded-xl flex items-center justify-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest"><Plus size={18} /> Add Stock</button>
+          <div className="flex-1 flex flex-col md:flex-row bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden min-h-[500px]">
+             <div className="w-full md:w-64 bg-stone-50 border-r border-stone-100 flex flex-col p-4">
+                 <button onClick={() => onNavigate?.('upload')} className="w-full py-2.5 bg-brand-dark text-white rounded-xl flex items-center justify-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest hover:bg-brand-red transition-colors"><Plus size={18} /> Add Stock</button>
                  <div className="space-y-1">
                      {folders.map(folder => (
-                         <button key={folder} onClick={() => setSelectedFolder(folder)} className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-3 ${selectedFolder === folder ? 'bg-white shadow-sm text-gold-700 font-bold' : 'text-stone-500'}`}>
+                         <button key={folder} onClick={() => setSelectedFolder(folder)} className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-3 uppercase tracking-tighter font-bold transition-all ${selectedFolder === folder ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400 hover:text-brand-dark'}`}>
                              <Folder size={16} />{folder}
                          </button>
                      ))}
                  </div>
              </div>
-             <div className="flex-1 p-4 overflow-y-auto relative">
+             <div className="flex-1 p-4 overflow-y-auto relative scrollbar-hide">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
                     {filteredProducts.map(product => (
                         <div key={product.id} 
                              onClick={() => toggleAssetSelection(product.id)}
-                             className={`relative aspect-square bg-stone-100 rounded-xl overflow-hidden border cursor-pointer group transition-all ${selectedAssets.has(product.id) ? 'border-gold-500 ring-2 ring-gold-500 ring-offset-2' : 'border-stone-200 hover:border-gold-300'}`}>
+                             className={`relative aspect-square bg-stone-50 rounded-xl overflow-hidden border cursor-pointer group transition-all ${selectedAssets.has(product.id) ? 'border-brand-gold ring-2 ring-brand-gold ring-offset-2' : 'border-stone-100 hover:border-brand-gold/30'}`}>
                             <img src={product.thumbnails?.[0] || product.images?.[0]} className={`w-full h-full object-cover transition-transform duration-500 ${selectedAssets.has(product.id) ? 'scale-90' : 'group-hover:scale-110'}`} />
                             
-                            <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border border-white/50 flex items-center justify-center transition-colors ${selectedAssets.has(product.id) ? 'bg-gold-500 border-gold-500' : 'bg-black/30'}`}>
+                            <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border border-white/50 flex items-center justify-center transition-colors ${selectedAssets.has(product.id) ? 'bg-brand-gold border-brand-gold' : 'bg-black/30'}`}>
                                 {selectedAssets.has(product.id) && <CheckCircle size={14} className="text-white" />}
                             </div>
 
-                            <div className="absolute inset-x-0 bottom-0 p-2 bg-black/60 text-white text-[10px] truncate">
+                            <div className="absolute inset-x-0 bottom-0 p-2 bg-brand-dark/80 text-white text-[10px] truncate font-bold uppercase tracking-tighter">
                                 {product.title}
                             </div>
                         </div>
@@ -523,16 +523,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 
                 {/* Bulk Action Toolbar */}
                 {selectedAssets.size > 0 && (
-                    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-stone-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-6 z-50 animate-in slide-in-from-bottom-4">
+                    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-brand-dark text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-6 z-50 animate-in slide-in-from-bottom-4">
                         <span className="text-xs font-bold uppercase tracking-widest">{selectedAssets.size} Selected</span>
-                        <div className="h-4 w-px bg-stone-700"></div>
-                        <button onClick={() => setIsMoveModalOpen(true)} className="flex items-center gap-2 hover:text-gold-500 transition-colors">
+                        <div className="h-4 w-px bg-white/10"></div>
+                        <button onClick={() => setIsMoveModalOpen(true)} className="flex items-center gap-2 hover:text-brand-gold transition-colors">
                             <FolderInput size={18} /> <span className="text-xs font-bold uppercase">Move</span>
                         </button>
-                        <button onClick={handleBulkDelete} className="flex items-center gap-2 hover:text-red-500 transition-colors">
+                        <button onClick={handleBulkDelete} className="flex items-center gap-2 hover:text-brand-red transition-colors">
                             <Trash2 size={18} /> <span className="text-xs font-bold uppercase">Delete</span>
                         </button>
-                        <button onClick={() => setSelectedAssets(new Set())} className="p-1 hover:bg-stone-800 rounded-full">
+                        <button onClick={() => setSelectedAssets(new Set())} className="p-1 hover:bg-white/10 rounded-full">
                             <X size={16} />
                         </button>
                     </div>
@@ -543,16 +543,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
       {/* Move Assets Modal */}
       {isMoveModalOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95">
                   <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
-                      <h3 className="font-bold text-stone-800 flex items-center gap-2"><FolderInput size={18}/> Move {selectedAssets.size} Assets</h3>
+                      <h3 className="font-bold text-brand-dark flex items-center gap-2 uppercase tracking-tight"><FolderInput size={18}/> Move {selectedAssets.size} Assets</h3>
                       <button onClick={() => setIsMoveModalOpen(false)}><X size={20}/></button>
                   </div>
                   <div className="p-6 space-y-4">
                       <div>
                           <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Destination Category</label>
-                          <select value={moveCategory} onChange={e => { setMoveCategory(e.target.value); setMoveSubCategory(''); }} className="w-full p-3 border border-stone-200 rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-gold-500">
+                          <select value={moveCategory} onChange={e => { setMoveCategory(e.target.value); setMoveSubCategory(''); }} className="w-full p-3 border border-stone-100 rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-brand-gold">
                               <option value="">Select Category...</option>
                               {config?.categories?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                           </select>
@@ -561,14 +561,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       {activeSubCategories.length > 0 && (
                           <div>
                               <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Sub-Category</label>
-                              <select value={moveSubCategory} onChange={e => setMoveSubCategory(e.target.value)} className="w-full p-3 border border-stone-200 rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-gold-500">
+                              <select value={moveSubCategory} onChange={e => setMoveSubCategory(e.target.value)} className="w-full p-3 border border-stone-100 rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-brand-gold">
                                   <option value="">Select Sub-Category...</option>
                                   {activeSubCategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
                               </select>
                           </div>
                       )}
 
-                      <button onClick={handleBulkMove} disabled={!moveCategory} className="w-full py-3 bg-stone-900 text-white rounded-xl font-bold disabled:opacity-50">
+                      <button onClick={handleBulkMove} disabled={!moveCategory} className="w-full py-3 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50 hover:bg-brand-red transition-colors">
                           Confirm Move
                       </button>
                   </div>

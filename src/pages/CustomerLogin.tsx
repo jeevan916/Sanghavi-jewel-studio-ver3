@@ -5,6 +5,7 @@ import { storeService } from '@/services/storeService.ts';
 import { whatsappService } from '@/services/whatsappService.ts';
 import { User } from '@/types.ts';
 import { ArrowLeft, Loader2, Info, ShieldCheck, MessageCircle, Phone, ArrowRight, CheckCircle2, AlertTriangle, User as UserIcon, MapPin, Locate } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ onLoginSuccess }) => {
   const [step, setStep] = useState<'details' | 'otp'>('details');
@@ -189,27 +190,25 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
   }, [otpValue]);
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-6 animate-fade-in">
+    <div className="min-h-screen bg-white flex items-center justify-center p-6 animate-fade-in">
       <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl border border-stone-100 relative overflow-hidden transition-all duration-500">
         
         {/* Progress indicator */}
         <div className="absolute top-0 left-0 right-0 h-1 flex">
-          <div className={`flex-1 transition-colors duration-500 ${step === 'details' || step === 'otp' ? 'bg-gold-500' : 'bg-stone-100'}`} />
-          <div className={`flex-1 transition-colors duration-500 ${step === 'otp' ? 'bg-gold-500' : 'bg-stone-100'}`} />
+          <div className={`flex-1 transition-colors duration-500 ${step === 'details' || step === 'otp' ? 'bg-brand-gold' : 'bg-stone-50'}`} />
+          <div className={`flex-1 transition-colors duration-500 ${step === 'otp' ? 'bg-brand-gold' : 'bg-stone-50'}`} />
         </div>
 
-        <button onClick={() => step === 'otp' ? setStep('details') : navigate('/')} className="absolute top-6 left-6 text-stone-400 hover:text-stone-900 transition p-2">
+        <button onClick={() => step === 'otp' ? setStep('details') : navigate('/')} className="absolute top-6 left-6 text-stone-300 hover:text-brand-dark transition p-2">
           <ArrowLeft size={24}/>
         </button>
         
         <div className="text-center mt-4 mb-8">
-          <div className="bg-gold-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gold-600">
-            {step === 'details' ? <MessageCircle size={32} /> : <ShieldCheck size={32} />}
-          </div>
-          <h2 className="font-serif text-3xl text-stone-800 mb-2">
+          <Logo size="md" className="mb-6" />
+          <h2 className="font-sans font-bold text-3xl text-brand-dark mb-2">
             {step === 'details' ? 'Studio Access' : 'Verify Identity'}
           </h2>
-          <p className="text-stone-500 font-light text-sm">
+          <p className="text-stone-400 font-serif italic text-sm">
             {step === 'details' 
               ? 'Enter your number to check eligibility.' 
               : `Code sent to ${phone}. Location Secured.`}
@@ -224,19 +223,19 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                      <div className="space-y-1">
                         <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 ml-1">WhatsApp Number</label>
                         <div className="relative">
-                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={18} />
                             <input 
                             type="tel" 
                             value={phone}
                             onChange={e => setPhone(e.target.value)}
                             placeholder="e.g. 9876543210"
-                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium tracking-wider"
+                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-brand-dark focus:ring-2 focus:ring-brand-gold/50 outline-none transition-all font-medium tracking-wider"
                             required
                             />
                         </div>
                     </div>
                     {error && (
-                        <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl flex items-start gap-2 border border-red-100">
+                        <div className="p-3 bg-brand-red/10 text-brand-red text-xs rounded-xl flex items-start gap-2 border border-brand-red/20">
                             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                             <span>{error}</span>
                         </div>
@@ -244,30 +243,30 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                     <button 
                         type="submit" 
                         disabled={isCheckingUser}
-                        className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-800 transition-all shadow-xl shadow-stone-200 disabled:opacity-50"
+                        className="w-full bg-brand-dark text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red transition-all shadow-xl shadow-brand-dark/10 disabled:opacity-50"
                     >
                         {isCheckingUser ? <Loader2 className="animate-spin" size={20}/> : <Locate size={20}/>}
                         {isCheckingUser ? 'Verifying...' : 'Verify Number'}
                     </button>
-                    <p className="text-[10px] text-center text-stone-400 mt-2">Format: 10 digit Indian mobile number.</p>
+                    <p className="text-[10px] text-center text-stone-300 mt-2">Format: 10 digit Indian mobile number.</p>
                 </form>
             ) : (
                 // 2. New User Registration
                 <form onSubmit={handleRegisterAndSendOtp} className="space-y-4 animate-in slide-in-from-bottom-4">
-                     <div className="p-3 bg-blue-50 text-blue-800 text-xs rounded-xl flex items-center gap-2 border border-blue-100 mb-4">
+                     <div className="p-3 bg-brand-gold/10 text-brand-gold text-xs rounded-xl flex items-center gap-2 border border-brand-gold/20 mb-4">
                         <Info size={16}/> <span>Welcome! Complete your profile to register.</span>
                      </div>
                      
                      <div className="space-y-1">
                         <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 ml-1">Full Name</label>
                         <div className="relative">
-                            <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                            <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={18} />
                             <input 
                             type="text" 
                             value={registrationData.name}
                             onChange={e => setRegistrationData({...registrationData, name: e.target.value})}
                             placeholder="e.g. Rahul Sanghavi"
-                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
+                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-brand-dark focus:ring-2 focus:ring-brand-gold/50 outline-none transition-all font-medium"
                             required
                             />
                         </div>
@@ -276,31 +275,31 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                     <div className="space-y-1">
                         <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 ml-1">Location Pincode</label>
                         <div className="relative">
-                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={18} />
                             <input 
                             type="number" 
                             value={registrationData.pincode}
                             onChange={e => setRegistrationData({...registrationData, pincode: e.target.value})}
                             placeholder="e.g. 400050"
-                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-stone-800 focus:ring-2 focus:ring-gold-500/50 outline-none transition-all font-medium"
+                            className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-brand-dark focus:ring-2 focus:ring-brand-gold/50 outline-none transition-all font-medium"
                             required
                             />
                         </div>
                     </div>
 
                     {error && (
-                        <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl flex items-start gap-2 border border-red-100">
+                        <div className="p-3 bg-brand-red/10 text-brand-red text-xs rounded-xl flex items-start gap-2 border border-brand-red/20">
                             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                             <span>{error}</span>
                         </div>
                     )}
 
                     <div className="flex gap-2">
-                         <button type="button" onClick={() => { setIsNewUser(false); setRegistrationData({name: '', pincode: ''}); }} className="px-4 py-4 bg-stone-100 text-stone-500 font-bold rounded-2xl">Back</button>
+                         <button type="button" onClick={() => { setIsNewUser(false); setRegistrationData({name: '', pincode: ''}); }} className="px-4 py-4 bg-stone-50 text-stone-400 font-bold rounded-2xl">Back</button>
                          <button 
                             type="submit" 
                             disabled={isLoading}
-                            className="flex-1 bg-gold-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gold-700 transition-all shadow-xl shadow-gold-200 disabled:opacity-50"
+                            className="flex-1 bg-brand-gold text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-brand-gold/90 transition-all shadow-xl shadow-brand-gold/20 disabled:opacity-50"
                         >
                             {isLoading ? <Loader2 className="animate-spin" size={20}/> : <ArrowRight size={20}/>}
                             Register & Verify
@@ -313,8 +312,8 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
              {!isNewUser && existingUserName && (
                  <div className="text-center -mt-4 mb-4">
-                     <span className="text-sm text-stone-500">Welcome back,</span>
-                     <h3 className="font-serif text-xl text-stone-800 font-bold">{existingUserName}</h3>
+                     <span className="text-sm text-stone-400 font-serif italic">Welcome back,</span>
+                     <h3 className="font-sans text-xl text-brand-dark font-bold">{existingUserName}</h3>
                  </div>
              )}
 
@@ -328,26 +327,26 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                   value={digit}
                   onChange={e => handleOtpChange(idx, e.target.value)}
                   onKeyDown={e => handleKeyDown(idx, e)}
-                  className="w-12 h-14 bg-stone-50 border border-stone-200 rounded-xl text-center text-xl font-bold text-stone-800 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 outline-none transition-all"
+                  className="w-12 h-14 bg-stone-50 border border-stone-100 rounded-xl text-center text-xl font-bold text-brand-dark focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 outline-none transition-all"
                 />
               ))}
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl flex items-start gap-2 border border-red-100">
+              <div className="p-3 bg-brand-red/10 text-brand-red text-xs rounded-xl flex items-start gap-2 border border-brand-red/20">
                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
             {isDemoMode && (
-              <div className="p-5 bg-gold-50 border border-gold-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-500">
-                <div className="flex items-center gap-2 text-gold-800 font-bold text-xs uppercase tracking-widest mb-2">
+              <div className="p-5 bg-brand-gold/5 border border-brand-gold/20 rounded-2xl shadow-sm animate-in zoom-in-95 duration-500">
+                <div className="flex items-center gap-2 text-brand-gold font-bold text-xs uppercase tracking-widest mb-2">
                    <Info size={16} /> Admin Debug Active
                 </div>
-                <p className="text-[11px] text-stone-600 font-medium leading-relaxed">
+                <p className="text-[11px] text-stone-500 font-medium leading-relaxed">
                   WhatsApp message failed.
-                  <span className="block mt-2 font-bold text-stone-800 bg-white/50 p-2 rounded border border-gold-200">
+                  <span className="block mt-2 font-bold text-brand-dark bg-white/50 p-2 rounded border border-brand-gold/20">
                     Use Code: {generatedOtp}
                   </span>
                 </p>
@@ -355,11 +354,11 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
             )}
 
             <div className="text-center">
-              <p className="text-stone-400 text-xs mb-2">Issue receiving the code?</p>
+              <p className="text-stone-300 text-xs mb-2">Issue receiving the code?</p>
               <button 
                 onClick={() => initiateOtp(normalizePhone(phone))}
                 disabled={timer > 0 || isLoading}
-                className={`text-xs font-bold uppercase tracking-widest ${timer > 0 ? 'text-stone-300' : 'text-gold-600 hover:text-gold-700'}`}
+                className={`text-xs font-bold uppercase tracking-widest ${timer > 0 ? 'text-stone-200' : 'text-brand-gold hover:text-brand-gold/80'}`}
               >
                 {timer > 0 ? `Resend in ${timer}s` : 'Resend Access Code'}
               </button>
@@ -367,20 +366,20 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
           </div>
         )}
 
-        <div className="mt-8 pt-6 border-t border-stone-100 text-center space-y-4">
-          <p className="text-[10px] uppercase font-bold tracking-widest text-stone-300">Sanghavi Biometric Standard</p>
-          <div className="flex justify-center gap-2 text-stone-400">
-            <CheckCircle2 size={16} className="text-gold-500" />
+        <div className="mt-8 pt-6 border-t border-stone-50 text-center space-y-4">
+          <p className="text-[10px] uppercase font-bold tracking-widest text-stone-200">Sanghavi Biometric Standard</p>
+          <div className="flex justify-center gap-2 text-stone-300">
+            <CheckCircle2 size={16} className="text-brand-gold" />
             <span className="text-[10px] font-medium">Bespoke Authorization Encrypted</span>
           </div>
-          <Link to="/staff" className="block text-stone-400 text-[10px] font-bold uppercase tracking-widest hover:text-gold-600 transition">Personnel Portal →</Link>
+          <Link to="/staff" className="block text-stone-300 text-[10px] font-bold uppercase tracking-widest hover:text-brand-gold transition">Personnel Portal →</Link>
         </div>
       </div>
       
       {isLoading && (
         <div className="fixed inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex flex-col items-center justify-center">
-          <Loader2 className="animate-spin text-gold-600 mb-4" size={48} />
-          <p className="font-serif text-lg text-stone-800 animate-pulse">Establishing Secure Session...</p>
+          <Loader2 className="animate-spin text-brand-gold mb-4" size={48} />
+          <p className="font-serif italic text-lg text-brand-dark animate-pulse">Establishing Secure Session...</p>
         </div>
       )}
     </div>

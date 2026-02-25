@@ -1,4 +1,6 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,13 +11,14 @@
 
 body { 
   -webkit-tap-highlight-color: transparent; 
-  background-color: #fbf8f1; 
+  background-color: #ffffff; 
   margin: 0; 
   padding: 0; 
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  @apply font-sans text-brand-dark;
 }
 
 /* Custom Scrollbar Hide Utility */
@@ -29,8 +32,8 @@ body {
 
 /* Animations */
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;

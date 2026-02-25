@@ -22,8 +22,10 @@ export interface DesignDNA {
         secondary: string; // 'Inter' (Sans)
     };
     palette: {
-        gold: string;      // #c68a36 (Primary Brand Color)
-        background: string;// #fbf8f1 (Warm Stone)
+        gold: string;      // #D4AF37 (Brand Gold)
+        red: string;       // #E31E24 (Brand Red)
+        dark: string;      // #333333 (Brand Dark)
+        background: string;// #ffffff (Clean White)
         surface: string;   // #ffffff
     };
     aesthetics: {
@@ -50,12 +52,14 @@ export const APP_MEMORY: AppMemory = {
     // THE VISUAL IDENTITY
     design_dna: {
         fonts: {
-            primary: "Playfair Display",
-            secondary: "Inter"
+            primary: "Cormorant Garamond",
+            secondary: "Montserrat"
         },
         palette: {
-            gold: "#c68a36",
-            background: "#fbf8f1",
+            gold: "#D4AF37",
+            red: "#E31E24",
+            dark: "#333333",
+            background: "#ffffff",
             surface: "#ffffff"
         },
         aesthetics: {

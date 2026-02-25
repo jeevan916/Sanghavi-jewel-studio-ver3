@@ -717,7 +717,7 @@ if (activeDistPath) {
 
 async function startServer() {
   try {
-    if (!existsSync(distPath)) {
+    if (!activeDistPath) {
       console.log('[Sanghavi Studio] No production build found. Attempting to start Vite dev server...');
       try {
         const { createServer: createViteServer } = await import('vite');

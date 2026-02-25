@@ -9,6 +9,11 @@ export default {
   theme: {
     extend: {
       colors: {
+        brand: {
+          gold: '#D4AF37',
+          red: '#E31E24',
+          dark: '#333333',
+        },
         gold: {
           50: '#fbf8f1',
           100: '#f5ead6',
@@ -24,8 +29,8 @@ export default {
         },
       },
       fontFamily: {
-        serif: ['"Playfair Display"', 'serif'],
-        sans: ['"Inter"', 'sans-serif'],
+        serif: ['"Cormorant Garamond"', 'serif'],
+        sans: ['"Montserrat"', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.4s ease-out forwards',
