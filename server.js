@@ -730,6 +730,7 @@ app.get('*', (req, res, next) => {
 async function startServer() {
   try {
     const initialDistPath = getActiveDistPath();
+
     if (!initialDistPath) {
       console.log('[Sanghavi Studio] No production build found. Attempting to start Vite dev server...');
       try {
@@ -741,7 +742,7 @@ async function startServer() {
         app.use(vite.middlewares);
       } catch (e) {
         console.error('❌ [Sanghavi Studio] Failed to start Vite dev server. Is Vite installed?', e);
-        app.use((req, res) => res.status(500).send('Frontend build not found and Vite dev server failed to start.'));
+        app.use((req, res) => res.status(500).send(`Frontend build not found and Vite dev server failed to start. Error: ${e.message}`));
       }
     }
 
