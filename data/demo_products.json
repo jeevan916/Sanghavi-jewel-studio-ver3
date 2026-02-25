@@ -1,0 +1,58 @@
+[
+  {
+    "id": "demo-1",
+    "title": "Royal Emerald Solitaire Ring",
+    "category": "Rings",
+    "subCategory": "Solitaire",
+    "weight": 8.4,
+    "description": "A magnificent 5-carat Zambian emerald set in 18k yellow gold with pave-set diamond shoulders. A true masterpiece of heritage craftsmanship.",
+    "tags": ["Emerald", "Gold", "Luxury", "Solitaire"],
+    "images": ["https://picsum.photos/seed/emerald/1080/1080"],
+    "thumbnails": ["https://picsum.photos/seed/emerald/300/300"],
+    "isHidden": false,
+    "createdAt": "2024-01-01T10:00:00Z",
+    "meta": {}
+  },
+  {
+    "id": "demo-2",
+    "title": "Celestial Diamond Necklace",
+    "category": "Necklaces",
+    "subCategory": "Choker",
+    "weight": 42.5,
+    "description": "Inspired by the night sky, this choker features over 20 carats of brilliant-cut diamonds arranged in a celestial pattern.",
+    "tags": ["Diamond", "Platinum", "Necklace", "Wedding"],
+    "images": ["https://picsum.photos/seed/diamond/1080/1080"],
+    "thumbnails": ["https://picsum.photos/seed/diamond/300/300"],
+    "isHidden": false,
+    "createdAt": "2024-01-02T11:00:00Z",
+    "meta": {}
+  },
+  {
+    "id": "demo-3",
+    "title": "Ruby Heritage Jhumkas",
+    "category": "Earrings",
+    "subCategory": "Jhumka",
+    "weight": 18.2,
+    "description": "Traditional temple-style jhumkas featuring Burmese rubies and intricate gold filigree work. Perfect for bridal elegance.",
+    "tags": ["Ruby", "Gold", "Traditional", "Earrings"],
+    "images": ["https://picsum.photos/seed/ruby/1080/1080"],
+    "thumbnails": ["https://picsum.photos/seed/ruby/300/300"],
+    "isHidden": false,
+    "createdAt": "2024-01-03T12:00:00Z",
+    "meta": {}
+  },
+  {
+    "id": "demo-4",
+    "title": "Sapphire Ocean Bracelet",
+    "category": "Bracelets",
+    "subCategory": "Tennis",
+    "weight": 12.8,
+    "description": "A continuous line of deep blue Ceylon sapphires, each meticulously matched for color and clarity.",
+    "tags": ["Sapphire", "White Gold", "Bracelet", "Modern"],
+    "images": ["https://picsum.photos/seed/sapphire/1080/1080"],
+    "thumbnails": ["https://picsum.photos/seed/sapphire/300/300"],
+    "isHidden": false,
+    "createdAt": "2024-01-04T13:00:00Z",
+    "meta": {}
+  }
+]

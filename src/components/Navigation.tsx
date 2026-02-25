@@ -43,59 +43,68 @@ export const Navigation: React.FC<NavigationProps> = ({ user, onLogout }) => {
   };
 
   return (
-    <nav className={`fixed bottom-0 left-0 right-0 z-50 pb-safe md:top-0 md:bottom-auto border-t md:border-t-0 md:border-b transition-colors duration-500 ${
-      isStaffRoute ? 'bg-brand-dark/95 border-white/5 text-stone-400' : 'bg-white/95 border-stone-100 text-brand-dark'
-    } backdrop-blur-lg md:h-20 flex items-center`}>
-      <div className="max-w-7xl mx-auto w-full px-4 flex justify-between items-center h-20 gap-2">
+    <nav className={`fixed bottom-0 left-0 right-0 z-50 pb-safe md:top-0 md:bottom-auto border-t md:border-t-0 md:border-b transition-all duration-500 ${
+      isStaffRoute ? 'bg-black/90 border-white/5 text-stone-400' : 'bg-white/90 border-stone-100 text-brand-dark'
+    } backdrop-blur-xl md:h-24 flex items-center shadow-2xl md:shadow-none`}>
+      <div className="max-w-7xl mx-auto w-full px-8 flex justify-between items-center h-full gap-4">
         
         {/* Branding (Desktop) */}
-        <Link to="/" className="hidden md:flex items-center gap-3 shrink-0">
-            <Logo size="sm" className="scale-75 origin-left" />
+        <Link to="/" className="hidden md:flex items-center gap-3 shrink-0 group">
+            <Logo size="sm" showText={false} className="scale-90 origin-left group-hover:scale-100 transition-transform duration-500" />
+            <div className="flex flex-col leading-none">
+                <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-brand-dark">Sanghavi</span>
+                <span className="text-[8px] font-serif italic text-stone-400 tracking-widest">Jewellers</span>
+            </div>
         </Link>
 
         {/* Tab Items */}
-        <div className={`flex flex-1 justify-around md:justify-center md:gap-12 overflow-x-auto scrollbar-hide py-1 ${isStaff ? 'md:max-w-none' : 'max-w-md mx-auto'}`}>
+        <div className={`flex flex-1 justify-around md:justify-center md:gap-16 overflow-x-auto scrollbar-hide py-2 ${isStaff ? 'md:max-w-none' : 'max-w-md mx-auto'}`}>
           {activeTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => navigate(tab.path)}
-              className={`flex flex-col items-center gap-1 transition-all relative shrink-0 px-2 ${
+              className={`flex flex-col items-center gap-1.5 transition-all relative shrink-0 px-4 group ${
                 isActive(tab.path)
-                  ? (isStaffRoute ? 'text-white' : 'text-brand-red')
-                  : 'hover:text-brand-gold'
+                  ? (isStaffRoute ? 'text-white' : 'text-brand-dark')
+                  : 'text-stone-400 hover:text-brand-gold'
               }`}
             >
-              <tab.icon size={20} strokeWidth={isActive(tab.path) ? 2.5 : 2} />
-              <span className="text-[9px] uppercase font-bold tracking-tighter md:tracking-normal">{tab.label}</span>
-              {isActive(tab.path) && <div className={`absolute -bottom-1 h-0.5 rounded-full w-4 ${isStaffRoute ? 'bg-white' : 'bg-brand-red'}`} />}
+              <tab.icon size={18} strokeWidth={isActive(tab.path) ? 2.5 : 2} className="group-hover:scale-110 transition-transform" />
+              <span className="text-[8px] uppercase font-bold tracking-[0.2em]">{tab.label}</span>
+              {isActive(tab.path) && (
+                <div className={`absolute -bottom-2 md:-bottom-4 h-[3px] rounded-full w-6 ${isStaffRoute ? 'bg-brand-gold' : 'bg-brand-dark'} animate-fade-in`} />
+              )}
             </button>
           ))}
           
-          <div className="md:hidden flex items-center pl-2 ml-2 border-l border-stone-200/20">
+          <div className="md:hidden flex items-center pl-4 ml-2 border-l border-stone-200/20">
              {user ? (
-                <button onClick={onLogout} className="flex flex-col items-center gap-1 text-brand-red">
-                  <LogOut size={20} />
-                  <span className="text-[9px] uppercase font-bold">Exit</span>
+                <button onClick={onLogout} className="flex flex-col items-center gap-1.5 text-brand-red">
+                  <LogOut size={18} />
+                  <span className="text-[8px] uppercase font-bold tracking-widest">Exit</span>
                 </button>
              ) : (
-                <button onClick={() => navigate('/login')} className="flex flex-col items-center gap-1 text-brand-gold">
-                  <LogIn size={20} />
-                  <span className="text-[9px] uppercase font-bold">Login</span>
+                <button onClick={() => navigate('/login')} className="flex flex-col items-center gap-1.5 text-brand-gold">
+                  <LogIn size={18} />
+                  <span className="text-[8px] uppercase font-bold tracking-widest">Login</span>
                 </button>
              )}
           </div>
         </div>
 
         {/* Auth Actions (Desktop) */}
-        <div className="hidden md:flex items-center gap-6 shrink-0">
-          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} title={isOnline ? 'Online' : 'Offline'} />
+        <div className="hidden md:flex items-center gap-8 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-rose-500'} shadow-[0_0_8px_rgba(16,185,129,0.5)]`} />
+            <span className="text-[8px] uppercase font-bold tracking-widest text-stone-400">{isOnline ? 'Studio Online' : 'Offline'}</span>
+          </div>
           {user ? (
-            <button onClick={onLogout} className="text-xs uppercase font-bold text-stone-400 hover:text-brand-red transition-colors flex items-center gap-2">
-              <LogOut size={16}/> Logout
+            <button onClick={onLogout} className="text-[10px] uppercase font-bold tracking-[0.2em] text-stone-400 hover:text-brand-red transition-all flex items-center gap-2 group">
+              <LogOut size={14} className="group-hover:-translate-x-1 transition-transform" /> Sign Out
             </button>
           ) : (
-            <Link to="/login" className="text-xs uppercase font-bold text-stone-400 hover:text-brand-gold transition-colors flex items-center gap-2">
-              <LogIn size={16}/> Login
+            <Link to="/login" className="text-[10px] uppercase font-bold tracking-[0.2em] text-stone-400 hover:text-brand-gold transition-all flex items-center gap-2 group">
+              <LogIn size={14} className="group-hover:translate-x-1 transition-transform" /> Member Access
             </Link>
           )}
         </div>

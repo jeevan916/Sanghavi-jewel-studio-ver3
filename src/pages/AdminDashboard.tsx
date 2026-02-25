@@ -179,121 +179,135 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 md:pt-24 pb-24 min-h-screen flex flex-col">
-      <header className="flex-none mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="max-w-7xl mx-auto p-4 md:p-10 md:pt-28 pb-24 min-h-screen flex flex-col">
+      <header className="flex-none mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="flex justify-between items-start w-full md:w-auto">
            <div>
-              <h2 className="font-sans font-bold text-3xl text-brand-dark uppercase tracking-tight">Vault Administration</h2>
-              <div className="flex items-center gap-2 mt-1">
-                 <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-green-500' : 'bg-brand-red animate-pulse'}`} />
-                 <p className="text-stone-400 text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
+              <h2 className="font-serif font-bold text-4xl text-brand-dark tracking-tight">Vault Administration</h2>
+              <div className="flex items-center gap-3 mt-2">
+                 <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-emerald-500' : 'bg-brand-red animate-pulse'}`} />
+                 <p className="text-stone-400 text-[10px] uppercase font-bold tracking-[0.3em] flex items-center gap-3">
                     {healthInfo.healthy ? 'Live SQL Synchronized' : 'DB Disconnected - Retrying...'}
-                    {isSyncing && <RefreshCw size={10} className="animate-spin text-brand-gold" />}
+                    {isSyncing && <RefreshCw size={12} className="animate-spin text-brand-gold" />}
                  </p>
               </div>
            </div>
         </div>
         
-        <div className="flex bg-stone-50 p-1 rounded-xl items-center overflow-x-auto border border-stone-100">
+        <div className="flex bg-stone-100/50 p-1.5 rounded-2xl items-center overflow-x-auto border border-stone-100 backdrop-blur-sm">
             {[
               { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
               { id: 'files', icon: FolderOpen, label: 'Assets' },
               { id: 'leads', icon: UserCheck, label: 'Leads' },
               { id: 'activity', icon: Activity, label: 'Activity' },
               { id: 'trends', icon: TrendingUp, label: 'Trends' },
-              { id: 'neural', icon: BrainCircuit, label: 'Neural Core' },
+              { id: 'neural', icon: BrainCircuit, label: 'Neural' },
             ].map(tab => (
               <button 
                 key={tab.id}
                 onClick={() => setActiveView(tab.id as ViewMode)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap uppercase tracking-tighter ${activeView === tab.id ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400 hover:text-brand-dark'}`}
+                className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-[10px] font-bold transition-all whitespace-nowrap uppercase tracking-[0.2em] ${activeView === tab.id ? 'bg-white shadow-lg shadow-stone-200/50 text-brand-dark' : 'text-stone-400 hover:text-brand-dark'}`}
               >
-                  <tab.icon size={16} /> {tab.label}
+                  <tab.icon size={14} /> {tab.label}
               </button>
             ))}
         </div>
       </header>
 
       {activeView === 'overview' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 animate-fade-in">
                 <div 
                     onClick={() => setActiveView('files')}
-                    className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all group"
+                    className="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col gap-6 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
                 >
-                    <div className="p-3 bg-brand-gold/5 text-brand-gold rounded-xl group-hover:scale-110 transition-transform"><HardDrive size={24} /></div>
-                    <div><p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">Inventory</p><p className="text-2xl font-bold text-brand-dark">{products.length}</p></div>
+                    <div className="w-14 h-14 bg-brand-gold/5 text-brand-gold rounded-2xl flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-all duration-500"><HardDrive size={28} /></div>
+                    <div>
+                        <p className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Inventory</p>
+                        <p className="text-4xl font-serif font-bold text-brand-dark">{products.length}</p>
+                    </div>
                 </div>
                 <div 
                     onClick={() => setActiveView('leads')}
-                    className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all group"
+                    className="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col gap-6 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
                 >
-                    <div className="p-3 bg-brand-red/5 text-brand-red rounded-xl group-hover:scale-110 transition-transform"><UserCheck size={24} /></div>
-                    <div><p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">Leads</p><p className="text-2xl font-bold text-brand-dark">{customers.length}</p></div>
+                    <div className="w-14 h-14 bg-brand-red/5 text-brand-red rounded-2xl flex items-center justify-center group-hover:bg-brand-red group-hover:text-white transition-all duration-500"><UserCheck size={28} /></div>
+                    <div>
+                        <p className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Leads</p>
+                        <p className="text-4xl font-serif font-bold text-brand-dark">{customers.length}</p>
+                    </div>
                 </div>
                 <div 
                     onClick={() => setActiveView('activity')}
-                    className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all group"
+                    className="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col gap-6 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
                 >
-                    <div className="p-3 bg-brand-dark/5 text-brand-dark rounded-xl group-hover:scale-110 transition-transform"><Activity size={24} /></div>
-                    <div><p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">Activity</p><p className="text-2xl font-bold text-brand-dark">{analytics.length}</p></div>
+                    <div className="w-14 h-14 bg-brand-dark/5 text-brand-dark rounded-2xl flex items-center justify-center group-hover:bg-brand-dark group-hover:text-white transition-all duration-500"><Activity size={28} /></div>
+                    <div>
+                        <p className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Activity</p>
+                        <p className="text-4xl font-serif font-bold text-brand-dark">{analytics.length}</p>
+                    </div>
                 </div>
                 <div 
                     onClick={() => setActiveView('trends')}
-                    className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all group"
+                    className="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col gap-6 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
                 >
-                    <div className="p-3 bg-brand-gold/10 text-brand-gold rounded-xl group-hover:scale-110 transition-transform"><TrendingUp size={24} /></div>
-                    <div><p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">Insights</p><p className="text-2xl font-bold text-brand-dark">Top 10</p></div>
+                    <div className="w-14 h-14 bg-brand-gold/10 text-brand-gold rounded-2xl flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-all duration-500"><TrendingUp size={28} /></div>
+                    <div>
+                        <p className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Insights</p>
+                        <p className="text-4xl font-serif font-bold text-brand-dark">Top 10</p>
+                    </div>
                 </div>
           </div>
       )}
 
       {activeView === 'neural' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-              <div className="bg-brand-dark text-white p-8 rounded-3xl shadow-xl border border-white/5">
-                  <div className="flex items-center gap-3 mb-6">
-                      <div className="p-3 bg-brand-gold/10 rounded-xl border border-brand-gold/20">
-                          <BrainCircuit size={24} className="text-brand-gold" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
+              <div className="bg-brand-dark text-white p-10 rounded-[2.5rem] shadow-2xl border border-white/5 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-brand-gold/5 blur-[100px] -mr-32 -mt-32 rounded-full" />
+                  
+                  <div className="flex items-center gap-4 mb-10 relative">
+                      <div className="p-4 bg-brand-gold/10 rounded-2xl border border-brand-gold/20">
+                          <BrainCircuit size={32} className="text-brand-gold" />
                       </div>
                       <div>
-                          <h3 className="font-sans font-bold text-2xl text-brand-gold uppercase tracking-tight">Core Engine v{memory.version}</h3>
-                          <p className="text-stone-400 text-xs uppercase tracking-widest">{memory.identity}</p>
+                          <h3 className="font-serif font-bold text-3xl text-brand-gold tracking-tight">Core Engine v{memory.version}</h3>
+                          <p className="text-stone-500 text-[10px] uppercase font-bold tracking-[0.3em] mt-1">{memory.identity}</p>
                       </div>
                   </div>
                   
-                  <div className="space-y-6">
+                  <div className="space-y-10 relative">
                       {/* Active Abilities Section */}
                       <div>
-                           <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Zap size={12}/> Active Capabilities</h4>
-                           <div className="grid grid-cols-2 gap-2">
-                               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                                   <p className="text-[10px] text-stone-400 uppercase">Analysis Model</p>
+                           <h4 className="text-[10px] font-bold text-stone-500 uppercase tracking-[0.3em] mb-5 flex items-center gap-3"><Zap size={14}/> Active Capabilities</h4>
+                           <div className="grid grid-cols-2 gap-4">
+                               <div className="p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/[0.08] transition-colors">
+                                   <p className="text-[9px] text-stone-500 uppercase font-bold tracking-widest mb-1">Analysis Model</p>
                                    <p className="text-xs font-mono text-brand-gold truncate">{config?.aiConfig?.models?.analysis || 'System Default'}</p>
                                </div>
-                               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                                   <p className="text-[10px] text-stone-400 uppercase">Design Model</p>
+                               <div className="p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/[0.08] transition-colors">
+                                   <p className="text-[9px] text-stone-500 uppercase font-bold tracking-widest mb-1">Design Model</p>
                                    <p className="text-xs font-mono text-brand-gold truncate">{config?.aiConfig?.models?.design || 'System Default'}</p>
                                </div>
-                               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                                   <p className="text-[10px] text-stone-400 uppercase">Analysis Templates</p>
-                                   <p className="text-xl font-bold text-white">{config?.aiConfig?.templates?.analysis?.length || 0}</p>
+                               <div className="p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/[0.08] transition-colors">
+                                   <p className="text-[9px] text-stone-500 uppercase font-bold tracking-widest mb-1">Analysis Templates</p>
+                                   <p className="text-2xl font-serif font-bold text-white">{config?.aiConfig?.templates?.analysis?.length || 0}</p>
                                </div>
-                               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                                   <p className="text-[10px] text-stone-400 uppercase">Design Templates</p>
-                                   <p className="text-xl font-bold text-white">{config?.aiConfig?.templates?.design?.length || 0}</p>
+                               <div className="p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/[0.08] transition-colors">
+                                   <p className="text-[9px] text-stone-500 uppercase font-bold tracking-widest mb-1">Design Templates</p>
+                                   <p className="text-2xl font-serif font-bold text-white">{config?.aiConfig?.templates?.design?.length || 0}</p>
                                </div>
                            </div>
                       </div>
 
                       <div>
-                          <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Lock size={12}/> Locked Features (Immutable)</h4>
-                          <div className="grid grid-cols-1 gap-2">
+                          <h4 className="text-[10px] font-bold text-stone-500 uppercase tracking-[0.3em] mb-5 flex items-center gap-3"><Lock size={14}/> Immutable Core Features</h4>
+                          <div className="grid grid-cols-1 gap-3">
                               {memory.locked_features.map(f => (
-                                  <div key={f.id} className="p-3 bg-white/5 rounded-xl border border-white/5 flex justify-between items-center">
-                                      <div className="flex items-center gap-3">
-                                          <div className={`w-2 h-2 rounded-full ${f.status === 'stable' ? 'bg-green-500' : 'bg-brand-gold'}`} />
-                                          <span className="font-bold text-sm text-stone-200 uppercase tracking-tight">{f.name}</span>
+                                  <div key={f.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center hover:bg-white/[0.08] transition-all">
+                                      <div className="flex items-center gap-4">
+                                          <div className={`w-2 h-2 rounded-full ${f.status === 'stable' ? 'bg-emerald-500' : 'bg-brand-gold'} shadow-[0_0_10px_rgba(16,185,129,0.3)]`} />
+                                          <span className="font-bold text-xs text-stone-200 uppercase tracking-[0.2em]">{f.name}</span>
                                       </div>
-                                      <ShieldCheck size={16} className="text-brand-gold/50" />
+                                      <ShieldCheck size={18} className="text-brand-gold/30" />
                                   </div>
                               ))}
                           </div>
@@ -301,30 +315,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                   </div>
               </div>
 
-              <div className="space-y-6">
-                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
-                      <h4 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight mb-4 flex items-center gap-2">
-                          <Activity size={20} className="text-brand-red" /> Recent Fix Memory
+              <div className="space-y-8">
+                  <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-stone-100">
+                      <h4 className="font-serif font-bold text-2xl text-brand-dark tracking-tight mb-6 flex items-center gap-3">
+                          <Activity size={24} className="text-brand-red" /> Neural Fix Memory
                       </h4>
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                           {fixHistory.map((fix, i) => (
-                              <div key={i} className="flex gap-3 items-start">
-                                  <CheckCircle size={16} className="text-green-500 mt-0.5 shrink-0" />
-                                  <p className="text-sm text-stone-500">{fix}</p>
+                              <div key={i} className="flex gap-4 items-start p-4 rounded-2xl bg-stone-50/50 border border-stone-100 hover:bg-stone-50 transition-colors">
+                                  <CheckCircle size={18} className="text-emerald-500 mt-0.5 shrink-0" />
+                                  <p className="text-sm text-stone-600 font-medium leading-relaxed">{fix}</p>
                               </div>
                           ))}
                       </div>
                   </div>
                   
-                  <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100">
-                      <h4 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight mb-2">Engine Status</h4>
-                      <div className="flex items-center gap-2 mb-4">
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase">Active</span>
-                          <span className="px-2 py-1 bg-brand-gold/10 text-brand-gold rounded text-[10px] font-bold uppercase">Monitoring</span>
+                  <div className="bg-stone-900 p-10 rounded-[2.5rem] border border-stone-800 relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-gold via-brand-red to-brand-gold" />
+                      <h4 className="font-serif font-bold text-2xl text-white tracking-tight mb-3">Engine Status</h4>
+                      <div className="flex items-center gap-3 mb-6">
+                          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-bold uppercase tracking-widest border border-emerald-500/20">Operational</span>
+                          <span className="px-3 py-1 bg-brand-gold/10 text-brand-gold rounded-full text-[9px] font-bold uppercase tracking-widest border border-brand-gold/20">Real-time Monitoring</span>
                       </div>
-                      <p className="text-sm text-stone-500 leading-relaxed font-serif italic">
-                          The Core Engine is actively monitoring the codebase for regression. 
-                          The Neural Template System is online and serving {((config?.aiConfig?.templates?.analysis?.length || 0) + (config?.aiConfig?.templates?.design?.length || 0))} custom prompts.
+                      <p className="text-sm text-stone-400 leading-relaxed font-serif italic">
+                          The Neural Core is actively supervising the architectural integrity. 
+                          Serving {((config?.aiConfig?.templates?.analysis?.length || 0) + (config?.aiConfig?.templates?.design?.length || 0))} specialized artisan prompts across the ecosystem.
                       </p>
                   </div>
               </div>

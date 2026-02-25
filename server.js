@@ -4,7 +4,7 @@ console.log('🚀 [Sanghavi Studio] Server process starting...');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync, readFileSync } from 'fs';
 import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
@@ -155,6 +155,7 @@ console.log('[Debug] Sanitized DB Config:', {
 
 let pool;
 let dbInitError = null;
+let DEMO_MODE = false;
 
 // --- DATABASE INITIALIZATION & MIGRATION ---
 const initDB = async () => {
@@ -169,7 +170,8 @@ const initDB = async () => {
     const connection = await pool.getConnection();
     console.log('[Database] MySQL Connected Successfully');
     connection.release();
-    dbInitError = null; // Clear any previous error on success
+    dbInitError = null; 
+    DEMO_MODE = false;
     
     // 3. Core Data Tables
     await pool.query(`CREATE TABLE IF NOT EXISTS products (id VARCHAR(255) PRIMARY KEY, title VARCHAR(255), category VARCHAR(255), subCategory VARCHAR(255), weight FLOAT, description TEXT, tags JSON, images JSON, thumbnails JSON, supplier VARCHAR(255), uploadedBy VARCHAR(255), isHidden BOOLEAN, createdAt DATETIME, meta JSON)`);
@@ -235,8 +237,9 @@ const initDB = async () => {
     console.log('[Database] Schema Verified and Ready');
   } catch (err) {
     dbInitError = err.message;
-    console.error('❌ [Database] MySQL Connection Failed:', err.message);
-    throw err; // Re-throw to trigger startServer catch block
+    DEMO_MODE = true;
+    console.error('❌ [Database] MySQL Connection Failed. Switching to DEMO_MODE:', err.message);
+    // Do not re-throw, allow server to start in demo mode
   }
 };
 
@@ -304,8 +307,9 @@ app.get('/api/health', (req, res) => {
     status: 'online', 
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
-    db: pool ? 'connected' : 'not initialized',
+    db: pool ? (DEMO_MODE ? 'demo_mode' : 'connected') : 'not initialized',
     dbError: dbInitError,
+    demoMode: DEMO_MODE,
     distPath: distPath,
     distExists: existsSync(distPath)
   });
@@ -381,6 +385,17 @@ app.get('/api/links/:token', async (req, res) => {
 // --- CONFIG API ---
 app.get('/api/config', async (req, res) => {
     try {
+        if (DEMO_MODE) {
+            return res.json({
+                suppliers: [{ id: 'demo', name: 'Sanghavi Heritage', isPrivate: false }],
+                categories: [
+                    { id: 'rings', name: 'Rings', isPrivate: false, subCategories: ['Solitaire', 'Band'] },
+                    { id: 'necklaces', name: 'Necklaces', isPrivate: false, subCategories: ['Choker', 'Long'] }
+                ],
+                linkExpiryHours: 24,
+                demo: true
+            });
+        }
         if (!pool) throw new Error('Database connection not initialized. Check your .env configuration.');
         const [suppliers] = await pool.query('SELECT * FROM suppliers');
         const [categories] = await pool.query('SELECT * FROM categories');
@@ -483,6 +498,17 @@ const sanitizeProduct = (p) => p ? ({ ...p, tags: safeParse(p.tags), images: saf
 
 app.get('/api/products', async (req, res) => {
   try {
+    if (DEMO_MODE) {
+        const demoPath = path.join(DATA_ROOT, 'demo_products.json');
+        if (existsSync(demoPath)) {
+            const data = JSON.parse(readFileSync(demoPath, 'utf8'));
+            return res.json({ 
+                items: data, 
+                meta: { page: 1, limit: 100, totalPages: 1, totalItems: data.length, demo: true } 
+            });
+        }
+    }
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 1000;
     const offset = (page - 1) * limit;
@@ -535,6 +561,18 @@ app.get('/api/products', async (req, res) => {
 
 app.get('/api/products/curated', async (req, res) => {
     try {
+        if (DEMO_MODE) {
+            const demoPath = path.join(DATA_ROOT, 'demo_products.json');
+            if (existsSync(demoPath)) {
+                const data = JSON.parse(readFileSync(demoPath, 'utf8'));
+                return res.json({
+                    latest: data,
+                    loved: data,
+                    trending: data,
+                    ideal: data
+                });
+            }
+        }
         const [rows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 60');
         const items = rows.map(sanitizeProduct);
         res.json({

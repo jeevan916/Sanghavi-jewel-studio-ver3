@@ -51,35 +51,35 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-brand-dark">
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-stone-100 shadow-2xl animate-fade-in relative overflow-hidden">
+    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-brand-dark">
+      <div className="w-full max-w-md bg-white rounded-[2.5rem] p-12 border border-stone-100 shadow-2xl animate-fade-in relative overflow-hidden">
         
         {/* Connection Status Bar */}
-        <div className={`absolute top-0 left-0 right-0 h-1 transition-colors duration-500 ${
-            health?.healthy ? 'bg-green-500' : health === null ? 'bg-stone-100' : 'bg-brand-red animate-pulse'
+        <div className={`absolute top-0 left-0 right-0 h-1.5 transition-all duration-700 ${
+            health?.healthy ? 'bg-emerald-500' : health === null ? 'bg-stone-100' : 'bg-brand-red animate-pulse'
         }`} />
 
-        <button onClick={() => navigate('/')} className="mb-8 text-stone-400 hover:text-brand-dark flex items-center gap-2 text-sm font-bold uppercase tracking-widest transition-colors">
+        <button onClick={() => navigate('/')} className="mb-10 text-stone-300 hover:text-brand-dark flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.3em] transition-all hover:bg-stone-50 px-4 py-2 rounded-full border border-transparent hover:border-stone-100">
           <ArrowLeft size={16}/> Back to Studio
         </button>
 
-        <div className="text-center mb-10">
-          <Logo size="md" className="mb-6" />
-          <h1 className="text-2xl font-bold tracking-tight">Staff Entrance</h1>
-          <p className="text-stone-400 text-sm mt-2 font-serif italic">Sanghavi Studio Internal Operations</p>
+        <div className="text-center mb-12">
+          <Logo size="md" showText={false} className="mb-8 mx-auto scale-110" />
+          <h1 className="text-3xl font-serif font-bold tracking-tight">Personnel Portal</h1>
+          <p className="text-stone-400 text-sm mt-3 font-serif italic">Sanghavi Studio Internal Operations</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400 ml-1">Account Identifier</label>
-            <div className="relative">
-              <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={18}/>
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 ml-1">Account Identifier</label>
+            <div className="relative group">
+              <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={20}/>
               <input 
                 type="text" 
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 autoComplete="username"
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-brand-dark focus:ring-2 focus:ring-brand-gold/50 outline-none placeholder:text-stone-300 transition-all"
+                className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-14 pr-6 py-5 text-brand-dark focus:ring-4 focus:ring-brand-gold/10 focus:bg-white focus:border-brand-gold/30 outline-none placeholder:text-stone-300 transition-all font-medium text-lg"
                 placeholder="Username"
                 required
                 disabled={health !== null && !health.healthy}
@@ -87,16 +87,16 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400 ml-1">Security Key</label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={18}/>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 ml-1">Security Key</label>
+            <div className="relative group">
+              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={20}/>
               <input 
                 type="password" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 autoComplete="current-password"
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-12 pr-4 py-4 text-brand-dark focus:ring-2 focus:ring-brand-gold/50 outline-none placeholder:text-stone-300 transition-all"
+                className="w-full bg-stone-50 border border-stone-100 rounded-2xl pl-14 pr-6 py-5 text-brand-dark focus:ring-4 focus:ring-brand-gold/10 focus:bg-white focus:border-brand-gold/30 outline-none placeholder:text-stone-300 transition-all font-medium text-lg"
                 placeholder="••••••••"
                 required
                 disabled={health !== null && !health.healthy}
@@ -105,11 +105,11 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
           </div>
 
           {error && (
-            <div className="p-4 bg-brand-red/10 border border-brand-red/20 rounded-2xl flex items-start gap-3 text-brand-red text-xs animate-in slide-in-from-top-2">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <div className="p-4 bg-brand-red/5 border border-brand-red/10 rounded-2xl flex items-start gap-4 text-brand-red text-xs animate-shake">
+              <AlertCircle size={18} className="shrink-0 mt-0.5" />
               <div className="flex flex-col gap-1">
-                <span className="font-bold">Authentication Blocked</span>
-                <span>{error}</span>
+                <span className="font-bold uppercase tracking-widest">Authentication Blocked</span>
+                <span className="opacity-80">{error}</span>
               </div>
             </div>
           )}
@@ -117,26 +117,26 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
           <button 
             type="submit" 
             disabled={isLoading || (health !== null && !health.healthy)}
-            className="w-full bg-brand-dark text-white py-4 rounded-2xl font-bold hover:bg-brand-red transition-all flex items-center justify-center gap-2 shadow-xl shadow-brand-dark/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-brand-dark text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] text-xs hover:bg-brand-gold transition-all flex items-center justify-center gap-3 shadow-2xl shadow-brand-dark/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
           >
-            {isLoading ? <Loader2 className="animate-spin" size={20}/> : <Lock size={20}/>}
+            {isLoading ? <Loader2 className="animate-spin" size={20}/> : <Shield size={20}/>}
             {isLoading ? 'Authorizing...' : 'Secure Login'}
           </button>
         </form>
 
-        <div className="mt-10 pt-6 border-t border-stone-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="mt-12 pt-8 border-t border-stone-50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             {health?.healthy ? (
-                <span className="flex items-center gap-1.5 text-[10px] text-green-600 font-bold uppercase tracking-tighter">
-                    <Wifi size={12} /> System Online
+                <span className="flex items-center gap-2 text-[9px] text-emerald-600 font-bold uppercase tracking-widest">
+                    <Wifi size={14} /> System Online
                 </span>
             ) : (
-                <span className="flex items-center gap-1.5 text-[10px] text-brand-red font-bold uppercase tracking-tighter animate-pulse">
-                    <WifiOff size={12} /> System Offline
+                <span className="flex items-center gap-2 text-[9px] text-brand-red font-bold uppercase tracking-widest animate-pulse">
+                    <WifiOff size={14} /> System Offline
                 </span>
             )}
           </div>
-          <p className="text-[9px] text-stone-300 uppercase font-bold tracking-widest">Auth v3.2</p>
+          <p className="text-[9px] text-stone-300 uppercase font-bold tracking-[0.2em]">Auth v3.2.0</p>
         </div>
         
         {!health?.healthy && health?.reason && (

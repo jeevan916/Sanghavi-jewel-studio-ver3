@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '@/components/ProductCard.tsx';
 import { storeService, CuratedCollections } from '@/services/storeService.ts';
-import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight } from 'lucide-react';
+import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight, X, Sparkles } from 'lucide-react';
 import { Product, AppConfig } from '@/types.ts';
 
 export const Gallery: React.FC = () => {
@@ -145,38 +145,40 @@ export const Gallery: React.FC = () => {
 
   const isOverviewMode = activeCategory === 'All' && !search;
 
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+
   return (
     <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden animate-fade-in">
-      <div className="sticky top-0 md:top-16 bg-white/90 backdrop-blur-md border-b border-stone-100 z-40 transition-transform duration-300">
-        <div className="max-w-7xl mx-auto p-2">
-            <div className="px-2 md:px-6 h-12 flex items-center justify-between gap-4">
-                <div className="flex-1 max-w-md relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
+      <div className="sticky top-0 md:top-24 bg-white/80 backdrop-blur-xl border-b border-stone-100 z-40 transition-all duration-500">
+        <div className="max-w-7xl mx-auto p-4">
+            <div className="px-2 md:px-6 h-14 flex items-center justify-between gap-6">
+                <div className="flex-1 max-w-xl relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={18} />
                     <input 
                       type="text" 
-                      placeholder="Search Studio..." 
+                      placeholder="Search the Vault..." 
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-100 rounded-xl text-sm focus:ring-1 focus:ring-brand-gold outline-none transition-all font-sans"
+                      className="w-full pl-12 pr-4 py-3 bg-stone-50 border border-stone-100 rounded-2xl text-sm focus:ring-2 focus:ring-brand-gold/20 focus:bg-white outline-none transition-all font-sans placeholder:text-stone-300"
                     />
                 </div>
                 {!isOverviewMode && (
                     <button 
                     onClick={() => setViewMode(v => v === 'grid' ? 'detail' : 'grid')} 
-                    className="p-2 text-stone-300 hover:text-brand-gold transition"
+                    className="p-3 text-stone-300 hover:text-brand-gold hover:bg-stone-50 rounded-xl transition-all"
                     title={viewMode === 'grid' ? "Switch to Large View" : "Switch to Grid View"}
                     >
                         {viewMode === 'grid' ? <RectangleVertical size={24}/> : <LayoutGrid size={24}/>}
                     </button>
                 )}
             </div>
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-2 md:px-6 pb-2">
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide px-2 md:px-6 pb-2 pt-2">
                 {['All', ...categoryList].map(cat => (
                 <button
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
-                    className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
-                      activeCategory === cat ? 'bg-brand-dark text-white shadow-lg' : 'bg-stone-50 text-stone-400 hover:bg-stone-100'
+                    className={`px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap border ${
+                      activeCategory === cat ? 'bg-brand-dark text-white border-brand-dark shadow-xl' : 'bg-white text-stone-400 border-stone-100 hover:border-brand-gold/30 hover:text-brand-gold'
                     }`}
                 >
                     {cat}
@@ -184,74 +186,87 @@ export const Gallery: React.FC = () => {
                 ))}
                 
                 {isGuest && (
-                    <button onClick={() => navigate('/login')} className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-brand-gold/10 text-brand-gold border border-brand-gold/20 flex items-center gap-1 whitespace-nowrap">
-                        <Lock size={10} /> + More
+                    <button onClick={() => navigate('/login')} className="px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] bg-brand-gold/5 text-brand-gold border border-brand-gold/20 flex items-center gap-2 whitespace-nowrap hover:bg-brand-gold/10 transition-colors">
+                        <Lock size={12} /> Unlock More
                     </button>
                 )}
             </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto pt-4">
+      <main className="max-w-7xl mx-auto pt-8">
         {/* OVERVIEW MODE: Sections Only */}
         {isOverviewMode ? (
-            <div className="space-y-10 pb-12 animate-fade-in">
+            <div className="space-y-16 pb-12 animate-fade-in">
                 {/* 1. New Arrivals (Horizontal) */}
                 {curated.latest.length > 0 && (
-                    <div>
-                        <div className="flex items-center justify-between px-6 mb-4">
-                            <h3 className="font-sans text-xl font-bold flex items-center gap-2 text-brand-dark uppercase tracking-tight">
-                                <Clock size={20} className="text-brand-gold" /> New Arrivals
-                            </h3>
+                    <section>
+                        <div className="flex items-center justify-between px-8 mb-6">
+                            <div className="space-y-1">
+                                <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
+                                    <Clock size={24} className="text-brand-gold" /> New Arrivals
+                                </h3>
+                                <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">The Latest From Our Studio</p>
+                            </div>
+                            <button onClick={() => setActiveCategory('Rings')} className="text-[10px] font-bold uppercase tracking-widest text-brand-gold flex items-center gap-1 hover:gap-2 transition-all">
+                                View All <ChevronRight size={14} />
+                            </button>
                         </div>
-                        <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide snap-x">
+                        <div className="flex gap-6 overflow-x-auto px-8 pb-8 scrollbar-hide snap-x">
                             {curated.latest.map(p => (
-                                <div key={p.id} className="w-48 shrink-0 snap-start">
-                                    <ProductCard product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
+                                <div key={p.id} className="w-64 shrink-0 snap-start">
+                                    <ProductCard product={p} isAdmin={isAdmin} onClick={() => setQuickViewProduct(p)} />
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </section>
                 )}
 
                 {/* 2. Trending (Grid 4) */}
                 {curated.trending.length > 0 && (
-                    <div className="px-6">
-                        <h3 className="font-sans text-xl font-bold mb-4 flex items-center gap-2 text-brand-dark uppercase tracking-tight">
-                            <TrendingUp size={20} className="text-brand-gold" /> Trending Now
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    <section className="px-8">
+                        <div className="space-y-1 mb-8">
+                            <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
+                                <TrendingUp size={24} className="text-brand-gold" /> Trending Now
+                            </h3>
+                            <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Most Coveted Pieces This Week</p>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                             {curated.trending.slice(0, 8).map(p => (
-                                <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
+                                <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => setQuickViewProduct(p)} />
                             ))}
                         </div>
-                    </div>
+                    </section>
                 )}
 
                 {/* 3. Most Sold / Loved (Grid 4) */}
                 {curated.loved.length > 0 && (
-                    <div className="px-6">
-                        <h3 className="font-sans text-xl font-bold mb-4 flex items-center gap-2 text-brand-dark uppercase tracking-tight">
-                            <Gem size={20} className="text-brand-red" /> Best Sellers
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    <section className="px-8">
+                        <div className="space-y-1 mb-8">
+                            <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
+                                <Gem size={24} className="text-brand-red" /> Best Sellers
+                            </h3>
+                            <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Timeless Favorites</p>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                             {curated.loved.slice(0, 4).map(p => (
-                                <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
+                                <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => setQuickViewProduct(p)} />
                             ))}
                         </div>
-                    </div>
+                    </section>
                 )}
 
                 {curated.latest.length === 0 && !isLoading && (
-                    <div className="text-center py-20 text-stone-300 font-serif italic">
-                        The collection is currently being curated.
+                    <div className="text-center py-32 space-y-4">
+                        <Gem size={48} className="mx-auto text-stone-200" />
+                        <p className="text-stone-300 font-serif italic text-xl">The collection is currently being curated.</p>
                     </div>
                 )}
             </div>
         ) : (
             /* LIST MODE: Infinite Scroll Grid (Filtered) */
             <div 
-              className={`grid gap-4 px-4 pb-8 animate-fade-in ${
+              className={`grid gap-6 px-6 pb-12 animate-fade-in ${
                 viewMode === 'grid' 
                     ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
                     : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
@@ -261,7 +276,7 @@ export const Gallery: React.FC = () => {
                  if (!isGuest && index === products.length - 1) {
                      return (
                         <div ref={lastProductElementRef} key={product.id}>
-                            <ProductCard product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />
+                            <ProductCard product={product} isAdmin={isAdmin} onClick={() => setQuickViewProduct(product)} />
                         </div>
                      )
                  } 
@@ -270,31 +285,96 @@ export const Gallery: React.FC = () => {
                       key={product.id} 
                       product={product} 
                       isAdmin={isAdmin} 
-                      onClick={() => navigateToProduct(product.id)} 
+                      onClick={() => setQuickViewProduct(product)} 
                     />
                  )
               })}
 
               {/* GUEST LOCK CARD */}
               {isGuest && (
-                 <div className="bg-white rounded-2xl overflow-hidden border border-dashed border-stone-200 flex flex-col items-center justify-center p-6 text-center space-y-4 min-h-[300px] hover:bg-stone-50 transition-colors">
-                     <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center text-brand-gold shadow-sm mb-2 relative border border-stone-100">
-                        <Lock size={28} />
+                 <div className="bg-white rounded-2xl overflow-hidden border border-dashed border-stone-200 flex flex-col items-center justify-center p-8 text-center space-y-6 min-h-[400px] hover:bg-stone-50 transition-all duration-500 group">
+                     <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center text-brand-gold shadow-sm mb-2 relative border border-stone-100 group-hover:scale-110 transition-transform">
+                        <Lock size={32} />
                      </div>
                      <div>
-                        <h3 className="font-sans text-xl text-brand-dark font-bold uppercase tracking-tight">Private Vault</h3>
-                        <p className="text-xs text-stone-400 mt-2 max-w-[200px] mx-auto leading-relaxed font-serif italic">
-                            Join our exclusive clientele to unlock the full bespoke collection.
+                        <h3 className="font-sans text-2xl text-brand-dark font-bold uppercase tracking-tighter">Private Vault</h3>
+                        <p className="text-xs text-stone-400 mt-3 max-w-[240px] mx-auto leading-relaxed font-serif italic">
+                            Join our exclusive clientele to unlock the full bespoke collection and technical specifications.
                         </p>
                      </div>
-                     <button onClick={() => navigate('/login')} className="px-6 py-3 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-xl hover:bg-brand-red transition-colors flex items-center gap-2">
-                        <User size={14} /> Member Access
+                     <button onClick={() => navigate('/login')} className="px-8 py-4 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] shadow-2xl hover:bg-brand-gold transition-all flex items-center gap-3 active:scale-95">
+                        <User size={16} /> Member Access
                      </button>
                 </div>
               )}
             </div>
         )}
         
+        {/* Quick View Modal */}
+        {quickViewProduct && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setQuickViewProduct(null)}></div>
+                <div className="bg-white w-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl relative z-10 flex flex-col md:flex-row h-[90vh] md:h-auto max-h-[90vh] animate-slide-up">
+                    <button onClick={() => setQuickViewProduct(null)} className="absolute top-6 right-6 p-2 bg-black/10 hover:bg-black/20 rounded-full transition-colors z-20 text-white md:text-brand-dark">
+                        <X size={24} />
+                    </button>
+                    
+                    <div className="w-full md:w-1/2 h-1/2 md:h-auto bg-stone-50 relative overflow-hidden">
+                        <img 
+                            src={quickViewProduct.images[0]} 
+                            alt={quickViewProduct.title} 
+                            className="w-full h-full object-cover"
+                        />
+                        {isGuest && quickViewProduct.images.length > 1 && (
+                            <div className="absolute bottom-6 right-6 bg-black/60 backdrop-blur-md text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                <Lock size={12} /> +{quickViewProduct.images.length - 1} Locked
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center space-y-8 overflow-y-auto">
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.3em] text-brand-gold">
+                                <span>{quickViewProduct.category}</span>
+                                <span className="w-1 h-1 rounded-full bg-stone-200"></span>
+                                <span>{quickViewProduct.weight}g</span>
+                            </div>
+                            <h2 className="text-4xl md:text-5xl font-serif text-brand-dark leading-tight">{quickViewProduct.title}</h2>
+                            <p className="text-stone-500 font-serif italic text-lg leading-relaxed line-clamp-4">
+                                {quickViewProduct.description || "A bespoke masterpiece from the Sanghavi collection, crafted with precision and elegance."}
+                            </p>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                            <button 
+                                onClick={() => navigateToProduct(quickViewProduct.id)}
+                                className="flex-1 py-5 bg-brand-dark text-white rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-brand-gold transition-all active:scale-95"
+                            >
+                                Full Details
+                            </button>
+                            <button 
+                                onClick={() => isGuest ? navigate('/login') : storeService.shareToWhatsApp(quickViewProduct)}
+                                className="flex-1 py-5 bg-stone-50 text-brand-dark border border-stone-100 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-stone-100 transition-all flex items-center justify-center gap-2"
+                            >
+                                <RefreshCw size={14} /> Inquire
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+        
+        {/* Floating AI Concierge Button */}
+        <button 
+            onClick={() => navigate('/admin/studio')} 
+            className="fixed bottom-28 right-8 w-16 h-16 bg-brand-dark text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40 group border border-white/10"
+        >
+            <Sparkles size={28} className="group-hover:rotate-12 transition-transform" />
+            <div className="absolute right-full mr-4 bg-white text-brand-dark px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-stone-100">
+                AI Concierge
+            </div>
+        </button>
+
         {/* Loading Indicators */}
         {isLoading && products.length === 0 && !isOverviewMode && (
           <div className="min-h-[50vh] flex items-center justify-center bg-stone-50">

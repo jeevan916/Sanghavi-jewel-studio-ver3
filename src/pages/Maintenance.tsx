@@ -5,7 +5,7 @@ import { useUpload } from '../contexts/UploadContext';
 import { Product } from '../types';
 import { 
   Loader2, ArrowLeft, Database, Download, Trash2, Archive, Shield, History, Cpu,
-  Activity, FileJson, Server, Image as ImageIcon, RefreshCw
+  Activity, FileJson, Server, Image as ImageIcon, RefreshCw, Sparkles
 } from 'lucide-react';
 
 interface MaintenanceProps {
@@ -153,26 +153,33 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
           <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                   <Activity className="text-teal-400" size={20} />
-                  <h3 className="font-bold uppercase tracking-widest text-sm">System Diagnostics (Normalized DB)</h3>
+                  <h3 className="font-bold uppercase tracking-widest text-sm">System Diagnostics</h3>
               </div>
-              <button 
-                onClick={async () => {
-                    setIsProcessing(true);
-                    addLog("Attempting database re-sync...");
-                    const res = await storeService.retryDatabase();
-                    if (res.status === 'success') {
-                        addLog("Database re-sync successful!");
-                        storeService.getDiagnostics().then(setDiagnostics);
-                    } else {
-                        addLog(`Re-sync failed: ${res.message}`);
-                    }
-                    setIsProcessing(false);
-                }}
-                disabled={isProcessing}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
-              >
-                  <RefreshCw size={12} className={isProcessing ? 'animate-spin' : ''} /> Re-Sync DB
-              </button>
+              <div className="flex gap-2">
+                  {diagnostics?.demoMode && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-gold/20 text-brand-gold rounded-lg text-[10px] font-bold uppercase tracking-widest border border-brand-gold/30">
+                          <Sparkles size={12} className="animate-pulse" /> Demo Mode Active
+                      </div>
+                  )}
+                  <button 
+                    onClick={async () => {
+                        setIsProcessing(true);
+                        addLog("Attempting database re-sync...");
+                        const res = await storeService.retryDatabase();
+                        if (res.status === 'success') {
+                            addLog("Database re-sync successful!");
+                            storeService.getDiagnostics().then(setDiagnostics);
+                        } else {
+                            addLog(`Re-sync failed: ${res.message}`);
+                        }
+                        setIsProcessing(false);
+                    }}
+                    disabled={isProcessing}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
+                  >
+                      <RefreshCw size={12} className={isProcessing ? 'animate-spin' : ''} /> Re-Sync DB
+                  </button>
+              </div>
           </div>
           
           {diagnostics ? (
@@ -184,6 +191,14 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                               {diagnostics.db_connected ? 'Connected' : 'Disconnected'}
                           </span>
                       </div>
+                      {diagnostics.demoMode && (
+                          <div className="p-3 bg-brand-gold/5 rounded-lg border border-brand-gold/10">
+                              <p className="text-[10px] text-brand-gold font-bold uppercase mb-1">Persistence Warning</p>
+                              <p className="text-[9px] text-stone-400 leading-relaxed">
+                                  System is running on static fallback data. Changes made in this mode will not persist to the main database.
+                              </p>
+                          </div>
+                      )}
                       <div className="grid grid-cols-3 gap-2">
                         <div className="p-3 bg-white/5 rounded-lg border border-white/10 text-center">
                             <span className="block text-[10px] text-stone-400 font-bold uppercase mb-1">Products</span>

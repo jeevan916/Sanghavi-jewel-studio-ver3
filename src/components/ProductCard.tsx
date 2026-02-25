@@ -31,7 +31,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
 
   return (
     <div 
-      className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-100 group transition-all duration-300 hover:shadow-md flex flex-col h-full cursor-pointer active:scale-[0.98] select-none"
+      className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 group transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col h-full cursor-pointer active:scale-[0.98] select-none"
       style={{ 
         contain: 'layout paint',
         transform: 'translate3d(0, 0, 0)', 
@@ -43,43 +43,53 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
         onClick?.(); 
       }}
     >
-      <div className="relative aspect-square overflow-hidden bg-white">
+      <div className="relative aspect-[4/5] overflow-hidden bg-stone-50">
         <img 
             src={displayImage} 
             alt={product.title} 
             onLoad={() => setIsLoaded(true)}
             decoding="async" 
             loading="lazy" 
-            className={`w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
+            className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
         />
         
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500"></div>
+
         {!isLoaded && (
           <div className="absolute inset-0 bg-stone-50 flex items-center justify-center">
-             <div className="w-6 h-6 rounded-full border-2 border-stone-200 border-t-gold-400 animate-spin" />
+             <div className="w-6 h-6 rounded-full border-2 border-stone-200 border-t-brand-gold animate-spin" />
           </div>
         )}
 
         <button 
           onClick={handleToggleLike} 
-          className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur shadow-sm z-20 transition-all active:scale-125 ${isLiked ? 'bg-red-50 text-red-500' : 'bg-white/70 text-stone-400'}`}
+          className={`absolute top-3 left-3 p-2.5 rounded-full backdrop-blur-md shadow-sm z-20 transition-all duration-300 active:scale-125 ${isLiked ? 'bg-brand-red text-white' : 'bg-white/80 text-stone-400 hover:bg-white hover:text-brand-red'}`}
         >
-          <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
+          <Heart size={14} fill={isLiked ? "currentColor" : "none"} />
         </button>
 
         {isGuest && (product.images?.length || 0) > 1 && (
-          <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur rounded text-[9px] font-bold text-white uppercase tracking-widest pointer-events-none z-20">
+          <div className="absolute top-3 right-3 px-2 py-1 bg-black/40 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-[0.2em] pointer-events-none z-20">
             +{(product.images?.length || 0) - 1} Locked
           </div>
         )}
+
+        {/* Quick View Overlay */}
+        <div className="absolute inset-x-0 bottom-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-500 z-20">
+            <div className="w-full py-3 bg-white/90 backdrop-blur-md text-brand-dark text-[10px] font-bold uppercase tracking-[0.2em] text-center rounded-xl shadow-xl">
+                View Details
+            </div>
+        </div>
       </div>
       
-      <div className="p-3 flex flex-col flex-grow relative z-20 bg-white">
-        <h3 className="font-serif text-sm text-stone-800 leading-tight mb-0.5 truncate font-bold">{product.title}</h3>
-        <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-stone-500 mb-1 font-bold">
+      <div className="p-4 flex flex-col flex-grow relative z-20 bg-white">
+        <div className="flex items-center gap-2 text-[8px] uppercase tracking-[0.3em] text-brand-gold mb-2 font-bold">
           <span>{product.category}</span>
-          <span>•</span>
+          <span className="w-1 h-1 rounded-full bg-stone-200"></span>
           <span>{product.weight}g</span>
         </div>
+        <h3 className="font-serif text-base text-stone-900 leading-snug mb-1 font-medium group-hover:text-brand-gold transition-colors">{product.title}</h3>
+        <p className="text-[10px] text-stone-400 line-clamp-1 font-serif italic">Ref: {product.id.slice(0, 8)}</p>
       </div>
     </div>
   );
