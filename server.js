@@ -85,26 +85,8 @@ app.use((req, res, next) => {
     }
     next();
 });
-// Robust Data Root Resolution for Hostinger
-const localDataPath = path.resolve(__dirname, 'data');
-const persistencePath = path.resolve(__dirname, '..', 'sanghavi_persistence');
-
-let DATA_ROOT = localDataPath;
-if (existsSync(persistencePath)) {
-    DATA_ROOT = persistencePath;
-    console.log(`📂 [Sanghavi Studio] Using persistent data directory: ${DATA_ROOT}`);
-} else {
-    console.log(`📂 [Sanghavi Studio] Using local data directory: ${DATA_ROOT}`);
-}
-
-let UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
-const publicHtmlUploads = path.resolve(__dirname, '..', 'public_html', 'uploads');
-
-if (!existsSync(UPLOADS_ROOT) && existsSync(publicHtmlUploads)) {
-    UPLOADS_ROOT = publicHtmlUploads;
-    console.log(`📂 [Sanghavi Studio] Found existing uploads in public_html: ${UPLOADS_ROOT}`);
-}
-
+const DATA_ROOT = path.resolve(__dirname, 'data');
+const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
 const ensureFolders = () => {
