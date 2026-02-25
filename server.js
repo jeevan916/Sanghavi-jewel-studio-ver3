@@ -85,8 +85,50 @@ app.use((req, res, next) => {
     }
     next();
 });
-const DATA_ROOT = path.resolve(__dirname, 'data');
-const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
+// Robust Data Root Resolution for Hostinger
+const localDataPath = path.resolve(__dirname, 'data');
+const persistencePath1 = path.resolve(__dirname, '..', 'sanghavi_persistence');
+const persistencePath2 = path.resolve(__dirname, 'public_html', '.builds', 'sanghavi_persistence');
+const persistencePath3 = path.resolve(__dirname, '..', 'public_html', '.builds', 'sanghavi_persistence');
+
+let DATA_ROOT = localDataPath;
+if (existsSync(persistencePath1)) {
+    DATA_ROOT = persistencePath1;
+    console.log(`📂 [Sanghavi Studio] Using persistent data directory: ${DATA_ROOT}`);
+} else if (existsSync(persistencePath2)) {
+    DATA_ROOT = persistencePath2;
+    console.log(`📂 [Sanghavi Studio] Using persistent data directory: ${DATA_ROOT}`);
+} else if (existsSync(persistencePath3)) {
+    DATA_ROOT = persistencePath3;
+    console.log(`📂 [Sanghavi Studio] Using persistent data directory: ${DATA_ROOT}`);
+} else {
+    console.log(`📂 [Sanghavi Studio] Using local data directory: ${DATA_ROOT}`);
+}
+
+let UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
+const publicHtmlUploads = path.resolve(__dirname, '..', 'public_html', 'uploads');
+const rootUploads = path.resolve(__dirname, '..', 'uploads');
+const buildsUploads1 = path.resolve(__dirname, 'public_html', '.builds', 'uploads');
+const buildsUploads2 = path.resolve(__dirname, '..', 'public_html', '.builds', 'uploads');
+
+if (!existsSync(UPLOADS_ROOT)) {
+    if (existsSync(buildsUploads1)) {
+        UPLOADS_ROOT = buildsUploads1;
+        console.log(`📂 [Sanghavi Studio] Found existing uploads in .builds: ${UPLOADS_ROOT}`);
+    } else if (existsSync(buildsUploads2)) {
+        UPLOADS_ROOT = buildsUploads2;
+        console.log(`📂 [Sanghavi Studio] Found existing uploads in .builds: ${UPLOADS_ROOT}`);
+    } else if (existsSync(publicHtmlUploads)) {
+        UPLOADS_ROOT = publicHtmlUploads;
+        console.log(`📂 [Sanghavi Studio] Found existing uploads in public_html: ${UPLOADS_ROOT}`);
+    } else if (existsSync(rootUploads)) {
+        UPLOADS_ROOT = rootUploads;
+        console.log(`📂 [Sanghavi Studio] Found existing uploads in root: ${UPLOADS_ROOT}`);
+    }
+}
+
+console.log(`📂 [Sanghavi Studio] Final UPLOADS_ROOT: ${UPLOADS_ROOT}`);
+
 const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
 const ensureFolders = () => {
@@ -110,10 +152,16 @@ app.use('/uploads', express.static(UPLOADS_ROOT, {
   maxAge: '365d',
   immutable: true, 
   setHeaders: (res, path) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     if (path.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp');
     if (path.endsWith('.avif')) res.setHeader('Content-Type', 'image/avif');
   }
 }));
+
+app.use('/uploads/*', (req, res) => {
+  console.log(`❌ [Sanghavi Studio] Image not found: ${req.originalUrl}. Looked in: ${UPLOADS_ROOT}`);
+  res.status(404).send('Image not found');
+});
 
 // Helper to strip quotes if user accidentally added them in Hostinger UI or .env
 const cleanEnv = (val) => val ? val.toString().replace(/^['"]|['"]$/g, '').trim() : '';
@@ -289,8 +337,22 @@ app.get('/api/health', (req, res) => {
     db: pool ? 'connected' : 'not initialized',
     dbError: dbInitError,
     distPath: distPath,
-    distExists: existsSync(distPath)
+    distExists: existsSync(distPath),
+    uploadsRoot: UPLOADS_ROOT
   });
+});
+
+app.get('/api/debug-uploads', (req, res) => {
+  try {
+    const files1080 = existsSync(path.join(UPLOADS_ROOT, '1080')) ? readdirSync(path.join(UPLOADS_ROOT, '1080')).slice(0, 5) : [];
+    res.json({
+      uploadsRoot: UPLOADS_ROOT,
+      exists: existsSync(UPLOADS_ROOT),
+      files1080: files1080
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/diagnostics', async (req, res) => {
