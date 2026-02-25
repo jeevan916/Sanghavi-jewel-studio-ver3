@@ -697,27 +697,40 @@ const altDistPath = path.resolve(__dirname, 'public_html', 'dist');
 console.log(`📂 [Sanghavi Studio] Primary distPath: ${distPath} (Exists: ${existsSync(distPath)})`);
 console.log(`📂 [Sanghavi Studio] Secondary distPath: ${altDistPath} (Exists: ${existsSync(altDistPath)})`);
 
-const activeDistPath = existsSync(distPath) ? distPath : (existsSync(altDistPath) ? altDistPath : null);
+// Helper to get the current active dist path dynamically
+const getActiveDistPath = () => {
+  if (existsSync(distPath)) return distPath;
+  if (existsSync(altDistPath)) return altDistPath;
+  return null;
+};
 
-if (activeDistPath) {
-  console.log(`[Sanghavi Studio] Serving frontend from: ${activeDistPath}`);
-  app.use(express.static(activeDistPath, { index: false }));
+// Use middleware to dynamically serve static files based on current dist path
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
   
-  app.get('/', (req, res) => {
-     res.sendFile(path.join(activeDistPath, 'index.html'));
-  });
+  const activeDistPath = getActiveDistPath();
+  if (activeDistPath) {
+    express.static(activeDistPath, { index: false })(req, res, next);
+  } else {
+    next();
+  }
+});
 
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/')) return next();
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  
+  const activeDistPath = getActiveDistPath();
+  if (activeDistPath) {
     res.sendFile(path.join(activeDistPath, 'index.html'));
-  });
-} else {
-  console.warn('⚠️ [Sanghavi Studio] No production build (dist) found in any expected location.');
-}
+  } else {
+    next(); // Fall through to Vite dev server or error handler
+  }
+});
 
 async function startServer() {
   try {
-    if (!activeDistPath) {
+    const initialDistPath = getActiveDistPath();
+    if (!initialDistPath) {
       console.log('[Sanghavi Studio] No production build found. Attempting to start Vite dev server...');
       try {
         const { createServer: createViteServer } = await import('vite');
