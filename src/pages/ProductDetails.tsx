@@ -476,9 +476,27 @@ export const ProductDetails: React.FC = () => {
                         <button onClick={() => initiateAI('cleanup')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Eraser size={20}/> Cleanup</button>
                     </div>
                 )}
+
+                {/* Price Display - Just below image */}
+                {!isEditing && (
+                    <div className="mt-4 flex items-center justify-between px-4 md:px-6 py-4 bg-stone-50 md:rounded-[2rem] border-y md:border border-stone-100">
+                        <div className="space-y-0.5">
+                            <p className="text-[8px] font-bold text-stone-400 uppercase tracking-[0.2em]">Live Valuation</p>
+                            <div className="flex items-baseline gap-2">
+                                <span className={`text-3xl font-bold text-brand-dark ${isGuest ? 'blur-xl select-none opacity-20' : ''}`}>
+                                    ₹{Math.round(priceData?.total || 0).toLocaleString('en-IN')}
+                                </span>
+                                <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-widest border border-emerald-100">Live</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[8px] font-bold text-stone-400 uppercase tracking-[0.2em]">Gold Rate</p>
+                            <p className="text-xs font-mono font-bold text-brand-gold">₹{priceData?.goldRate}/g</p>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* RIGHT COLUMN: Product Details */}
             <div className="p-8 md:p-0 space-y-12">
                 <div className="space-y-6">
                     <div className="flex items-center gap-3">
@@ -590,202 +608,103 @@ export const ProductDetails: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-4 gap-1.5">
                     {[
-                        { icon: Heart, label: 'Likes', val: stats.like, color: 'text-brand-red', bg: 'bg-brand-red/5 border-brand-red/10' },
-                        { icon: ShoppingBag, label: 'Inquiries', val: stats.inquiry, color: 'text-brand-gold', bg: 'bg-brand-gold/5 border-brand-gold/10' },
-                        { icon: Gem, label: 'Sold', val: stats.purchase, color: 'text-emerald-500', bg: 'bg-emerald-50 border-emerald-100' },
-                        { icon: Sparkles, label: 'Trend', val: 'Elite', color: 'text-brand-dark', bg: 'bg-stone-100 border-stone-200' }
+                        { icon: Heart, label: 'Likes', val: stats.like, color: 'text-brand-red', bg: 'bg-brand-red/5' },
+                        { icon: MessageCircle, label: 'Inquiry', val: stats.inquiry, color: 'text-brand-gold', bg: 'bg-brand-gold/5' },
+                        { icon: Gem, label: 'Sold', val: stats.purchase, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                        { icon: TrendingUp, label: 'Trend', val: 'Elite', color: 'text-brand-dark', bg: 'bg-stone-100' }
                     ].map((s, idx) => (
-                        <div key={idx} className={`${s.bg} border rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md transition-all group`}>
-                            <s.icon size={24} className={`mb-3 ${s.color} group-hover:scale-110 transition-transform`} />
-                            <span className="font-bold text-brand-dark text-2xl leading-none mb-1.5">{s.val}</span>
-                            <span className="text-[9px] uppercase font-bold text-stone-400 tracking-[0.2em]">{s.label}</span>
+                        <div key={idx} className={`${s.bg} rounded-xl p-2 flex flex-col items-center justify-center text-center transition-all border border-stone-100/50`}>
+                            <s.icon size={12} className={`mb-0.5 ${s.color}`} />
+                            <span className="font-bold text-brand-dark text-xs leading-none mb-0.5">{s.val}</span>
+                            <span className="text-[7px] uppercase font-bold text-stone-400 tracking-tighter leading-none">{s.label}</span>
                         </div>
                     ))}
                 </div>
 
-                {/* Price and Savings */}
-                <div className="space-y-2">
-                    <div className="flex items-baseline gap-4">
-                        <span className={`text-4xl font-bold text-brand-dark ${isGuest ? 'blur-xl select-none opacity-20' : ''}`}>
-                            ₹{Math.round(priceData?.total || 0).toLocaleString('en-IN')}
-                        </span>
-                        <span className="text-xl text-stone-400 line-through font-medium">
-                            ₹{Math.round((priceData?.total || 0) * 1.05).toLocaleString('en-IN')}
-                        </span>
-                    </div>
-                    <p className="text-emerald-600 text-sm font-bold uppercase tracking-widest">
-                        You are saving ₹{Math.round((priceData?.total || 0) * 0.05).toLocaleString('en-IN')}
-                    </p>
-                </div>
-
-                {/* Available Offers */}
-                <div className="bg-orange-50/50 border border-orange-100 rounded-2xl p-6 space-y-4">
-                    <h4 className="text-[10px] font-bold text-orange-800 uppercase tracking-widest flex items-center gap-2">
-                        <Tag size={14} /> Available Offers
-                    </h4>
-                    <div className="bg-white border border-orange-100 p-4 rounded-xl shadow-sm">
-                        <p className="text-xs font-bold text-brand-dark mb-1">15% OFF On Making Charges</p>
-                        <p className="text-[10px] text-stone-400 uppercase tracking-tighter">Valid till 28th Feb</p>
-                    </div>
-                </div>
-
-                {/* Caratage Selection */}
                 <div className="space-y-4">
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Choose a Gold Caratage</h4>
-                    <div className="grid grid-cols-4 gap-3">
-                        {(['9KT', '14KT', '18KT', '22KT'] as const).map(carat => (
+                    {/* Accordions */}
+                    <div className="space-y-1">
+                        <div className="bg-white border border-stone-100 rounded-xl overflow-hidden">
                             <button 
-                                key={carat}
-                                onClick={() => setSelectedCarat(carat)}
-                                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${selectedCarat === carat ? 'border-brand-gold bg-brand-gold/5 ring-1 ring-brand-gold' : 'border-stone-100 hover:border-stone-300'}`}
+                                onClick={() => setActiveTab(activeTab === 'details' ? 'price' : 'details')}
+                                className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
                             >
-                                <span className={`text-xs font-bold ${selectedCarat === carat ? 'text-brand-gold' : 'text-stone-600'}`}>{carat}</span>
-                                <span className="text-[9px] text-stone-400 mt-1">{(product.weight * (carat === '22KT' ? 1 : carat === '18KT' ? 0.85 : 0.7)).toFixed(3)} g</span>
+                                <span className="text-[9px] font-bold text-brand-dark uppercase tracking-widest">Product Details</span>
+                                <ChevronRight size={12} className={`text-stone-400 transition-transform ${activeTab === 'details' ? 'rotate-90' : ''}`} />
                             </button>
-                        ))}
-                    </div>
-                </div>
+                            {activeTab === 'details' && (
+                                <div className="px-4 pb-3 animate-in fade-in slide-in-from-top-1">
+                                    <p className="text-[11px] text-stone-600 leading-relaxed font-serif italic">
+                                        {product.description || "A bespoke masterpiece from the Sanghavi collection."}
+                                    </p>
+                                    <div className="mt-2 grid grid-cols-2 gap-1.5">
+                                        <div className="bg-stone-50 p-1.5 rounded-lg border border-stone-100">
+                                            <p className="text-[7px] text-stone-400 uppercase font-bold tracking-tighter">Ref ID</p>
+                                            <p className="text-[9px] font-bold text-brand-dark">{product.id.slice(-8).toUpperCase()}</p>
+                                        </div>
+                                        <div className="bg-stone-50 p-1.5 rounded-lg border border-stone-100">
+                                            <p className="text-[7px] text-stone-400 uppercase font-bold tracking-tighter">Net Weight</p>
+                                            <p className="text-[9px] font-bold text-brand-dark">{product.weight} g</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
-                {/* Trust Badges */}
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-100">
-                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm"><ShieldCheck size={20} className="text-brand-gold" /></div>
-                        <div>
-                            <p className="text-[10px] font-bold text-brand-dark uppercase tracking-tighter leading-tight">BIS Hallmark</p>
-                            <p className="text-[8px] text-stone-400 uppercase tracking-tighter">For Gold</p>
+                        <div className="bg-white border border-stone-100 rounded-xl overflow-hidden">
+                            <button 
+                                onClick={() => setActiveTab(activeTab === 'price' ? 'details' : 'price')}
+                                className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
+                            >
+                                <span className="text-[9px] font-bold text-brand-dark uppercase tracking-widest">Price Breakup</span>
+                                <ChevronRight size={12} className={`text-stone-400 transition-transform ${activeTab === 'price' ? 'rotate-90' : ''}`} />
+                            </button>
+                            {activeTab === 'price' && priceData && (
+                                <div className="px-4 pb-3 space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-[9px]">
+                                            <span className="text-stone-500">Gold Value</span>
+                                            <span className="font-mono text-brand-dark">₹{Math.round(priceData.basePrice).toLocaleString('en-IN')}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[9px]">
+                                            <span className="text-stone-500">Making ({priceData.makingPercent}%)</span>
+                                            <span className="font-mono text-brand-dark">₹{Math.round(priceData.makingCharges).toLocaleString('en-IN')}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[9px]">
+                                            <span className="text-stone-500">GST ({config?.gstPercent || 3}%)</span>
+                                            <span className="font-mono text-brand-dark">₹{Math.round(priceData.gst).toLocaleString('en-IN')}</span>
+                                        </div>
+                                        <div className="pt-1 border-t border-stone-100 flex justify-between text-[10px] font-bold">
+                                            <span className="text-brand-dark uppercase tracking-widest">Total</span>
+                                            <span className="text-brand-gold">₹{Math.round(priceData.total).toLocaleString('en-IN')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-100">
-                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm"><Gem size={20} className="text-brand-gold" /></div>
-                        <div>
-                            <p className="text-[10px] font-bold text-brand-dark uppercase tracking-tighter leading-tight">SGL & IGI</p>
-                            <p className="text-[8px] text-stone-400 uppercase tracking-tighter">Certified</p>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Delivery Checker */}
-                <div className="bg-white border border-stone-100 rounded-2xl p-6 space-y-4">
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Delivery Details</h4>
-                    <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            placeholder="Enter Pincode" 
-                            value={pincode}
-                            onChange={e => setPincode(e.target.value)}
-                            className="flex-1 bg-stone-50 border border-stone-100 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-gold"
-                        />
-                        <button 
-                            onClick={() => setIsPincodeChecked(true)}
-                            className="px-6 py-3 bg-brand-dark text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-red transition-all"
-                        >
-                            Check
-                        </button>
-                    </div>
-                    {isPincodeChecked && (
-                        <div className="flex items-start gap-3 text-emerald-600 animate-in fade-in slide-in-from-top-2">
-                            <CheckCircle size={16} className="mt-0.5" />
+                    {/* Specs - Ultra Compact */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-stone-50 rounded-xl p-3 flex items-center gap-2 border border-stone-100">
+                            <Calendar size={12} className="text-stone-400" />
                             <div>
-                                <p className="text-xs font-bold">Delivery by 04-Apr - 06-Apr</p>
-                                <p className="text-[10px] text-stone-400 mt-1">Standard Delivery Available</p>
+                                <p className="text-[6px] font-bold uppercase text-stone-400 tracking-tighter">Date</p>
+                                <p className="text-[9px] font-bold text-brand-dark">{new Date(product.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
                             </div>
                         </div>
-                    )}
-                </div>
-
-                {/* Accordions */}
-                <div className="space-y-2">
-                    <div className="border-b border-stone-100">
-                        <button 
-                            onClick={() => setActiveTab(activeTab === 'details' ? 'price' : 'details')}
-                            className="w-full py-4 flex items-center justify-between text-left group"
-                        >
-                            <span className="text-xs font-bold text-brand-dark uppercase tracking-widest group-hover:text-brand-gold transition-colors">Product Details</span>
-                            <ChevronRight size={16} className={`text-stone-400 transition-transform ${activeTab === 'details' ? 'rotate-90' : ''}`} />
-                        </button>
-                        {activeTab === 'details' && (
-                            <div className="pb-6 animate-in fade-in slide-in-from-top-2">
-                                <p className="text-sm text-stone-600 leading-relaxed font-serif italic">
-                                    {product.description}
-                                </p>
-                                <div className="mt-4 space-y-2">
-                                    <p className="text-[10px] text-stone-400 uppercase font-bold tracking-widest">Product ID: <span className="text-brand-dark">{product.id.slice(-8).toUpperCase()}</span></p>
-                                    <p className="text-[10px] text-stone-400 uppercase font-bold tracking-widest">Weight: <span className="text-brand-dark">{product.weight} g</span></p>
+                        {product.meta?.cameraModel && (
+                            <div className="bg-stone-50 rounded-xl p-3 flex items-center gap-2 border border-stone-100">
+                                <Camera size={12} className="text-stone-400" />
+                                <div>
+                                    <p className="text-[6px] font-bold uppercase text-stone-400 tracking-tighter">Studio</p>
+                                    <p className="text-[9px] font-bold text-brand-dark truncate">{product.meta.cameraModel.split(' ')[0]}</p>
                                 </div>
                             </div>
                         )}
                     </div>
-
-                    <div className="border-b border-stone-100">
-                        <button 
-                            onClick={() => setActiveTab(activeTab === 'price' ? 'details' : 'price')}
-                            className="w-full py-4 flex items-center justify-between text-left group"
-                        >
-                            <span className="text-xs font-bold text-brand-dark uppercase tracking-widest group-hover:text-brand-gold transition-colors">Price Breakup</span>
-                            <ChevronRight size={16} className={`text-stone-400 transition-transform ${activeTab === 'price' ? 'rotate-90' : ''}`} />
-                        </button>
-                        {activeTab === 'price' && priceData && (
-                            <div className="pb-6 space-y-4 animate-in fade-in slide-in-from-top-2">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs">
-                                        <span className="text-stone-500">Gold Value ({product.weight}g)</span>
-                                        <span className="font-mono text-brand-dark">₹{Math.round(priceData.basePrice).toLocaleString('en-IN')}</span>
-                                    </div>
-                                    <div className="flex justify-between text-xs">
-                                        <span className="text-stone-500">Making Charges ({priceData.makingPercent}%)</span>
-                                        <span className="font-mono text-brand-dark">₹{Math.round(priceData.makingCharges).toLocaleString('en-IN')}</span>
-                                    </div>
-                                    <div className="flex justify-between text-xs">
-                                        <span className="text-stone-500">GST ({config?.gstPercent || 3}%)</span>
-                                        <span className="font-mono text-brand-dark">₹{Math.round(priceData.gst).toLocaleString('en-IN')}</span>
-                                    </div>
-                                    <div className="pt-2 border-t border-stone-100 flex justify-between text-sm font-bold">
-                                        <span className="text-brand-dark uppercase tracking-widest">Total Value</span>
-                                        <span className="text-brand-gold">₹{Math.round(priceData.total).toLocaleString('en-IN')}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Assistance */}
-                <div className="bg-stone-50 rounded-3xl p-8 text-center space-y-6">
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.4em]">Any Assistance?</h4>
-                    <div className="flex justify-center gap-8">
-                        <button className="flex flex-col items-center gap-2 group">
-                            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-stone-100 group-hover:border-brand-gold transition-all">
-                                <MessageCircle size={20} className="text-brand-dark group-hover:text-brand-gold" />
-                            </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 group-hover:text-brand-dark">Chat</span>
-                        </button>
-                        <button className="flex flex-col items-center gap-2 group">
-                            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-stone-100 group-hover:border-emerald-500 transition-all">
-                                <Smartphone size={20} className="text-brand-dark group-hover:text-emerald-500" />
-                            </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 group-hover:text-brand-dark">Whatsapp</span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Trust Grid */}
-                <div className="grid grid-cols-2 gap-px bg-stone-100 rounded-3xl overflow-hidden border border-stone-100">
-                    {[
-                        { icon: ShieldCheck, label: 'BIS Hallmarked', sub: '100% Authentic' },
-                        { icon: DollarSign, label: 'Cash on Delivery', sub: 'Available' },
-                        { icon: RefreshCw, label: 'Lifetime Exchange', sub: 'Best Value' },
-                        { icon: Clock, label: '30 Day Return', sub: 'No Questions' }
-                    ].map((item, i) => (
-                        <div key={i} className="bg-white p-6 flex flex-col items-center text-center gap-3">
-                            <item.icon size={20} className="text-brand-gold" />
-                            <div>
-                                <p className="text-[10px] font-bold text-brand-dark uppercase tracking-tighter leading-tight">{item.label}</p>
-                                <p className="text-[8px] text-stone-400 uppercase tracking-tighter">{item.sub}</p>
-                            </div>
-                        </div>
-                    ))}
                 </div>
 
                 <div className="space-y-6">
@@ -980,8 +899,8 @@ export const ProductDetails: React.FC = () => {
           >
               <Heart size={24} fill={isLiked ? "currentColor" : "none"} />
           </button>
-          <button className="flex-1 h-14 bg-[#FF8B67] text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-[#FF7A50] transition-all shadow-lg shadow-orange-200">
-              <ShoppingBag size={20} /> Add to Cart
+          <button onClick={() => window.open(`https://wa.me/919999999999?text=I'm interested in ${product.title} (Ref: ${product.id.slice(-6).toUpperCase()})`, '_blank')} className="flex-1 h-14 bg-emerald-500 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100">
+              <MessageCircle size={20} /> Inquiry on Whatsapp
           </button>
       </div>
     </div>
