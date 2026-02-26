@@ -842,25 +842,41 @@ export const ProductDetails: React.FC = () => {
       )}
 
       {showTemplateSelector && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center p-4">
-              <div className="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-sm overflow-hidden animate-slide-up shadow-2xl">
-                  <div className="p-4 bg-stone-50 border-b border-stone-200 flex justify-between items-center">
-                      <h3 className="font-bold text-stone-800 flex items-center gap-2">
-                          <Sparkles size={16} className="text-gold-600"/> Select AI Template
-                      </h3>
-                      <button onClick={() => setShowTemplateSelector(null)} className="p-1 hover:bg-stone-200 rounded-full"><Lock size={16} className="text-stone-400 rotate-45" /></button>
-                  </div>
-                  <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
-                      <button onClick={() => runAIProcess(showTemplateSelector.mode)} className="w-full text-left p-3 rounded-lg border border-stone-200 hover:border-gold-500 hover:bg-gold-50 transition group">
-                          <span className="block font-bold text-xs uppercase text-stone-400 group-hover:text-gold-600 mb-1">Default</span>
-                          <span className="block text-sm text-stone-700 font-medium">Use System Default Prompt</span>
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-6">
+              <div className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-300 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border border-stone-100">
+                  <div className="p-6 bg-stone-50/50 border-b border-stone-100 flex justify-between items-center">
+                      <div>
+                          <h3 className="font-serif text-xl font-bold text-brand-dark flex items-center gap-2">
+                              <Sparkles size={20} className="text-brand-gold"/> AI Studio
+                          </h3>
+                          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-0.5">Select Enhancement Style</p>
+                      </div>
+                      <button onClick={() => setShowTemplateSelector(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400 hover:text-brand-dark">
+                          <X size={20} />
                       </button>
+                  </div>
+                  <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3">
+                      <button 
+                          onClick={() => runAIProcess(showTemplateSelector.mode)} 
+                          className="w-full text-left p-4 rounded-2xl border border-stone-100 hover:border-brand-gold hover:bg-brand-gold/5 transition-all group flex items-center justify-between"
+                      >
+                          <span className="font-bold text-xs uppercase text-stone-500 group-hover:text-brand-dark tracking-widest">Standard (Default)</span>
+                          <div className="w-2 h-2 rounded-full bg-stone-200 group-hover:bg-brand-gold"></div>
+                      </button>
+                      
                       {showTemplateSelector.templates.map(t => (
-                          <button key={t.id} onClick={() => runAIProcess(showTemplateSelector.mode, t.content)} className="w-full text-left p-3 rounded-lg border border-stone-200 hover:border-gold-500 hover:bg-gold-50 transition group">
-                              <span className="block font-bold text-xs uppercase text-stone-400 group-hover:text-gold-600 mb-1">{t.label}</span>
-                              <span className="block text-xs text-stone-600 line-clamp-2">{t.content}</span>
+                          <button 
+                              key={t.id} 
+                              onClick={() => runAIProcess(showTemplateSelector.mode, t.content)} 
+                              className="w-full text-left p-4 rounded-2xl border border-stone-100 hover:border-brand-gold hover:bg-brand-gold/5 transition-all group flex items-center justify-between"
+                          >
+                              <span className="font-bold text-xs uppercase text-stone-500 group-hover:text-brand-dark tracking-widest">{t.label}</span>
+                              <div className="w-2 h-2 rounded-full bg-stone-200 group-hover:bg-brand-gold"></div>
                           </button>
                       ))}
+                  </div>
+                  <div className="p-4 bg-stone-50/50 text-center">
+                      <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Powered by Gemini Vision Pro</p>
                   </div>
               </div>
           </div>
