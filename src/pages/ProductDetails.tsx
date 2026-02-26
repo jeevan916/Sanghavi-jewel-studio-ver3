@@ -42,8 +42,8 @@ export const ProductDetails: React.FC = () => {
   const isGuest = !user;
 
   // Touch handling refs
-  const touchStart = useRef(0);
-  const touchEnd = useRef(0);
+  const touchStart = useRef({ x: 0, y: 0 });
+  const touchEnd = useRef({ x: 0, y: 0 });
   
   // Animation Logic:
   // Using more robust cubic-bezier curves for 'infused' feel
@@ -287,19 +287,30 @@ export const ProductDetails: React.FC = () => {
 
   // --- SWIPE HANDLERS (VIBRATION ENHANCED) ---
   const handleTouchStart = (e: React.TouchEvent) => {
-      touchStart.current = e.targetTouches[0].clientX;
+      touchStart.current = {
+          x: e.targetTouches[0].clientX,
+          y: e.targetTouches[0].clientY
+      };
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
-      touchEnd.current = e.targetTouches[0].clientX;
+      touchEnd.current = {
+          x: e.targetTouches[0].clientX,
+          y: e.targetTouches[0].clientY
+      };
   };
 
   const handleTouchEnd = () => {
-      if (!touchStart.current || !touchEnd.current) return;
+      if (!touchStart.current.x || !touchEnd.current.x) return;
       
-      const distance = touchStart.current - touchEnd.current;
-      const isSwipeLeft = distance > 50;  // Swiping Left -> Go Next (User moves finger left)
-      const isSwipeRight = distance < -50; // Swiping Right -> Go Prev
+      const deltaX = touchStart.current.x - touchEnd.current.x;
+      const deltaY = touchStart.current.y - touchEnd.current.y;
+      
+      // Sensitivity Threshold: 100px (increased from 50px)
+      // Vertical Guard: If vertical movement is greater than horizontal, it's a scroll
+      const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY) * 1.5;
+      const isSwipeLeft = isHorizontalSwipe && deltaX > 100;
+      const isSwipeRight = isHorizontalSwipe && deltaX < -100;
 
       if (isSwipeLeft && neighbors.next) {
           if(navigator.vibrate) navigator.vibrate(20); // Haptic Feedback
@@ -312,8 +323,8 @@ export const ProductDetails: React.FC = () => {
       }
 
       // Reset
-      touchStart.current = 0;
-      touchEnd.current = 0;
+      touchStart.current = { x: 0, y: 0 };
+      touchEnd.current = { x: 0, y: 0 };
   };
 
   const priceData = (product && config) ? storeService.calculatePrice(product, config) : null;
