@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '@/components/ProductCard.tsx';
 import { storeService, CuratedCollections } from '@/services/storeService.ts';
-import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight, X, Sparkles } from 'lucide-react';
+import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight, X, Sparkles, MessageCircle } from 'lucide-react';
 import { Product, AppConfig } from '@/types.ts';
 
 export const Gallery: React.FC = () => {
@@ -332,31 +332,31 @@ export const Gallery: React.FC = () => {
                         )}
                     </div>
                     
-                    <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center space-y-8 overflow-y-auto">
-                        <div className="space-y-4">
+                    <div className="w-full md:w-1/2 p-6 md:p-10 flex flex-col justify-center space-y-6 overflow-y-auto">
+                        <div className="space-y-3">
                             <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.3em] text-brand-gold">
                                 <span>{quickViewProduct.category}</span>
                                 <span className="w-1 h-1 rounded-full bg-stone-200"></span>
                                 <span>{quickViewProduct.weight}g</span>
                             </div>
-                            <h2 className="text-4xl md:text-5xl font-serif text-brand-dark leading-tight">{quickViewProduct.title}</h2>
-                            <p className="text-stone-500 font-serif italic text-lg leading-relaxed line-clamp-4">
+                            <h2 className="text-3xl md:text-4xl font-serif text-brand-dark leading-tight">{quickViewProduct.title}</h2>
+                            <p className="text-stone-500 font-serif italic text-base leading-relaxed line-clamp-4">
                                 {quickViewProduct.description || "A bespoke masterpiece from the Sanghavi collection, crafted with precision and elegance."}
                             </p>
                         </div>
                         
-                        <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
                             <button 
                                 onClick={() => navigateToProduct(quickViewProduct.id)}
-                                className="flex-1 py-5 bg-brand-dark text-white rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-brand-gold transition-all active:scale-95"
+                                className="flex-1 py-4 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] shadow-lg hover:bg-brand-gold transition-all active:scale-95"
                             >
                                 Full Details
                             </button>
                             <button 
                                 onClick={() => isGuest ? navigate('/login') : storeService.shareToWhatsApp(quickViewProduct)}
-                                className="flex-1 py-5 bg-stone-50 text-brand-dark border border-stone-100 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-stone-100 transition-all flex items-center justify-center gap-2"
+                                className="flex-1 py-4 bg-stone-50 text-brand-dark border border-stone-100 rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-stone-100 transition-all flex items-center justify-center gap-2"
                             >
-                                <RefreshCw size={14} /> Inquire
+                                <MessageCircle size={14} className="text-green-600" /> Inquire
                             </button>
                         </div>
                     </div>

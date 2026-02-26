@@ -14,16 +14,16 @@ const getAIConfig = async () => {
     const appConfig = await storeService.getConfig();
     return appConfig.aiConfig || {
         models: {
-            analysis: 'gemini-3-flash-preview',
+            analysis: 'gemini-flash-latest',
             enhancement: 'gemini-2.5-flash-image',
             watermark: 'gemini-2.5-flash-image',
             design: 'gemini-2.5-flash-image'
         },
         prompts: {
-            analysis: "Analyze this luxury jewelry piece...",
-            enhancement: "Enhance lighting...",
-            watermark: "Remove text...",
-            design: "Generate jewelry..."
+            analysis: "Analyze this luxury jewelry piece. Return a JSON object with: title, category, subCategory, weight (number), description, and tags (array of strings).",
+            enhancement: "Enhance lighting and clarity for this jewelry piece.",
+            watermark: "Remove any text or watermarks from this jewelry image.",
+            design: "Generate a high-end jewelry design based on: ${prompt}"
         }
     };
 };
@@ -35,7 +35,7 @@ export const analyzeJewelryImage = async (base64Image: string, promptOverride?: 
   try {
     const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const response = await ai.models.generateContent({
-      model: config.models.analysis, 
+      model: config.models.analysis || 'gemini-flash-latest', 
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
@@ -59,7 +59,9 @@ export const analyzeJewelryImage = async (base64Image: string, promptOverride?: 
       }
     });
 
-    return JSON.parse(response.text || "{}");
+    const text = response.text;
+    if (!text) throw new Error("AI returned empty response");
+    return JSON.parse(text);
   } catch (error) {
     console.error("Analysis Error:", error);
     throw error;

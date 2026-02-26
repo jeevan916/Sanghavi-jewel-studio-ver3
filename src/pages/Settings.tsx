@@ -191,9 +191,13 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newSubCategory, setNewSubCategory] = useState<{catId: string, val: string}>({catId: '', val: ''});
 
-  const modelOptions = [
+  const textModelOptions = [
+      { id: 'gemini-flash-latest', label: 'Gemini Flash (Optimized for JSON)' },
       { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Fastest Text)' },
-      { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Complex Reasoning)' },
+      { id: 'gemini-3.1-pro-preview', label: 'Gemini 3 Pro (Complex Reasoning)' }
+  ];
+
+  const imageModelOptions = [
       { id: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Fastest Vision)' },
       { id: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image (High Res)' }
   ];
@@ -485,7 +489,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           modelValue={config.aiConfig?.models.analysis || ''}
                           promptValue={config.aiConfig?.prompts.analysis || ''}
                           templates={config.aiConfig?.templates?.analysis || []}
-                          modelOptions={modelOptions}
+                          modelOptions={textModelOptions}
                           onModelChange={v => updateAIModel('analysis', v)}
                           onPromptChange={v => updateAIPrompt('analysis', v)}
                           onSaveTemplate={(l, c) => addTemplate('analysis', l, c)}
@@ -498,7 +502,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           modelValue={config.aiConfig?.models.enhancement || ''}
                           promptValue={config.aiConfig?.prompts.enhancement || ''}
                           templates={config.aiConfig?.templates?.enhancement || []}
-                          modelOptions={modelOptions}
+                          modelOptions={imageModelOptions}
                           onModelChange={v => updateAIModel('enhancement', v)}
                           onPromptChange={v => updateAIPrompt('enhancement', v)}
                           onSaveTemplate={(l, c) => addTemplate('enhancement', l, c)}
@@ -511,7 +515,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           modelValue={config.aiConfig?.models.watermark || ''}
                           promptValue={config.aiConfig?.prompts.watermark || ''}
                           templates={config.aiConfig?.templates?.watermark || []}
-                          modelOptions={modelOptions}
+                          modelOptions={imageModelOptions}
                           onModelChange={v => updateAIModel('watermark', v)}
                           onPromptChange={v => updateAIPrompt('watermark', v)}
                           onSaveTemplate={(l, c) => addTemplate('watermark', l, c)}
@@ -526,7 +530,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               modelValue={config.aiConfig?.models.design || ''}
                               promptValue={config.aiConfig?.prompts.design || ''}
                               templates={config.aiConfig?.templates?.design || []}
-                              modelOptions={modelOptions}
+                              modelOptions={imageModelOptions}
                               onModelChange={v => updateAIModel('design', v)}
                               onPromptChange={v => updateAIPrompt('design', v)}
                               onSaveTemplate={(l, c) => addTemplate('design', l, c)}
