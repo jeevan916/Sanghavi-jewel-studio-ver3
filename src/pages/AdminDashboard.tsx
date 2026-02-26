@@ -192,12 +192,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-10 md:pt-28 pb-24 min-h-screen flex flex-col">
-      <header className="flex-none mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 md:pt-24 pb-20 min-h-screen flex flex-col">
+      <header className="flex-none mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="flex justify-between items-start w-full md:w-auto">
            <div>
-              <h2 className="font-serif font-bold text-4xl text-brand-dark tracking-tight">Vault Administration</h2>
-              <div className="flex items-center gap-3 mt-2">
+              <h2 className="font-serif font-bold text-3xl text-brand-dark tracking-tight">Vault Administration</h2>
+              <div className="flex items-center gap-2 mt-1">
                  <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-emerald-500' : 'bg-brand-red animate-pulse'}`} />
                  <p className="text-stone-400 text-[10px] uppercase font-bold tracking-[0.3em] flex items-center gap-3">
                     {healthInfo.healthy ? 'Live SQL Synchronized' : 'DB Disconnected - Retrying...'}
@@ -698,18 +698,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
       {activeView === 'files' && (
           <div className="flex-1 flex flex-col md:flex-row bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden min-h-[500px]">
-             <div className="w-full md:w-64 bg-stone-50 border-r border-stone-100 flex flex-col p-4">
-                 <button onClick={() => onNavigate?.('upload')} className="w-full py-2.5 bg-brand-dark text-white rounded-xl flex items-center justify-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest hover:bg-brand-red transition-colors"><Plus size={18} /> Add Stock</button>
-                 <div className="space-y-1">
+             <div className="w-full md:w-56 bg-stone-50 border-r border-stone-100 flex flex-col p-3">
+                 <button onClick={() => onNavigate?.('upload')} className="w-full py-2 bg-brand-dark text-white rounded-xl flex items-center justify-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-red transition-colors"><Plus size={16} /> Add Stock</button>
+                 <div className="space-y-0.5">
                      {folders.map(folder => (
-                         <button key={folder} onClick={() => setSelectedFolder(folder)} className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-3 uppercase tracking-tighter font-bold transition-all ${selectedFolder === folder ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400 hover:text-brand-dark'}`}>
-                             <Folder size={16} />{folder}
+                         <button key={folder} onClick={() => setSelectedFolder(folder)} className={`w-full text-left px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-2 uppercase tracking-tight font-bold transition-all ${selectedFolder === folder ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400 hover:text-brand-dark'}`}>
+                             <Folder size={14} />{folder}
                          </button>
                      ))}
                  </div>
              </div>
-             <div className="flex-1 p-4 overflow-y-auto relative scrollbar-hide">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
+             <div className="flex-1 p-3 overflow-y-auto relative scrollbar-hide">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pb-20">
                     {allAssets.map((asset: any) => (
                         <div key={asset.assetId} 
                              onClick={() => toggleAssetSelection(asset.id)}

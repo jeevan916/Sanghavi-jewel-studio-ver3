@@ -379,14 +379,14 @@ export const ProductDetails: React.FC = () => {
         style={{ overscrollBehaviorX: 'none' }}
     >
       {/* HEADER: Stable (Outside Animation Key) */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-stone-100 px-6 h-20 flex items-center justify-between sticky top-0 md:top-24 z-30 transition-all duration-500">
-        <button onClick={() => navigate(-1)} className="p-3 -ml-3 text-stone-400 hover:text-brand-dark hover:bg-stone-50 rounded-2xl transition-all"><ArrowLeft size={24} /></button>
-        <div className="flex flex-col items-center flex-1 px-4 overflow-hidden">
-            <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-brand-gold mb-1">{product.category}</span>
-            <h2 className="font-serif font-bold text-brand-dark text-xl truncate w-full text-center">{product.title}</h2>
+      <div className="bg-white/90 backdrop-blur-xl border-b border-stone-100 px-4 h-16 flex items-center justify-between sticky top-0 md:top-24 z-30 transition-all duration-500">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-400 hover:text-brand-dark hover:bg-stone-50 rounded-xl transition-all"><ArrowLeft size={20} /></button>
+        <div className="flex flex-col items-center flex-1 px-2 overflow-hidden">
+            <span className="text-[7px] font-bold uppercase tracking-[0.3em] text-brand-gold mb-0.5">{product.category}</span>
+            <h2 className="font-serif font-bold text-brand-dark text-lg truncate w-full text-center">{product.title}</h2>
         </div>
         <div className="flex gap-2">
-            {isAdmin && (
+            {isAdmin ? (
                 <div className="flex bg-stone-100 rounded-xl p-1 mr-2">
                     <button 
                         onClick={handleToggleVisibility}
@@ -397,11 +397,14 @@ export const ProductDetails: React.FC = () => {
                     <button onClick={handlePrivateLink} className="p-2 text-stone-400 hover:text-brand-dark transition-all"><LinkIcon size={18}/></button>
                     <button onClick={() => setIsEditing(!isEditing)} className={`p-2 rounded-lg transition-all ${isEditing ? 'bg-brand-gold text-white' : 'text-stone-400 hover:text-brand-dark'}`}><Edit2 size={18}/></button>
                 </div>
+            ) : (
+                <>
+                    <button onClick={() => toggleLike()} className={`p-3 rounded-2xl transition-all ${isLiked ? 'text-brand-red bg-brand-red/5' : 'text-stone-300 hover:text-brand-dark hover:bg-stone-50'}`}>
+                        <Heart size={22} fill={isLiked ? "currentColor" : "none"} />
+                    </button>
+                    <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-3 text-stone-300 hover:text-brand-dark hover:bg-stone-50 rounded-2xl transition-all"><Share2 size={22} /></button>
+                </>
             )}
-            <button onClick={() => toggleLike()} className={`p-3 rounded-2xl transition-all ${isLiked ? 'text-brand-red bg-brand-red/5' : 'text-stone-300 hover:text-brand-dark hover:bg-stone-50'}`}>
-                <Heart size={22} fill={isLiked ? "currentColor" : "none"} />
-            </button>
-            <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-3 text-stone-300 hover:text-brand-dark hover:bg-stone-50 rounded-2xl transition-all"><Share2 size={22} /></button>
         </div>
       </div>
 
@@ -682,30 +685,10 @@ export const ProductDetails: React.FC = () => {
                             )}
                         </div>
                     </div>
-
-                    {/* Specs - Ultra Compact */}
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-stone-50 rounded-xl p-3 flex items-center gap-2 border border-stone-100">
-                            <Calendar size={12} className="text-stone-400" />
-                            <div>
-                                <p className="text-[6px] font-bold uppercase text-stone-400 tracking-tighter">Date</p>
-                                <p className="text-[9px] font-bold text-brand-dark">{new Date(product.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
-                            </div>
-                        </div>
-                        {product.meta?.cameraModel && (
-                            <div className="bg-stone-50 rounded-xl p-3 flex items-center gap-2 border border-stone-100">
-                                <Camera size={12} className="text-stone-400" />
-                                <div>
-                                    <p className="text-[6px] font-bold uppercase text-stone-400 tracking-tighter">Studio</p>
-                                    <p className="text-[9px] font-bold text-brand-dark truncate">{product.meta.cameraModel.split(' ')[0]}</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
                 </div>
 
-                <div className="space-y-6">
-                    <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.4em] flex items-center gap-3">
+                <div className="space-y-4">
+                    <h3 className="text-[9px] font-bold text-stone-400 uppercase tracking-[0.3em] flex items-center gap-2">
                         <div className="h-px flex-1 bg-stone-100"></div>
                         Craftsmanship Story
                         <div className="h-px flex-1 bg-stone-100"></div>
@@ -714,55 +697,55 @@ export const ProductDetails: React.FC = () => {
                         <textarea 
                             value={editForm.description || ''} 
                             onChange={e => setEditForm({...editForm, description: e.target.value})}
-                            className="w-full h-48 p-6 bg-white border border-stone-100 rounded-[2rem] focus:ring-2 focus:ring-brand-gold/20 outline-none text-stone-600 leading-relaxed resize-none font-serif text-lg"
+                            className="w-full h-32 p-4 bg-white border border-stone-100 rounded-2xl focus:ring-2 focus:ring-brand-gold/20 outline-none text-stone-600 leading-relaxed resize-none font-serif text-base"
                             placeholder="Describe the masterpiece..."
                         />
                     ) : (
-                        <p className="text-stone-500 leading-[1.8] font-serif italic text-xl text-center md:text-left">
+                        <p className="text-stone-500 leading-relaxed font-serif italic text-lg text-center md:text-left px-2">
                             {product.description || "A bespoke masterpiece from the Sanghavi collection, crafted with precision and elegance."}
                         </p>
                     )}
                 </div>
 
                 {/* Specs */}
-                <div className="bg-white rounded-[2.5rem] p-8 md:p-10 space-y-8 border border-stone-100 shadow-xl">
-                    <h3 className="text-[10px] font-bold text-brand-gold uppercase tracking-[0.4em] flex items-center gap-3">
-                        <Info size={16} /> Technical Specifications
+                <div className="bg-white rounded-3xl p-6 space-y-6 border border-stone-100 shadow-lg">
+                    <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
+                        <Info size={14} /> Technical Specifications
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
-                        <div className="flex items-start gap-4">
-                            <div className="p-3 bg-stone-50 rounded-2xl text-stone-400 border border-stone-100"><Calendar size={18} /></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Calendar size={14} /></div>
                             <div>
-                                <p className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-1">Acquisition Date</p>
-                                <p className={`text-base font-bold text-brand-dark ${isGuest ? 'blur-md select-none opacity-30' : ''}`}>
-                                    {isGuest ? 'dd/mm/yyyy' : new Date(product.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Acquisition</p>
+                                <p className={`text-xs font-bold text-brand-dark ${isGuest ? 'blur-md select-none opacity-30' : ''}`}>
+                                    {isGuest ? 'dd/mm/yyyy' : new Date(product.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </p>
                             </div>
                         </div>
                         {product.meta?.cameraModel && !isGuest && (
-                            <div className="flex items-start gap-4">
-                                <div className="p-3 bg-stone-50 rounded-2xl text-stone-400 border border-stone-100"><Camera size={18} /></div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Camera size={14} /></div>
                                 <div>
-                                    <p className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-1">Studio Capture</p>
-                                    <p className="text-base font-bold text-brand-dark">{product.meta.cameraModel}</p>
+                                    <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Studio Capture</p>
+                                    <p className="text-xs font-bold text-brand-dark truncate max-w-[120px]">{product.meta.cameraModel}</p>
                                 </div>
                             </div>
                         )}
                         {isAdmin && product.supplier && (
-                            <div className="flex items-start gap-4">
-                                <div className="p-3 bg-stone-50 rounded-2xl text-stone-400 border border-stone-100"><Package size={18} /></div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Package size={14} /></div>
                                 <div>
-                                    <p className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-1">Artisan Source</p>
-                                    <p className="text-base font-bold text-brand-dark">{product.supplier}</p>
+                                    <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Artisan Source</p>
+                                    <p className="text-xs font-bold text-brand-dark">{product.supplier}</p>
                                 </div>
                             </div>
                         )}
                         {product.meta?.location && !isGuest && (
-                            <div className="flex items-start gap-4">
-                                <div className="p-3 bg-stone-50 rounded-2xl text-stone-400 border border-stone-100"><MapPin size={18} /></div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><MapPin size={14} /></div>
                                 <div>
-                                    <p className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-1">Vault Location</p>
-                                    <p className="text-base font-bold text-brand-dark">{product.meta.location}</p>
+                                    <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Vault Location</p>
+                                    <p className="text-xs font-bold text-brand-dark">{product.meta.location}</p>
                                 </div>
                             </div>
                         )}
@@ -784,21 +767,13 @@ export const ProductDetails: React.FC = () => {
                     </div>
                 )}
 
-                <div className="pt-8 sticky bottom-8 md:static z-20">
+                <div className="pt-4">
                     {isEditing ? (
                         <div className="flex gap-4">
                             <button onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-stone-100 text-stone-400 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-stone-200 transition-all">Cancel</button>
                             <button onClick={handleSave} className="flex-1 py-5 bg-brand-dark text-white rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 hover:bg-brand-gold transition-all shadow-2xl"><Save size={18}/> Save Masterpiece</button>
                         </div>
-                    ) : (
-                        <button 
-                            onClick={() => isGuest ? navigate('/login') : storeService.shareToWhatsApp(product)} 
-                            className="w-full py-6 bg-brand-dark text-white rounded-[2rem] font-bold shadow-2xl shadow-brand-dark/20 flex items-center justify-center gap-4 active:scale-[0.98] transition-all hover:bg-brand-gold group"
-                        >
-                            <MessageCircle size={24} className="group-hover:rotate-12 transition-transform" /> 
-                            <span className="uppercase tracking-[0.3em] text-xs font-bold">{isGuest ? 'Member Access Required' : 'Inquire via WhatsApp'}</span>
-                        </button>
-                    )}
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -888,18 +863,18 @@ export const ProductDetails: React.FC = () => {
           </div>
       )}
 
-      {/* Sticky Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 p-4 md:p-6 z-50 flex items-center gap-4 animate-in slide-in-from-bottom-full duration-500">
-          <button 
-              onClick={() => setIsLiked(!isLiked)}
-              className={`w-14 h-14 rounded-2xl border flex items-center justify-center transition-all ${isLiked ? 'bg-brand-red/5 border-brand-red text-brand-red' : 'border-stone-100 text-stone-400 hover:border-stone-300'}`}
-          >
-              <Heart size={24} fill={isLiked ? "currentColor" : "none"} />
-          </button>
-          <button onClick={() => window.open(`https://wa.me/919999999999?text=I'm interested in ${product.title} (Ref: ${product.id.slice(-6).toUpperCase()})`, '_blank')} className="flex-1 h-14 bg-emerald-500 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100">
-              <MessageCircle size={20} /> Inquiry on Whatsapp
-          </button>
-      </div>
+      {/* Floating Action Button: WhatsApp Inquiry */}
+      {!isEditing && !isAdmin && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-xs px-4 animate-in slide-in-from-bottom-full duration-700">
+              <button 
+                  onClick={() => isGuest ? navigate('/login') : storeService.shareToWhatsApp(product)} 
+                  className="w-full py-3.5 bg-brand-dark text-white rounded-full font-bold shadow-2xl shadow-brand-dark/40 flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-brand-gold group border border-white/10 backdrop-blur-md"
+              >
+                  <MessageCircle size={18} className="group-hover:rotate-12 transition-transform" /> 
+                  <span className="uppercase tracking-[0.2em] text-[9px] font-bold">{isGuest ? 'Member Access Required' : 'Inquire via WhatsApp'}</span>
+              </button>
+          </div>
+      )}
     </div>
   );
 };
