@@ -98,6 +98,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       });
   }, [products, selectedFolder, searchQuery]);
 
+  const allAssets = useMemo(() => {
+      return filteredProducts.flatMap(product => {
+          const images = product.images || [];
+          if (images.length === 0) return [{ ...product, displayImage: null as string | null, imageIndex: 0, assetId: `${product.id}-0` }];
+          return images.map((img, idx) => ({
+              ...product,
+              displayImage: img as string | null,
+              imageIndex: idx,
+              assetId: `${product.id}-${idx}`
+          }));
+      });
+  }, [filteredProducts]);
+
   // --- TRENDS ALGORITHM ---
   const trendingProducts = useMemo(() => {
       if (!analytics || analytics.length === 0) return [];
@@ -697,18 +710,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
              </div>
              <div className="flex-1 p-4 overflow-y-auto relative scrollbar-hide">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
-                    {filteredProducts.map(product => (
-                        <div key={product.id} 
-                             onClick={() => toggleAssetSelection(product.id)}
-                             className={`relative aspect-square bg-stone-50 rounded-xl overflow-hidden border cursor-pointer group transition-all ${selectedAssets.has(product.id) ? 'border-brand-gold ring-2 ring-brand-gold ring-offset-2' : 'border-stone-100 hover:border-brand-gold/30'}`}>
-                            <img src={product.thumbnails?.[0] || product.images?.[0]} className={`w-full h-full object-cover transition-transform duration-500 ${selectedAssets.has(product.id) ? 'scale-90' : 'group-hover:scale-110'}`} />
+                    {allAssets.map((asset: any) => (
+                        <div key={asset.assetId} 
+                             onClick={() => toggleAssetSelection(asset.id)}
+                             className={`relative aspect-square bg-stone-50 rounded-xl overflow-hidden border cursor-pointer group transition-all ${selectedAssets.has(asset.id) ? 'border-brand-gold ring-2 ring-brand-gold ring-offset-2' : 'border-stone-100 hover:border-brand-gold/30'}`}>
+                            <img 
+                                src={asset.thumbnails?.[asset.imageIndex] || asset.displayImage || ''} 
+                                className={`w-full h-full object-cover transition-transform duration-500 ${selectedAssets.has(asset.id) ? 'scale-90' : 'group-hover:scale-110'}`} 
+                                loading="lazy"
+                            />
                             
-                            <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border border-white/50 flex items-center justify-center transition-colors ${selectedAssets.has(product.id) ? 'bg-brand-gold border-brand-gold' : 'bg-black/30'}`}>
-                                {selectedAssets.has(product.id) && <CheckCircle size={14} className="text-white" />}
+                            <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border border-white/50 flex items-center justify-center transition-colors ${selectedAssets.has(asset.id) ? 'bg-brand-gold border-brand-gold' : 'bg-black/30'}`}>
+                                {selectedAssets.has(asset.id) && <CheckCircle size={14} className="text-white" />}
                             </div>
 
+                            {asset.images.length > 1 && (
+                                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/50 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-widest border border-white/10">
+                                    {asset.imageIndex + 1} / {asset.images.length}
+                                </div>
+                            )}
+
                             <div className="absolute inset-x-0 bottom-0 p-2 bg-brand-dark/80 text-white text-[10px] truncate font-bold uppercase tracking-tighter">
-                                {product.title}
+                                {asset.title}
                             </div>
                         </div>
                     ))}
