@@ -19,6 +19,9 @@ export type Product = {
     cameraModel?: string;
     deviceManufacturer?: string;
     location?: string;
+    makingChargeSegmentId?: string;
+    makingChargePercent?: number;
+    otherCharges?: number;
   };
 };
 
@@ -96,10 +99,21 @@ export interface AIConfig {
   };
 }
 
+export interface MakingChargeSegment {
+  id: string;
+  name: string;
+  percent: number;
+}
+
 export interface AppConfig {
   suppliers: Supplier[];
   categories: CategoryConfig[];
+  makingChargeSegments: MakingChargeSegment[];
+  defaultMakingChargeSegmentId?: string;
   linkExpiryHours: number;
+  goldRate22k: number;
+  goldRate24k: number;
+  gstPercent: number;
   whatsappNumber?: string;
   whatsappPhoneId?: string;
   whatsappToken?: string;

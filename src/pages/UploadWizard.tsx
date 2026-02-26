@@ -119,7 +119,9 @@ export const UploadWizard: React.FC = () => {
         dateTaken: analysisData.dateTaken || new Date().toISOString().split('T')[0],
         meta: { 
             cameraModel: getDeviceInfo().device, 
-            deviceManufacturer: getDeviceInfo().manufacturer 
+            deviceManufacturer: getDeviceInfo().manufacturer,
+            makingChargeSegmentId: analysisData.meta?.makingChargeSegmentId,
+            otherCharges: analysisData.meta?.otherCharges
         }
       };
       await storeService.addProduct(newProduct);
@@ -251,6 +253,22 @@ export const UploadWizard: React.FC = () => {
                           <div className="grid grid-cols-2 gap-4">
                               <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1 ml-1">Weight (g)</label><input type="number" step="0.01" value={analysisData.weight || ''} onChange={e => setAnalysisData({...analysisData, weight: parseFloat(e.target.value)})} className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl focus:ring-1 focus:ring-brand-gold outline-none" placeholder="0.00" /></div>
                               <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1 ml-1">Date</label><input type="date" value={analysisData.dateTaken || ''} onChange={e => setAnalysisData({...analysisData, dateTaken: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl focus:ring-1 focus:ring-brand-gold outline-none" /></div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1 ml-1">Making Segment</label>
+                                <select 
+                                    value={analysisData.meta?.makingChargeSegmentId || ''} 
+                                    onChange={e => setAnalysisData({...analysisData, meta: {...(analysisData.meta || {}), makingChargeSegmentId: e.target.value}})} 
+                                    className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl focus:ring-1 focus:ring-brand-gold outline-none text-xs font-bold uppercase tracking-widest"
+                                >
+                                    <option value="">Default ({config?.makingChargeSegments.find(s => s.id === config.defaultMakingChargeSegmentId)?.name || '12%'})</option>
+                                    {config?.makingChargeSegments.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name} ({s.percent}%)</option>
+                                    ))}
+                                </select>
+                              </div>
+                              <div><label className="block text-[10px] font-bold text-stone-400 uppercase mb-1 ml-1">Other Charges (₹)</label><input type="number" value={analysisData.meta?.otherCharges || ''} onChange={e => setAnalysisData({...analysisData, meta: {...(analysisData.meta || {}), otherCharges: parseFloat(e.target.value)}})} className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl focus:ring-1 focus:ring-brand-gold outline-none" placeholder="0" /></div>
                           </div>
                         </div>
                     </div>

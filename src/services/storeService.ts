@@ -240,6 +240,11 @@ export const storeService = {
             whatsappNumber: data?.whatsappNumber || '',
             whatsappPhoneId: data?.whatsappPhoneId || '',
             whatsappToken: data?.whatsappToken || '',
+            goldRate22k: Number(data?.goldRate22k) || 6500,
+            goldRate24k: Number(data?.goldRate24k) || 7200,
+            gstPercent: Number(data?.gstPercent) || 3,
+            makingChargeSegments: Array.isArray(data?.makingChargeSegments) ? data.makingChargeSegments : [],
+            defaultMakingChargeSegmentId: data?.defaultMakingChargeSegmentId || '',
             aiConfig: aiConfig
         };
         CACHE.config = sanitized;
@@ -251,6 +256,11 @@ export const storeService = {
             suppliers: [], 
             categories: [], 
             linkExpiryHours: 24,
+            goldRate22k: 6500,
+            goldRate24k: 7200,
+            gstPercent: 3,
+            makingChargeSegments: [],
+            defaultMakingChargeSegmentId: '',
             aiConfig: {
                 models: { 
                     analysis: 'gemini-3-flash-preview', 
@@ -297,6 +307,40 @@ export const storeService = {
     window.open(`https://wa.me/${config.whatsappNumber}?text=${text}`, '_blank');
   },
   
+  calculatePrice: (product: Product, config: AppConfig) => {
+    const goldRate = product.category.toLowerCase().includes('24k') ? config.goldRate24k : config.goldRate22k;
+    const basePrice = product.weight * goldRate;
+    
+    // Determine making charge percentage
+    let makingPercent = 12; // Fallback
+    
+    if (product.meta.makingChargePercent !== undefined) {
+      makingPercent = product.meta.makingChargePercent;
+    } else {
+      const segmentId = product.meta.makingChargeSegmentId || config.defaultMakingChargeSegmentId;
+      const segment = config.makingChargeSegments.find(s => s.id === segmentId);
+      if (segment) {
+        makingPercent = segment.percent;
+      }
+    }
+
+    const makingCharges = basePrice * (makingPercent / 100);
+    const otherCharges = product.meta.otherCharges || 0;
+    const subtotal = basePrice + makingCharges + otherCharges;
+    const gst = subtotal * (config.gstPercent / 100);
+    const total = subtotal + gst;
+    
+    return {
+      basePrice,
+      makingCharges,
+      makingPercent,
+      otherCharges,
+      gst,
+      total,
+      goldRate
+    };
+  },
+
   getIsOnline: () => navigator.onLine,
   subscribeStatus: (cb: (s: boolean) => void) => {
     const h = () => cb(navigator.onLine);

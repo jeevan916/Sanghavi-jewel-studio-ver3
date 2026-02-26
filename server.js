@@ -216,6 +216,15 @@ const initDB = async () => {
     // 4. Seed Defaults
     const defaults = {
         linkExpiryHours: '24',
+        goldRate22k: '6500',
+        goldRate24k: '7200',
+        gstPercent: '3',
+        makingChargeSegments: JSON.stringify([
+            { id: 'classic', name: 'Classic', percent: 10 },
+            { id: 'premium', name: 'Premium', percent: 12 },
+            { id: 'antique', name: 'Antique', percent: 13 }
+        ]),
+        defaultMakingChargeSegmentId: 'premium',
         ai_model_analysis: 'gemini-3-flash-preview',
         ai_model_enhancement: 'gemini-2.5-flash-image',
         ai_model_watermark: 'gemini-2.5-flash-image',
@@ -437,6 +446,15 @@ app.get('/api/config', async (req, res) => {
             suppliers: suppliers.map(s => ({ ...s, isPrivate: !!s.isPrivate })),
             categories: catMap,
             linkExpiryHours: 24,
+            goldRate22k: 6500,
+            goldRate24k: 7200,
+            gstPercent: 3,
+            makingChargeSegments: [
+                { id: 'classic', name: 'Classic', percent: 10 },
+                { id: 'premium', name: 'Premium', percent: 12 },
+                { id: 'antique', name: 'Antique', percent: 13 }
+            ],
+            defaultMakingChargeSegmentId: 'premium',
             whatsappNumber: '',
             whatsappPhoneId: '',
             whatsappToken: '',
@@ -444,6 +462,13 @@ app.get('/api/config', async (req, res) => {
 
         settingsRows.forEach(row => {
             if (row.setting_key === 'linkExpiryHours') config.linkExpiryHours = Number(row.setting_value);
+            else if (row.setting_key === 'goldRate22k') config.goldRate22k = Number(row.setting_value);
+            else if (row.setting_key === 'goldRate24k') config.goldRate24k = Number(row.setting_value);
+            else if (row.setting_key === 'gstPercent') config.gstPercent = Number(row.setting_value);
+            else if (row.setting_key === 'makingChargeSegments') {
+                try { config.makingChargeSegments = JSON.parse(row.setting_value); } catch { config.makingChargeSegments = []; }
+            }
+            else if (row.setting_key === 'defaultMakingChargeSegmentId') config.defaultMakingChargeSegmentId = row.setting_value;
             else config[row.setting_key] = row.setting_value;
         });
 
@@ -457,10 +482,15 @@ app.post('/api/config', async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
-        const { suppliers, categories, linkExpiryHours, whatsappNumber, whatsappPhoneId, whatsappToken, aiConfig } = req.body;
+        const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, aiConfig } = req.body;
 
         const settings = { 
             linkExpiryHours, 
+            goldRate22k,
+            goldRate24k,
+            gstPercent,
+            makingChargeSegments: JSON.stringify(makingChargeSegments || []),
+            defaultMakingChargeSegmentId,
             whatsappNumber, 
             whatsappPhoneId, 
             whatsappToken,

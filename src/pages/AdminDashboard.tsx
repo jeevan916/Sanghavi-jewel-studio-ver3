@@ -6,7 +6,7 @@ import { coreEngine } from '@/services/coreEngine.ts';
 import { Product, AnalyticsEvent, User, AppConfig } from '@/types.ts';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
-  Grid, List as ListIcon, Lock, CheckCircle, X, 
+  Grid, List as ListIcon, Lock, CheckCircle, X, Tag,
   LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight, Clock
 } from 'lucide-react';
 
@@ -14,7 +14,7 @@ interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'trends' | 'neural';
+type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'trends' | 'neural' | 'market';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
@@ -201,6 +201,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'leads', icon: UserCheck, label: 'Leads' },
               { id: 'activity', icon: Activity, label: 'Activity' },
               { id: 'trends', icon: TrendingUp, label: 'Trends' },
+              { id: 'market', icon: DollarSign, label: 'Market' },
               { id: 'neural', icon: BrainCircuit, label: 'Neural' },
             ].map(tab => (
               <button 
@@ -256,6 +257,183 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                         <p className="text-4xl font-serif font-bold text-brand-dark">Top 10</p>
                     </div>
                 </div>
+          </div>
+      )}
+
+      {activeView === 'market' && config && (
+          <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 space-y-6">
+                      <div className="flex items-center gap-3 text-brand-gold">
+                          <DollarSign size={20} />
+                          <h3 className="font-bold uppercase tracking-widest text-xs">Gold Rate (22K)</h3>
+                      </div>
+                      <div className="space-y-2">
+                          <input 
+                              type="number" 
+                              value={config.goldRate22k} 
+                              onChange={e => setConfig({...config, goldRate22k: parseFloat(e.target.value)})}
+                              className="text-4xl font-serif font-bold text-brand-dark bg-transparent w-full outline-none focus:text-brand-gold transition-colors"
+                          />
+                          <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Price per gram (₹)</p>
+                      </div>
+                  </div>
+
+                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 space-y-6">
+                      <div className="flex items-center gap-3 text-brand-gold">
+                          <DollarSign size={20} />
+                          <h3 className="font-bold uppercase tracking-widest text-xs">Gold Rate (24K)</h3>
+                      </div>
+                      <div className="space-y-2">
+                          <input 
+                              type="number" 
+                              value={config.goldRate24k} 
+                              onChange={e => setConfig({...config, goldRate24k: parseFloat(e.target.value)})}
+                              className="text-4xl font-serif font-bold text-brand-dark bg-transparent w-full outline-none focus:text-brand-gold transition-colors"
+                          />
+                          <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Price per gram (₹)</p>
+                      </div>
+                  </div>
+
+                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 space-y-6">
+                      <div className="flex items-center gap-3 text-brand-gold">
+                          <ShieldCheck size={20} />
+                          <h3 className="font-bold uppercase tracking-widest text-xs">Tax (GST)</h3>
+                      </div>
+                      <div className="space-y-2">
+                          <div className="flex items-baseline gap-2">
+                            <input 
+                                type="number" 
+                                value={config.gstPercent} 
+                                onChange={e => setConfig({...config, gstPercent: parseFloat(e.target.value)})}
+                                className="text-4xl font-serif font-bold text-brand-dark bg-transparent w-24 outline-none focus:text-brand-gold transition-colors"
+                            />
+                            <span className="text-2xl font-serif font-bold text-stone-300">%</span>
+                          </div>
+                          <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Standard Jewelry GST</p>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-8">
+                  <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-brand-gold">
+                          <Tag size={20} />
+                          <h3 className="font-bold uppercase tracking-widest text-xs">Making Charge Segments</h3>
+                      </div>
+                      <button 
+                        onClick={() => {
+                            const name = prompt("Segment Name (e.g. Classic)");
+                            const percent = parseFloat(prompt("Percentage (e.g. 10)") || "0");
+                            if (name && !isNaN(percent)) {
+                                const newSegment = { id: name.toLowerCase().replace(/\s+/g, '-'), name, percent };
+                                setConfig({...config, makingChargeSegments: [...config.makingChargeSegments, newSegment]});
+                            }
+                        }}
+                        className="p-2 bg-stone-50 text-brand-gold rounded-xl hover:bg-brand-gold hover:text-white transition-all"
+                      >
+                          <Plus size={18} />
+                      </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {config.makingChargeSegments.map(segment => (
+                          <div key={segment.id} className={`p-6 rounded-2xl border transition-all relative group ${config.defaultMakingChargeSegmentId === segment.id ? 'border-brand-gold bg-brand-gold/5' : 'border-stone-100 bg-stone-50/50'}`}>
+                              <div className="flex justify-between items-start mb-4">
+                                  <div>
+                                      <p className="font-bold text-brand-dark uppercase tracking-widest text-xs">{segment.name}</p>
+                                      <p className="text-2xl font-serif font-bold text-brand-gold">{segment.percent}%</p>
+                                  </div>
+                                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button 
+                                        onClick={() => {
+                                            const newPercent = parseFloat(prompt("New Percentage", segment.percent.toString()) || segment.percent.toString());
+                                            if (!isNaN(newPercent)) {
+                                                setConfig({
+                                                    ...config, 
+                                                    makingChargeSegments: config.makingChargeSegments.map(s => s.id === segment.id ? {...s, percent: newPercent} : s)
+                                                });
+                                            }
+                                        }}
+                                        className="p-1.5 text-stone-400 hover:text-brand-dark"
+                                      >
+                                          <Edit2 size={14} />
+                                      </button>
+                                      <button 
+                                        onClick={() => {
+                                            if (config.makingChargeSegments.length <= 1) return alert("Must have at least one segment");
+                                            setConfig({
+                                                ...config, 
+                                                makingChargeSegments: config.makingChargeSegments.filter(s => s.id !== segment.id),
+                                                defaultMakingChargeSegmentId: config.defaultMakingChargeSegmentId === segment.id ? config.makingChargeSegments.find(s => s.id !== segment.id)?.id : config.defaultMakingChargeSegmentId
+                                            });
+                                        }}
+                                        className="p-1.5 text-stone-400 hover:text-brand-red"
+                                      >
+                                          <Trash2 size={14} />
+                                      </button>
+                                  </div>
+                              </div>
+                              <button 
+                                onClick={() => setConfig({...config, defaultMakingChargeSegmentId: segment.id})}
+                                className={`w-full py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all ${config.defaultMakingChargeSegmentId === segment.id ? 'bg-brand-gold text-white' : 'bg-white text-stone-400 border border-stone-100 hover:border-brand-gold hover:text-brand-gold'}`}
+                              >
+                                  {config.defaultMakingChargeSegmentId === segment.id ? 'Default Segment' : 'Set as Default'}
+                              </button>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+
+              <div className="bg-brand-dark text-white p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-brand-gold/10 blur-[120px] -mr-48 -mt-48 rounded-full" />
+                  <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
+                      <div className="space-y-2 text-center md:text-left">
+                          <h2 className="text-3xl font-serif font-bold">Update Market Rates</h2>
+                          <p className="text-stone-400 text-sm max-w-md">Updating these rates will immediately reflect across the entire catalogue for all customers. Ensure accuracy before saving.</p>
+                      </div>
+                      <button 
+                          onClick={async () => {
+                              setIsSyncing(true);
+                              try {
+                                  await storeService.saveConfig(config);
+                                  alert("Market rates updated successfully.");
+                              } catch (e) { alert("Failed to update rates."); }
+                              setIsSyncing(false);
+                          }}
+                          className="px-12 py-5 bg-brand-gold text-brand-dark rounded-2xl font-bold uppercase tracking-[0.2em] text-xs hover:bg-white transition-all shadow-xl active:scale-95 flex items-center gap-3"
+                      >
+                          <Save size={18} /> Publish Changes
+                      </button>
+                  </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl border border-stone-100">
+                  <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.4em] mb-6">Pricing Logic Preview</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                      <div className="space-y-4">
+                          <p className="text-sm text-stone-600 leading-relaxed">
+                              Our system uses a <span className="text-brand-dark font-bold">Dynamic Valuation Engine</span>. 
+                              The final price is calculated as:
+                          </p>
+                          <div className="p-6 bg-stone-50 rounded-2xl font-mono text-xs space-y-2 text-stone-500 border border-stone-100">
+                              <p>Base = Weight × Gold Rate</p>
+                              <p>Making = Base × Making %</p>
+                              <p>Subtotal = Base + Making + Other</p>
+                              <p>Total = Subtotal + (Subtotal × GST %)</p>
+                          </div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                          <div className="text-center space-y-2">
+                              <div className="w-16 h-16 bg-brand-gold/10 text-brand-gold rounded-full flex items-center justify-center mx-auto mb-4">
+                                  <TrendingUp size={32} />
+                              </div>
+                              <h4 className="font-bold text-brand-dark uppercase tracking-widest text-xs">Live Sync Enabled</h4>
+                              <p className="text-[10px] text-stone-400 uppercase tracking-tighter">Connected to Sanghavi Cloud</p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
           </div>
       )}
 

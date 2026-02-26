@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '@/types.ts';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp } from 'lucide-react';
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
 import { storeService } from '@/services/storeService.ts';
@@ -34,7 +34,6 @@ export const ProductDetails: React.FC = () => {
   const [aiComparison, setAiComparison] = useState<{original: string, enhanced: string} | null>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState<{mode: 'enhance' | 'cleanup', templates: PromptTemplate[]} | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
-
   const [neighbors, setNeighbors] = useState<{prev: string | null, next: string | null}>({ prev: null, next: null });
 
   const user = storeService.getCurrentUser();
@@ -316,6 +315,8 @@ export const ProductDetails: React.FC = () => {
       touchEnd.current = 0;
   };
 
+  const priceData = (product && config) ? storeService.calculatePrice(product, config) : null;
+
   if (isLoading && !product) return <div className="h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-gold-600" size={40} /></div>;
   if (!product) return <div className="h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center"><p className="text-stone-500 mb-4">Product not found.</p><button onClick={() => navigate('/collection')} className="text-gold-600 font-bold">Return to Gallery</button></div>;
 
@@ -470,12 +471,50 @@ export const ProductDetails: React.FC = () => {
                     </div>
                     
                     {isEditing ? (
-                        <input 
-                            value={editForm.title || ''} 
-                            onChange={e => setEditForm({...editForm, title: e.target.value})}
-                            className="w-full font-serif text-4xl md:text-5xl text-brand-dark bg-transparent border-b border-brand-gold/30 outline-none placeholder:text-stone-200 transition-all focus:border-brand-gold"
-                            placeholder="Product Title"
-                        />
+                        <div className="space-y-4">
+                            <input 
+                                value={editForm.title || ''} 
+                                onChange={e => setEditForm({...editForm, title: e.target.value})}
+                                className="w-full font-serif text-4xl md:text-5xl text-brand-dark bg-transparent border-b border-brand-gold/30 outline-none placeholder:text-stone-200 transition-all focus:border-brand-gold"
+                                placeholder="Product Title"
+                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Making Segment</label>
+                                    <select 
+                                        value={editForm.meta?.makingChargeSegmentId || ''}
+                                        onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargeSegmentId: e.target.value, makingChargePercent: e.target.value === 'custom' ? (editForm.meta?.makingChargePercent || 12) : undefined}})}
+                                        className="w-full p-3 bg-white border border-stone-100 rounded-xl outline-none focus:border-brand-gold text-xs font-bold uppercase tracking-widest"
+                                    >
+                                        <option value="">Default ({config?.makingChargeSegments.find(s => s.id === config.defaultMakingChargeSegmentId)?.name || '12%'})</option>
+                                        {config?.makingChargeSegments.map(s => (
+                                            <option key={s.id} value={s.id}>{s.name} ({s.percent}%)</option>
+                                        ))}
+                                        <option value="custom">Custom %</option>
+                                    </select>
+                                </div>
+                                {editForm.meta?.makingChargeSegmentId === 'custom' && (
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Custom Making %</label>
+                                        <input 
+                                            type="number"
+                                            value={editForm.meta?.makingChargePercent || 12}
+                                            onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargePercent: parseFloat(e.target.value)}})}
+                                            className="w-full p-3 bg-white border border-stone-100 rounded-xl outline-none focus:border-brand-gold font-mono"
+                                        />
+                                    </div>
+                                )}
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Other Charges (₹)</label>
+                                    <input 
+                                        type="number"
+                                        value={editForm.meta?.otherCharges || 0}
+                                        onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), otherCharges: parseFloat(e.target.value)}})}
+                                        className="w-full p-3 bg-white border border-stone-100 rounded-xl outline-none focus:border-brand-gold font-mono"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     ) : (
                         <h1 className="font-serif text-4xl md:text-6xl text-brand-dark leading-[1.1] tracking-tight">{product.title}</h1>
                     )}
@@ -518,6 +557,65 @@ export const ProductDetails: React.FC = () => {
                         </div>
                     ))}
                 </div>
+
+                {/* Live Pricing Section */}
+                {priceData && (
+                    <div className="bg-brand-dark text-white rounded-[2.5rem] p-8 md:p-10 space-y-8 shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-gold/5 blur-[100px] -mr-32 -mt-32 rounded-full" />
+                        
+                        <div className="flex items-center justify-between relative">
+                            <h3 className="text-[10px] font-bold text-brand-gold uppercase tracking-[0.4em] flex items-center gap-3">
+                                <TrendingUp size={16} /> Live Valuation
+                            </h3>
+                            <div className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                                Real-time
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col items-center justify-center py-4 relative">
+                            <p className={`text-6xl md:text-7xl font-serif font-bold text-white mb-2 ${isGuest ? 'blur-xl select-none opacity-20' : ''}`}>
+                                ₹{Math.round(priceData.total).toLocaleString('en-IN')}
+                            </p>
+                            <p className="text-stone-500 text-[10px] font-bold uppercase tracking-[0.3em]">Estimated Market Value</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5 relative">
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-stone-500 font-medium">Gold Value ({product.weight}g @ ₹{priceData.goldRate}/g)</span>
+                                    <span className={`font-mono ${isGuest ? 'blur-md' : ''}`}>₹{Math.round(priceData.basePrice).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-stone-500 font-medium">
+                                        Making Charges ({priceData.makingPercent}%)
+                                        {product.meta.makingChargeSegmentId && (
+                                            <span className="ml-2 text-[8px] bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold tracking-widest">
+                                                {config?.makingChargeSegments.find(s => s.id === product.meta.makingChargeSegmentId)?.name || 'Custom'}
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span className={`font-mono ${isGuest ? 'blur-md' : ''}`}>₹{Math.round(priceData.makingCharges).toLocaleString('en-IN')}</span>
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-stone-500 font-medium">Other Charges</span>
+                                    <span className={`font-mono ${isGuest ? 'blur-md' : ''}`}>₹{Math.round(priceData.otherCharges).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-stone-500 font-medium text-brand-gold">GST ({config?.gstPercent || 3}%)</span>
+                                    <span className={`font-mono text-brand-gold ${isGuest ? 'blur-md' : ''}`}>₹{Math.round(priceData.gst).toLocaleString('en-IN')}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {isGuest && (
+                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 flex items-center justify-center gap-3 text-stone-400 text-[10px] font-bold uppercase tracking-widest relative">
+                                <Lock size={14}/> Pricing breakdown reserved for members
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div className="space-y-6">
                     <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.4em] flex items-center gap-3">

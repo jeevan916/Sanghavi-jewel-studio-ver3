@@ -28,6 +28,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
 
   const isGuest = !storeService.getCurrentUser();
   const displayImage = product.thumbnails?.[0] || product.images?.[0] || '';
+  const config = storeService.getCached().config;
+  const priceData = config ? storeService.calculatePrice(product, config) : null;
 
   return (
     <div 
@@ -83,10 +85,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
       </div>
       
       <div className="p-4 flex flex-col flex-grow relative z-20 bg-white">
-        <div className="flex items-center gap-2 text-[8px] uppercase tracking-[0.3em] text-brand-gold mb-2 font-bold">
-          <span>{product.category}</span>
-          <span className="w-1 h-1 rounded-full bg-stone-200"></span>
-          <span>{product.weight}g</span>
+        <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-[8px] uppercase tracking-[0.3em] text-brand-gold font-bold">
+              <span>{product.category}</span>
+              <span className="w-1 h-1 rounded-full bg-stone-200"></span>
+              <span>{product.weight}g</span>
+            </div>
+            {priceData && (
+                <div className="text-[10px] font-bold text-brand-dark bg-stone-50 px-2 py-0.5 rounded-full border border-stone-100">
+                    ₹{Math.round(priceData.total).toLocaleString('en-IN')}
+                </div>
+            )}
         </div>
         <h3 className="font-serif text-base text-stone-900 leading-snug mb-1 font-medium group-hover:text-brand-gold transition-colors">{product.title}</h3>
         <p className="text-[10px] text-stone-400 line-clamp-1 font-serif italic">Ref: {product.id.slice(0, 8)}</p>
