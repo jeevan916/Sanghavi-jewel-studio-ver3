@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '@/types.ts';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign } from 'lucide-react';
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
 import { storeService } from '@/services/storeService.ts';
@@ -29,6 +29,7 @@ export const ProductDetails: React.FC = () => {
   const [isRestricted, setIsRestricted] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiComparison, setAiComparison] = useState<{original: string, enhanced: string} | null>(null);
@@ -163,7 +164,7 @@ export const ProductDetails: React.FC = () => {
 
   const handleSave = async () => {
     if (!product || !editForm) return;
-    setIsLoading(true);
+    setIsSaving(true);
     try {
         const updated = { ...product, ...editForm };
         await storeService.updateProduct(updated);
@@ -172,7 +173,7 @@ export const ProductDetails: React.FC = () => {
     } catch (e) {
         alert("Failed to save changes");
     } finally {
-        setIsLoading(false);
+        setIsSaving(false);
     }
   };
 
@@ -471,47 +472,87 @@ export const ProductDetails: React.FC = () => {
                     </div>
                     
                     {isEditing ? (
-                        <div className="space-y-4">
-                            <input 
-                                value={editForm.title || ''} 
-                                onChange={e => setEditForm({...editForm, title: e.target.value})}
-                                className="w-full font-serif text-4xl md:text-5xl text-brand-dark bg-transparent border-b border-brand-gold/30 outline-none placeholder:text-stone-200 transition-all focus:border-brand-gold"
-                                placeholder="Product Title"
-                            />
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Making Segment</label>
-                                    <select 
-                                        value={editForm.meta?.makingChargeSegmentId || ''}
-                                        onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargeSegmentId: e.target.value, makingChargePercent: e.target.value === 'custom' ? (editForm.meta?.makingChargePercent || 12) : undefined}})}
-                                        className="w-full p-3 bg-white border border-stone-100 rounded-xl outline-none focus:border-brand-gold text-xs font-bold uppercase tracking-widest"
-                                    >
-                                        <option value="">Default ({config?.makingChargeSegments.find(s => s.id === config.defaultMakingChargeSegmentId)?.name || '12%'})</option>
-                                        {config?.makingChargeSegments.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name} ({s.percent}%)</option>
-                                        ))}
-                                        <option value="custom">Custom %</option>
-                                    </select>
-                                </div>
-                                {editForm.meta?.makingChargeSegmentId === 'custom' && (
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Custom Making %</label>
-                                        <input 
-                                            type="number"
-                                            value={editForm.meta?.makingChargePercent || 12}
-                                            onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargePercent: parseFloat(e.target.value)}})}
-                                            className="w-full p-3 bg-white border border-stone-100 rounded-xl outline-none focus:border-brand-gold font-mono"
-                                        />
-                                    </div>
-                                )}
-                                <div className="space-y-1">
-                                    <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Other Charges (₹)</label>
+                        <div className="bg-stone-50 p-8 rounded-[2.5rem] border border-stone-100 space-y-8 animate-in fade-in slide-in-from-top-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-[10px] font-bold text-brand-gold uppercase tracking-[0.4em] flex items-center gap-3">
+                                    <Settings size={16} /> Admin Pricing Controls
+                                </h3>
+                                <button onClick={handleSave} disabled={isSaving} className="px-6 py-2 bg-brand-dark text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-red transition-all flex items-center gap-2">
+                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Details
+                                </button>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-2 ml-1">Product Title</label>
                                     <input 
-                                        type="number"
-                                        value={editForm.meta?.otherCharges || 0}
-                                        onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), otherCharges: parseFloat(e.target.value)}})}
-                                        className="w-full p-3 bg-white border border-stone-100 rounded-xl outline-none focus:border-brand-gold font-mono"
+                                        value={editForm.title || ''} 
+                                        onChange={e => setEditForm({...editForm, title: e.target.value})}
+                                        className="w-full font-serif text-3xl text-brand-dark bg-white p-4 rounded-2xl border border-stone-100 outline-none focus:border-brand-gold transition-all"
+                                        placeholder="Product Title"
                                     />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Gold Weight (g)</label>
+                                        <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
+                                            <Gem size={18} className="text-brand-gold" />
+                                            <input 
+                                                type="number" 
+                                                step="0.01"
+                                                value={editForm.weight || 0} 
+                                                onChange={e => setEditForm({...editForm, weight: parseFloat(e.target.value)})}
+                                                className="flex-1 bg-transparent outline-none font-mono font-bold text-brand-dark text-lg"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Making Segment</label>
+                                        <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
+                                            <Tag size={18} className="text-brand-gold" />
+                                            <select 
+                                                value={editForm.meta?.makingChargeSegmentId || ''}
+                                                onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargeSegmentId: e.target.value, makingChargePercent: e.target.value === 'custom' ? (editForm.meta?.makingChargePercent || 12) : undefined}})}
+                                                className="flex-1 bg-transparent outline-none text-xs font-bold uppercase tracking-widest"
+                                            >
+                                                <option value="">Default ({config?.makingChargeSegments.find(s => s.id === config.defaultMakingChargeSegmentId)?.name || '12%'})</option>
+                                                {config?.makingChargeSegments.map(s => (
+                                                    <option key={s.id} value={s.id}>{s.name} ({s.percent}%)</option>
+                                                ))}
+                                                <option value="custom">Custom %</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {editForm.meta?.makingChargeSegmentId === 'custom' && (
+                                        <div className="space-y-2">
+                                            <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Custom Making %</label>
+                                            <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
+                                                <TrendingUp size={18} className="text-brand-gold" />
+                                                <input 
+                                                    type="number"
+                                                    value={editForm.meta?.makingChargePercent || 12}
+                                                    onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargePercent: parseFloat(e.target.value)}})}
+                                                    className="flex-1 bg-transparent outline-none font-mono font-bold text-brand-dark"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Other Charges (₹)</label>
+                                        <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
+                                            <DollarSign size={18} className="text-brand-gold" />
+                                            <input 
+                                                type="number"
+                                                value={editForm.meta?.otherCharges || 0}
+                                                onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), otherCharges: parseFloat(e.target.value)}})}
+                                                className="flex-1 bg-transparent outline-none font-mono font-bold text-brand-dark"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -522,17 +563,7 @@ export const ProductDetails: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-6 text-stone-500 text-sm">
                         <span className="flex items-center gap-2 bg-stone-100 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest text-stone-600"><Tag size={14} className="text-brand-gold" /> {product.subCategory || 'Bespoke'}</span>
                         <div className="h-1.5 w-1.5 bg-stone-200 rounded-full"></div>
-                        {isEditing ? (
-                            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-stone-100">
-                                <input 
-                                    type="number" 
-                                    value={editForm.weight || 0} 
-                                    onChange={e => setEditForm({...editForm, weight: parseFloat(e.target.value)})}
-                                    className="w-20 bg-transparent outline-none text-right font-mono font-bold text-brand-dark"
-                                />
-                                <span className="text-[10px] font-bold uppercase text-stone-400">g</span>
-                            </div>
-                        ) : (
+                        {!isEditing && (
                             <div className="flex items-center gap-2">
                                 <Gem size={14} className="text-brand-gold" />
                                 <span className={`font-mono text-lg ${isGuest ? 'blur-md select-none opacity-30' : 'text-brand-dark font-bold'}`}>
