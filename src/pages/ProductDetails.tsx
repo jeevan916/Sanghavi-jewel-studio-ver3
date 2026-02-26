@@ -111,23 +111,26 @@ export const ProductDetails: React.FC = () => {
 
             // Optimization: Use cached products if available to avoid massive fetch
             const cached = storeService.getCached();
-            let navItems = cached.products || [];
+            let allItems = cached.products || [];
             
-            if (navItems.length === 0 || !navItems.find(p => p.id === fetchedProduct.id)) {
+            if (allItems.length === 0 || !allItems.find(p => p.id === fetchedProduct.id)) {
                 const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); 
-                navItems = listData.items;
+                allItems = listData.items;
             }
+
+            // Filter by category for navigation as per user request
+            let navItems = allItems.filter(p => p.category === fetchedProduct.category);
 
             // SECURITY: STRICT GUEST LOCK (Bypassed if shared)
             if (isGuest && !isSharedAccess) {
-                const globalIndex = navItems.findIndex(p => p.id === fetchedProduct.id);
+                const globalIndex = allItems.findIndex(p => p.id === fetchedProduct.id);
                 if (globalIndex >= GUEST_LIMIT) {
                     setIsRestricted(true);
                     setProduct(fetchedProduct); 
                     setIsLoading(false);
                     return; 
                 }
-                // Restrict navigation for guests
+                // Restrict navigation for guests within the category
                 navItems = navItems.slice(0, GUEST_LIMIT);
             }
 

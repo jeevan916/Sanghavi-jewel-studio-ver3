@@ -145,8 +145,6 @@ export const Gallery: React.FC = () => {
 
   const isOverviewMode = activeCategory === 'All' && !search;
 
-  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
-
   return (
     <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden animate-fade-in">
       <div className="sticky top-0 md:top-24 bg-white/80 backdrop-blur-xl border-b border-stone-100 z-40 transition-all duration-500">
@@ -215,7 +213,7 @@ export const Gallery: React.FC = () => {
                         <div className="flex gap-6 overflow-x-auto px-8 pb-8 scrollbar-hide snap-x">
                             {curated.latest.map(p => (
                                 <div key={p.id} className="w-64 shrink-0 snap-start">
-                                    <ProductCard product={p} isAdmin={isAdmin} onClick={() => setQuickViewProduct(p)} />
+                                    <ProductCard product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
                                 </div>
                             ))}
                         </div>
@@ -233,7 +231,7 @@ export const Gallery: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                             {curated.trending.slice(0, 8).map(p => (
-                                <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => setQuickViewProduct(p)} />
+                                <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
                             ))}
                         </div>
                     </section>
@@ -250,7 +248,7 @@ export const Gallery: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                             {curated.loved.slice(0, 4).map(p => (
-                                <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => setQuickViewProduct(p)} />
+                                <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
                             ))}
                         </div>
                     </section>
@@ -276,7 +274,7 @@ export const Gallery: React.FC = () => {
                  if (!isGuest && index === products.length - 1) {
                      return (
                         <div ref={lastProductElementRef} key={product.id}>
-                            <ProductCard product={product} isAdmin={isAdmin} onClick={() => setQuickViewProduct(product)} />
+                            <ProductCard product={product} isAdmin={isAdmin} onClick={() => navigateToProduct(product.id)} />
                         </div>
                      )
                  } 
@@ -285,7 +283,7 @@ export const Gallery: React.FC = () => {
                       key={product.id} 
                       product={product} 
                       isAdmin={isAdmin} 
-                      onClick={() => setQuickViewProduct(product)} 
+                      onClick={() => navigateToProduct(product.id)} 
                     />
                  )
               })}
@@ -310,59 +308,7 @@ export const Gallery: React.FC = () => {
             </div>
         )}
         
-        {/* Quick View Modal */}
-        {quickViewProduct && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setQuickViewProduct(null)}></div>
-                <div className="bg-white w-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl relative z-10 flex flex-col md:flex-row h-[90vh] md:h-auto max-h-[90vh] animate-slide-up">
-                    <button onClick={() => setQuickViewProduct(null)} className="absolute top-6 right-6 p-2 bg-black/10 hover:bg-black/20 rounded-full transition-colors z-20 text-white md:text-brand-dark">
-                        <X size={24} />
-                    </button>
-                    
-                    <div className="w-full md:w-1/2 h-1/2 md:h-auto bg-stone-50 relative overflow-hidden">
-                        <img 
-                            src={quickViewProduct.images[0]} 
-                            alt={quickViewProduct.title} 
-                            className="w-full h-full object-cover"
-                        />
-                        {isGuest && quickViewProduct.images.length > 1 && (
-                            <div className="absolute bottom-6 right-6 bg-black/60 backdrop-blur-md text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                <Lock size={12} /> +{quickViewProduct.images.length - 1} Locked
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="w-full md:w-1/2 p-6 md:p-10 flex flex-col justify-center space-y-6 overflow-y-auto">
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.3em] text-brand-gold">
-                                <span>{quickViewProduct.category}</span>
-                                <span className="w-1 h-1 rounded-full bg-stone-200"></span>
-                                <span>{quickViewProduct.weight}g</span>
-                            </div>
-                            <h2 className="text-3xl md:text-4xl font-serif text-brand-dark leading-tight">{quickViewProduct.title}</h2>
-                            <p className="text-stone-500 font-serif italic text-base leading-relaxed line-clamp-4">
-                                {quickViewProduct.description || "A bespoke masterpiece from the Sanghavi collection, crafted with precision and elegance."}
-                            </p>
-                        </div>
-                        
-                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                            <button 
-                                onClick={() => navigateToProduct(quickViewProduct.id)}
-                                className="flex-1 py-4 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] shadow-lg hover:bg-brand-gold transition-all active:scale-95"
-                            >
-                                Full Details
-                            </button>
-                            <button 
-                                onClick={() => isGuest ? navigate('/login') : storeService.shareToWhatsApp(quickViewProduct)}
-                                className="flex-1 py-4 bg-stone-50 text-brand-dark border border-stone-100 rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-stone-100 transition-all flex items-center justify-center gap-2"
-                            >
-                                <MessageCircle size={14} className="text-green-600" /> Inquire
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
+        {/* Quick View Modal Removed as per user request */}
         
         {/* Floating AI Concierge Button */}
         <button 
