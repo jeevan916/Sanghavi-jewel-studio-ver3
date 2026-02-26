@@ -27,27 +27,32 @@ const __dirname = path.dirname(__filename);
 const envPath1 = path.resolve(__dirname, 'public_html', '.builds', 'config', '.env');
 const envPath2 = path.resolve(__dirname, '.builds', 'config', '.env');
 const envPath3 = path.resolve(__dirname, '..', '.builds', 'config', '.env');
+const envPath4 = path.resolve(__dirname, '..', 'public_html', '.builds', 'config', '.env');
 const rootPath = path.resolve(__dirname, '.env');
 
 console.log('[Config] Checking for .env files...');
 
 let loadedEnvPath = 'none';
 
-if (existsSync(envPath1)) {
+if (existsSync(envPath4)) {
+  console.log(`[Config] Loading .env from Hostinger Sibling: ${envPath4}`);
+  dotenv.config({ path: envPath4, override: true });
+  loadedEnvPath = envPath4;
+} else if (existsSync(envPath1)) {
   console.log(`[Config] Loading .env from: ${envPath1}`);
-  dotenv.config({ path: envPath1 });
+  dotenv.config({ path: envPath1, override: true });
   loadedEnvPath = envPath1;
 } else if (existsSync(envPath2)) {
   console.log(`[Config] Loading .env from: ${envPath2}`);
-  dotenv.config({ path: envPath2 });
+  dotenv.config({ path: envPath2, override: true });
   loadedEnvPath = envPath2;
 } else if (existsSync(envPath3)) {
   console.log(`[Config] Loading .env from: ${envPath3}`);
-  dotenv.config({ path: envPath3 });
+  dotenv.config({ path: envPath3, override: true });
   loadedEnvPath = envPath3;
 } else if (existsSync(rootPath)) {
   console.log(`[Config] Loading .env from root: ${rootPath}`);
-  dotenv.config({ path: rootPath });
+  dotenv.config({ path: rootPath, override: true });
   loadedEnvPath = rootPath;
 } else {
   console.log('[Config] No .env file found. Relying on system environment variables.');
