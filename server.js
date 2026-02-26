@@ -31,18 +31,24 @@ const rootPath = path.resolve(__dirname, '.env');
 
 console.log('[Config] Checking for .env files...');
 
+let loadedEnvPath = 'none';
+
 if (existsSync(envPath1)) {
   console.log(`[Config] Loading .env from: ${envPath1}`);
   dotenv.config({ path: envPath1 });
+  loadedEnvPath = envPath1;
 } else if (existsSync(envPath2)) {
   console.log(`[Config] Loading .env from: ${envPath2}`);
   dotenv.config({ path: envPath2 });
+  loadedEnvPath = envPath2;
 } else if (existsSync(envPath3)) {
   console.log(`[Config] Loading .env from: ${envPath3}`);
   dotenv.config({ path: envPath3 });
+  loadedEnvPath = envPath3;
 } else if (existsSync(rootPath)) {
   console.log(`[Config] Loading .env from root: ${rootPath}`);
   dotenv.config({ path: rootPath });
+  loadedEnvPath = rootPath;
 } else {
   console.log('[Config] No .env file found. Relying on system environment variables.');
 }
@@ -307,9 +313,22 @@ app.get('/api/health', (req, res) => {
     status: 'online', 
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
-    db: pool ? (DEMO_MODE ? 'demo_mode' : 'connected') : 'not initialized',
+    db: pool ? (dbInitError ? (DEMO_MODE ? 'demo_mode' : 'error') : 'connected') : 'not initialized',
     dbError: dbInitError,
     demoMode: DEMO_MODE,
+    loadedEnv: loadedEnvPath,
+    dbConfig: {
+        host: dbConfig.host,
+        user: dbConfig.user,
+        database: dbConfig.database,
+        hasPassword: !!dbConfig.password
+    },
+    envDebug: {
+        DB_HOST: process.env.DB_HOST ? 'SET' : 'NOT_SET',
+        DB_USER: process.env.DB_USER ? 'SET' : 'NOT_SET',
+        DB_NAME: process.env.DB_NAME ? 'SET' : 'NOT_SET',
+        DB_PASSWORD: process.env.DB_PASSWORD ? 'SET' : 'NOT_SET'
+    },
     distPath: distPath,
     distExists: existsSync(distPath)
   });
