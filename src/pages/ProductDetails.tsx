@@ -385,7 +385,19 @@ export const ProductDetails: React.FC = () => {
             <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-brand-gold mb-1">{product.category}</span>
             <h2 className="font-serif font-bold text-brand-dark text-xl truncate w-full text-center">{product.title}</h2>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
+            {isAdmin && (
+                <div className="flex bg-stone-100 rounded-xl p-1 mr-2">
+                    <button 
+                        onClick={handleToggleVisibility}
+                        className={`p-2 rounded-lg transition-all ${product.isHidden ? 'bg-rose-500 text-white' : 'text-stone-400 hover:text-brand-dark'}`}
+                    >
+                        {product.isHidden ? <EyeOff size={18}/> : <Eye size={18}/>}
+                    </button>
+                    <button onClick={handlePrivateLink} className="p-2 text-stone-400 hover:text-brand-dark transition-all"><LinkIcon size={18}/></button>
+                    <button onClick={() => setIsEditing(!isEditing)} className={`p-2 rounded-lg transition-all ${isEditing ? 'bg-brand-gold text-white' : 'text-stone-400 hover:text-brand-dark'}`}><Edit2 size={18}/></button>
+                </div>
+            )}
             <button onClick={() => toggleLike()} className={`p-3 rounded-2xl transition-all ${isLiked ? 'text-brand-red bg-brand-red/5' : 'text-stone-300 hover:text-brand-dark hover:bg-stone-50'}`}>
                 <Heart size={22} fill={isLiked ? "currentColor" : "none"} />
             </button>
@@ -440,23 +452,8 @@ export const ProductDetails: React.FC = () => {
                             </div>
 
                             {isGuest && images.length > 1 && (
-                                <div className="absolute bottom-8 right-8 bg-black/60 backdrop-blur-xl text-white px-5 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-3 cursor-pointer hover:bg-black/80 transition-all shadow-2xl border border-white/10" onClick={() => navigate('/login')}>
-                                    <Lock size={14} /> {images.length - 1} Private Views Locked
-                                </div>
-                            )}
-
-                            {isAdmin && (
-                                <div className="absolute bottom-8 left-8 flex gap-3 animate-fade-in z-20">
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleToggleVisibility(); }}
-                                        className={`p-3 backdrop-blur-xl rounded-2xl shadow-2xl transition-all border border-white/10 ${product.isHidden ? 'bg-rose-500 text-white' : 'bg-white/90 text-brand-dark hover:text-emerald-600'}`}
-                                        title={product.isHidden ? "Private (Hidden). Click to Make Public." : "Public. Click to Hide."}
-                                    >
-                                        {product.isHidden ? <EyeOff size={20}/> : <Eye size={20}/>}
-                                    </button>
-                                    
-                                    <button onClick={(e) => { e.stopPropagation(); handlePrivateLink(); }} className="p-3 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl text-brand-dark hover:text-brand-gold border border-white/10 transition-all" title="Copy Private Link"><LinkIcon size={20}/></button>
-                                    <button onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing)} } className={`p-3 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl text-brand-dark hover:text-brand-gold border border-white/10 transition-all ${isEditing ? 'text-brand-gold ring-2 ring-brand-gold/50' : ''}`} title="Edit Details"><Edit2 size={20}/></button>
+                                <div className="absolute bottom-6 right-6 bg-black/60 backdrop-blur-xl text-white px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 cursor-pointer hover:bg-black/80 transition-all shadow-2xl border border-white/10" onClick={() => navigate('/login')}>
+                                    <Lock size={12} /> {images.length - 1} Private Views Locked
                                 </div>
                             )}
                         </>
@@ -479,50 +476,50 @@ export const ProductDetails: React.FC = () => {
 
                 {/* Price Display - Just below image */}
                 {!isEditing && (
-                    <div className="mt-4 flex items-center justify-between px-4 md:px-6 py-4 bg-stone-50 md:rounded-[2rem] border-y md:border border-stone-100">
+                    <div className="mt-2 flex items-center justify-between px-4 md:px-6 py-3 bg-stone-50 md:rounded-2xl border-y md:border border-stone-100">
                         <div className="space-y-0.5">
-                            <p className="text-[8px] font-bold text-stone-400 uppercase tracking-[0.2em]">Live Valuation</p>
+                            <p className="text-[7px] font-bold text-stone-400 uppercase tracking-[0.2em]">Live Valuation</p>
                             <div className="flex items-baseline gap-2">
-                                <span className={`text-3xl font-bold text-brand-dark ${isGuest ? 'blur-xl select-none opacity-20' : ''}`}>
+                                <span className={`text-2xl font-bold text-brand-dark ${isGuest ? 'blur-xl select-none opacity-20' : ''}`}>
                                     ₹{Math.round(priceData?.total || 0).toLocaleString('en-IN')}
                                 </span>
-                                <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-widest border border-emerald-100">Live</span>
+                                <span className="text-[7px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-widest border border-emerald-100">Live</span>
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="text-[8px] font-bold text-stone-400 uppercase tracking-[0.2em]">Gold Rate</p>
-                            <p className="text-xs font-mono font-bold text-brand-gold">₹{priceData?.goldRate}/g</p>
+                            <p className="text-[7px] font-bold text-stone-400 uppercase tracking-[0.2em]">Gold Rate</p>
+                            <p className="text-[10px] font-mono font-bold text-brand-gold">₹{priceData?.goldRate}/g</p>
                         </div>
                     </div>
                 )}
             </div>
 
-            <div className="p-8 md:p-0 space-y-12">
-                <div className="space-y-6">
-                    <div className="flex items-center gap-3">
-                        <span className="text-brand-gold text-[10px] font-bold uppercase tracking-[0.4em]">{product.category}</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-stone-200"></span>
-                        <span className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.4em]">Ref: {product.id.slice(-6).toUpperCase()}</span>
+            <div className="p-6 md:p-0 space-y-6">
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-brand-gold text-[9px] font-bold uppercase tracking-[0.3em]">{product.category}</span>
+                        <span className="w-1 h-1 rounded-full bg-stone-200"></span>
+                        <span className="text-stone-400 text-[9px] font-bold uppercase tracking-[0.3em]">Ref: {product.id.slice(-6).toUpperCase()}</span>
                     </div>
                     
                     {isEditing ? (
-                        <div className="bg-stone-50 p-8 rounded-[2.5rem] border border-stone-100 space-y-8 animate-in fade-in slide-in-from-top-4">
+                        <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100 space-y-6 animate-in fade-in slide-in-from-top-4">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-[10px] font-bold text-brand-gold uppercase tracking-[0.4em] flex items-center gap-3">
-                                    <Settings size={16} /> Admin Pricing Controls
+                                <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
+                                    <Settings size={14} /> Admin Pricing Controls
                                 </h3>
-                                <button onClick={handleSave} disabled={isSaving} className="px-6 py-2 bg-brand-dark text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-red transition-all flex items-center gap-2">
-                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Details
+                                <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-brand-dark text-white rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-brand-red transition-all flex items-center gap-2">
+                                    {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
                                 </button>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-2 ml-1">Product Title</label>
+                                    <label className="block text-[8px] font-bold uppercase text-stone-400 tracking-widest mb-1.5 ml-1">Product Title</label>
                                     <input 
                                         value={editForm.title || ''} 
                                         onChange={e => setEditForm({...editForm, title: e.target.value})}
-                                        className="w-full font-serif text-3xl text-brand-dark bg-white p-4 rounded-2xl border border-stone-100 outline-none focus:border-brand-gold transition-all"
+                                        className="w-full font-serif text-2xl text-brand-dark bg-white p-3 rounded-xl border border-stone-100 outline-none focus:border-brand-gold transition-all"
                                         placeholder="Product Title"
                                     />
                                 </div>
@@ -591,16 +588,16 @@ export const ProductDetails: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <h1 className="font-serif text-4xl md:text-6xl text-brand-dark leading-[1.1] tracking-tight">{product.title}</h1>
+                        <h1 className="font-serif text-3xl md:text-5xl text-brand-dark leading-tight tracking-tight">{product.title}</h1>
                     )}
 
-                    <div className="flex flex-wrap items-center gap-6 text-stone-500 text-sm">
-                        <span className="flex items-center gap-2 bg-stone-100 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest text-stone-600"><Tag size={14} className="text-brand-gold" /> {product.subCategory || 'Bespoke'}</span>
-                        <div className="h-1.5 w-1.5 bg-stone-200 rounded-full"></div>
+                    <div className="flex flex-wrap items-center gap-4 text-stone-500 text-sm">
+                        <span className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest text-stone-600"><Tag size={12} className="text-brand-gold" /> {product.subCategory || 'Bespoke'}</span>
+                        <div className="h-1 w-1 bg-stone-200 rounded-full"></div>
                         {!isEditing && (
                             <div className="flex items-center gap-2">
-                                <Gem size={14} className="text-brand-gold" />
-                                <span className={`font-mono text-lg ${isGuest ? 'blur-md select-none opacity-30' : 'text-brand-dark font-bold'}`}>
+                                <Gem size={12} className="text-brand-gold" />
+                                <span className={`font-mono text-base ${isGuest ? 'blur-md select-none opacity-30' : 'text-brand-dark font-bold'}`}>
                                     {isGuest ? '00.00g' : `${product.weight}g`}
                                 </span>
                             </div>
