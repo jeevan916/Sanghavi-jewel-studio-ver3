@@ -290,18 +290,19 @@ export const Gallery: React.FC = () => {
 
               {/* GUEST LOCK CARD */}
               {isGuest && (
-                 <div className="bg-white rounded-2xl overflow-hidden border border-dashed border-stone-200 flex flex-col items-center justify-center p-8 text-center space-y-6 min-h-[400px] hover:bg-stone-50 transition-all duration-500 group">
-                     <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center text-brand-gold shadow-sm mb-2 relative border border-stone-100 group-hover:scale-110 transition-transform">
+                 <div className="bg-white rounded-2xl overflow-hidden border border-dashed border-stone-200 flex flex-col items-center justify-center p-8 text-center space-y-6 min-h-[400px] hover:bg-stone-50 transition-all duration-500 group relative">
+                     <div className="absolute inset-0 bg-gradient-to-b from-transparent to-stone-50/80 pointer-events-none"></div>
+                     <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center text-brand-gold shadow-sm mb-2 relative border border-stone-100 group-hover:scale-110 transition-transform z-10">
                         <Lock size={32} />
                      </div>
-                     <div>
-                        <h3 className="font-sans text-2xl text-brand-dark font-bold uppercase tracking-tighter">Private Vault</h3>
-                        <p className="text-xs text-stone-400 mt-3 max-w-[240px] mx-auto leading-relaxed font-serif italic">
-                            Join our exclusive clientele to unlock the full bespoke collection and technical specifications.
+                     <div className="z-10">
+                        <h3 className="font-sans text-2xl text-brand-dark font-bold uppercase tracking-tighter">Unlock the Vault</h3>
+                        <p className="text-xs text-stone-500 mt-3 max-w-[260px] mx-auto leading-relaxed font-serif italic">
+                            Login to reveal exclusive pricing, detailed price breakups, and our complete bespoke collection.
                         </p>
                      </div>
-                     <button onClick={() => navigate('/login')} className="px-8 py-4 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] shadow-2xl hover:bg-brand-gold transition-all flex items-center gap-3 active:scale-95">
-                        <User size={16} /> Member Access
+                     <button onClick={() => navigate('/login')} className="px-8 py-4 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] shadow-2xl hover:bg-brand-gold transition-all flex items-center gap-3 active:scale-95 z-10">
+                        <User size={16} /> Login to Reveal
                      </button>
                 </div>
               )}

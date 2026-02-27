@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product } from '@/types.ts';
-import { Heart } from 'lucide-react';
+import { Heart, Lock } from 'lucide-react';
 import { storeService } from '@/services/storeService.ts';
 
 interface ProductCardProps {
@@ -91,9 +91,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
               <span className="w-1 h-1 rounded-full bg-stone-200 shrink-0"></span>
               <span className="shrink-0">{product.weight}g</span>
             </div>
-            {!isGuest && priceData && (
-                <div className="text-[10px] font-bold text-brand-dark bg-stone-50 px-2 py-0.5 rounded-full border border-stone-100 shrink-0">
-                    ₹{Math.round(priceData.total).toLocaleString('en-IN')}
+            {priceData && (
+                <div className={`text-[10px] font-bold bg-stone-50 px-2 py-0.5 rounded-full border border-stone-100 shrink-0 flex items-center gap-1 ${isGuest ? 'text-stone-400' : 'text-brand-dark'}`}>
+                    {isGuest ? (
+                        <>
+                            <Lock size={8} />
+                            <span className="blur-[3px] select-none">₹XX,XXX</span>
+                        </>
+                    ) : (
+                        `₹${Math.round(priceData.total).toLocaleString('en-IN')}`
+                    )}
                 </div>
             )}
         </div>
