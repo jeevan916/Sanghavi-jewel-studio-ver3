@@ -211,7 +211,7 @@ export const Gallery: React.FC = () => {
                             </button>
                         </div>
                         <div className="flex gap-6 overflow-x-auto px-8 pb-8 scrollbar-hide snap-x">
-                            {curated.latest.map(p => (
+                            {curated.latest.slice(0, isGuest ? 3 : undefined).map(p => (
                                 <div key={p.id} className="w-64 shrink-0 snap-start">
                                     <ProductCard product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
                                 </div>
@@ -230,7 +230,7 @@ export const Gallery: React.FC = () => {
                             <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Most Coveted Pieces This Week</p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                            {curated.trending.slice(0, 8).map(p => (
+                            {curated.trending.slice(0, isGuest ? 3 : 8).map(p => (
                                 <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
                             ))}
                         </div>
@@ -247,7 +247,7 @@ export const Gallery: React.FC = () => {
                             <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Timeless Favorites</p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                            {curated.loved.slice(0, 4).map(p => (
+                            {curated.loved.slice(0, isGuest ? 3 : 4).map(p => (
                                 <ProductCard key={p.id} product={p} isAdmin={isAdmin} onClick={() => navigateToProduct(p.id)} />
                             ))}
                         </div>
@@ -270,7 +270,7 @@ export const Gallery: React.FC = () => {
                     : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
               }`}
             >
-              {products.map((product, index) => {
+              {products.slice(0, isGuest ? 3 : undefined).map((product, index) => {
                  if (!isGuest && index === products.length - 1) {
                      return (
                         <div ref={lastProductElementRef} key={product.id}>

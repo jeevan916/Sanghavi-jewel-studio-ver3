@@ -85,14 +85,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
       </div>
       
       <div className="p-4 flex flex-col flex-grow relative z-20 bg-white">
-        <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-[8px] uppercase tracking-[0.3em] text-brand-gold font-bold">
-              <span>{product.category}</span>
-              <span className="w-1 h-1 rounded-full bg-stone-200"></span>
-              <span>{product.weight}g</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 text-[8px] uppercase tracking-[0.3em] text-brand-gold font-bold min-w-0">
+              <span className="truncate">{product.category}</span>
+              <span className="w-1 h-1 rounded-full bg-stone-200 shrink-0"></span>
+              <span className="shrink-0">{product.weight}g</span>
             </div>
-            {priceData && (
-                <div className="text-[10px] font-bold text-brand-dark bg-stone-50 px-2 py-0.5 rounded-full border border-stone-100">
+            {!isGuest && priceData && (
+                <div className="text-[10px] font-bold text-brand-dark bg-stone-50 px-2 py-0.5 rounded-full border border-stone-100 shrink-0">
                     ₹{Math.round(priceData.total).toLocaleString('en-IN')}
                 </div>
             )}

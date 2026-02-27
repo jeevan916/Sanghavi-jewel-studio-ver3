@@ -103,7 +103,7 @@ export const ProductDetails: React.FC = () => {
         setConfig(fetchedConfig);
 
         if (fetchedProduct) {
-            const GUEST_LIMIT = 8;
+            const GUEST_LIMIT = 3;
             
             // Check if this specific product has been unlocked via shared link
             const isUnlocked = storeService.getUnlockedProducts().includes(fetchedProduct.id);
@@ -594,20 +594,20 @@ export const ProductDetails: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <h1 className="font-serif text-3xl md:text-5xl text-brand-dark leading-tight tracking-tight">{product.title}</h1>
+                        <h1 className="font-serif text-4xl md:text-6xl text-brand-dark leading-tight tracking-tight">{product.title}</h1>
                     )}
 
-                    <div className="flex flex-wrap items-center gap-4 text-stone-500 text-sm">
-                        <span className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest text-stone-600"><Tag size={12} className="text-brand-gold" /> {product.subCategory || 'Bespoke'}</span>
-                        <span className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest text-stone-600">
-                            <Layers size={12} className="text-brand-gold" /> 
+                    <div className="flex flex-wrap items-center gap-4 text-stone-500 text-base">
+                        <span className="flex items-center gap-2 bg-stone-100 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-stone-600"><Tag size={14} className="text-brand-gold" /> {product.subCategory || 'Bespoke'}</span>
+                        <span className="flex items-center gap-2 bg-stone-100 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-stone-600">
+                            <Layers size={14} className="text-brand-gold" /> 
                             {product.meta?.makingChargeSegmentId === 'custom' ? 'Custom Segment' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}
                         </span>
-                        <div className="h-1 w-1 bg-stone-200 rounded-full"></div>
+                        <div className="h-1.5 w-1.5 bg-stone-300 rounded-full"></div>
                         {!isEditing && (
                             <div className="flex items-center gap-2">
-                                <Gem size={12} className="text-brand-gold" />
-                                <span className={`font-mono text-base ${isGuest ? 'blur-md select-none opacity-30' : 'text-brand-dark font-bold'}`}>
+                                <Gem size={16} className="text-brand-gold" />
+                                <span className={`font-mono text-xl ${isGuest ? 'blur-md select-none opacity-30' : 'text-brand-dark font-bold'}`}>
                                     {isGuest ? '00.00g' : `${product.weight}g`}
                                 </span>
                             </div>
@@ -615,17 +615,17 @@ export const ProductDetails: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-4 gap-2">
                     {[
                         { icon: Heart, label: 'Likes', val: stats.like, color: 'text-brand-red', bg: 'bg-brand-red/5' },
                         { icon: MessageCircle, label: 'Inquiry', val: stats.inquiry, color: 'text-brand-gold', bg: 'bg-brand-gold/5' },
                         { icon: Gem, label: 'Sold', val: stats.sold, color: 'text-emerald-500', bg: 'bg-emerald-50' },
                         { icon: TrendingUp, label: 'Trend', val: (stats.inquiry * 5 + stats.like * 3 + stats.view) > 50 ? 'Elite' : (stats.inquiry * 5 + stats.like * 3 + stats.view) > 20 ? 'Hot' : 'New', color: 'text-brand-dark', bg: 'bg-stone-100' }
                     ].map((s, idx) => (
-                        <div key={idx} className={`${s.bg} rounded-xl p-2 flex flex-col items-center justify-center text-center transition-all border border-stone-100/50`}>
-                            <s.icon size={12} className={`mb-0.5 ${s.color}`} />
-                            <span className="font-bold text-brand-dark text-xs leading-none mb-0.5">{s.val}</span>
-                            <span className="text-[7px] uppercase font-bold text-stone-400 tracking-tighter leading-none">{s.label}</span>
+                        <div key={idx} className={`${s.bg} rounded-xl p-3 flex flex-col items-center justify-center text-center transition-all border border-stone-100/50`}>
+                            <s.icon size={16} className={`mb-1 ${s.color}`} />
+                            <span className="font-bold text-brand-dark text-sm leading-none mb-1">{s.val}</span>
+                            <span className="text-[9px] uppercase font-bold text-stone-400 tracking-tighter leading-none">{s.label}</span>
                         </div>
                     ))}
                 </div>
@@ -636,61 +636,63 @@ export const ProductDetails: React.FC = () => {
                         <div className="bg-white border border-stone-100 rounded-xl overflow-hidden">
                             <button 
                                 onClick={() => setActiveTab(activeTab === 'details' ? 'price' : 'details')}
-                                className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
+                                className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
                             >
-                                <span className="text-[9px] font-bold text-brand-dark uppercase tracking-widest">Product Details</span>
-                                <ChevronRight size={12} className={`text-stone-400 transition-transform ${activeTab === 'details' ? 'rotate-90' : ''}`} />
+                                <span className="text-xs font-bold text-brand-dark uppercase tracking-widest">Product Details</span>
+                                <ChevronRight size={16} className={`text-stone-400 transition-transform ${activeTab === 'details' ? 'rotate-90' : ''}`} />
                             </button>
                             {activeTab === 'details' && (
-                                <div className="px-4 pb-3 animate-in fade-in slide-in-from-top-1">
-                                    <p className="text-[11px] text-stone-600 leading-relaxed font-serif italic">
+                                <div className="px-5 pb-4 animate-in fade-in slide-in-from-top-1">
+                                    <p className="text-sm text-stone-600 leading-relaxed font-serif italic">
                                         {product.description || "A bespoke masterpiece from the Sanghavi collection."}
                                     </p>
-                                    <div className="mt-2 grid grid-cols-2 gap-1.5">
-                                        <div className="bg-stone-50 p-1.5 rounded-lg border border-stone-100">
-                                            <p className="text-[7px] text-stone-400 uppercase font-bold tracking-tighter">Ref ID</p>
-                                            <p className="text-[9px] font-bold text-brand-dark">{product.id.slice(-8).toUpperCase()}</p>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-100">
+                                            <p className="text-[9px] text-stone-400 uppercase font-bold tracking-tighter">Ref ID</p>
+                                            <p className="text-xs font-bold text-brand-dark">{product.id.slice(-8).toUpperCase()}</p>
                                         </div>
-                                        <div className="bg-stone-50 p-1.5 rounded-lg border border-stone-100">
-                                            <p className="text-[7px] text-stone-400 uppercase font-bold tracking-tighter">Net Weight</p>
-                                            <p className="text-[9px] font-bold text-brand-dark">{product.weight} g</p>
+                                        <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-100">
+                                            <p className="text-[9px] text-stone-400 uppercase font-bold tracking-tighter">Net Weight</p>
+                                            <p className="text-xs font-bold text-brand-dark">{product.weight} g</p>
                                         </div>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        <div className="bg-white border border-stone-100 rounded-xl overflow-hidden">
-                            <button 
-                                onClick={() => setActiveTab(activeTab === 'price' ? 'details' : 'price')}
-                                className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
-                            >
-                                <span className="text-[9px] font-bold text-brand-dark uppercase tracking-widest">Price Breakup</span>
-                                <ChevronRight size={12} className={`text-stone-400 transition-transform ${activeTab === 'price' ? 'rotate-90' : ''}`} />
-                            </button>
-                            {activeTab === 'price' && priceData && (
-                                <div className="px-4 pb-3 space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between text-[9px]">
-                                            <span className="text-stone-500">Gold Value</span>
-                                            <span className="font-mono text-brand-dark">₹{Math.round(priceData.basePrice).toLocaleString('en-IN')}</span>
-                                        </div>
-                                        <div className="flex justify-between text-[9px]">
-                                            <span className="text-stone-500">Making ({priceData.makingPercent}%) <span className="text-[7px] bg-stone-100 px-1 py-0.5 rounded text-stone-400 ml-1">{product.meta?.makingChargeSegmentId === 'custom' ? 'Custom' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}</span></span>
-                                            <span className="font-mono text-brand-dark">₹{Math.round(priceData.makingCharges).toLocaleString('en-IN')}</span>
-                                        </div>
-                                        <div className="flex justify-between text-[9px]">
-                                            <span className="text-stone-500">GST ({config?.gstPercent || 3}%)</span>
-                                            <span className="font-mono text-brand-dark">₹{Math.round(priceData.gst).toLocaleString('en-IN')}</span>
-                                        </div>
-                                        <div className="pt-1 border-t border-stone-100 flex justify-between text-[10px] font-bold">
-                                            <span className="text-brand-dark uppercase tracking-widest">Total</span>
-                                            <span className="text-brand-gold">₹{Math.round(priceData.total).toLocaleString('en-IN')}</span>
+                        {!isGuest && (
+                            <div className="bg-white border border-stone-100 rounded-xl overflow-hidden">
+                                <button 
+                                    onClick={() => setActiveTab(activeTab === 'price' ? 'details' : 'price')}
+                                    className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
+                                >
+                                    <span className="text-xs font-bold text-brand-dark uppercase tracking-widest">Price Breakup</span>
+                                    <ChevronRight size={16} className={`text-stone-400 transition-transform ${activeTab === 'price' ? 'rotate-90' : ''}`} />
+                                </button>
+                                {activeTab === 'price' && priceData && (
+                                    <div className="px-5 pb-4 space-y-2 animate-in fade-in slide-in-from-top-1">
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-stone-500">Gold Value</span>
+                                                <span className="font-mono text-brand-dark">₹{Math.round(priceData.basePrice).toLocaleString('en-IN')}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-stone-500">Making ({priceData.makingPercent}%) <span className="text-[9px] bg-stone-100 px-1.5 py-0.5 rounded text-stone-400 ml-1">{product.meta?.makingChargeSegmentId === 'custom' ? 'Custom' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}</span></span>
+                                                <span className="font-mono text-brand-dark">₹{Math.round(priceData.makingCharges).toLocaleString('en-IN')}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-stone-500">GST ({config?.gstPercent || 3}%)</span>
+                                                <span className="font-mono text-brand-dark">₹{Math.round(priceData.gst).toLocaleString('en-IN')}</span>
+                                            </div>
+                                            <div className="pt-2 border-t border-stone-100 flex justify-between text-sm font-bold">
+                                                <span className="text-brand-dark uppercase tracking-widest">Total</span>
+                                                <span className="text-brand-gold">₹{Math.round(priceData.total).toLocaleString('en-IN')}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
