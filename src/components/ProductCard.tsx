@@ -98,7 +98,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
             )}
         </div>
         <h3 className="font-serif text-base text-stone-900 leading-snug mb-1 font-medium group-hover:text-brand-gold transition-colors">{product.title}</h3>
-        <p className="text-[10px] text-stone-400 line-clamp-1 font-serif italic">Ref: {product.id.slice(0, 8)}</p>
+        <div className="flex justify-between items-center mt-1">
+            <p className="text-[10px] text-stone-400 line-clamp-1 font-serif italic">Ref: {product.id.slice(0, 8)}</p>
+            <span className="text-[8px] bg-stone-100 px-1.5 py-0.5 rounded text-stone-500 uppercase tracking-widest font-bold">
+                {product.meta?.makingChargeSegmentId === 'custom' ? 'Custom' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}
+            </span>
+        </div>
       </div>
     </div>
   );

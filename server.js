@@ -650,7 +650,7 @@ app.get('/api/products/:id', async (req, res) => {
 app.get('/api/products/:id/stats', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT type, COUNT(*) as c FROM analytics WHERE productId = ? GROUP BY type', [req.params.id]);
-        const stats = { like: 0, dislike: 0, inquiry: 0, purchase: 0 };
+        const stats = { like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 };
         rows.forEach(r => { if(stats.hasOwnProperty(r.type)) stats[r.type] = r.c; });
         res.json(stats);
     } catch (e) { res.status(500).json({ error: e.message }); }

@@ -125,7 +125,8 @@ export interface ProductStats {
   like: number;
   dislike: number;
   inquiry: number;
-  purchase: number;
+  sold: number;
+  view: number;
 }
 
 export interface AnalyticsEvent {

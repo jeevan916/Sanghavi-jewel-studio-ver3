@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '@/types.ts';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers } from 'lucide-react';
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
 import { storeService } from '@/services/storeService.ts';
@@ -25,7 +25,7 @@ export const ProductDetails: React.FC = () => {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
-  const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, purchase: 0 });
+  const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 });
   const [isRestricted, setIsRestricted] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false);
@@ -599,6 +599,10 @@ export const ProductDetails: React.FC = () => {
 
                     <div className="flex flex-wrap items-center gap-4 text-stone-500 text-sm">
                         <span className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest text-stone-600"><Tag size={12} className="text-brand-gold" /> {product.subCategory || 'Bespoke'}</span>
+                        <span className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest text-stone-600">
+                            <Layers size={12} className="text-brand-gold" /> 
+                            {product.meta?.makingChargeSegmentId === 'custom' ? 'Custom Segment' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}
+                        </span>
                         <div className="h-1 w-1 bg-stone-200 rounded-full"></div>
                         {!isEditing && (
                             <div className="flex items-center gap-2">
@@ -615,8 +619,8 @@ export const ProductDetails: React.FC = () => {
                     {[
                         { icon: Heart, label: 'Likes', val: stats.like, color: 'text-brand-red', bg: 'bg-brand-red/5' },
                         { icon: MessageCircle, label: 'Inquiry', val: stats.inquiry, color: 'text-brand-gold', bg: 'bg-brand-gold/5' },
-                        { icon: Gem, label: 'Sold', val: stats.purchase, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                        { icon: TrendingUp, label: 'Trend', val: 'Elite', color: 'text-brand-dark', bg: 'bg-stone-100' }
+                        { icon: Gem, label: 'Sold', val: stats.sold, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                        { icon: TrendingUp, label: 'Trend', val: (stats.inquiry * 5 + stats.like * 3 + stats.view) > 50 ? 'Elite' : (stats.inquiry * 5 + stats.like * 3 + stats.view) > 20 ? 'Hot' : 'New', color: 'text-brand-dark', bg: 'bg-stone-100' }
                     ].map((s, idx) => (
                         <div key={idx} className={`${s.bg} rounded-xl p-2 flex flex-col items-center justify-center text-center transition-all border border-stone-100/50`}>
                             <s.icon size={12} className={`mb-0.5 ${s.color}`} />
@@ -672,7 +676,7 @@ export const ProductDetails: React.FC = () => {
                                             <span className="font-mono text-brand-dark">₹{Math.round(priceData.basePrice).toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="flex justify-between text-[9px]">
-                                            <span className="text-stone-500">Making ({priceData.makingPercent}%)</span>
+                                            <span className="text-stone-500">Making ({priceData.makingPercent}%) <span className="text-[7px] bg-stone-100 px-1 py-0.5 rounded text-stone-400 ml-1">{product.meta?.makingChargeSegmentId === 'custom' ? 'Custom' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}</span></span>
                                             <span className="font-mono text-brand-dark">₹{Math.round(priceData.makingCharges).toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="flex justify-between text-[9px]">
