@@ -22,7 +22,8 @@ const CACHE = {
   products: null as Product[] | null,
   curated: null as CuratedCollections | null,
   config: null as AppConfig | null,
-  lastFetch: 0
+  lastFetch: 0,
+  goldRate: null as { k22: number, k24: number, lastFetch: number } | null
 };
 
 async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2) {
@@ -233,6 +234,44 @@ export const storeService = {
             }
         };
 
+        // Fetch live gold rate with 5-minute cache
+        let liveGoldRate22k = Number(data?.goldRate22k) || 6500;
+        let liveGoldRate24k = Number(data?.goldRate24k) || 7200;
+        
+        const now = Date.now();
+        if (CACHE.goldRate && (now - CACHE.goldRate.lastFetch < 5 * 60 * 1000)) {
+            liveGoldRate22k = CACHE.goldRate.k22;
+            liveGoldRate24k = CACHE.goldRate.k24;
+        } else {
+            try {
+                const API_URL = 'https://order.auragoldelite.com/api/gold-rate';
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (response.ok) {
+                    const rateData = await response.json();
+                    if (rateData.success) {
+                        if (rateData.k22) liveGoldRate22k = Number(rateData.k22);
+                        if (rateData.k24) liveGoldRate24k = Number(rateData.k24);
+                        
+                        CACHE.goldRate = {
+                            k22: liveGoldRate22k,
+                            k24: liveGoldRate24k,
+                            lastFetch: now
+                        };
+                    }
+                }
+            } catch (error) {
+                console.error("Error connecting to AuraGold API:", error);
+                // Fallback to cache if available even if expired
+                if (CACHE.goldRate) {
+                    liveGoldRate22k = CACHE.goldRate.k22;
+                    liveGoldRate24k = CACHE.goldRate.k24;
+                }
+            }
+        }
+
         const sanitized = {
             suppliers: Array.isArray(data?.suppliers) ? data.suppliers : [],
             categories: Array.isArray(data?.categories) ? data.categories : [],
@@ -241,8 +280,8 @@ export const storeService = {
             whatsappPhoneId: data?.whatsappPhoneId || '',
             whatsappToken: data?.whatsappToken || '',
             whatsappTemplateName: data?.whatsappTemplateName || 'sanghavi_jewel_studio',
-            goldRate22k: Number(data?.goldRate22k) || 6500,
-            goldRate24k: Number(data?.goldRate24k) || 7200,
+            goldRate22k: liveGoldRate22k,
+            goldRate24k: liveGoldRate24k,
             gstPercent: Number(data?.gstPercent) || 3,
             makingChargeSegments: Array.isArray(data?.makingChargeSegments) ? data.makingChargeSegments : [],
             defaultMakingChargeSegmentId: data?.defaultMakingChargeSegmentId || '',

@@ -276,7 +276,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {activeView === 'market' && config && (
           <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 space-y-6">
+                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 space-y-6 relative overflow-hidden">
+                      <div className="absolute top-4 right-4 bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest border border-emerald-100 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live API
+                      </div>
                       <div className="flex items-center gap-3 text-brand-gold">
                           <DollarSign size={20} />
                           <h3 className="font-bold uppercase tracking-widest text-xs">Gold Rate (22K)</h3>
@@ -285,14 +288,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           <input 
                               type="number" 
                               value={config.goldRate22k} 
-                              onChange={e => setConfig({...config, goldRate22k: parseFloat(e.target.value)})}
-                              className="text-4xl font-serif font-bold text-brand-dark bg-transparent w-full outline-none focus:text-brand-gold transition-colors"
+                              readOnly
+                              className="text-4xl font-serif font-bold text-brand-dark bg-transparent w-full outline-none opacity-80 cursor-not-allowed"
                           />
                           <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Price per gram (₹)</p>
                       </div>
                   </div>
 
-                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 space-y-6">
+                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 space-y-6 relative overflow-hidden">
+                      <div className="absolute top-4 right-4 bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest border border-emerald-100 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live API
+                      </div>
                       <div className="flex items-center gap-3 text-brand-gold">
                           <DollarSign size={20} />
                           <h3 className="font-bold uppercase tracking-widest text-xs">Gold Rate (24K)</h3>
@@ -301,8 +307,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           <input 
                               type="number" 
                               value={config.goldRate24k} 
-                              onChange={e => setConfig({...config, goldRate24k: parseFloat(e.target.value)})}
-                              className="text-4xl font-serif font-bold text-brand-dark bg-transparent w-full outline-none focus:text-brand-gold transition-colors"
+                              readOnly
+                              className="text-4xl font-serif font-bold text-brand-dark bg-transparent w-full outline-none opacity-80 cursor-not-allowed"
                           />
                           <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Price per gram (₹)</p>
                       </div>
