@@ -458,6 +458,7 @@ app.get('/api/config', async (req, res) => {
             whatsappNumber: '',
             whatsappPhoneId: '',
             whatsappToken: '',
+            whatsappTemplateName: 'sanghavi_jewel_studio',
         };
 
         settingsRows.forEach(row => {
@@ -482,7 +483,7 @@ app.post('/api/config', async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
-        const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, aiConfig } = req.body;
+        const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, aiConfig } = req.body;
 
         const settings = { 
             linkExpiryHours, 
@@ -494,6 +495,7 @@ app.post('/api/config', async (req, res) => {
             whatsappNumber, 
             whatsappPhoneId, 
             whatsappToken,
+            whatsappTemplateName,
             ai_model_analysis: aiConfig?.models?.analysis,
             ai_model_enhancement: aiConfig?.models?.enhancement,
             ai_model_watermark: aiConfig?.models?.watermark,

@@ -14,13 +14,17 @@ export const whatsappService = {
    * Dispatches OTP via Meta WhatsApp Business API.
    * STRICT: Ensures the phone number has a country code. Defaults to 91 (India) if 10 digits provided.
    */
-  sendOTP: async (phone: string, otp: string) => {
+  sendOTP: async (phone: string, otp: string, credentials?: { phoneId?: string, token?: string, templateName?: string }) => {
     let formattedPhone = phone.replace(/\D/g, '');
     
     // Auto-append India code if user (or system) provides exactly 10 digits
     if (formattedPhone.length === 10) {
         formattedPhone = '91' + formattedPhone;
     }
+
+    const phoneId = credentials?.phoneId || WHATSAPP_PHONE_ID;
+    const token = credentials?.token || WHATSAPP_TOKEN;
+    const templateName = credentials?.templateName || 'sanghavi_jewel_studio';
     
     // More inclusive test environment detection for Hostinger and local setups
     const hostname = window.location.hostname;
@@ -33,11 +37,20 @@ export const whatsappService = {
 
     console.debug(`[WhatsApp] Attempting OTP delivery to ${formattedPhone}. Host: ${hostname}, Dev Mode: ${isTestEnv}`);
 
+    if (!phoneId || !token) {
+        console.warn('[WhatsApp] Missing credentials for OTP delivery.');
+        if (isTestEnv) {
+            console.log(`%c[DEMO MODE] OTP for ${formattedPhone}: ${otp}`, 'background: #222; color: #bada55; padding: 10px; font-size: 20px;');
+            return { success: true, isDemo: true, error: 'Missing credentials' };
+        }
+        return { success: false, error: 'Verification service not configured.' };
+    }
+
     try {
-      const response = await fetch(`https://graph.facebook.com/v21.0/${WHATSAPP_PHONE_ID}/messages`, {
+      const response = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -45,7 +58,7 @@ export const whatsappService = {
           to: formattedPhone,
           type: 'template',
           template: {
-            name: 'sanghavi_jewel_studio', 
+            name: templateName, 
             language: { code: 'en_US' },
             components: [
               {

@@ -117,6 +117,7 @@ export interface AppConfig {
   whatsappNumber?: string;
   whatsappPhoneId?: string;
   whatsappToken?: string;
+  whatsappTemplateName?: string;
   aiConfig: AIConfig;
 }
 

@@ -118,21 +118,30 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
       setError('');
       setIsDemoMode(false);
 
-      const otp = whatsappService.generateOTP();
-      
-      // Send OTP (whatsappService handles adding 91 prefix for API)
-      const result = await whatsappService.sendOTP(normalizedPhone, otp);
+      try {
+          const config = await storeService.getConfig();
+          const otp = whatsappService.generateOTP();
+          
+          // Send OTP with credentials from config
+          const result = await whatsappService.sendOTP(normalizedPhone, otp, {
+              phoneId: config.whatsappPhoneId,
+              token: config.whatsappToken
+          });
 
-      if (result.success) {
-        setGeneratedOtp(otp);
-        setStep('otp');
-        setTimer(60);
-        if (result.isDemo) setIsDemoMode(true);
-      } else {
-        setError(result.error || 'WhatsApp delivery failed.');
+          if (result.success) {
+            setGeneratedOtp(otp);
+            setStep('otp');
+            setTimer(60);
+            if (result.isDemo) setIsDemoMode(true);
+          } else {
+            setError(result.error || 'WhatsApp delivery failed.');
+          }
+      } catch (err) {
+          setError('Failed to initialize verification service.');
+      } finally {
+          setIsLoading(false);
+          setIsCheckingUser(false);
       }
-      setIsLoading(false);
-      setIsCheckingUser(false);
   };
 
   const handleOtpChange = (index: number, value: string) => {

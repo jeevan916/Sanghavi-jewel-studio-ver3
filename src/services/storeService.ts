@@ -240,6 +240,7 @@ export const storeService = {
             whatsappNumber: data?.whatsappNumber || '',
             whatsappPhoneId: data?.whatsappPhoneId || '',
             whatsappToken: data?.whatsappToken || '',
+            whatsappTemplateName: data?.whatsappTemplateName || 'sanghavi_jewel_studio',
             goldRate22k: Number(data?.goldRate22k) || 6500,
             goldRate24k: Number(data?.goldRate24k) || 7200,
             gstPercent: Number(data?.gstPercent) || 3,
@@ -261,6 +262,10 @@ export const storeService = {
             gstPercent: 3,
             makingChargeSegments: [],
             defaultMakingChargeSegmentId: '',
+            whatsappNumber: '',
+            whatsappPhoneId: '',
+            whatsappToken: '',
+            whatsappTemplateName: 'sanghavi_jewel_studio',
             aiConfig: {
                 models: { 
                     analysis: 'gemini-3-flash-preview', 

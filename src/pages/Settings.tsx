@@ -592,9 +592,36 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         <div className="space-y-6 animate-in fade-in duration-300">
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><MessageCircle size={18}/> Communication</h3>
-                <div>
-                    <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">WhatsApp Number</label>
-                    <input type="text" value={config.whatsappNumber || ''} onChange={e => setConfig({...config, whatsappNumber: e.target.value})} placeholder="91..." className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">WhatsApp Number (For Inquiries)</label>
+                        <input type="text" value={config.whatsappNumber || ''} onChange={e => setConfig({...config, whatsappNumber: e.target.value})} placeholder="91..." className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">WhatsApp Phone ID (For OTP)</label>
+                            <input type="text" value={config.whatsappPhoneId || ''} onChange={e => setConfig({...config, whatsappPhoneId: e.target.value})} placeholder="Enter Phone ID from Meta Dashboard" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">WhatsApp Template Name</label>
+                            <input type="text" value={config.whatsappTemplateName || ''} onChange={e => setConfig({...config, whatsappTemplateName: e.target.value})} placeholder="e.g. sanghavi_jewel_studio" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">WhatsApp Access Token</label>
+                        <div className="relative">
+                            <input 
+                                type={showPassword ? 'text' : 'password'} 
+                                value={config.whatsappToken || ''} 
+                                onChange={e => setConfig({...config, whatsappToken: e.target.value})} 
+                                placeholder="Enter Permanent Access Token" 
+                                className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900 pr-10" 
+                            />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+                                {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
