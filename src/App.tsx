@@ -105,6 +105,51 @@ const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
   return <>{children}</>;
 };
 
+const SecurityLayer = () => {
+    useEffect(() => {
+        // Disable right click
+        const handleContextMenu = (e: MouseEvent) => {
+            e.preventDefault();
+        };
+
+        // Disable keyboard shortcuts
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Prevent F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+            if (
+                e.key === 'F12' ||
+                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+                (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+            ) {
+                e.preventDefault();
+            }
+        };
+
+        // Disable text selection globally except for inputs
+        const handleSelectStart = (e: Event) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+            }
+        };
+
+        document.addEventListener('contextmenu', handleContextMenu);
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('selectstart', handleSelectStart);
+
+        // Add a console warning
+        console.log("%cStop!", "color: red; font-family: sans-serif; font-size: 4.5em; font-weight: bolder; text-shadow: #000 1px 1px;");
+        console.log("%cThis is a browser feature intended for developers. If someone told you to copy-paste something here to enable a feature or 'hack' someone's account, it is a scam and will give them access to your account.", "font-family: sans-serif; font-size: 1.25em;");
+
+        return () => {
+            document.removeEventListener('contextmenu', handleContextMenu);
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('selectstart', handleSelectStart);
+        };
+    }, []);
+
+    return null;
+};
+
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const location = useLocation();
@@ -134,7 +179,8 @@ function AppContent() {
   const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff';
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'}`}>
+    <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'} select-none`}>
+      <SecurityLayer />
       <main className="pb-20 md:pb-0">
         <Suspense fallback={<SafeLoader />}>
           <Routes>

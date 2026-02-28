@@ -19,7 +19,8 @@ const PromptSection = ({
     onModelChange,
     onPromptChange,
     onSaveTemplate,
-    onDeleteTemplate
+    onDeleteTemplate,
+    onEditTemplate
 }: {
     title: string;
     modelValue: string;
@@ -30,9 +31,11 @@ const PromptSection = ({
     onPromptChange: (val: string) => void;
     onSaveTemplate: (label: string, content: string) => void;
     onDeleteTemplate: (id: string) => void;
+    onEditTemplate: (id: string, label: string, content: string) => void;
 }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [newLabel, setNewLabel] = useState('');
+    const [editMode, setEditMode] = useState<{id: string, label: string, content: string} | null>(null);
 
     return (
         <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm transition-all hover:shadow-md">
@@ -113,35 +116,75 @@ const PromptSection = ({
                                 <FilePlus size={12}/> Saved Templates ({templates.length})
                             </p>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
+                            <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-1">
                                 {templates.map(t => (
                                     <div 
                                         key={t.id} 
-                                        onClick={() => onPromptChange(t.content)}
-                                        className="group relative flex flex-col gap-2 p-3 bg-stone-50 border border-stone-200 rounded-xl hover:bg-white hover:border-gold-400 hover:shadow-sm cursor-pointer transition-all h-full"
+                                        className="group relative flex flex-col gap-2 p-3 bg-stone-50 border border-stone-200 rounded-xl hover:bg-white hover:border-gold-400 hover:shadow-sm transition-all h-full"
                                     >
-                                        <div className="flex justify-between items-center pb-2 border-b border-stone-200/50">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <FileText size={12} className="text-stone-400 group-hover:text-gold-500 transition-colors shrink-0"/>
-                                                <span className="text-xs font-bold text-stone-700 group-hover:text-gold-700 truncate">{t.label}</span>
+                                        {editMode?.id === t.id ? (
+                                            <div className="space-y-2">
+                                                <input 
+                                                    value={editMode.label}
+                                                    onChange={e => setEditMode({...editMode, label: e.target.value})}
+                                                    className="w-full bg-white border border-gold-200 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-gold-500"
+                                                />
+                                                <textarea 
+                                                    value={editMode.content}
+                                                    onChange={e => setEditMode({...editMode, content: e.target.value})}
+                                                    className="w-full h-32 p-3 bg-white border border-gold-200 rounded-lg text-[10px] font-mono text-stone-800 outline-none focus:ring-1 focus:ring-gold-500 resize-y"
+                                                />
+                                                <div className="flex justify-end gap-2">
+                                                    <button onClick={() => setEditMode(null)} className="px-3 py-1.5 text-[10px] font-bold text-stone-500 hover:text-stone-700 uppercase tracking-widest">Cancel</button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            if (editMode.label.trim() && editMode.content.trim()) {
+                                                                onEditTemplate(t.id, editMode.label, editMode.content);
+                                                                setEditMode(null);
+                                                            }
+                                                        }}
+                                                        className="px-3 py-1.5 bg-gold-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-gold-700 transition"
+                                                    >
+                                                        Save Changes
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); if(confirm('Delete this template?')) onDeleteTemplate(t.id); }}
-                                                className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                            >
-                                                <Trash2 size={12}/>
-                                            </button>
-                                        </div>
-                                        
-                                        <div className="flex-1 bg-white rounded border border-stone-100 p-2 overflow-hidden">
-                                            <p className="text-[9px] text-stone-500 font-mono leading-relaxed line-clamp-3">
-                                                {t.content}
-                                            </p>
-                                        </div>
-                                        
-                                        <div className="text-[9px] font-bold text-gold-600 uppercase tracking-widest text-center pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            Apply Template
-                                        </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex justify-between items-center pb-2 border-b border-stone-200/50">
+                                                    <div className="flex items-center gap-2 overflow-hidden cursor-pointer flex-1" onClick={() => onPromptChange(t.content)}>
+                                                        <FileText size={12} className="text-stone-400 group-hover:text-gold-500 transition-colors shrink-0"/>
+                                                        <span className="text-xs font-bold text-stone-700 group-hover:text-gold-700 truncate">{t.label}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setEditMode({id: t.id, label: t.label, content: t.content}); }}
+                                                            className="p-1.5 text-stone-400 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors"
+                                                            title="Edit Template"
+                                                        >
+                                                            <Edit2 size={12}/>
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); if(confirm('Delete this template?')) onDeleteTemplate(t.id); }}
+                                                            className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Delete Template"
+                                                        >
+                                                            <Trash2 size={12}/>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex-1 bg-white rounded border border-stone-100 p-3 cursor-pointer" onClick={() => onPromptChange(t.content)}>
+                                                    <p className="text-[10px] text-stone-600 font-mono leading-relaxed whitespace-pre-wrap">
+                                                        {t.content}
+                                                    </p>
+                                                </div>
+                                                
+                                                <div className="text-[9px] font-bold text-gold-600 uppercase tracking-widest text-center pt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => onPromptChange(t.content)}>
+                                                    Click to Apply Template
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 ))}
                                 
@@ -340,6 +383,23 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       });
   };
 
+  const editTemplate = (key: 'analysis' | 'enhancement' | 'watermark' | 'design', id: string, label: string, content: string) => {
+      if (!config) return;
+      const templates = config.aiConfig.templates || { analysis: [], enhancement: [], watermark: [], design: [] };
+      const currentTemplates = templates[key] || [];
+      
+      setConfig({
+          ...config,
+          aiConfig: {
+              ...config.aiConfig,
+              templates: {
+                  ...templates,
+                  [key]: currentTemplates.map((t: PromptTemplate) => t.id === id ? { ...t, label, content } : t)
+              }
+          }
+      });
+  };
+
   if (activeTab === 'maintenance' && isAdmin) {
     return <Maintenance onBack={() => setActiveTab('suppliers')} />;
   }
@@ -494,6 +554,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           onPromptChange={v => updateAIPrompt('analysis', v)}
                           onSaveTemplate={(l, c) => addTemplate('analysis', l, c)}
                           onDeleteTemplate={id => deleteTemplate('analysis', id)}
+                          onEditTemplate={(id, l, c) => editTemplate('analysis', id, l, c)}
                       />
 
                       {/* Enhancement Settings */}
@@ -507,6 +568,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           onPromptChange={v => updateAIPrompt('enhancement', v)}
                           onSaveTemplate={(l, c) => addTemplate('enhancement', l, c)}
                           onDeleteTemplate={id => deleteTemplate('enhancement', id)}
+                          onEditTemplate={(id, l, c) => editTemplate('enhancement', id, l, c)}
                       />
 
                        {/* Watermark Settings */}
@@ -520,6 +582,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                           onPromptChange={v => updateAIPrompt('watermark', v)}
                           onSaveTemplate={(l, c) => addTemplate('watermark', l, c)}
                           onDeleteTemplate={id => deleteTemplate('watermark', id)}
+                          onEditTemplate={(id, l, c) => editTemplate('watermark', id, l, c)}
                       />
 
                       {/* Design Generation Settings */}
@@ -535,6 +598,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               onPromptChange={v => updateAIPrompt('design', v)}
                               onSaveTemplate={(l, c) => addTemplate('design', l, c)}
                               onDeleteTemplate={id => deleteTemplate('design', id)}
+                              onEditTemplate={(id, l, c) => editTemplate('design', id, l, c)}
                           />
                       </div>
                   </div>

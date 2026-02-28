@@ -1,6 +1,15 @@
 
 <!DOCTYPE html>
 <html lang="en">
+  <!-- 
+    ====================================================================
+    © 2026 Sanghavi Jewel Studio. All Rights Reserved.
+    This application, its source code, design, and architecture are 
+    proprietary and strictly protected by international copyright laws.
+    Unauthorized copying, reproduction, or reverse engineering is 
+    strictly prohibited.
+    ====================================================================
+  -->
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -39,9 +48,6 @@
         z-index: 9999; transition: opacity 0.3s ease-out;
       }
       .splash-logo-container { text-align: center; }
-      .splash-symbol { width: 60px; height: 60px; color: #D4AF37; margin-bottom: 1rem; }
-      .splash-logo { font-family: 'Montserrat', sans-serif; font-size: 2.5rem; font-weight: 700; color: #E31E24; text-transform: uppercase; letter-spacing: 0.15em; line-height: 1; }
-      .splash-sub { font-family: 'Cormorant Garamond', serif; font-size: 0.8rem; font-style: italic; color: #333333; letter-spacing: 0.3em; margin-top: 0.25rem; }
       .loading-bar-container { width: 120px; height: 1px; background: #eeeeee; margin-top: 2.5rem; position: relative; overflow: hidden; }
       .loading-bar-progress { position: absolute; height: 100%; width: 30%; background: #D4AF37; left: -30%; animation: loadingSlide 1.5s infinite ease-in-out; }
       @keyframes loadingSlide { 0% { left: -30%; } 100% { left: 100%; } }
@@ -51,17 +57,7 @@
   <body>
     <div id="initial-loader">
         <div class="splash-logo-container">
-            <img src="/logo.png" alt="Sanghavi Jewellers" style="height: 100px; width: auto; object-fit: contain; margin-bottom: 1rem;" onerror="this.style.display='none'; document.getElementById('fallback-logo').style.display='block';" />
-            
-            <div id="fallback-logo" style="display: none;">
-              <svg class="splash-symbol" viewBox="0 0 100 100" fill="currentColor" style="margin: 0 auto 1rem auto;">
-                <path d="M50 0 C60 20 80 20 100 0 C80 20 80 40 100 50 C80 40 60 40 50 60 C40 40 20 40 0 50 C20 40 20 20 0 0 C20 20 40 20 50 0 Z" opacity="0.8" />
-                <path d="M50 100 C40 80 20 80 0 100 C20 80 20 60 0 50 C20 60 40 60 50 40 C60 60 80 60 100 50 C80 60 80 80 100 100 C80 80 60 80 50 100 Z" opacity="0.8" />
-                <circle cx="50" cy="50" r="8" />
-              </svg>
-              <div class="splash-logo">Sanghavi</div>
-              <div class="splash-sub">jewellers</div>
-            </div>
+            <img src="/logo.png" alt="Sanghavi Jewellers" style="height: 100px; width: auto; object-fit: contain; margin-bottom: 1rem;" />
         </div>
         <div class="loading-bar-container"><div class="loading-bar-progress"></div></div>
     </div>

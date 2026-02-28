@@ -18,7 +18,30 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  user-select: none;
+  -webkit-user-select: none;
   @apply font-sans text-brand-dark;
+}
+
+/* Re-enable selection for inputs */
+input, textarea {
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
+/* Prevent image dragging and saving */
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+/* Re-enable pointer events for specific interactive images if needed, but generally we want them disabled for protection */
+button img, a img {
+  pointer-events: auto;
 }
 
 /* Custom Scrollbar Hide Utility */
