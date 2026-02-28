@@ -320,6 +320,34 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
   }
 });
 
+// --- LOGO UPLOAD & SERVE ---
+app.post('/api/settings/logo', upload.single('logo'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const filepath = path.join(UPLOADS_ROOT, 'custom_logo.png');
+        try {
+            const { default: sharp } = await import('sharp');
+            await sharp(req.file.buffer).png().toFile(filepath);
+        } catch (e) {
+            console.error('Sharp processing failed, saving raw file instead:', e);
+            const fs = await import('fs');
+            fs.writeFileSync(filepath, req.file.buffer);
+        }
+        res.json({ success: true, url: '/api/settings/logo.png?t=' + Date.now() });
+    } catch (error) {
+        res.status(500).json({ error: 'Logo upload failed', details: error.message });
+    }
+});
+
+app.get('/api/settings/logo.png', (req, res) => {
+    const customLogoPath = path.join(UPLOADS_ROOT, 'custom_logo.png');
+    if (existsSync(customLogoPath)) {
+        res.sendFile(customLogoPath);
+    } else {
+        res.redirect('/logo.png');
+    }
+});
+
 // --- API ROUTES ---
 
 app.get('/api/health', (req, res) => {

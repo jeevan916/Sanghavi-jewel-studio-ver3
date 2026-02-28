@@ -655,6 +655,53 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       {activeTab === 'general' && isAdmin && (
         <div className="space-y-6 animate-in fade-in duration-300">
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
+                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Sparkles size={18}/> Brand Identity</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Application Logo</label>
+                        <div className="flex items-center gap-6">
+                            <div className="w-24 h-24 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-center p-2">
+                                <img src={`/api/settings/logo.png?t=${Date.now()}`} alt="Current Logo" className="max-w-full max-h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/logo.png'; }} />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm text-stone-500 mb-3">Upload a new logo to replace the current one. Recommended format: PNG with transparent background.</p>
+                                <label className="cursor-pointer px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
+                                    <Plus size={16} /> Choose File
+                                    <input 
+                                        type="file" 
+                                        accept="image/png, image/jpeg, image/svg+xml" 
+                                        className="hidden" 
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            
+                                            const formData = new FormData();
+                                            formData.append('logo', file);
+                                            
+                                            try {
+                                                const res = await fetch('/api/settings/logo', {
+                                                    method: 'POST',
+                                                    body: formData
+                                                });
+                                                if (res.ok) {
+                                                    alert('Logo updated successfully! The page will reload to apply changes.');
+                                                    window.location.reload();
+                                                } else {
+                                                    const err = await res.json();
+                                                    alert('Failed to update logo: ' + (err.error || 'Unknown error'));
+                                                }
+                                            } catch (err) {
+                                                alert('Network error while uploading logo.');
+                                            }
+                                        }} 
+                                    />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><MessageCircle size={18}/> Communication</h3>
                 <div className="space-y-4">
                     <div>
