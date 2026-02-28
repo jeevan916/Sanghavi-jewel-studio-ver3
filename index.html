@@ -57,7 +57,28 @@
   <body>
     <div id="initial-loader">
         <div class="splash-logo-container">
-            <img src="/logo.png" alt="Sanghavi Jewellers" style="height: 100px; width: auto; object-fit: contain; margin-bottom: 1rem;" />
+            <svg viewBox="0 0 100 100" style="height: 100px; width: auto; margin: 0 auto 1rem auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <path id="petalR" d="M 52 42 C 65 35, 65 15, 52 5 C 58 15, 58 30, 52 42 Z" fill="#D4AF37"/>
+                <path id="petalL" d="M 48 42 C 35 35, 35 15, 48 5 C 42 15, 42 30, 48 42 Z" fill="#D4AF37"/>
+              </defs>
+              <use href="#petalR" />
+              <use href="#petalL" />
+              <use href="#petalR" transform="rotate(90 50 50)" />
+              <use href="#petalL" transform="rotate(90 50 50)" />
+              <use href="#petalR" transform="rotate(180 50 50)" />
+              <use href="#petalL" transform="rotate(180 50 50)" />
+              <use href="#petalR" transform="rotate(270 50 50)" />
+              <use href="#petalL" transform="rotate(270 50 50)" />
+            </svg>
+            <div style="text-align: center; line-height: 1; margin-top: 12px;">
+              <h1 style="font-family: 'Montserrat', sans-serif; font-weight: 700; letter-spacing: 0.15em; color: #E31E24; text-transform: uppercase; font-size: 2.5rem; margin: 0;">
+                Sanghavi
+              </h1>
+              <p style="font-family: 'Cormorant Garamond', serif; font-weight: 300; color: #78716c; letter-spacing: 0.25em; margin: 4px 0 0 0; font-size: 1.2rem;">
+                jewellers
+              </p>
+            </div>
         </div>
         <div class="loading-bar-container"><div class="loading-bar-progress"></div></div>
     </div>
