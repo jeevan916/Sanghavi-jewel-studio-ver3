@@ -431,7 +431,7 @@ export const ProductDetails: React.FC = () => {
                             {displayImages.length > 0 ? (
                                 (() => {
                                     const currentMedia = displayImages[activeImageIndex] || displayImages[0];
-                                    const isVideo = currentMedia.endsWith('.webm') || currentMedia.endsWith('.mp4');
+                                    const isVideo = currentMedia.includes('video/') || currentMedia.endsWith('.webm') || currentMedia.endsWith('.mp4') || currentMedia.endsWith('.mov');
                                     return isVideo ? (
                                         <video 
                                             src={currentMedia} 
@@ -492,7 +492,7 @@ export const ProductDetails: React.FC = () => {
                     <div className="flex gap-3 overflow-x-auto py-4 px-2 scrollbar-hide">
                         {displayImages.map((img, idx) => {
                             const thumbMedia = product.thumbnails?.[idx] || img;
-                            const isVideo = thumbMedia.endsWith('.webm') || thumbMedia.endsWith('.mp4');
+                            const isVideo = thumbMedia.includes('video/') || thumbMedia.endsWith('.webm') || thumbMedia.endsWith('.mp4') || thumbMedia.endsWith('.mov');
                             return (
                             <button 
                                 key={idx}

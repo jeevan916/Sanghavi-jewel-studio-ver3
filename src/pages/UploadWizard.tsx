@@ -317,7 +317,7 @@ export const UploadWizard: React.FC = () => {
                         <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Eye size={14}/> Selected Assets</h4>
                         <div className="grid grid-cols-2 gap-4">
                             {images.map((img: string, idx: number) => {
-                              const isVideo = img.startsWith('data:video/') || img.endsWith('.webm') || img.endsWith('.mp4');
+                              const isVideo = img.includes('video/') || img.endsWith('.webm') || img.endsWith('.mp4') || img.endsWith('.mov');
                               return (
                               <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-stone-100 group">
                                 {isVideo ? (

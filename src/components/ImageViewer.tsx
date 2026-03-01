@@ -340,7 +340,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
              </div>
          ) : (
              (() => {
-                 const isVideo = activeImageSrc.endsWith('.webm') || activeImageSrc.endsWith('.mp4');
+                 const isVideo = activeImageSrc.includes('video/') || activeImageSrc.endsWith('.webm') || activeImageSrc.endsWith('.mp4') || activeImageSrc.endsWith('.mov');
                  return isVideo ? (
                      <video 
                         key={safeIndex} 

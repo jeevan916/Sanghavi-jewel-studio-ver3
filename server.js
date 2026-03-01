@@ -293,40 +293,57 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
       
       if (file.mimetype.startsWith('video/')) {
         // Handle Video Processing
+        console.log(`🎬 [Media] Processing video: ${file.originalname} (${file.size} bytes)`);
         const filename = `${safeName}-${hash}.webm`;
         const filepath = path.join(UPLOADS_ROOT, '1080', filename);
         const tempInput = path.join(UPLOADS_ROOT, `temp-${hash}.tmp`);
         
         const fs = await import('fs');
         fs.writeFileSync(tempInput, file.buffer);
+        console.log(`🎬 [Media] Temp file created: ${tempInput}`);
 
-        await new Promise((resolve, reject) => {
-          ffmpeg(tempInput)
-            .outputOptions([
-              '-an', // Remove audio
-              '-c:v libvpx-vp9', // WebM video codec
-              '-crf 30', // Constant Rate Factor for quality
-              '-b:v 0', // Required for CRF in VP9
-              '-deadline realtime' // Speed up encoding
-            ])
-            .toFormat('webm')
-            .on('end', () => {
-              fs.unlinkSync(tempInput); // Cleanup temp file
-              resolve();
-            })
-            .on('error', (err) => {
-              console.error('FFmpeg error:', err);
-              if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
-              reject(err);
-            })
-            .save(filepath);
-        });
+        try {
+            await new Promise((resolve, reject) => {
+              ffmpeg(tempInput)
+                .outputOptions([
+                  '-an', // Remove audio
+                  '-c:v libvpx-vp9', // WebM video codec
+                  '-crf 30', // Constant Rate Factor for quality
+                  '-b:v 0', // Required for CRF in VP9
+                  '-deadline realtime' // Speed up encoding
+                ])
+                .toFormat('webm')
+                .on('start', (cmd) => console.log(`🎬 [Media] FFmpeg started: ${cmd}`))
+                .on('end', () => {
+                  console.log(`🎬 [Media] FFmpeg finished: ${filename}`);
+                  if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput); // Cleanup temp file
+                  resolve();
+                })
+                .on('error', (err) => {
+                  console.error('🎬 [Media] FFmpeg error:', err);
+                  if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+                  reject(err);
+                })
+                .save(filepath);
+            });
 
-        results.push({
-          originalName: file.originalname,
-          primary: `/uploads/1080/${filename}`,
-          thumbnail: `/uploads/1080/${filename}` // Use video itself as thumbnail
-        });
+            results.push({
+              originalName: file.originalname,
+              primary: `/uploads/1080/${filename}`,
+              thumbnail: `/uploads/1080/${filename}` // Use video itself as thumbnail
+            });
+        } catch (err) {
+            console.error('🎬 [Media] Video processing failed, falling back to original buffer:', err);
+            // Fallback: save original buffer if ffmpeg fails
+            const fallbackFilename = `${safeName}-${hash}${path.extname(file.originalname) || '.mp4'}`;
+            const fallbackPath = path.join(UPLOADS_ROOT, '1080', fallbackFilename);
+            fs.writeFileSync(fallbackPath, file.buffer);
+            results.push({
+                originalName: file.originalname,
+                primary: `/uploads/1080/${fallbackFilename}`,
+                thumbnail: `/uploads/1080/${fallbackFilename}`
+            });
+        }
       } else {
         // Handle Image Processing
         const processVariant = async (width, format, quality) => {
