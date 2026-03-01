@@ -9,6 +9,9 @@ import cors from 'cors';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
 import multer from 'multer';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 // Global Error Handlers to prevent silent crashes
 process.on('uncaughtException', (err) => {
@@ -185,7 +188,8 @@ const initDB = async () => {
     DEMO_MODE = false;
     
     // 3. Core Data Tables
-    await pool.query(`CREATE TABLE IF NOT EXISTS products (id VARCHAR(255) PRIMARY KEY, title VARCHAR(255), category VARCHAR(255), subCategory VARCHAR(255), weight FLOAT, description TEXT, tags JSON, images JSON, thumbnails JSON, supplier VARCHAR(255), uploadedBy VARCHAR(255), isHidden BOOLEAN, createdAt DATETIME, meta JSON)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS products (id VARCHAR(255) PRIMARY KEY, title VARCHAR(255), category VARCHAR(255), subCategory VARCHAR(255), weight FLOAT, description TEXT, tags JSON, images JSON, thumbnails JSON, supplier VARCHAR(255), uploadedBy VARCHAR(255), isHidden BOOLEAN, createdAt DATETIME, dateTaken DATE, meta JSON)`);
+    try { await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS dateTaken DATE AFTER createdAt`); } catch (e) { /* ignore if already exists */ }
     await pool.query(`CREATE TABLE IF NOT EXISTS staff (id VARCHAR(255) PRIMARY KEY, username VARCHAR(255) UNIQUE, password VARCHAR(255), role VARCHAR(50), name VARCHAR(255), isActive BOOLEAN, createdAt DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS customers (id VARCHAR(255) PRIMARY KEY, phone VARCHAR(50) UNIQUE, name VARCHAR(255), pincode VARCHAR(20), role VARCHAR(50), createdAt DATETIME)`);
@@ -264,10 +268,6 @@ const initDB = async () => {
 };
 
 // --- MEDIA PROCESSING ---
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 }, // Increased to 100MB for videos
@@ -728,15 +728,29 @@ app.get('/api/products/:id/stats', async (req, res) => {
 app.post('/api/products', async (req, res) => {
     try {
         const p = req.body;
-        await pool.query('INSERT INTO products SET ?', {
-            ...p,
+        const productData = {
+            id: p.id,
+            title: p.title,
+            category: p.category,
+            subCategory: p.subCategory,
+            weight: p.weight,
+            description: p.description,
             tags: JSON.stringify(p.tags || []),
             images: JSON.stringify(p.images || []),
             thumbnails: JSON.stringify(p.thumbnails || []),
+            supplier: p.supplier,
+            uploadedBy: p.uploadedBy,
+            isHidden: p.isHidden,
+            createdAt: p.createdAt,
+            dateTaken: p.dateTaken,
             meta: JSON.stringify(p.meta || {})
-        });
+        };
+        await pool.query('INSERT INTO products SET ?', productData);
         res.status(201).json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        console.error('Product save error:', e);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 app.put('/api/products/:id', async (req, res) => {
@@ -744,7 +758,8 @@ app.put('/api/products/:id', async (req, res) => {
         const p = req.body;
         await pool.query('UPDATE products SET ? WHERE id = ?', [{
             title: p.title, category: p.category, subCategory: p.subCategory, weight: p.weight, description: p.description,
-            tags: JSON.stringify(p.tags || []), images: JSON.stringify(p.images || []), thumbnails: JSON.stringify(p.thumbnails || []), isHidden: p.isHidden
+            tags: JSON.stringify(p.tags || []), images: JSON.stringify(p.images || []), thumbnails: JSON.stringify(p.thumbnails || []), 
+            isHidden: p.isHidden, dateTaken: p.dateTaken, meta: JSON.stringify(p.meta || {})
         }, req.params.id]);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
