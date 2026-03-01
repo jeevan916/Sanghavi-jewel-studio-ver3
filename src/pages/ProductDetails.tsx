@@ -20,6 +20,7 @@ export const ProductDetails: React.FC = () => {
   // Initialize full screen state from navigation state to support seamless swiping
   const startInFullScreen = !!(location.state as any)?.startInFullScreen;
   const [showFullScreen, setShowFullScreen] = useState(startInFullScreen);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   
   const [product, setProduct] = useState<Product | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -429,7 +430,7 @@ export const ProductDetails: React.FC = () => {
                         <>
                             {displayImages.length > 0 ? (
                                 <img 
-                                    src={displayImages[0]} 
+                                    src={displayImages[activeImageIndex] || displayImages[0]} 
                                     className="w-full h-full object-cover bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
                                     onClick={() => setShowFullScreen(true)} 
                                     alt={product.title} 
@@ -472,6 +473,21 @@ export const ProductDetails: React.FC = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Thumbnail Gallery */}
+                {displayImages.length > 1 && !aiComparison && (
+                    <div className="flex gap-3 overflow-x-auto py-4 px-2 scrollbar-hide">
+                        {displayImages.map((img, idx) => (
+                            <button 
+                                key={idx}
+                                onClick={() => setActiveImageIndex(idx)}
+                                className={`relative flex-shrink-0 w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden border-2 transition-colors ${activeImageIndex === idx ? 'border-brand-gold shadow-md' : 'border-transparent hover:border-brand-gold/50'}`}
+                            >
+                                <img src={product.thumbnails?.[idx] || img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {isAdmin && isEditing && !aiComparison && (
                     <div className="bg-brand-dark p-4 rounded-b-[2.5rem] flex items-center justify-around gap-6 text-white -mt-1 md:mt-0 shadow-2xl">
@@ -807,6 +823,7 @@ export const ProductDetails: React.FC = () => {
         <ImageViewer 
             key={product.id}
             images={displayImages} 
+            initialIndex={activeImageIndex}
             title={product.title} 
             disableAnimation={startInFullScreen}
             onClose={() => setShowFullScreen(false)} 
