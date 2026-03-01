@@ -85,7 +85,8 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           }
 
           // STEP 2: AI Enhancement (Gemini)
-          if (enhance) {
+          const isVideo = currentBlob.type.startsWith('video/');
+          if (enhance && !isVideo) {
              const base64 = await new Promise<string>((resolve) => {
                 const reader = new FileReader();
                 reader.onloadend = () => resolve(reader.result as string);
@@ -131,6 +132,18 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       } catch (e) {
           console.warn('Backend Pipeline Failed, falling back to Client-Side Transcoding', e);
           
+          // If it's a video, we can't easily transcode on client side, just return the data URL
+          if (input instanceof File && input.type.startsWith('video/')) {
+             const url = await new Promise<string>((resolve) => {
+                 const reader = new FileReader();
+                 reader.onload = (e) => resolve(e.target?.result as string);
+                 reader.readAsDataURL(input);
+             });
+             return { primary: url, thumbnail: url };
+          } else if (typeof input === 'string' && input.startsWith('data:video/')) {
+             return { primary: input, thumbnail: input };
+          }
+
           // Fallback: Client-Side Canvas Transcoding (Offline Mode)
           const fallbackUrl = await new Promise<string>((resolve, reject) => {
             const img = new Image();

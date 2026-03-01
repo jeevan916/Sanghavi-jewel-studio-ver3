@@ -263,12 +263,16 @@ const initDB = async () => {
   }
 };
 
-// --- IMAGE PROCESSING ---
+// --- MEDIA PROCESSING ---
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 }, // Increased to 100MB for videos
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.match(/^image\/(jpeg|png|webp|heic|avif)$/)) {
+    if (file.mimetype.match(/^(image\/(jpeg|png|webp|heic|avif)|video\/(mp4|quicktime|webm|x-matroska))$/)) {
       cb(null, true);
     } else {
       cb(new Error('Unsupported file format'), false);
@@ -287,36 +291,73 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
       const safeName = slugify(originalName) || 'asset';
       const hash = crypto.randomBytes(4).toString('hex');
       
-      const processVariant = async (width, format, quality) => {
-        const filename = `${safeName}-${width}w-${hash}.${format}`;
-        const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
-        try {
-          const { default: sharp } = await import('sharp');
-          await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
-        } catch (e) {
-          console.error('Sharp processing failed, saving raw file instead:', e);
-          // Fallback: just save the raw buffer if sharp fails
-          const fs = await import('fs');
-          fs.writeFileSync(filepath, file.buffer);
-        }
-        return `/uploads/${width}/${filename}`;
-      };
+      if (file.mimetype.startsWith('video/')) {
+        // Handle Video Processing
+        const filename = `${safeName}-${hash}.webm`;
+        const filepath = path.join(UPLOADS_ROOT, '1080', filename);
+        const tempInput = path.join(UPLOADS_ROOT, `temp-${hash}.tmp`);
+        
+        const fs = await import('fs');
+        fs.writeFileSync(tempInput, file.buffer);
 
-      // Generate High-Res (1080p) and Low-Res Thumbnail (300p) in parallel
-      const [desktopWebP, mobileThumb] = await Promise.all([
-          processVariant(1080, 'webp', 85),
-          processVariant(300, 'webp', 80)
-      ]);
-      
-      results.push({ 
-          originalName: file.originalname, 
-          primary: desktopWebP,
-          thumbnail: mobileThumb 
-      });
+        await new Promise((resolve, reject) => {
+          ffmpeg(tempInput)
+            .outputOptions([
+              '-an', // Remove audio
+              '-c:v libvpx-vp9', // WebM video codec
+              '-crf 30', // Constant Rate Factor for quality
+              '-b:v 0', // Required for CRF in VP9
+              '-deadline realtime' // Speed up encoding
+            ])
+            .toFormat('webm')
+            .on('end', () => {
+              fs.unlinkSync(tempInput); // Cleanup temp file
+              resolve();
+            })
+            .on('error', (err) => {
+              console.error('FFmpeg error:', err);
+              if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+              reject(err);
+            })
+            .save(filepath);
+        });
+
+        results.push({
+          originalName: file.originalname,
+          primary: `/uploads/1080/${filename}`,
+          thumbnail: `/uploads/1080/${filename}` // Use video itself as thumbnail
+        });
+      } else {
+        // Handle Image Processing
+        const processVariant = async (width, format, quality) => {
+          const filename = `${safeName}-${width}w-${hash}.${format}`;
+          const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
+          try {
+            const { default: sharp } = await import('sharp');
+            await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
+          } catch (e) {
+            console.error('Sharp processing failed, saving raw file instead:', e);
+            const fs = await import('fs');
+            fs.writeFileSync(filepath, file.buffer);
+          }
+          return `/uploads/${width}/${filename}`;
+        };
+
+        const [desktopWebP, mobileThumb] = await Promise.all([
+            processVariant(1080, 'webp', 85),
+            processVariant(300, 'webp', 80)
+        ]);
+        
+        results.push({ 
+            originalName: file.originalname, 
+            primary: desktopWebP,
+            thumbnail: mobileThumb 
+        });
+      }
     }
     res.json({ success: true, files: results });
   } catch (error) {
-    res.status(500).json({ error: 'Image processing failed', details: error.message });
+    res.status(500).json({ error: 'Media processing failed', details: error.message });
   }
 });
 

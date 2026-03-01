@@ -43,18 +43,22 @@ export const UploadWizard: React.FC = () => {
     return { device, manufacturer };
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     if (mode === 'single') {
-      const file = files[0];
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setImages([ev.target?.result as string]);
-        setStep(2);
-      };
-      reader.readAsDataURL(file);
+      const fileArray = Array.from(files);
+      const base64Promises = fileArray.map(file => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+      });
+      const base64Results = await Promise.all(base64Promises);
+      setImages(base64Results);
+      setStep(2);
     } else {
       const info = getDeviceInfo();
       addToQueue(Array.from(files), selectedSupplier, selectedCategory, selectedSubCategory, info.device, info.manufacturer);
@@ -62,30 +66,37 @@ export const UploadWizard: React.FC = () => {
     }
   };
 
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
+
   const handleProceedToDetails = async () => {
     if (images.length === 0) return;
     
     setIsAnalyzing(true);
     setUploadError(null);
     try {
-      // Keep reference to original data URL for AI Analysis before overwriting with server URL
-      const originalBase64 = images[0];
-
-      // Upload to Backend Engine
-      const { primary, thumbnail } = await processImage(originalBase64, { enhance: false });
-      setImages([primary]);
-      setThumbnailUrl(thumbnail);
+      // Process all images
+      const processedResults = await Promise.all(images.map(img => processImage(img, { enhance: false })));
+      
+      const newImages = processedResults.map(r => r.primary);
+      const newThumbnails = processedResults.map(r => r.thumbnail);
+      
+      setImages(newImages);
+      setThumbnails(newThumbnails);
 
       if (useAI) {
-        // Use original base64 for Gemini Metadata Analysis
-        const base64Clean = originalBase64.includes(',') ? originalBase64.split(',')[1] : originalBase64;
-        const result = await analyzeJewelryImage(base64Clean);
-        setAnalysisData((prev: Partial<Product>) => ({
-          ...prev,
-          ...result,
-          category: selectedCategory || result.category,
-          subCategory: selectedSubCategory || result.subCategory,
-        }));
+        // Use first original base64 for Gemini Metadata Analysis
+        const originalBase64 = images[0];
+        // Only analyze if it's an image (Gemini vision doesn't support video base64 directly here)
+        if (originalBase64.startsWith('data:image/')) {
+            const base64Clean = originalBase64.includes(',') ? originalBase64.split(',')[1] : originalBase64;
+            const result = await analyzeJewelryImage(base64Clean);
+            setAnalysisData((prev: Partial<Product>) => ({
+              ...prev,
+              ...result,
+              category: selectedCategory || result.category,
+              subCategory: selectedSubCategory || result.subCategory,
+            }));
+        }
       }
       setStep(3);
     } catch (error: any) {
@@ -99,10 +110,6 @@ export const UploadWizard: React.FC = () => {
   const handleSingleSave = async () => {
     setIsSaving(true);
     try {
-      // Images are already uploaded in handleProceedToDetails
-      const finalMain = images[0];
-      const finalThumb = thumbnailUrl || finalMain;
-
       const newProduct: Product = {
         id: Date.now().toString(),
         title: analysisData.title || `SJ-${Date.now().toString().slice(-6)}`,
@@ -111,8 +118,8 @@ export const UploadWizard: React.FC = () => {
         weight: analysisData.weight || 0,
         description: analysisData.description || '',
         tags: analysisData.tags || [],
-        images: [finalMain],
-        thumbnails: [finalThumb], 
+        images: images,
+        thumbnails: thumbnails, 
         supplier: selectedSupplier,
         uploadedBy: currentUser?.name || 'Staff',
         isHidden: false,
@@ -127,7 +134,7 @@ export const UploadWizard: React.FC = () => {
       };
       await storeService.addProduct(newProduct);
       alert("Jewelry Assets Secured in Vault!");
-      setStep(1); setImages([]); setThumbnailUrl(''); setAnalysisData({}); setSelectedCategory(''); setUploadError(null);
+      setStep(1); setImages([]); setThumbnails([]); setAnalysisData({}); setSelectedCategory(''); setUploadError(null);
     } catch (err: any) {
       setUploadError(`Storage failed: ${err.message}`);
     } finally {
@@ -265,8 +272,8 @@ export const UploadWizard: React.FC = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
-            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" multiple />
-            <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" capture="environment" />
+            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" multiple />
+            <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" capture="environment" multiple />
           </motion.div>
         ) : (
           <motion.div
@@ -294,8 +301,8 @@ export const UploadWizard: React.FC = () => {
                           <ImageIcon size={14} /> Open Gallery
                         </button>
                       </div>
-                      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
-                      <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" capture="environment" />
+                      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" multiple />
+                      <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" capture="environment" multiple />
                   </motion.div>
               )}
               {step === 2 && (
@@ -309,14 +316,25 @@ export const UploadWizard: React.FC = () => {
                       <div className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
                         <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Eye size={14}/> Selected Assets</h4>
                         <div className="grid grid-cols-2 gap-4">
-                            {images.map((img: string, idx: number) => (
+                            {images.map((img: string, idx: number) => {
+                              const isVideo = img.startsWith('data:video/') || img.endsWith('.webm') || img.endsWith('.mp4');
+                              return (
                               <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-stone-100 group">
-                                <img src={img} className="w-full h-full object-cover" />
-                                <button onClick={() => { setImages([]); setStep(1); }} className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                {isVideo ? (
+                                  <video src={img} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                                ) : (
+                                  <img src={img} className="w-full h-full object-cover" />
+                                )}
+                                <button onClick={() => { 
+                                    const newImages = [...images];
+                                    newImages.splice(idx, 1);
+                                    setImages(newImages);
+                                    if (newImages.length === 0) setStep(1);
+                                }} className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                   <Trash2 size={24} className="text-white"/>
                                 </button>
                               </div>
-                            ))}
+                            )})}
                         </div>
                       </div>
                       <button onClick={handleProceedToDetails} disabled={isAnalyzing} className="w-full py-4 bg-gold-600 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 transition-all uppercase tracking-widest text-xs">

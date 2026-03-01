@@ -429,12 +429,25 @@ export const ProductDetails: React.FC = () => {
                     ) : (
                         <>
                             {displayImages.length > 0 ? (
-                                <img 
-                                    src={displayImages[activeImageIndex] || displayImages[0]} 
-                                    className="w-full h-full object-cover bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
-                                    onClick={() => setShowFullScreen(true)} 
-                                    alt={product.title} 
-                                />
+                                (() => {
+                                    const currentMedia = displayImages[activeImageIndex] || displayImages[0];
+                                    const isVideo = currentMedia.endsWith('.webm') || currentMedia.endsWith('.mp4');
+                                    return isVideo ? (
+                                        <video 
+                                            src={currentMedia} 
+                                            className="w-full h-full object-cover bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
+                                            onClick={() => setShowFullScreen(true)} 
+                                            autoPlay muted loop playsInline
+                                        />
+                                    ) : (
+                                        <img 
+                                            src={currentMedia} 
+                                            className="w-full h-full object-cover bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
+                                            onClick={() => setShowFullScreen(true)} 
+                                            alt={product.title} 
+                                        />
+                                    );
+                                })()
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-stone-300 italic font-serif">Awaiting Visual Asset...</div>
                             )}
@@ -477,15 +490,22 @@ export const ProductDetails: React.FC = () => {
                 {/* Thumbnail Gallery */}
                 {displayImages.length > 1 && !aiComparison && (
                     <div className="flex gap-3 overflow-x-auto py-4 px-2 scrollbar-hide">
-                        {displayImages.map((img, idx) => (
+                        {displayImages.map((img, idx) => {
+                            const thumbMedia = product.thumbnails?.[idx] || img;
+                            const isVideo = thumbMedia.endsWith('.webm') || thumbMedia.endsWith('.mp4');
+                            return (
                             <button 
                                 key={idx}
                                 onClick={() => setActiveImageIndex(idx)}
                                 className={`relative flex-shrink-0 w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden border-2 transition-colors ${activeImageIndex === idx ? 'border-brand-gold shadow-md' : 'border-transparent hover:border-brand-gold/50'}`}
                             >
-                                <img src={product.thumbnails?.[idx] || img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                                {isVideo ? (
+                                    <video src={thumbMedia} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                                ) : (
+                                    <img src={thumbMedia} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                                )}
                             </button>
-                        ))}
+                        )})}
                     </div>
                 )}
 

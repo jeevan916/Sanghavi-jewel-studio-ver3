@@ -336,22 +336,41 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
          {loadError || !activeImageSrc ? (
              <div className="flex flex-col items-center gap-2 text-stone-500">
                  <AlertCircle size={48} />
-                 <p className="text-xs uppercase font-bold tracking-widest">Image Unavailable</p>
+                 <p className="text-xs uppercase font-bold tracking-widest">Media Unavailable</p>
              </div>
          ) : (
-             <img 
-                key={safeIndex} 
-                src={activeImageSrc} 
-                alt="Zoom View"
-                draggable={false}
-                onError={() => setLoadError(true)}
-                className="max-w-full max-h-full object-contain will-change-transform"
-                style={{ 
-                  transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
-                  transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.19, 1, 0.22, 1)', 
-                  cursor: scale > 1 ? 'move' : 'grab'
-                }}
-             />
+             (() => {
+                 const isVideo = activeImageSrc.endsWith('.webm') || activeImageSrc.endsWith('.mp4');
+                 return isVideo ? (
+                     <video 
+                        key={safeIndex} 
+                        src={activeImageSrc} 
+                        draggable={false}
+                        onError={() => setLoadError(true)}
+                        className="max-w-full max-h-full object-contain will-change-transform"
+                        style={{ 
+                          transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
+                          transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.19, 1, 0.22, 1)', 
+                          cursor: scale > 1 ? 'move' : 'grab'
+                        }}
+                        autoPlay muted loop playsInline controls
+                     />
+                 ) : (
+                     <img 
+                        key={safeIndex} 
+                        src={activeImageSrc} 
+                        alt="Zoom View"
+                        draggable={false}
+                        onError={() => setLoadError(true)}
+                        className="max-w-full max-h-full object-contain will-change-transform"
+                        style={{ 
+                          transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
+                          transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.19, 1, 0.22, 1)', 
+                          cursor: scale > 1 ? 'move' : 'grab'
+                        }}
+                     />
+                 );
+             })()
          )}
          
          {/* Desktop Navigation Arrows */}
