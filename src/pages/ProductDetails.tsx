@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '@/types.ts';
+import { ProductCard } from '@/components/ProductCard.tsx';
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers } from 'lucide-react';
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
@@ -37,6 +38,7 @@ export const ProductDetails: React.FC = () => {
   const [showTemplateSelector, setShowTemplateSelector] = useState<{mode: 'enhance' | 'cleanup', templates: PromptTemplate[]} | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [neighbors, setNeighbors] = useState<{prev: string | null, next: string | null}>({ prev: null, next: null });
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   const user = storeService.getCurrentUser();
   const isAdmin = user?.role === 'admin' || user?.role === 'contributor';
@@ -147,6 +149,10 @@ export const ProductDetails: React.FC = () => {
             const pStats = await storeService.getProductStats(safeProduct.id);
             setStats(pStats);
             storeService.logEvent('view', safeProduct);
+
+            // Fetch Related Products
+            const related = await storeService.getRelatedProducts(safeProduct.id);
+            setRelatedProducts(related);
 
             // Calculate Neighbors
             const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
@@ -836,6 +842,31 @@ export const ProductDetails: React.FC = () => {
                 </div>
             </div>
         </div>
+
+        {/* Related Products Carousel */}
+        {relatedProducts.length > 0 && (
+            <div className="mt-20 pt-12 border-t border-stone-100 space-y-8 px-6 md:px-0">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
+                            <Sparkles size={24} className="text-brand-gold" /> Related Pieces
+                        </h3>
+                        <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Curated for your taste</p>
+                    </div>
+                </div>
+                <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide snap-x -mx-6 px-6 md:mx-0 md:px-0">
+                    {relatedProducts.map(p => (
+                        <div key={p.id} className="w-64 shrink-0 snap-start">
+                            <ProductCard 
+                                product={p} 
+                                isAdmin={isAdmin} 
+                                onClick={() => navigate(`/product/${p.id}`, { state: { direction: 'next' } })} 
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
       </div>
 
       {/* MODALS */}

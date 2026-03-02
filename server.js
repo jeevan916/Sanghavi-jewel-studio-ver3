@@ -795,6 +795,42 @@ app.get('/api/products/:id/stats', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/products/:id/related', async (req, res) => {
+    try {
+        const [productRows] = await pool.query('SELECT category, tags FROM products WHERE id = ?', [req.params.id]);
+        if (productRows.length === 0) return res.json([]);
+        
+        const { category, tags: tagsJson } = productRows[0];
+        const tags = safeParse(tagsJson, []);
+        
+        // Find products in same category, excluding current one
+        let query = 'SELECT * FROM products WHERE id != ? AND isHidden = 0';
+        const params = [req.params.id];
+        
+        if (category) {
+            query += ' AND category = ?';
+            params.push(category);
+        }
+        
+        // Fetch latest 20 in same category to filter/sort by tags
+        query += ' ORDER BY createdAt DESC LIMIT 20';
+        
+        const [rows] = await pool.query(query, params);
+        let related = rows.map(sanitizeProduct);
+        
+        // Simple tag matching boost if tags exist
+        if (tags && tags.length > 0) {
+            related = related.sort((a, b) => {
+                const aMatches = (a.tags || []).filter(t => tags.includes(t)).length;
+                const bMatches = (b.tags || []).filter(t => tags.includes(t)).length;
+                return bMatches - aMatches;
+            });
+        }
+        
+        res.json(related.slice(0, 8));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/products', async (req, res) => {
     try {
         const p = req.body;

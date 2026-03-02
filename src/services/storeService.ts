@@ -152,6 +152,9 @@ export const storeService = {
   
   getProductStats: (id: string): Promise<ProductStats> => 
     apiFetch(`/products/${id}/stats`).catch(() => ({ like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 })),
+  
+  getRelatedProducts: (id: string): Promise<Product[]> => 
+    apiFetch(`/products/${id}/related`).catch(() => []),
 
   login: async (username: string, password: string) => {
     const data = await apiFetch('/login', { 
