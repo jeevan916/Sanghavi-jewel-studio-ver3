@@ -27,8 +27,10 @@ const CACHE = {
 };
 
 async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2) {
+    // Reduce retries for GET requests to improve perceived speed
+    const maxRetries = options.method === 'POST' || options.method === 'PUT' ? retries : 0;
     let lastError;
-    for (let i = 0; i <= retries; i++) {
+    for (let i = 0; i <= maxRetries; i++) {
         try {
             const response = await fetch(`${API_BASE}${endpoint}`, {
                 ...options,

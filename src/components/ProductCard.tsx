@@ -8,9 +8,10 @@ interface ProductCardProps {
   product: Product;
   isAdmin: boolean;
   onClick?: () => void;
+  priority?: boolean;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, priority = false }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -51,7 +52,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
             alt={product.title} 
             onLoad={() => setIsLoaded(true)}
             decoding="async" 
-            loading="lazy" 
+            loading={priority ? "eager" : "lazy"}
+            {...(priority ? { fetchpriority: "high" } : {})}
             className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
         />
         

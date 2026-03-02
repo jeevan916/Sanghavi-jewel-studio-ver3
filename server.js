@@ -83,6 +83,13 @@ try {
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 
+// Simple In-Memory Cache
+const CACHE = {
+    config: { data: null, lastFetch: 0 },
+    curated: { data: null, lastFetch: 0 }
+};
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 // Debug Middleware
 app.use((req, res, next) => {
     console.log(`[Request] ${req.method} ${req.url}`);
@@ -528,8 +535,13 @@ app.get('/api/links/:token', async (req, res) => {
 // --- CONFIG API ---
 app.get('/api/config', async (req, res) => {
     try {
+        const now = Date.now();
+        if (CACHE.config.data && (now - CACHE.config.lastFetch < CACHE_TTL)) {
+            return res.json(CACHE.config.data);
+        }
+
         if (DEMO_MODE) {
-            return res.json({
+            const demoData = {
                 suppliers: [{ id: 'demo', name: 'Sanghavi Heritage', isPrivate: false }],
                 categories: [
                     { id: 'rings', name: 'Rings', isPrivate: false, subCategories: ['Solitaire', 'Band'] },
@@ -537,7 +549,10 @@ app.get('/api/config', async (req, res) => {
                 ],
                 linkExpiryHours: 24,
                 demo: true
-            });
+            };
+            CACHE.config.data = demoData;
+            CACHE.config.lastFetch = now;
+            return res.json(demoData);
         }
         if (!pool) throw new Error('Database connection not initialized. Check your .env configuration.');
         const [suppliers] = await pool.query('SELECT * FROM suppliers');
@@ -583,6 +598,8 @@ app.get('/api/config', async (req, res) => {
             else config[row.setting_key] = row.setting_value;
         });
 
+        CACHE.config.data = config;
+        CACHE.config.lastFetch = now;
         res.json(config);
     } catch (e) { 
         res.status(500).json({ error: e.message }); 
@@ -646,6 +663,7 @@ app.post('/api/config', async (req, res) => {
         }
 
         await conn.commit();
+        CACHE.config.data = null; // Invalidate cache
         res.json({ success: true });
     } catch (e) { 
         await conn.rollback();
@@ -727,26 +745,37 @@ app.get('/api/products', async (req, res) => {
 
 app.get('/api/products/curated', async (req, res) => {
     try {
+        const now = Date.now();
+        if (CACHE.curated.data && (now - CACHE.curated.lastFetch < CACHE_TTL)) {
+            return res.json(CACHE.curated.data);
+        }
+
         if (DEMO_MODE) {
             const demoPath = path.join(DATA_ROOT, 'demo_products.json');
             if (existsSync(demoPath)) {
                 const data = JSON.parse(readFileSync(demoPath, 'utf8'));
-                return res.json({
+                const demoCurated = {
                     latest: data,
                     loved: data,
                     trending: data,
                     ideal: data
-                });
+                };
+                CACHE.curated.data = demoCurated;
+                CACHE.curated.lastFetch = now;
+                return res.json(demoCurated);
             }
         }
         const [rows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 60');
         const items = rows.map(sanitizeProduct);
-        res.json({
+        const curated = {
             latest: items.slice(0, 8),
             loved: items.filter((_, i) => i % 3 === 0).slice(0, 8), 
             trending: items.filter((_, i) => i % 2 === 0).slice(0, 8),
             ideal: items.slice(0, 4)
-        });
+        };
+        CACHE.curated.data = curated;
+        CACHE.curated.lastFetch = now;
+        res.json(curated);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -787,6 +816,7 @@ app.post('/api/products', async (req, res) => {
             meta: JSON.stringify(p.meta || {})
         };
         await pool.query('INSERT INTO products SET ?', productData);
+        CACHE.curated.data = null; // Invalidate cache
         res.status(201).json({ success: true });
     } catch (e) { 
         console.error('Product save error:', e);
@@ -802,6 +832,7 @@ app.put('/api/products/:id', async (req, res) => {
             tags: JSON.stringify(p.tags || []), images: JSON.stringify(p.images || []), thumbnails: JSON.stringify(p.thumbnails || []), 
             isHidden: p.isHidden, dateTaken: p.dateTaken, meta: JSON.stringify(p.meta || {})
         }, req.params.id]);
+        CACHE.curated.data = null; // Invalidate cache
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -809,6 +840,7 @@ app.put('/api/products/:id', async (req, res) => {
 app.delete('/api/products/:id', async (req, res) => {
     try {
         await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+        CACHE.curated.data = null; // Invalidate cache
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
