@@ -495,7 +495,12 @@ export const ProductDetails: React.FC = () => {
 
                 {/* Thumbnail Gallery */}
                 {displayImages.length > 1 && !aiComparison && (
-                    <div className="flex gap-3 overflow-x-auto py-4 px-2 scrollbar-hide">
+                    <div 
+                        className="flex gap-3 overflow-x-auto py-4 px-2 scrollbar-hide"
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchMove={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => e.stopPropagation()}
+                    >
                         {displayImages.map((img, idx) => {
                             const thumbMedia = product.thumbnails?.[idx] || img;
                             const isVideo = thumbMedia.includes('video/') || thumbMedia.endsWith('.webm') || thumbMedia.endsWith('.mp4') || thumbMedia.endsWith('.mov');
@@ -854,7 +859,12 @@ export const ProductDetails: React.FC = () => {
                         <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Curated for your taste</p>
                     </div>
                 </div>
-                <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide snap-x -mx-6 px-6 md:mx-0 md:px-0">
+                <div 
+                    className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide snap-x -mx-6 px-6 md:mx-0 md:px-0"
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                >
                     {relatedProducts.map(p => (
                         <div key={p.id} className="w-64 shrink-0 snap-start">
                             <ProductCard 
