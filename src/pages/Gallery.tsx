@@ -6,6 +6,20 @@ import { storeService, CuratedCollections } from '@/services/storeService.ts';
 import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight, X, Sparkles, MessageCircle } from 'lucide-react';
 import { Product, AppConfig } from '@/types.ts';
 
+const ProductSkeleton = () => (
+  <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 animate-pulse">
+    <div className="aspect-[4/5] bg-stone-100" />
+    <div className="p-4 space-y-3">
+      <div className="flex justify-between">
+        <div className="h-3 w-20 bg-stone-100 rounded" />
+        <div className="h-3 w-12 bg-stone-100 rounded" />
+      </div>
+      <div className="h-4 w-full bg-stone-100 rounded" />
+      <div className="h-3 w-2/3 bg-stone-100 rounded" />
+    </div>
+  </div>
+);
+
 export const Gallery: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,7 +53,10 @@ export const Gallery: React.FC = () => {
         // Use Cache for instant render of structure
         const cached = storeService.getCached();
         if (cached.config) setConfig(cached.config);
-        if (cached.curated) setCurated(cached.curated);
+        if (cached.curated && cached.curated.latest.length > 0) {
+            setCurated(cached.curated);
+            setIsLoading(false);
+        }
 
         try {
             const [conf, cur] = await Promise.all([
@@ -197,7 +214,20 @@ export const Gallery: React.FC = () => {
         {isOverviewMode ? (
             <div className="space-y-16 pb-12 animate-fade-in">
                 {/* 1. New Arrivals (Horizontal) */}
-                {curated.latest.length > 0 && (
+                {(isLoading && curated.latest.length === 0) ? (
+                    <section>
+                        <div className="flex items-center justify-between px-8 mb-6">
+                            <div className="h-8 w-48 bg-stone-200 rounded animate-pulse" />
+                        </div>
+                        <div className="flex gap-6 overflow-x-auto px-8 pb-8 scrollbar-hide">
+                            {[1, 2, 3, 4].map(i => (
+                                <div key={i} className="w-64 shrink-0">
+                                    <ProductSkeleton />
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                ) : curated.latest.length > 0 && (
                     <section>
                         <div className="flex items-center justify-between px-8 mb-6">
                             <div className="space-y-1">
@@ -221,7 +251,14 @@ export const Gallery: React.FC = () => {
                 )}
 
                 {/* 2. Trending (Grid 4) */}
-                {curated.trending.length > 0 && (
+                {(isLoading && curated.trending.length === 0) ? (
+                    <section className="px-8">
+                        <div className="h-8 w-48 bg-stone-200 rounded animate-pulse mb-8" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <ProductSkeleton key={i} />)}
+                        </div>
+                    </section>
+                ) : curated.trending.length > 0 && (
                     <section className="px-8">
                         <div className="space-y-1 mb-8">
                             <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
@@ -238,7 +275,14 @@ export const Gallery: React.FC = () => {
                 )}
 
                 {/* 3. Most Sold / Loved (Grid 4) */}
-                {curated.loved.length > 0 && (
+                {(isLoading && curated.loved.length === 0) ? (
+                    <section className="px-8">
+                        <div className="h-8 w-48 bg-stone-200 rounded animate-pulse mb-8" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                            {[1, 2, 3, 4].map(i => <ProductSkeleton key={i} />)}
+                        </div>
+                    </section>
+                ) : curated.loved.length > 0 && (
                     <section className="px-8">
                         <div className="space-y-1 mb-8">
                             <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
@@ -270,7 +314,9 @@ export const Gallery: React.FC = () => {
                     : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
               }`}
             >
-              {products.slice(0, isGuest ? 3 : undefined).map((product, index) => {
+              {isLoading && products.length === 0 ? (
+                  Array.from({ length: 10 }).map((_, i) => <ProductSkeleton key={i} />)
+              ) : products.slice(0, isGuest ? 3 : undefined).map((product, index) => {
                  if (!isGuest && index === products.length - 1) {
                      return (
                         <div ref={lastProductElementRef} key={product.id}>
@@ -323,12 +369,6 @@ export const Gallery: React.FC = () => {
         </button>
 
         {/* Loading Indicators */}
-        {isLoading && products.length === 0 && !isOverviewMode && (
-          <div className="min-h-[50vh] flex items-center justify-center bg-stone-50">
-            <Loader2 className="animate-spin text-brand-gold" size={32} />
-          </div>
-        )}
-
         {isFetchingMore && !isLoading && (
             <div className="py-8 flex justify-center">
                 <Loader2 className="animate-spin text-stone-300" size={24} />

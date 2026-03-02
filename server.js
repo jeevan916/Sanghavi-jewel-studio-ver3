@@ -89,6 +89,26 @@ app.use((req, res, next) => {
     next();
 });
 
+async function fetchGoldRates() {
+    try {
+        const API_URL = 'https://order.auragoldelite.com/api/gold-rate';
+        const response = await fetch(API_URL, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        if (response.ok) {
+            const rateData = await response.json();
+            if (rateData.success) {
+                if (rateData.k22) await pool.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "goldRate22k"', [rateData.k22.toString()]);
+                if (rateData.k24) await pool.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "goldRate24k"', [rateData.k24.toString()]);
+                console.log(`[GoldRate] Updated: 22k=${rateData.k22}, 24k=${rateData.k24}`);
+            }
+        }
+    } catch (error) {
+        console.error("[GoldRate] Background fetch failed:", error.message);
+    }
+}
+
 // --- MIDDLEWARE ---
 app.use((req, res, next) => {
     if (req.path.startsWith('/api/') && (!pool || dbInitError) && req.path !== '/api/health' && req.path !== '/api/retry-db') {
@@ -259,6 +279,10 @@ const initDB = async () => {
     }
 
     console.log('[Database] Schema Verified and Ready');
+    
+    // Start background gold rate fetcher
+    fetchGoldRates();
+    setInterval(fetchGoldRates, 15 * 60 * 1000); // Every 15 minutes
   } catch (err) {
     dbInitError = err.message;
     DEMO_MODE = true;
