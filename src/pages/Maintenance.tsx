@@ -5,7 +5,7 @@ import { useUpload } from '../contexts/UploadContext';
 import { Product } from '../types';
 import { 
   Loader2, ArrowLeft, Database, Download, Trash2, Archive, Shield, History, Cpu,
-  Activity, FileJson, Server, Image as ImageIcon, RefreshCw, Sparkles
+  Activity, FileJson, Server, Image as ImageIcon, RefreshCw, Sparkles, HardDrive
 } from 'lucide-react';
 
 interface MaintenanceProps {
@@ -303,6 +303,33 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
           <h3 className="font-bold">Security</h3>
           <p className="text-xs text-stone-500">Audit logs and persistence integrity checks.</p>
           <button className="w-full py-2 bg-stone-100 text-stone-600 rounded-lg text-xs font-bold hover:bg-stone-200 transition">Audit Health</button>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+          <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><HardDrive size={20} /></div>
+          <h3 className="font-bold">Storage Optimizer</h3>
+          <p className="text-xs text-stone-500">Deduplicate files and rename to CDN-friendly format.</p>
+          <button 
+            disabled={isProcessing} 
+            onClick={async () => {
+                if (!window.confirm("Run storage optimization? This will rename all files and deduplicate them. It may take a moment.")) return;
+                setIsProcessing(true);
+                addLog("Starting Storage Optimization...");
+                try {
+                    const res = await storeService.optimizeStorage();
+                    addLog(`Optimization complete: ${res.message}`);
+                    addLog(`Space saved: ${res.spaceSaved}`);
+                    addLog(`DB records updated: ${res.dbUpdates}`);
+                } catch (e: any) {
+                    addLog(`Optimization error: ${e.message}`);
+                } finally {
+                    setIsProcessing(false);
+                }
+            }} 
+            className="w-full py-2 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition disabled:opacity-50"
+          >
+            Optimize Storage
+          </button>
         </div>
       </div>
 

@@ -151,8 +151,10 @@ export const ProductDetails: React.FC = () => {
             storeService.logEvent('view', safeProduct);
 
             // Fetch Related Products
-            const related = await storeService.getRelatedProducts(safeProduct.id);
-            setRelatedProducts(related);
+            if (!isGuest) {
+                const related = await storeService.getRelatedProducts(safeProduct.id);
+                setRelatedProducts(related);
+            }
 
             // Calculate Neighbors
             const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
@@ -849,7 +851,7 @@ export const ProductDetails: React.FC = () => {
         </div>
 
         {/* Related Products Carousel */}
-        {relatedProducts.length > 0 && (
+        {!isGuest && relatedProducts.length > 0 && (
             <div className="mt-20 pt-12 border-t border-stone-100 space-y-8 px-6 md:px-0">
                 <div className="flex items-center justify-between">
                     <div className="space-y-1">

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync, readFileSync } from 'fs';
 import cors from 'cors';
+import compression from 'compression';
 import crypto from 'crypto';
 import mysql from 'mysql2/promise';
 import multer from 'multer';
@@ -81,6 +82,7 @@ try {
 }
 
 app.use(cors());
+app.use(compression());
 app.use(express.json({ limit: '100mb' }));
 
 // Simple In-Memory Cache
@@ -313,6 +315,8 @@ const upload = multer({
 
 const slugify = (text) => text.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
 
+const getHash = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 12);
+
 app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
   const results = [];
@@ -320,16 +324,28 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
     for (const file of req.files) {
       const originalName = file.originalname.split('.').slice(0, -1).join('.');
       const safeName = slugify(originalName) || 'asset';
-      const hash = crypto.randomBytes(4).toString('hex');
+      const contentHash = getHash(file.buffer);
       
       if (file.mimetype.startsWith('video/')) {
         // Handle Video Processing
         console.log(`🎬 [Media] Processing video: ${file.originalname} (${file.size} bytes)`);
-        const filename = `${safeName}-${hash}.webm`;
+        const filename = `${contentHash}-${safeName}.webm`;
         const filepath = path.join(UPLOADS_ROOT, '1080', filename);
-        const tempInput = path.join(UPLOADS_ROOT, `temp-${hash}.tmp`);
+        const tempInput = path.join(UPLOADS_ROOT, `temp-${contentHash}.tmp`);
         
         const fs = await import('fs');
+        
+        // Deduplication Check
+        if (existsSync(filepath)) {
+            console.log(`🎬 [Media] Video already exists, skipping: ${filename}`);
+            results.push({
+                originalName: file.originalname,
+                primary: `/uploads/1080/${filename}`,
+                thumbnail: `/uploads/1080/${filename}`
+            });
+            continue;
+        }
+
         fs.writeFileSync(tempInput, file.buffer);
         console.log(`🎬 [Media] Temp file created: ${tempInput}`);
 
@@ -366,9 +382,11 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
         } catch (err) {
             console.error('🎬 [Media] Video processing failed, falling back to original buffer:', err);
             // Fallback: save original buffer if ffmpeg fails
-            const fallbackFilename = `${safeName}-${hash}${path.extname(file.originalname) || '.mp4'}`;
+            const fallbackFilename = `${contentHash}-${safeName}${path.extname(file.originalname) || '.mp4'}`;
             const fallbackPath = path.join(UPLOADS_ROOT, '1080', fallbackFilename);
-            fs.writeFileSync(fallbackPath, file.buffer);
+            if (!existsSync(fallbackPath)) {
+                fs.writeFileSync(fallbackPath, file.buffer);
+            }
             results.push({
                 originalName: file.originalname,
                 primary: `/uploads/1080/${fallbackFilename}`,
@@ -378,8 +396,15 @@ app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
       } else {
         // Handle Image Processing
         const processVariant = async (width, format, quality) => {
-          const filename = `${safeName}-${width}w-${hash}.${format}`;
+          const filename = `${contentHash}-${safeName}-${width}w.${format}`;
           const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
+          
+          // Deduplication Check
+          if (existsSync(filepath)) {
+              console.log(`🖼️ [Media] Image variant already exists, skipping: ${filename}`);
+              return `/uploads/${width}/${filename}`;
+          }
+
           try {
             const { default: sharp } = await import('sharp');
             await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
@@ -673,6 +698,87 @@ app.post('/api/config', async (req, res) => {
     }
 });
 
+app.post('/api/admin/optimize-storage', async (req, res) => {
+    try {
+        const [products] = await pool.query('SELECT id, title, images, thumbnails FROM products');
+        const fs = await import('fs');
+        let spaceSaved = 0;
+        let dbUpdates = 0;
+
+        // 1. First, build a map of OLD filename -> NEW filename based on content hash
+        const oldToNewMap = new Map(); // size/oldName -> newName
+
+        const sizes = ['300', '1080'];
+        for (const size of sizes) {
+            const dir = path.join(UPLOADS_ROOT, size);
+            if (!existsSync(dir)) continue;
+            
+            const files = readdirSync(dir);
+            for (const filename of files) {
+                const filepath = path.join(dir, filename);
+                if (statSync(filepath).isDirectory()) continue;
+
+                const buffer = readFileSync(filepath);
+                const hash = getHash(buffer);
+                const ext = path.extname(filename);
+                // Keep the original slug if possible, or use 'asset'
+                const slug = filename.split('-')[0] || 'asset';
+                const newFilename = `${hash}-${slug}-${size}w${ext}`;
+                
+                oldToNewMap.set(`${size}/${filename}`, newFilename);
+
+                const newFilepath = path.join(dir, newFilename);
+                if (filename !== newFilename) {
+                    if (existsSync(newFilepath)) {
+                        spaceSaved += statSync(filepath).size;
+                        unlinkSync(filepath);
+                    } else {
+                        fs.renameSync(filepath, newFilepath);
+                    }
+                }
+            }
+        }
+
+        // 2. Update Database
+        for (const product of products) {
+            const images = safeParse(product.images);
+            const thumbnails = safeParse(product.thumbnails);
+            let changed = false;
+
+            const updateList = (list, size) => {
+                return list.map(url => {
+                    if (!url || typeof url !== 'string' || !url.startsWith('/uploads/')) return url;
+                    const oldName = path.basename(url);
+                    const newName = oldToNewMap.get(`${size}/${oldName}`);
+                    if (newName && oldName !== newName) {
+                        changed = true;
+                        return `/uploads/${size}/${newName}`;
+                    }
+                    return url;
+                });
+            };
+
+            const newImages = updateList(images, '1080');
+            const newThumbnails = updateList(thumbnails, '300');
+
+            if (changed) {
+                await pool.query('UPDATE products SET images = ?, thumbnails = ? WHERE id = ?', 
+                    [JSON.stringify(newImages), JSON.stringify(newThumbnails), product.id]);
+                dbUpdates++;
+            }
+        }
+
+        res.json({ 
+            success: true, 
+            message: "Storage optimized successfully", 
+            spaceSaved: `${(spaceSaved / (1024 * 1024)).toFixed(2)} MB`,
+            dbUpdates 
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- CORE PRODUCT APIs ---
 const safeParse = (str, fallback = []) => {
   if (Array.isArray(str)) return str;
@@ -700,8 +806,11 @@ app.get('/api/products', async (req, res) => {
     const category = req.query.category;
     const subCategory = req.query.subCategory;
     const search = req.query.search;
+    const summary = req.query.summary === 'true';
 
-    let query = 'SELECT * FROM products WHERE 1=1';
+    let query = summary 
+        ? 'SELECT id, title, category, subCategory, weight, thumbnails, isHidden, createdAt, meta FROM products WHERE 1=1'
+        : 'SELECT * FROM products WHERE 1=1';
     const params = [];
 
     if (isPublic) {

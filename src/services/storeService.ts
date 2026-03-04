@@ -104,6 +104,7 @@ export const storeService = {
       const queryParams = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
+        summary: 'true'
       });
       
       if (filters.publicOnly !== undefined) {
@@ -385,6 +386,7 @@ export const storeService = {
   deleteBackup: (name: string) => apiFetch(`/backups/${name}`, { method: 'DELETE' }),
   downloadBackupUrl: (name: string) => `${API_BASE}/backups/download/${name}?key=${process.env.API_KEY}`,
   getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message })),
+  optimizeStorage: () => apiFetch('/admin/optimize-storage', { method: 'POST' }),
   getDebugEnv: () => apiFetch('/debug-env').catch(e => ({ status: 'error', error: e.message })),
   retryDatabase: () => apiFetch('/retry-db', { method: 'GET' }).catch(e => ({ status: 'error', error: e.message }))
 };
