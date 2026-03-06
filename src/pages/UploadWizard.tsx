@@ -16,7 +16,10 @@ export const UploadWizard: React.FC = () => {
   const currentUser = storeService.getCurrentUser();
   const [config, setConfig] = useState<AppConfig | null>(null);
 
-  const { queue, addToQueue, removeFromQueue, clearCompleted, useAI, setUseAI, processImage } = useUpload();
+  const { 
+    queue, addToQueue, removeFromQueue, clearCompleted, 
+    useAI, setUseAI, enhanceImages, setEnhanceImages, processImage 
+  } = useUpload();
   
   const [selectedSupplier, setSelectedSupplier] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -57,8 +60,12 @@ export const UploadWizard: React.FC = () => {
         });
       });
       const base64Results = await Promise.all(base64Promises);
-      setImages(base64Results);
-      setStep(2);
+      if (step === 2) {
+        setImages(prev => [...prev, ...base64Results]);
+      } else {
+        setImages(base64Results);
+        setStep(2);
+      }
     } else {
       const info = getDeviceInfo();
       addToQueue(Array.from(files), selectedSupplier, selectedCategory, selectedSubCategory, info.device, info.manufacturer);
@@ -75,7 +82,7 @@ export const UploadWizard: React.FC = () => {
     setUploadError(null);
     try {
       // Process all images
-      const processedResults = await Promise.all(images.map(img => processImage(img, { enhance: false })));
+      const processedResults = await Promise.all(images.map(img => processImage(img, { enhance: enhanceImages })));
       
       const newImages = processedResults.map(r => r.primary);
       const newThumbnails = processedResults.map(r => r.thumbnail);
@@ -162,16 +169,30 @@ export const UploadWizard: React.FC = () => {
           <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
             <Briefcase size={12} /> Identification
           </h4>
-          <div className="flex items-center gap-3">
-             <span className={`text-[9px] font-bold uppercase tracking-widest transition-colors ${useAI ? 'text-gold-600' : 'text-stone-300'}`}>
-               {useAI ? 'Neural Engine Active' : 'Neural Engine Off'}
-             </span>
-             <button 
-                onClick={() => setUseAI(!useAI)} 
-                className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${useAI ? 'bg-gold-500' : 'bg-stone-200'}`}
-             >
-                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${useAI ? 'left-5.5' : 'left-0.5'}`} />
-             </button>
+          <div className="flex items-center gap-6">
+             <div className="flex items-center gap-2">
+                <span className={`text-[9px] font-bold uppercase tracking-widest transition-colors ${useAI ? 'text-gold-600' : 'text-stone-300'}`}>
+                  {useAI ? 'Process Details' : 'Details Off'}
+                </span>
+                <button 
+                    onClick={() => setUseAI(!useAI)} 
+                    className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${useAI ? 'bg-gold-500' : 'bg-stone-200'}`}
+                >
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${useAI ? 'left-5.5' : 'left-0.5'}`} />
+                </button>
+             </div>
+
+             <div className="flex items-center gap-2">
+                <span className={`text-[9px] font-bold uppercase tracking-widest transition-colors ${enhanceImages ? 'text-gold-600' : 'text-stone-300'}`}>
+                  {enhanceImages ? 'Enhance Active' : 'Enhance Off'}
+                </span>
+                <button 
+                    onClick={() => setEnhanceImages(!enhanceImages)} 
+                    className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${enhanceImages ? 'bg-gold-500' : 'bg-stone-200'}`}
+                >
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceImages ? 'left-5.5' : 'left-0.5'}`} />
+                </button>
+             </div>
           </div>
         </div>
 
@@ -289,18 +310,30 @@ export const UploadWizard: React.FC = () => {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    onClick={() => cameraInputRef.current?.click()} 
-                    className="border-2 border-dashed border-gold-500/30 rounded-3xl p-16 flex flex-col items-center justify-center bg-gold-50/30 cursor-pointer hover:bg-gold-50/50 transition h-80 shadow-inner group"
+                    className="grid grid-cols-1 md:grid-cols-2 gap-6 h-80"
                   >
-                      <div className="p-4 bg-white rounded-full shadow-md mb-4 border border-gold-100 group-hover:scale-110 transition-transform">
-                        <Camera size={48} className="text-gold-600" />
+                      <div 
+                        onClick={() => cameraInputRef.current?.click()} 
+                        className="border-2 border-dashed border-gold-500/30 rounded-3xl p-8 flex flex-col items-center justify-center bg-gold-50/30 cursor-pointer hover:bg-gold-50/50 transition shadow-inner group"
+                      >
+                        <div className="p-4 bg-white rounded-full shadow-md mb-4 border border-gold-100 group-hover:scale-110 transition-transform">
+                          <Camera size={40} className="text-gold-600" />
+                        </div>
+                        <p className="font-sans font-bold text-xl text-stone-800 uppercase tracking-tight">Capture from Camera</p>
+                        <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">Direct Studio Shot</p>
                       </div>
-                      <p className="font-sans font-bold text-2xl text-stone-800 uppercase tracking-tight">Launch Studio Camera</p>
-                      <div className="mt-8 flex gap-4">
-                        <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="px-6 py-2 bg-white text-stone-400 border border-stone-100 rounded-xl text-[10px] font-bold uppercase shadow-sm hover:shadow-md hover:text-gold-600 transition flex items-center gap-2">
-                          <ImageIcon size={14} /> Open Gallery
-                        </button>
+
+                      <div 
+                        onClick={() => fileInputRef.current?.click()} 
+                        className="border-2 border-dashed border-stone-200 rounded-3xl p-8 flex flex-col items-center justify-center bg-stone-50/50 cursor-pointer hover:bg-stone-100 transition shadow-inner group"
+                      >
+                        <div className="p-4 bg-white rounded-full shadow-md mb-4 border border-stone-100 group-hover:scale-110 transition-transform">
+                          <ImageIcon size={40} className="text-stone-400 group-hover:text-gold-600 transition-colors" />
+                        </div>
+                        <p className="font-sans font-bold text-xl text-stone-800 uppercase tracking-tight">Select from Library</p>
+                        <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">Pick from Gallery</p>
                       </div>
+
                       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" multiple />
                       <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" capture="environment" multiple />
                   </motion.div>
@@ -315,9 +348,9 @@ export const UploadWizard: React.FC = () => {
                   >
                       <div className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
                         <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Eye size={14}/> Selected Assets</h4>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {images.map((img: string, idx: number) => {
-                              const isVideo = img.includes('video/') || img.endsWith('.webm') || img.endsWith('.mp4') || img.endsWith('.mov');
+                              const isVideo = img.includes('video/') || img.includes('data:video/') || img.endsWith('.webm') || img.endsWith('.mp4') || img.endsWith('.mov');
                               return (
                               <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-stone-100 group">
                                 {isVideo ? (
@@ -335,6 +368,17 @@ export const UploadWizard: React.FC = () => {
                                 </button>
                               </div>
                             )})}
+                            
+                            {/* Add More Button */}
+                            <button 
+                                onClick={() => cameraInputRef.current?.click()}
+                                className="aspect-square rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-gold-400 hover:text-gold-600 hover:bg-gold-50/30 transition-all group"
+                            >
+                                <div className="p-2 bg-stone-50 rounded-full group-hover:bg-white transition-colors">
+                                    <Plus size={20} />
+                                </div>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Add More</span>
+                            </button>
                         </div>
                       </div>
                       <button onClick={handleProceedToDetails} disabled={isAnalyzing} className="w-full py-4 bg-gold-600 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 transition-all uppercase tracking-widest text-xs">

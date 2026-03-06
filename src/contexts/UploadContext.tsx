@@ -25,6 +25,8 @@ interface UploadContextType {
   isProcessing: boolean;
   useAI: boolean;
   setUseAI: (value: boolean) => void;
+  enhanceImages: boolean;
+  setEnhanceImages: (value: boolean) => void;
   processImage: (fileOrBase64: File | string, options?: ProcessOptions) => Promise<ImageResult>;
 }
 
@@ -40,6 +42,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [useAI, setUseAI] = useState(false); 
+  const [enhanceImages, setEnhanceImages] = useState(false);
   const currentUser = storeService.getCurrentUser();
 
   /**
@@ -225,7 +228,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         updateQueueItem(nextItem.id, { status: 'analyzing' });
         
         // Use AI Enhancement pipeline if enabled
-        const { primary, thumbnail } = await processImage(nextItem.file, { enhance: useAI });
+        const { primary, thumbnail } = await processImage(nextItem.file, { enhance: enhanceImages });
         
         // Metadata Analysis
         let analysis = { title: '', description: "Studio Asset", category: '', subCategory: '', tags: [], weight: 0 };
@@ -274,10 +277,13 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     if (queue.some(i => i.status === 'pending')) processQueue();
-  }, [queue, isProcessing, currentUser, useAI]);
+  }, [queue, isProcessing, currentUser, useAI, enhanceImages]);
 
   return (
-    <UploadContext.Provider value={{ queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, isProcessing, useAI, setUseAI, processImage }}>
+    <UploadContext.Provider value={{ 
+      queue, addToQueue, removeFromQueue, updateQueueItem, clearCompleted, 
+      isProcessing, useAI, setUseAI, enhanceImages, setEnhanceImages, processImage 
+    }}>
       {children}
     </UploadContext.Provider>
   );
