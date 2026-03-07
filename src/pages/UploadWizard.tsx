@@ -293,8 +293,6 @@ export const UploadWizard: React.FC = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
-            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" multiple />
-            <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" capture="environment" multiple />
           </motion.div>
         ) : (
           <motion.div
@@ -333,9 +331,6 @@ export const UploadWizard: React.FC = () => {
                         <p className="font-sans font-bold text-xl text-stone-800 uppercase tracking-tight">Select from Library</p>
                         <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">Pick from Gallery</p>
                       </div>
-
-                      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" multiple />
-                      <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" capture="environment" multiple />
                   </motion.div>
               )}
               {step === 2 && (
@@ -441,6 +436,10 @@ export const UploadWizard: React.FC = () => {
         )}
       </AnimatePresence>
       {uploadError && <div className="mt-6 p-4 bg-brand-red/10 border border-brand-red/20 rounded-2xl flex items-start gap-3"><AlertCircle className="text-brand-red mt-0.5" size={18} /><p className="text-sm text-brand-red">{uploadError}</p></div>}
+      
+      {/* Hidden Inputs for File Selection */}
+      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" multiple />
+      <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" capture="environment" />
     </div>
   );
 };
