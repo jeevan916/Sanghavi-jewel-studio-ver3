@@ -69,8 +69,10 @@ export const UploadWizard: React.FC = () => {
     } else {
       const info = getDeviceInfo();
       addToQueue(Array.from(files), selectedSupplier, selectedCategory, selectedSubCategory, info.device, info.manufacturer);
-      if (e.target) e.target.value = ''; 
     }
+    
+    // Reset input value to allow selecting the same file again
+    if (e.target) e.target.value = '';
   };
 
   const [thumbnails, setThumbnails] = useState<string[]>([]);
@@ -231,8 +233,8 @@ export const UploadWizard: React.FC = () => {
             className="space-y-6"
           >
             <div className="flex gap-4">
-                <button onClick={() => fileInputRef.current?.click()} className="flex-1 px-4 py-4 bg-stone-900 text-white rounded-xl font-bold shadow-lg hover:bg-stone-800 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[10px]"><ImagePlus size={16} /> Library</button>
-                <button onClick={() => cameraInputRef.current?.click()} className="flex-1 px-4 py-4 bg-gold-600 text-white rounded-xl font-bold shadow-lg hover:bg-gold-700 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[10px]"><Camera size={16} /> Camera</button>
+                <label htmlFor="batch-library-input" className="flex-1 px-4 py-4 bg-stone-900 text-white rounded-xl font-bold shadow-lg hover:bg-stone-800 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[10px] cursor-pointer"><ImagePlus size={16} /> Library</label>
+                <label htmlFor="batch-camera-input" className="flex-1 px-4 py-4 bg-gold-600 text-white rounded-xl font-bold shadow-lg hover:bg-gold-700 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[10px] cursor-pointer"><Camera size={16} /> Camera</label>
             </div>
             
             <AnimatePresence>
@@ -310,8 +312,8 @@ export const UploadWizard: React.FC = () => {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="grid grid-cols-1 md:grid-cols-2 gap-6 h-80"
                   >
-                      <div 
-                        onClick={() => cameraInputRef.current?.click()} 
+                      <label 
+                        htmlFor="wizard-camera-input" 
                         className="border-2 border-dashed border-gold-500/30 rounded-3xl p-8 flex flex-col items-center justify-center bg-gold-50/30 cursor-pointer hover:bg-gold-50/50 transition shadow-inner group"
                       >
                         <div className="p-4 bg-white rounded-full shadow-md mb-4 border border-gold-100 group-hover:scale-110 transition-transform">
@@ -319,10 +321,10 @@ export const UploadWizard: React.FC = () => {
                         </div>
                         <p className="font-sans font-bold text-xl text-stone-800 uppercase tracking-tight">Capture from Camera</p>
                         <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">Direct Studio Shot</p>
-                      </div>
+                      </label>
 
-                      <div 
-                        onClick={() => fileInputRef.current?.click()} 
+                      <label 
+                        htmlFor="wizard-library-input" 
                         className="border-2 border-dashed border-stone-200 rounded-3xl p-8 flex flex-col items-center justify-center bg-stone-50/50 cursor-pointer hover:bg-stone-100 transition shadow-inner group"
                       >
                         <div className="p-4 bg-white rounded-full shadow-md mb-4 border border-stone-100 group-hover:scale-110 transition-transform">
@@ -330,7 +332,7 @@ export const UploadWizard: React.FC = () => {
                         </div>
                         <p className="font-sans font-bold text-xl text-stone-800 uppercase tracking-tight">Select from Library</p>
                         <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">Pick from Gallery</p>
-                      </div>
+                      </label>
                   </motion.div>
               )}
               {step === 2 && (
@@ -365,15 +367,15 @@ export const UploadWizard: React.FC = () => {
                             )})}
                             
                             {/* Add More Button */}
-                            <button 
-                                onClick={() => cameraInputRef.current?.click()}
-                                className="aspect-square rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-gold-400 hover:text-gold-600 hover:bg-gold-50/30 transition-all group"
+                            <label 
+                                htmlFor="wizard-camera-input"
+                                className="aspect-square rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-gold-400 hover:text-gold-600 hover:bg-gold-50/30 transition-all group cursor-pointer"
                             >
                                 <div className="p-2 bg-stone-50 rounded-full group-hover:bg-white transition-colors">
                                     <Plus size={20} />
                                 </div>
                                 <span className="text-[10px] font-bold uppercase tracking-widest">Add More</span>
-                            </button>
+                            </label>
                         </div>
                       </div>
                       <button onClick={handleProceedToDetails} disabled={isAnalyzing} className="w-full py-4 bg-gold-600 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 transition-all uppercase tracking-widest text-xs">
@@ -438,8 +440,24 @@ export const UploadWizard: React.FC = () => {
       {uploadError && <div className="mt-6 p-4 bg-brand-red/10 border border-brand-red/20 rounded-2xl flex items-start gap-3"><AlertCircle className="text-brand-red mt-0.5" size={18} /><p className="text-sm text-brand-red">{uploadError}</p></div>}
       
       {/* Hidden Inputs for File Selection */}
-      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" multiple />
-      <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" capture="environment" />
+      <input 
+        type="file" 
+        id={mode === 'batch' ? 'batch-library-input' : 'wizard-library-input'}
+        ref={fileInputRef} 
+        onChange={handleFileSelect} 
+        className="hidden" 
+        accept="image/*,video/*" 
+        multiple 
+      />
+      <input 
+        type="file" 
+        id={mode === 'batch' ? 'batch-camera-input' : 'wizard-camera-input'}
+        ref={cameraInputRef} 
+        onChange={handleFileSelect} 
+        className="hidden" 
+        accept="image/*" 
+        capture="environment" 
+      />
     </div>
   );
 };
