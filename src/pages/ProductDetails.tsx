@@ -779,55 +779,59 @@ export const ProductDetails: React.FC = () => {
                     )}
                 </div>
 
-                {/* Specs */}
-                <div className="bg-white rounded-3xl p-6 space-y-6 border border-stone-100 shadow-lg">
-                    <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
-                        <Info size={14} /> Technical Specifications
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Calendar size={14} /></div>
-                            <div>
-                                <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Acquisition</p>
-                                <p className={`text-xs font-bold text-brand-dark ${isGuest ? 'blur-md select-none opacity-30' : ''}`}>
-                                    {isGuest ? 'dd/mm/yyyy' : new Date(product.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                </p>
+                {/* Technical Specifications - Admin Only */}
+                {isAdmin && (
+                    <div className="bg-white rounded-3xl p-6 space-y-6 border border-stone-100 shadow-lg">
+                        <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
+                            <Info size={14} /> Technical Specifications
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Acquisition Date */}
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Calendar size={14} /></div>
+                                <div>
+                                    <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Acquisition</p>
+                                    <p className="text-xs font-bold text-brand-dark">
+                                        {new Date(product.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </p>
+                                </div>
                             </div>
+
+                            {/* Camera Model */}
+                            {product.meta?.cameraModel && (
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Camera size={14} /></div>
+                                    <div>
+                                        <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Studio Capture</p>
+                                        <p className="text-xs font-bold text-brand-dark truncate max-w-[120px]">{product.meta.cameraModel}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Supplier */}
+                            {product.supplier && (
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Package size={14} /></div>
+                                    <div>
+                                        <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Artisan Source</p>
+                                        <p className="text-xs font-bold text-brand-dark">{product.supplier}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Vault Location */}
+                            {product.meta?.location && (
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><MapPin size={14} /></div>
+                                    <div>
+                                        <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Vault Location</p>
+                                        <p className="text-xs font-bold text-brand-dark">{product.meta.location}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        {product.meta?.cameraModel && !isGuest && (
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Camera size={14} /></div>
-                                <div>
-                                    <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Studio Capture</p>
-                                    <p className="text-xs font-bold text-brand-dark truncate max-w-[120px]">{product.meta.cameraModel}</p>
-                                </div>
-                            </div>
-                        )}
-                        {isAdmin && product.supplier && (
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Package size={14} /></div>
-                                <div>
-                                    <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Artisan Source</p>
-                                    <p className="text-xs font-bold text-brand-dark">{product.supplier}</p>
-                                </div>
-                            </div>
-                        )}
-                        {product.meta?.location && !isGuest && (
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><MapPin size={14} /></div>
-                                <div>
-                                    <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Vault Location</p>
-                                    <p className="text-xs font-bold text-brand-dark">{product.meta.location}</p>
-                                </div>
-                            </div>
-                        )}
                     </div>
-                    {isGuest && (
-                         <div className="bg-brand-gold/5 p-4 rounded-2xl border border-dashed border-brand-gold/20 flex items-center justify-center gap-3 text-brand-gold text-[10px] font-bold uppercase tracking-widest">
-                             <Lock size={14}/> Detailed specifications reserved for members
-                         </div>
-                     )}
-                </div>
+                )}
 
                 {product.tags && product.tags.length > 0 && !isGuest && (
                     <div className="flex flex-wrap gap-3">
