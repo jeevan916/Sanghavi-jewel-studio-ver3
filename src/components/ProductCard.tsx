@@ -34,7 +34,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
 
   return (
     <div 
-      className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 group transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col h-full cursor-pointer active:scale-[0.98] select-none"
+      className="bg-white rounded-2xl overflow-hidden shadow-md border border-stone-100 group transition-all duration-500 hover:shadow-xl hover:-translate-y-2 flex flex-col h-full cursor-pointer active:scale-[0.98] select-none"
       style={{ 
         contain: 'layout paint',
         transform: 'translate3d(0, 0, 0)', 
@@ -86,8 +86,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
         </div>
       </div>
       
-      <div className="p-4 flex flex-col flex-grow relative z-20 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div className="p-3 md:p-5 flex flex-col flex-grow relative z-20 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2 text-[8px] uppercase tracking-[0.3em] text-brand-gold font-bold min-w-0">
               <span className="truncate">{product.category}</span>
               <span className="w-1 h-1 rounded-full bg-stone-200 shrink-0"></span>
@@ -106,8 +106,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
                 </div>
             )}
         </div>
-        <h3 className="font-serif text-base text-stone-900 leading-snug mb-1 font-medium group-hover:text-brand-gold transition-colors">{product.title}</h3>
-        <div className="flex justify-between items-center mt-1">
+        <h3 className="font-serif text-base text-stone-900 leading-snug mb-2 font-medium group-hover:text-brand-gold transition-colors">{product.title}</h3>
+        <div className="flex justify-between items-center mt-auto pt-2">
             <p className="text-[10px] text-stone-400 line-clamp-1 font-serif italic">Ref: {product.id.slice(0, 8)}</p>
             <span className="text-[8px] bg-stone-100 px-1.5 py-0.5 rounded text-stone-500 uppercase tracking-widest font-bold">
                 {product.meta?.makingChargeSegmentId === 'custom' ? 'Custom' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}

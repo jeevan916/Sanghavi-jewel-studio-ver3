@@ -209,19 +209,19 @@ export const Gallery: React.FC = () => {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto pt-8">
+      <main className="max-w-7xl mx-auto pt-8 px-4 sm:px-8 lg:px-12">
         {/* OVERVIEW MODE: Sections Only */}
         {isOverviewMode ? (
-            <div className="space-y-16 pb-12 animate-fade-in">
+            <div className="space-y-16 md:space-y-24 pb-12 animate-fade-in">
                 {/* 1. New Arrivals (Horizontal) */}
                 {(isLoading && curated.latest.length === 0) ? (
                     <section>
-                        <div className="flex items-center justify-between px-8 mb-6">
+                        <div className="flex items-center justify-between mb-8">
                             <div className="h-8 w-48 bg-stone-200 rounded animate-pulse" />
                         </div>
-                        <div className="flex gap-6 overflow-x-auto px-8 pb-8 scrollbar-hide">
+                        <div className="flex gap-6 md:gap-8 overflow-x-auto pb-8 scrollbar-hide">
                             {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="w-64 shrink-0">
+                                <div key={i} className="w-64 md:w-72 shrink-0">
                                     <ProductSkeleton />
                                 </div>
                             ))}
@@ -229,9 +229,9 @@ export const Gallery: React.FC = () => {
                     </section>
                 ) : curated.latest.length > 0 && (
                     <section>
-                        <div className="flex items-center justify-between px-8 mb-6">
+                        <div className="flex items-center justify-between mb-8">
                             <div className="space-y-1">
-                                <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
+                                <h3 className="font-sans text-2xl md:text-3xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
                                     <Clock size={29} className="text-brand-gold" /> New Arrivals
                                 </h3>
                                 <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">The Latest From Our Studio</p>
@@ -240,9 +240,9 @@ export const Gallery: React.FC = () => {
                                 View All <ChevronRight size={17} />
                             </button>
                         </div>
-                        <div className="flex gap-6 overflow-x-auto px-8 pb-8 scrollbar-hide snap-x">
+                        <div className="flex gap-6 md:gap-8 overflow-x-auto pb-8 scrollbar-hide snap-x">
                             {curated.latest.slice(0, isGuest ? 3 : undefined).map((p, idx) => (
-                                <div key={p.id} className="w-64 shrink-0 snap-start">
+                                <div key={p.id} className="w-64 md:w-72 shrink-0 snap-start">
                                     <ProductCard 
                                         product={p} 
                                         isAdmin={isAdmin} 
@@ -257,21 +257,21 @@ export const Gallery: React.FC = () => {
 
                 {/* 2. Trending (Grid 4) */}
                 {(isLoading && curated.trending.length === 0) ? (
-                    <section className="px-8">
-                        <div className="h-8 w-48 bg-stone-200 rounded animate-pulse mb-8" />
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                    <section>
+                        <div className="h-8 w-48 bg-stone-200 rounded animate-pulse mb-10" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
                             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <ProductSkeleton key={i} />)}
                         </div>
                     </section>
                 ) : curated.trending.length > 0 && (
-                    <section className="px-8">
-                        <div className="space-y-1 mb-8">
-                            <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
+                    <section>
+                        <div className="space-y-1 mb-10">
+                            <h3 className="font-sans text-2xl md:text-3xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
                                 <TrendingUp size={29} className="text-brand-gold" /> Trending Now
                             </h3>
                             <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Most Coveted Pieces This Week</p>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
                             {curated.trending.slice(0, isGuest ? 3 : 8).map((p, idx) => (
                                 <ProductCard 
                                     key={p.id} 
@@ -287,21 +287,21 @@ export const Gallery: React.FC = () => {
 
                 {/* 3. Most Sold / Loved (Grid 4) */}
                 {(isLoading && curated.loved.length === 0) ? (
-                    <section className="px-8">
-                        <div className="h-8 w-48 bg-stone-200 rounded animate-pulse mb-8" />
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                    <section>
+                        <div className="h-8 w-48 bg-stone-200 rounded animate-pulse mb-10" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
                             {[1, 2, 3, 4].map(i => <ProductSkeleton key={i} />)}
                         </div>
                     </section>
                 ) : curated.loved.length > 0 && (
-                    <section className="px-8">
-                        <div className="space-y-1 mb-8">
-                            <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
+                    <section>
+                        <div className="space-y-1 mb-10">
+                            <h3 className="font-sans text-2xl md:text-3xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
                                 <Gem size={29} className="text-brand-red" /> Best Sellers
                             </h3>
                             <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Timeless Favorites</p>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
                             {curated.loved.slice(0, isGuest ? 3 : 4).map((p, idx) => (
                                 <ProductCard 
                                     key={p.id} 
@@ -325,7 +325,7 @@ export const Gallery: React.FC = () => {
         ) : (
             /* LIST MODE: Infinite Scroll Grid (Filtered) */
             <div 
-              className={`grid gap-6 px-6 pb-12 animate-fade-in ${
+              className={`grid pb-12 animate-fade-in gap-4 md:gap-8 lg:gap-10 ${
                 viewMode === 'grid' 
                     ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
                     : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
