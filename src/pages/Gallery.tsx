@@ -168,7 +168,7 @@ export const Gallery: React.FC = () => {
         <div className="max-w-7xl mx-auto p-4">
             <div className="px-2 md:px-6 h-14 flex items-center justify-between gap-6">
                 <div className="flex-1 max-w-xl relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={18} />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={22} />
                     <input 
                       type="text" 
                       placeholder="Search the Vault..." 
@@ -183,7 +183,7 @@ export const Gallery: React.FC = () => {
                     className="p-3 text-stone-300 hover:text-brand-gold hover:bg-stone-50 rounded-xl transition-all"
                     title={viewMode === 'grid' ? "Switch to Large View" : "Switch to Grid View"}
                     >
-                        {viewMode === 'grid' ? <RectangleVertical size={24}/> : <LayoutGrid size={24}/>}
+                        {viewMode === 'grid' ? <RectangleVertical size={29}/> : <LayoutGrid size={29}/>}
                     </button>
                 )}
             </div>
@@ -202,7 +202,7 @@ export const Gallery: React.FC = () => {
                 
                 {isGuest && (
                     <button onClick={() => navigate('/login')} className="px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] bg-brand-gold/5 text-brand-gold border border-brand-gold/20 flex items-center gap-2 whitespace-nowrap hover:bg-brand-gold/10 transition-colors">
-                        <Lock size={12} /> Unlock More
+                        <Lock size={14} /> Unlock More
                     </button>
                 )}
             </div>
@@ -232,12 +232,12 @@ export const Gallery: React.FC = () => {
                         <div className="flex items-center justify-between px-8 mb-6">
                             <div className="space-y-1">
                                 <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
-                                    <Clock size={24} className="text-brand-gold" /> New Arrivals
+                                    <Clock size={29} className="text-brand-gold" /> New Arrivals
                                 </h3>
                                 <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">The Latest From Our Studio</p>
                             </div>
                             <button onClick={() => setActiveCategory('Rings')} className="text-[10px] font-bold uppercase tracking-widest text-brand-gold flex items-center gap-1 hover:gap-2 transition-all">
-                                View All <ChevronRight size={14} />
+                                View All <ChevronRight size={17} />
                             </button>
                         </div>
                         <div className="flex gap-6 overflow-x-auto px-8 pb-8 scrollbar-hide snap-x">
@@ -267,7 +267,7 @@ export const Gallery: React.FC = () => {
                     <section className="px-8">
                         <div className="space-y-1 mb-8">
                             <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
-                                <TrendingUp size={24} className="text-brand-gold" /> Trending Now
+                                <TrendingUp size={29} className="text-brand-gold" /> Trending Now
                             </h3>
                             <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Most Coveted Pieces This Week</p>
                         </div>
@@ -297,7 +297,7 @@ export const Gallery: React.FC = () => {
                     <section className="px-8">
                         <div className="space-y-1 mb-8">
                             <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
-                                <Gem size={24} className="text-brand-red" /> Best Sellers
+                                <Gem size={29} className="text-brand-red" /> Best Sellers
                             </h3>
                             <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Timeless Favorites</p>
                         </div>
@@ -362,7 +362,7 @@ export const Gallery: React.FC = () => {
                  <div className="bg-white rounded-2xl overflow-hidden border border-dashed border-stone-200 flex flex-col items-center justify-center p-8 text-center space-y-6 min-h-[400px] hover:bg-stone-50 transition-all duration-500 group relative">
                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-stone-50/80 pointer-events-none"></div>
                      <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center text-brand-gold shadow-sm mb-2 relative border border-stone-100 group-hover:scale-110 transition-transform z-10">
-                        <Lock size={32} />
+                        <Lock size={38} />
                      </div>
                      <div className="z-10">
                         <h3 className="font-sans text-2xl text-brand-dark font-bold uppercase tracking-tighter">Unlock the Vault</h3>
@@ -371,7 +371,7 @@ export const Gallery: React.FC = () => {
                         </p>
                      </div>
                      <button onClick={() => navigate('/login')} className="px-8 py-4 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] shadow-2xl hover:bg-brand-gold transition-all flex items-center gap-3 active:scale-95 z-10">
-                        <User size={16} /> Login to Reveal
+                        <User size={19} /> Login to Reveal
                      </button>
                 </div>
               )}
@@ -385,7 +385,7 @@ export const Gallery: React.FC = () => {
             onClick={() => navigate('/admin/studio')} 
             className="fixed bottom-28 right-8 w-16 h-16 bg-brand-dark text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40 group border border-white/10"
         >
-            <Sparkles size={28} className="group-hover:rotate-12 transition-transform" />
+            <Sparkles size={34} className="group-hover:rotate-12 transition-transform" />
             <div className="absolute right-full mr-4 bg-white text-brand-dark px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-stone-100">
                 AI Concierge
             </div>

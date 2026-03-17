@@ -317,11 +317,11 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         <div className="flex gap-2">
             {scale !== 1 && (
                 <button onClick={resetView} className="p-2 bg-white/10 rounded-full hover:bg-white/20 backdrop-blur transition-colors">
-                  <RotateCcw size={20} />
+                  <RotateCcw size={24} />
                 </button>
             )}
             <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20 backdrop-blur transition-colors">
-              <X size={24} />
+              <X size={29} />
             </button>
         </div>
       </div>
@@ -335,7 +335,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       >
          {loadError || !activeImageSrc ? (
              <div className="flex flex-col items-center gap-2 text-stone-500">
-                 <AlertCircle size={48} />
+                 <AlertCircle size={58} />
                  <p className="text-xs uppercase font-bold tracking-widest">Media Unavailable</p>
              </div>
          ) : (
@@ -380,7 +380,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                     onClick={(e) => { e.stopPropagation(); prevImage(); }}
                     className="absolute left-6 top-1/2 -translate-y-1/2 p-4 bg-black/40 rounded-full hover:bg-black/60 backdrop-blur transition-all border border-white/10"
                 >
-                    <ChevronLeft size={32} />
+                    <ChevronLeft size={38} />
                 </button>
             )}
             {safeIndex < images.length - 1 && (
@@ -388,7 +388,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                     onClick={(e) => { e.stopPropagation(); nextImage(); }}
                     className="absolute right-6 top-1/2 -translate-y-1/2 p-4 bg-black/40 rounded-full hover:bg-black/60 backdrop-blur transition-all border border-white/10"
                 >
-                    <ChevronRight size={32} />
+                    <ChevronRight size={38} />
                 </button>
             )}
             
@@ -398,7 +398,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                    className="absolute top-4 left-1/2 -translate-x-1/2 p-2 bg-black/20 rounded-full hover:bg-black/40 backdrop-blur transition-all"
                    title="Previous Product"
                >
-                   <ChevronUp size={24} className="text-white/50 hover:text-white" />
+                   <ChevronUp size={29} className="text-white/50 hover:text-white" />
                </button>
             )}
              {onNextProduct && (
@@ -407,7 +407,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                    className="absolute bottom-4 left-1/2 -translate-x-1/2 p-2 bg-black/20 rounded-full hover:bg-black/40 backdrop-blur transition-all"
                    title="Next Product"
                >
-                   <ChevronDown size={24} className="text-white/50 hover:text-white" />
+                   <ChevronDown size={29} className="text-white/50 hover:text-white" />
                </button>
             )}
          </div>
@@ -418,9 +418,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
          
          {scale === 1 && (onNextProduct || onPrevProduct) && (
              <div className="flex flex-col items-center opacity-50 animate-pulse">
-                 {onPrevProduct && <ChevronUp size={16} />}
+                 {onPrevProduct && <ChevronUp size={19} />}
                  <span className="text-[9px] font-bold uppercase tracking-widest text-shadow">Swipe for more</span>
-                 {onNextProduct && <ChevronDown size={16} />}
+                 {onNextProduct && <ChevronDown size={19} />}
              </div>
          )}
 
@@ -429,7 +429,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
               onClick={() => { vibrate(); setScale(s => Math.max(1, s - 0.5)); }}
               className="p-2 hover:bg-white/20 rounded-full transition-colors text-stone-300"
             >
-                <ZoomOut size={22}/>
+                <ZoomOut size={26}/>
             </button>
             <div className="flex flex-col items-center justify-center min-w-[60px]">
                 <span className="text-xs font-mono font-bold">{Math.round(scale * 100)}%</span>
@@ -439,7 +439,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
               onClick={() => { vibrate(); setScale(s => Math.min(5, s + 0.5)); }}
               className="p-2 hover:bg-white/20 rounded-full transition-colors text-stone-300"
             >
-                <ZoomIn size={22}/>
+                <ZoomIn size={26}/>
             </button>
          </div>
 

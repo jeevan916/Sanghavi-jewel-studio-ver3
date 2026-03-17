@@ -60,7 +60,7 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
         }`} />
 
         <button onClick={() => navigate('/')} className="mb-10 text-stone-300 hover:text-brand-dark flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.3em] transition-all hover:bg-stone-50 px-4 py-2 rounded-full border border-transparent hover:border-stone-100">
-          <ArrowLeft size={16}/> Back to Studio
+          <ArrowLeft size={19}/> Back to Studio
         </button>
 
         <div className="text-center mb-12">
@@ -73,7 +73,7 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 ml-1">Account Identifier</label>
             <div className="relative group">
-              <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={20}/>
+              <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={24}/>
               <input 
                 type="text" 
                 value={username}
@@ -90,7 +90,7 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 ml-1">Security Key</label>
             <div className="relative group">
-              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={20}/>
+              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={24}/>
               <input 
                 type="password" 
                 value={password}
@@ -106,7 +106,7 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
 
           {error && (
             <div className="p-4 bg-brand-red/5 border border-brand-red/10 rounded-2xl flex items-start gap-4 text-brand-red text-xs animate-shake">
-              <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <AlertCircle size={22} className="shrink-0 mt-0.5" />
               <div className="flex flex-col gap-1">
                 <span className="font-bold uppercase tracking-widest">Authentication Blocked</span>
                 <span className="opacity-80">{error}</span>
@@ -119,7 +119,7 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
             disabled={isLoading || (health !== null && !health.healthy)}
             className="w-full bg-brand-dark text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] text-xs hover:bg-brand-gold transition-all flex items-center justify-center gap-3 shadow-2xl shadow-brand-dark/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
           >
-            {isLoading ? <Loader2 className="animate-spin" size={20}/> : <Shield size={20}/>}
+            {isLoading ? <Loader2 className="animate-spin" size={24}/> : <Shield size={24}/>}
             {isLoading ? 'Authorizing...' : 'Secure Login'}
           </button>
         </form>
@@ -128,11 +128,11 @@ export const StaffLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({ on
           <div className="flex items-center gap-3">
             {health?.healthy ? (
                 <span className="flex items-center gap-2 text-[9px] text-emerald-600 font-bold uppercase tracking-widest">
-                    <Wifi size={14} /> System Online
+                    <Wifi size={17} /> System Online
                 </span>
             ) : (
                 <span className="flex items-center gap-2 text-[9px] text-brand-red font-bold uppercase tracking-widest animate-pulse">
-                    <WifiOff size={14} /> System Offline
+                    <WifiOff size={17} /> System Offline
                 </span>
             )}
           </div>

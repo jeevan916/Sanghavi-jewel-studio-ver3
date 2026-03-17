@@ -49,7 +49,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ before, afte
          {/* After (Enhanced) - Background */}
          <img src={after} className="absolute inset-0 w-full h-full object-cover" alt="Enhanced" />
          <div className="absolute top-4 right-4 bg-gold-600 text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest shadow-lg flex items-center gap-1 z-10">
-           <Sparkles size={12}/> Enhanced
+           <Sparkles size={14}/> Enhanced
          </div>
 
          {/* Before (Original) - Clipped Overlay */}
@@ -63,18 +63,18 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ before, afte
          {/* Handle */}
          <div className="absolute inset-y-0 -ml-4 w-8 flex items-center justify-center cursor-ew-resize" style={{ left: `${position}%` }}>
             <div className="w-8 h-8 bg-white rounded-full shadow-xl flex items-center justify-center transform group-hover:scale-110 transition-transform">
-                <MoveHorizontal size={16} className="text-stone-800" />
+                <MoveHorizontal size={19} className="text-stone-800" />
             </div>
          </div>
        </div>
 
        <div className="h-16 bg-white border-t border-stone-200 flex items-center justify-between px-6 shrink-0">
           <button onClick={onDiscard} className="text-stone-500 hover:text-red-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
-             <X size={18}/> Discard
+             <X size={22}/> Discard
           </button>
           <span className="text-[10px] text-stone-300 font-bold uppercase tracking-widest hidden md:inline-block">Swipe to Compare</span>
           <button onClick={onAccept} className="bg-stone-900 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-gold-600 transition-colors shadow-lg flex items-center gap-2">
-             <Check size={18}/> Keep Changes
+             <Check size={22}/> Keep Changes
           </button>
        </div>
     </div>

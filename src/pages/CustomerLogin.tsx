@@ -209,7 +209,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
         </div>
 
         <button onClick={() => step === 'otp' ? setStep('details') : navigate('/')} className="absolute top-8 left-8 text-stone-300 hover:text-brand-dark transition-all p-2 hover:bg-stone-50 rounded-xl">
-          <ArrowLeft size={24}/>
+          <ArrowLeft size={29}/>
         </button>
         
         <div className="text-center mt-6 mb-12">
@@ -232,7 +232,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                      <div className="space-y-2">
                         <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-stone-400 ml-1">WhatsApp Identity</label>
                         <div className="relative group">
-                            <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={20} />
+                            <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={24} />
                             <input 
                             type="tel" 
                             value={phone}
@@ -245,7 +245,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                     </div>
                     {error && (
                         <div className="p-4 bg-brand-red/5 text-brand-red text-xs rounded-2xl flex items-start gap-3 border border-brand-red/10 animate-shake">
-                            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                            <AlertTriangle size={19} className="shrink-0 mt-0.5" />
                             <span className="font-medium">{error}</span>
                         </div>
                     )}
@@ -254,7 +254,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                         disabled={isCheckingUser}
                         className="w-full bg-brand-dark text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 hover:bg-brand-gold transition-all shadow-2xl shadow-brand-dark/20 disabled:opacity-50 active:scale-95"
                     >
-                        {isCheckingUser ? <Loader2 className="animate-spin" size={20}/> : <Locate size={20}/>}
+                        {isCheckingUser ? <Loader2 className="animate-spin" size={24}/> : <Locate size={24}/>}
                         {isCheckingUser ? 'Verifying...' : 'Request Access'}
                     </button>
                     <p className="text-[9px] text-center text-stone-300 uppercase tracking-widest">Secured via end-to-end encryption</p>
@@ -263,13 +263,13 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                 // 2. New User Registration
                 <form onSubmit={handleRegisterAndSendOtp} className="space-y-6 animate-in slide-in-from-bottom-4">
                      <div className="p-4 bg-brand-gold/5 text-brand-gold text-[10px] uppercase font-bold tracking-widest rounded-2xl flex items-center gap-3 border border-brand-gold/10 mb-6">
-                        <Sparkles size={18}/> <span>New Member Registration Required</span>
+                        <Sparkles size={22}/> <span>New Member Registration Required</span>
                      </div>
                      
                      <div className="space-y-2">
                         <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-stone-400 ml-1">Full Name</label>
                         <div className="relative group">
-                            <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={20} />
+                            <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={24} />
                             <input 
                             type="text" 
                             value={registrationData.name}
@@ -284,7 +284,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                     <div className="space-y-2">
                         <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-stone-400 ml-1">Location Pincode</label>
                         <div className="relative group">
-                            <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={20} />
+                            <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={24} />
                             <input 
                             type="number" 
                             value={registrationData.pincode}
@@ -298,7 +298,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
 
                     {error && (
                         <div className="p-4 bg-brand-red/5 text-brand-red text-xs rounded-2xl flex items-start gap-3 border border-brand-red/10 animate-shake">
-                            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                            <AlertTriangle size={19} className="shrink-0 mt-0.5" />
                             <span className="font-medium">{error}</span>
                         </div>
                     )}
@@ -310,7 +310,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
                             disabled={isLoading}
                             className="flex-1 bg-brand-dark text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 hover:bg-brand-gold transition-all shadow-2xl shadow-brand-dark/20 disabled:opacity-50 active:scale-95"
                         >
-                            {isLoading ? <Loader2 className="animate-spin" size={20}/> : <ArrowRight size={20}/>}
+                            {isLoading ? <Loader2 className="animate-spin" size={24}/> : <ArrowRight size={24}/>}
                             Join & Verify
                         </button>
                     </div>
@@ -343,7 +343,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
 
             {error && (
               <div className="p-4 bg-brand-red/5 text-brand-red text-xs rounded-2xl flex items-start gap-3 border border-brand-red/10 animate-shake">
-                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                <AlertTriangle size={19} className="shrink-0 mt-0.5" />
                 <span className="font-medium">{error}</span>
               </div>
             )}
@@ -351,7 +351,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
             {isDemoMode && (
               <div className="p-6 bg-brand-gold/5 border border-brand-gold/20 rounded-3xl shadow-sm animate-in zoom-in-95 duration-500">
                 <div className="flex items-center gap-2 text-brand-gold font-bold text-[10px] uppercase tracking-[0.3em] mb-3">
-                   <Sparkles size={18} className="animate-pulse" /> Debug Override
+                   <Sparkles size={22} className="animate-pulse" /> Debug Override
                 </div>
                 <p className="text-xs text-stone-500 font-medium leading-relaxed">
                   WhatsApp delivery is currently bypassed.
@@ -377,7 +377,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
 
         <div className="mt-12 pt-8 border-t border-stone-50 text-center space-y-6">
           <div className="flex justify-center items-center gap-3 text-stone-300">
-            <ShieldCheck size={18} className="text-emerald-500" />
+            <ShieldCheck size={22} className="text-emerald-500" />
             <span className="text-[9px] font-bold uppercase tracking-[0.2em]">Bespoke Security Protocol</span>
           </div>
           <Link to="/staff" className="inline-block text-stone-300 text-[10px] font-bold uppercase tracking-[0.3em] hover:text-brand-gold transition-all border-b border-transparent hover:border-brand-gold pb-1">Personnel Portal</Link>
@@ -386,7 +386,7 @@ export const CustomerLogin: React.FC<{ onLoginSuccess: (u: User) => void }> = ({
       
       {isLoading && (
         <div className="fixed inset-0 bg-white/80 backdrop-blur-md z-50 flex flex-col items-center justify-center">
-          <Loader2 className="animate-spin text-brand-gold mb-6" size={56} />
+          <Loader2 className="animate-spin text-brand-gold mb-6" size={67} />
           <p className="font-serif italic text-xl text-brand-dark animate-pulse tracking-widest uppercase">Securing Session...</p>
         </div>
       )}

@@ -52,7 +52,7 @@ export const SharedLanding: React.FC = () => {
       return (
         <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 text-center">
             <div className="bg-red-50 p-6 rounded-2xl border border-red-100 mb-4 animate-in zoom-in-95">
-                <AlertCircle size={40} className="text-red-400 mx-auto mb-2" />
+                <AlertCircle size={48} className="text-red-400 mx-auto mb-2" />
                 <h2 className="font-serif text-xl font-bold text-stone-800">Access Denied</h2>
                 <p className="text-stone-500 text-sm mt-2">{error}</p>
             </div>
@@ -67,7 +67,7 @@ export const SharedLanding: React.FC = () => {
       
       <div className="relative z-10 flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-700">
           <div className="w-20 h-20 bg-stone-800 rounded-full flex items-center justify-center shadow-2xl border border-stone-700">
-              <ShieldCheck size={32} className="text-gold-500" />
+              <ShieldCheck size={38} className="text-gold-500" />
           </div>
           
           <div className="text-center">
@@ -76,7 +76,7 @@ export const SharedLanding: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-full border border-white/10 backdrop-blur">
-              <Loader2 className="animate-spin text-gold-500" size={16} />
+              <Loader2 className="animate-spin text-gold-500" size={19} />
               <span className="text-xs text-stone-300 font-mono">Decrypting content...</span>
           </div>
       </div>

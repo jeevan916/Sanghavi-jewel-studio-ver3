@@ -201,7 +201,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                  <div className={`w-2 h-2 rounded-full ${healthInfo.healthy ? 'bg-emerald-500' : 'bg-brand-red animate-pulse'}`} />
                  <p className="text-stone-400 text-[10px] uppercase font-bold tracking-[0.3em] flex items-center gap-3">
                     {healthInfo.healthy ? 'Live SQL Synchronized' : 'DB Disconnected - Retrying...'}
-                    {isSyncing && <RefreshCw size={12} className="animate-spin text-brand-gold" />}
+                    {isSyncing && <RefreshCw size={14} className="animate-spin text-brand-gold" />}
                  </p>
               </div>
            </div>
@@ -222,7 +222,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 onClick={() => setActiveView(tab.id as ViewMode)}
                 className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-[10px] font-bold transition-all whitespace-nowrap uppercase tracking-[0.2em] ${activeView === tab.id ? 'bg-white shadow-lg shadow-stone-200/50 text-brand-dark' : 'text-stone-400 hover:text-brand-dark'}`}
               >
-                  <tab.icon size={14} /> {tab.label}
+                  <tab.icon size={17} /> {tab.label}
               </button>
             ))}
         </div>
@@ -234,7 +234,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     onClick={() => setActiveView('files')}
                     className="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col gap-6 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
                 >
-                    <div className="w-14 h-14 bg-brand-gold/5 text-brand-gold rounded-2xl flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-all duration-500"><HardDrive size={28} /></div>
+                    <div className="w-14 h-14 bg-brand-gold/5 text-brand-gold rounded-2xl flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-all duration-500"><HardDrive size={34} /></div>
                     <div>
                         <p className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Inventory</p>
                         <p className="text-4xl font-serif font-bold text-brand-dark">{products.length}</p>
@@ -244,7 +244,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     onClick={() => setActiveView('leads')}
                     className="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col gap-6 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
                 >
-                    <div className="w-14 h-14 bg-brand-red/5 text-brand-red rounded-2xl flex items-center justify-center group-hover:bg-brand-red group-hover:text-white transition-all duration-500"><UserCheck size={28} /></div>
+                    <div className="w-14 h-14 bg-brand-red/5 text-brand-red rounded-2xl flex items-center justify-center group-hover:bg-brand-red group-hover:text-white transition-all duration-500"><UserCheck size={34} /></div>
                     <div>
                         <p className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Leads</p>
                         <p className="text-4xl font-serif font-bold text-brand-dark">{customers.length}</p>
@@ -254,7 +254,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     onClick={() => setActiveView('activity')}
                     className="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col gap-6 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
                 >
-                    <div className="w-14 h-14 bg-brand-dark/5 text-brand-dark rounded-2xl flex items-center justify-center group-hover:bg-brand-dark group-hover:text-white transition-all duration-500"><Activity size={28} /></div>
+                    <div className="w-14 h-14 bg-brand-dark/5 text-brand-dark rounded-2xl flex items-center justify-center group-hover:bg-brand-dark group-hover:text-white transition-all duration-500"><Activity size={34} /></div>
                     <div>
                         <p className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Activity</p>
                         <p className="text-4xl font-serif font-bold text-brand-dark">{analytics.length}</p>
@@ -264,7 +264,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     onClick={() => setActiveView('trends')}
                     className="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col gap-6 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
                 >
-                    <div className="w-14 h-14 bg-brand-gold/10 text-brand-gold rounded-2xl flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-all duration-500"><TrendingUp size={28} /></div>
+                    <div className="w-14 h-14 bg-brand-gold/10 text-brand-gold rounded-2xl flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-all duration-500"><TrendingUp size={34} /></div>
                     <div>
                         <p className="text-stone-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Insights</p>
                         <p className="text-4xl font-serif font-bold text-brand-dark">Top 10</p>
@@ -281,7 +281,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live API
                       </div>
                       <div className="flex items-center gap-3 text-brand-gold">
-                          <DollarSign size={20} />
+                          <DollarSign size={24} />
                           <h3 className="font-bold uppercase tracking-widest text-xs">Gold Rate (22K)</h3>
                       </div>
                       <div className="space-y-2">
@@ -300,7 +300,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live API
                       </div>
                       <div className="flex items-center gap-3 text-brand-gold">
-                          <DollarSign size={20} />
+                          <DollarSign size={24} />
                           <h3 className="font-bold uppercase tracking-widest text-xs">Gold Rate (24K)</h3>
                       </div>
                       <div className="space-y-2">
@@ -316,7 +316,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
                   <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 space-y-6">
                       <div className="flex items-center gap-3 text-brand-gold">
-                          <ShieldCheck size={20} />
+                          <ShieldCheck size={24} />
                           <h3 className="font-bold uppercase tracking-widest text-xs">Tax (GST)</h3>
                       </div>
                       <div className="space-y-2">
@@ -337,7 +337,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-8">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 text-brand-gold">
-                          <Tag size={20} />
+                          <Tag size={24} />
                           <h3 className="font-bold uppercase tracking-widest text-xs">Making Charge Segments</h3>
                       </div>
                       <button 
@@ -351,7 +351,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                         }}
                         className="p-2 bg-stone-50 text-brand-gold rounded-xl hover:bg-brand-gold hover:text-white transition-all"
                       >
-                          <Plus size={18} />
+                          <Plus size={22} />
                       </button>
                   </div>
 
@@ -376,7 +376,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                         }}
                                         className="p-1.5 text-stone-400 hover:text-brand-dark"
                                       >
-                                          <Edit2 size={14} />
+                                          <Edit2 size={17} />
                                       </button>
                                       <button 
                                         onClick={() => {
@@ -389,7 +389,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                         }}
                                         className="p-1.5 text-stone-400 hover:text-brand-red"
                                       >
-                                          <Trash2 size={14} />
+                                          <Trash2 size={17} />
                                       </button>
                                   </div>
                               </div>
@@ -474,7 +474,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                   <div className="space-y-10 relative">
                       {/* Active Abilities Section */}
                       <div>
-                           <h4 className="text-[10px] font-bold text-stone-500 uppercase tracking-[0.3em] mb-5 flex items-center gap-3"><Zap size={14}/> Active Capabilities</h4>
+                           <h4 className="text-[10px] font-bold text-stone-500 uppercase tracking-[0.3em] mb-5 flex items-center gap-3"><Zap size={17}/> Active Capabilities</h4>
                            <div className="grid grid-cols-2 gap-4">
                                <div className="p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/[0.08] transition-colors">
                                    <p className="text-[9px] text-stone-500 uppercase font-bold tracking-widest mb-1">Analysis Model</p>
@@ -496,7 +496,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       </div>
 
                       <div>
-                          <h4 className="text-[10px] font-bold text-stone-500 uppercase tracking-[0.3em] mb-5 flex items-center gap-3"><Lock size={14}/> Immutable Core Features</h4>
+                          <h4 className="text-[10px] font-bold text-stone-500 uppercase tracking-[0.3em] mb-5 flex items-center gap-3"><Lock size={17}/> Immutable Core Features</h4>
                           <div className="grid grid-cols-1 gap-3">
                               {memory.locked_features.map(f => (
                                   <div key={f.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center hover:bg-white/[0.08] transition-all">
@@ -504,7 +504,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                           <div className={`w-2 h-2 rounded-full ${f.status === 'stable' ? 'bg-emerald-500' : 'bg-brand-gold'} shadow-[0_0_10px_rgba(16,185,129,0.3)]`} />
                                           <span className="font-bold text-xs text-stone-200 uppercase tracking-[0.2em]">{f.name}</span>
                                       </div>
-                                      <ShieldCheck size={18} className="text-brand-gold/30" />
+                                      <ShieldCheck size={22} className="text-brand-gold/30" />
                                   </div>
                               ))}
                           </div>
@@ -520,7 +520,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       <div className="space-y-4">
                           {fixHistory.map((fix, i) => (
                               <div key={i} className="flex gap-4 items-start p-4 rounded-2xl bg-stone-50/50 border border-stone-100 hover:bg-stone-50 transition-colors">
-                                  <CheckCircle size={18} className="text-emerald-500 mt-0.5 shrink-0" />
+                                  <CheckCircle size={22} className="text-emerald-500 mt-0.5 shrink-0" />
                                   <p className="text-sm text-stone-600 font-medium leading-relaxed">{fix}</p>
                               </div>
                           ))}
@@ -550,7 +550,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     <h3 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight flex items-center gap-2">
                         <UserCheck size={24} className="text-brand-red"/> Registered Clients ({customers.length})
                     </h3>
-                    <button onClick={() => refreshData(true)} className="p-2 text-stone-300 hover:text-brand-dark transition"><RefreshCw size={16}/></button>
+                    <button onClick={() => refreshData(true)} className="p-2 text-stone-300 hover:text-brand-dark transition"><RefreshCw size={19}/></button>
                   </div>
 
                   <div className="overflow-x-auto">
@@ -586,7 +586,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                               onClick={() => storeService.chatWithLead(c)}
                                               className="px-3 py-1.5 bg-brand-gold/10 text-brand-gold rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-brand-gold/20 transition-colors flex items-center gap-2 ml-auto"
                                           >
-                                              <MessageCircle size={14} /> Chat
+                                              <MessageCircle size={17} /> Chat
                                           </button>
                                       </td>
                                   </tr>
@@ -614,7 +614,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                         </h3>
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold uppercase bg-stone-50 text-stone-400 px-2 py-1 rounded-lg">{analytics.length} Events</span>
-                            <button onClick={() => refreshData(true)} className="p-2 text-stone-300 hover:text-brand-dark transition"><RefreshCw size={16}/></button>
+                            <button onClick={() => refreshData(true)} className="p-2 text-stone-300 hover:text-brand-dark transition"><RefreshCw size={19}/></button>
                         </div>
                    </div>
                    
@@ -632,9 +632,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                        event.type === 'inquiry' ? 'bg-brand-gold/5 text-brand-gold' :
                                        'bg-brand-dark/5 text-brand-dark'
                                    }`}>
-                                       {event.type === 'like' ? <Heart size={18}/> : 
-                                        event.type === 'inquiry' ? <MessageCircle size={18}/> : 
-                                        <Eye size={18}/>}
+                                       {event.type === 'like' ? <Heart size={22}/> : 
+                                        event.type === 'inquiry' ? <MessageCircle size={22}/> : 
+                                        <Eye size={22}/>}
                                    </div>
                                    <div className="flex-1 min-w-0">
                                        <div className="flex justify-between items-start">
@@ -691,7 +691,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                            </div>
                                        </div>
                                        <button onClick={() => navigate(`/product/${item.id}`)} className="px-4 py-2 bg-white rounded-lg border border-stone-100 text-stone-300 hover:text-brand-red hover:border-brand-red/20 transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-                                           View Asset <ArrowRight size={14}/>
+                                           View Asset <ArrowRight size={17}/>
                                        </button>
                                    </div>
                                ))}
@@ -705,11 +705,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {activeView === 'files' && (
           <div className="flex-1 flex flex-col md:flex-row bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden min-h-[500px]">
              <div className="w-full md:w-56 bg-stone-50 border-r border-stone-100 flex flex-col p-3">
-                 <button onClick={() => onNavigate?.('upload')} className="w-full py-2 bg-brand-dark text-white rounded-xl flex items-center justify-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-red transition-colors"><Plus size={16} /> Add Stock</button>
+                 <button onClick={() => onNavigate?.('upload')} className="w-full py-2 bg-brand-dark text-white rounded-xl flex items-center justify-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-red transition-colors"><Plus size={19} /> Add Stock</button>
                  <div className="space-y-0.5">
                      {folders.map(folder => (
                          <button key={folder} onClick={() => setSelectedFolder(folder)} className={`w-full text-left px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-2 uppercase tracking-tight font-bold transition-all ${selectedFolder === folder ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400 hover:text-brand-dark'}`}>
-                             <Folder size={14} />{folder}
+                             <Folder size={17} />{folder}
                          </button>
                      ))}
                  </div>
@@ -749,13 +749,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                         <span className="text-xs font-bold uppercase tracking-widest">{selectedAssets.size} Selected</span>
                         <div className="h-4 w-px bg-white/10"></div>
                         <button onClick={() => setIsMoveModalOpen(true)} className="flex items-center gap-2 hover:text-brand-gold transition-colors">
-                            <FolderInput size={18} /> <span className="text-xs font-bold uppercase">Move</span>
+                            <FolderInput size={22} /> <span className="text-xs font-bold uppercase">Move</span>
                         </button>
                         <button onClick={handleBulkDelete} className="flex items-center gap-2 hover:text-brand-red transition-colors">
-                            <Trash2 size={18} /> <span className="text-xs font-bold uppercase">Delete</span>
+                            <Trash2 size={22} /> <span className="text-xs font-bold uppercase">Delete</span>
                         </button>
                         <button onClick={() => setSelectedAssets(new Set())} className="p-1 hover:bg-white/10 rounded-full">
-                            <X size={16} />
+                            <X size={19} />
                         </button>
                     </div>
                 )}
@@ -768,8 +768,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           <div className="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95">
                   <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
-                      <h3 className="font-bold text-brand-dark flex items-center gap-2 uppercase tracking-tight"><FolderInput size={18}/> Move {selectedAssets.size} Assets</h3>
-                      <button onClick={() => setIsMoveModalOpen(false)}><X size={20}/></button>
+                      <h3 className="font-bold text-brand-dark flex items-center gap-2 uppercase tracking-tight"><FolderInput size={22}/> Move {selectedAssets.size} Assets</h3>
+                      <button onClick={() => setIsMoveModalOpen(false)}><X size={24}/></button>
                   </div>
                   <div className="p-6 space-y-4">
                       <div>

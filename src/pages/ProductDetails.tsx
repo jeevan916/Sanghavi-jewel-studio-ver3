@@ -392,7 +392,7 @@ export const ProductDetails: React.FC = () => {
     >
       {/* HEADER: Stable (Outside Animation Key) */}
       <div className="bg-white/90 backdrop-blur-xl border-b border-stone-100 px-4 h-16 flex items-center justify-between sticky top-0 md:top-24 z-30 transition-all duration-500">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-400 hover:text-brand-dark hover:bg-stone-50 rounded-xl transition-all"><ArrowLeft size={20} /></button>
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-400 hover:text-brand-dark hover:bg-stone-50 rounded-xl transition-all"><ArrowLeft size={24} /></button>
         <div className="flex flex-col items-center flex-1 px-2 overflow-hidden">
             <span className="text-[7px] font-bold uppercase tracking-[0.3em] text-brand-gold mb-0.5">{product.category}</span>
             <h2 className="font-serif font-bold text-brand-dark text-lg truncate w-full text-center">{product.title}</h2>
@@ -404,17 +404,17 @@ export const ProductDetails: React.FC = () => {
                         onClick={handleToggleVisibility}
                         className={`p-2 rounded-lg transition-all ${product.isHidden ? 'bg-rose-500 text-white' : 'text-stone-400 hover:text-brand-dark'}`}
                     >
-                        {product.isHidden ? <EyeOff size={18}/> : <Eye size={18}/>}
+                        {product.isHidden ? <EyeOff size={22}/> : <Eye size={22}/>}
                     </button>
-                    <button onClick={handlePrivateLink} className="p-2 text-stone-400 hover:text-brand-dark transition-all"><LinkIcon size={18}/></button>
-                    <button onClick={() => setIsEditing(!isEditing)} className={`p-2 rounded-lg transition-all ${isEditing ? 'bg-brand-gold text-white' : 'text-stone-400 hover:text-brand-dark'}`}><Edit2 size={18}/></button>
+                    <button onClick={handlePrivateLink} className="p-2 text-stone-400 hover:text-brand-dark transition-all"><LinkIcon size={22}/></button>
+                    <button onClick={() => setIsEditing(!isEditing)} className={`p-2 rounded-lg transition-all ${isEditing ? 'bg-brand-gold text-white' : 'text-stone-400 hover:text-brand-dark'}`}><Edit2 size={22}/></button>
                 </div>
             ) : (
                 <>
                     <button onClick={() => toggleLike()} className={`p-3 rounded-2xl transition-all ${isLiked ? 'text-brand-red bg-brand-red/5' : 'text-stone-300 hover:text-brand-dark hover:bg-stone-50'}`}>
-                        <Heart size={22} fill={isLiked ? "currentColor" : "none"} />
+                        <Heart size={26} fill={isLiked ? "currentColor" : "none"} />
                     </button>
-                    <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-3 text-stone-300 hover:text-brand-dark hover:bg-stone-50 rounded-2xl transition-all"><Share2 size={22} /></button>
+                    <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-3 text-stone-300 hover:text-brand-dark hover:bg-stone-50 rounded-2xl transition-all"><Share2 size={26} /></button>
                 </>
             )}
         </div>
@@ -466,7 +466,7 @@ export const ProductDetails: React.FC = () => {
                                         onClick={() => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } })} 
                                         className="p-4 bg-white/20 text-white rounded-full hover:bg-white/40 pointer-events-auto backdrop-blur-xl transition-all active:scale-90 border border-white/10"
                                     >
-                                        <ChevronLeft size={28}/>
+                                        <ChevronLeft size={34}/>
                                     </button>
                                 )}
                                 {neighbors.next && (
@@ -474,14 +474,14 @@ export const ProductDetails: React.FC = () => {
                                         onClick={() => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } })} 
                                         className="p-4 bg-white/20 text-white rounded-full hover:bg-white/40 pointer-events-auto backdrop-blur-xl transition-all active:scale-90 border border-white/10"
                                     >
-                                        <ChevronRight size={28}/>
+                                        <ChevronRight size={34}/>
                                     </button>
                                 )}
                             </div>
 
                             {isGuest && images.length > 1 && (
                                 <div className="absolute bottom-6 right-6 bg-black/60 backdrop-blur-xl text-white px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 cursor-pointer hover:bg-black/80 transition-all shadow-2xl border border-white/10" onClick={() => navigate('/login')}>
-                                    <Lock size={12} /> {images.length - 1} Private Views Locked
+                                    <Lock size={14} /> {images.length - 1} Private Views Locked
                                 </div>
                             )}
                         </>
@@ -489,7 +489,7 @@ export const ProductDetails: React.FC = () => {
 
                     {isProcessingAI && (
                         <div className="absolute inset-0 bg-brand-dark/60 backdrop-blur-md flex flex-col items-center justify-center text-white z-40">
-                            <Loader2 className="animate-spin mb-6 text-brand-gold" size={56} />
+                            <Loader2 className="animate-spin mb-6 text-brand-gold" size={67} />
                             <p className="font-serif text-xl animate-pulse tracking-widest uppercase">AI Vision Processing...</p>
                         </div>
                     )}
@@ -524,8 +524,8 @@ export const ProductDetails: React.FC = () => {
 
                 {isAdmin && isEditing && !aiComparison && (
                     <div className="bg-brand-dark p-4 rounded-b-[2.5rem] flex items-center justify-around gap-6 text-white -mt-1 md:mt-0 shadow-2xl">
-                        <button onClick={() => initiateAI('enhance')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Wand2 size={20}/> Enhance</button>
-                        <button onClick={() => initiateAI('cleanup')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Eraser size={20}/> Cleanup</button>
+                        <button onClick={() => initiateAI('enhance')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Wand2 size={24}/> Enhance</button>
+                        <button onClick={() => initiateAI('cleanup')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Eraser size={24}/> Cleanup</button>
                     </div>
                 )}
 
@@ -549,7 +549,7 @@ export const ProductDetails: React.FC = () => {
                         {isGuest && (
                             <div className="absolute inset-0 flex items-center justify-center bg-stone-50/50 backdrop-blur-[2px]">
                                 <button onClick={() => navigate('/login')} className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full shadow-sm border border-stone-200 text-[9px] font-bold uppercase tracking-widest text-brand-dark hover:bg-stone-100 transition-colors">
-                                    <Lock size={12} className="text-brand-gold" /> Login to Reveal Price
+                                    <Lock size={14} className="text-brand-gold" /> Login to Reveal Price
                                 </button>
                             </div>
                         )}
@@ -569,10 +569,10 @@ export const ProductDetails: React.FC = () => {
                         <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100 space-y-6 animate-in fade-in slide-in-from-top-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
-                                    <Settings size={14} /> Admin Pricing Controls
+                                    <Settings size={17} /> Admin Pricing Controls
                                 </h3>
                                 <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-brand-dark text-white rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-brand-red transition-all flex items-center gap-2">
-                                    {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
                                 </button>
                             </div>
 
@@ -591,7 +591,7 @@ export const ProductDetails: React.FC = () => {
                                     <div className="space-y-2">
                                         <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Gold Weight (g)</label>
                                         <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
-                                            <Gem size={18} className="text-brand-gold" />
+                                            <Gem size={22} className="text-brand-gold" />
                                             <input 
                                                 type="number" 
                                                 step="0.01"
@@ -605,7 +605,7 @@ export const ProductDetails: React.FC = () => {
                                     <div className="space-y-2">
                                         <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Making Segment</label>
                                         <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
-                                            <Tag size={18} className="text-brand-gold" />
+                                            <Tag size={22} className="text-brand-gold" />
                                             <select 
                                                 value={editForm.meta?.makingChargeSegmentId || ''}
                                                 onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargeSegmentId: e.target.value, makingChargePercent: e.target.value === 'custom' ? (editForm.meta?.makingChargePercent || 12) : undefined}})}
@@ -624,7 +624,7 @@ export const ProductDetails: React.FC = () => {
                                         <div className="space-y-2">
                                             <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Custom Making %</label>
                                             <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
-                                                <TrendingUp size={18} className="text-brand-gold" />
+                                                <TrendingUp size={22} className="text-brand-gold" />
                                                 <input 
                                                     type="number"
                                                     value={editForm.meta?.makingChargePercent || 12}
@@ -638,7 +638,7 @@ export const ProductDetails: React.FC = () => {
                                     <div className="space-y-2">
                                         <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Other Charges (₹)</label>
                                         <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
-                                            <DollarSign size={18} className="text-brand-gold" />
+                                            <DollarSign size={22} className="text-brand-gold" />
                                             <input 
                                                 type="number"
                                                 value={editForm.meta?.otherCharges || 0}
@@ -655,15 +655,15 @@ export const ProductDetails: React.FC = () => {
                     )}
 
                     <div className="flex flex-wrap items-center gap-4 text-stone-500 text-base">
-                        <span className="flex items-center gap-2 bg-stone-100 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-stone-600"><Tag size={14} className="text-brand-gold" /> {product.subCategory || 'Bespoke'}</span>
+                        <span className="flex items-center gap-2 bg-stone-100 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-stone-600"><Tag size={17} className="text-brand-gold" /> {product.subCategory || 'Bespoke'}</span>
                         <span className="flex items-center gap-2 bg-stone-100 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-stone-600">
-                            <Layers size={14} className="text-brand-gold" /> 
+                            <Layers size={17} className="text-brand-gold" /> 
                             {product.meta?.makingChargeSegmentId === 'custom' ? 'Custom Segment' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}
                         </span>
                         <div className="h-1.5 w-1.5 bg-stone-300 rounded-full"></div>
                         {!isEditing && (
                             <div className="flex items-center gap-2">
-                                <Gem size={16} className="text-brand-gold" />
+                                <Gem size={19} className="text-brand-gold" />
                                 <span className={`font-mono text-xl ${isGuest ? 'blur-md select-none opacity-30' : 'text-brand-dark font-bold'}`}>
                                     {isGuest ? '00.00g' : `${product.weight}g`}
                                 </span>
@@ -674,13 +674,13 @@ export const ProductDetails: React.FC = () => {
 
                 <div className="grid grid-cols-4 gap-2">
                     {[
-                        { icon: Heart, label: 'Likes', val: stats.like, color: 'text-brand-red', bg: 'bg-brand-red/5' },
-                        { icon: MessageCircle, label: 'Inquiry', val: stats.inquiry, color: 'text-brand-gold', bg: 'bg-brand-gold/5' },
-                        { icon: Gem, label: 'Sold', val: stats.sold, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                        { icon: TrendingUp, label: 'Trend', val: (stats.inquiry * 5 + stats.like * 3 + stats.view) > 50 ? 'Elite' : (stats.inquiry * 5 + stats.like * 3 + stats.view) > 20 ? 'Hot' : 'New', color: 'text-brand-dark', bg: 'bg-stone-100' }
+                        { icon: Heart, label: 'Likes', val: stats.like, color: 'text-brand-red', bg: 'bg-brand-red/5', size: 19 },
+                        { icon: MessageCircle, label: 'Inquiry', val: stats.inquiry, color: 'text-brand-gold', bg: 'bg-brand-gold/5', size: 19 },
+                        { icon: Gem, label: 'Sold', val: stats.sold, color: 'text-emerald-500', bg: 'bg-emerald-50', size: 19 },
+                        { icon: TrendingUp, label: 'Trend', val: (stats.inquiry * 5 + stats.like * 3 + stats.view) > 50 ? 'Elite' : (stats.inquiry * 5 + stats.like * 3 + stats.view) > 20 ? 'Hot' : 'New', color: 'text-brand-dark', bg: 'bg-stone-100', size: 19 }
                     ].map((s, idx) => (
                         <div key={idx} className={`${s.bg} rounded-xl p-3 flex flex-col items-center justify-center text-center transition-all border border-stone-100/50`}>
-                            <s.icon size={16} className={`mb-1 ${s.color}`} />
+                            <s.icon size={s.size} className={`mb-1 ${s.color}`} />
                             <span className="font-bold text-brand-dark text-sm leading-none mb-1">{s.val}</span>
                             <span className="text-[9px] uppercase font-bold text-stone-400 tracking-tighter leading-none">{s.label}</span>
                         </div>
@@ -696,7 +696,7 @@ export const ProductDetails: React.FC = () => {
                                 className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
                             >
                                 <span className="text-xs font-bold text-brand-dark uppercase tracking-widest">Product Details</span>
-                                <ChevronRight size={16} className={`text-stone-400 transition-transform ${activeTab === 'details' ? 'rotate-90' : ''}`} />
+                                <ChevronRight size={19} className={`text-stone-400 transition-transform ${activeTab === 'details' ? 'rotate-90' : ''}`} />
                             </button>
                             {activeTab === 'details' && (
                                 <div className="px-5 pb-4 animate-in fade-in slide-in-from-top-1">
@@ -723,7 +723,7 @@ export const ProductDetails: React.FC = () => {
                                 className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
                             >
                                 <span className="text-xs font-bold text-brand-dark uppercase tracking-widest">Price Breakup</span>
-                                <ChevronRight size={16} className={`text-stone-400 transition-transform ${activeTab === 'price' ? 'rotate-90' : ''}`} />
+                                <ChevronRight size={19} className={`text-stone-400 transition-transform ${activeTab === 'price' ? 'rotate-90' : ''}`} />
                             </button>
                             {activeTab === 'price' && priceData && (
                                 <div className="px-5 pb-4 space-y-2 animate-in fade-in slide-in-from-top-1 relative">
@@ -749,7 +749,7 @@ export const ProductDetails: React.FC = () => {
                                     {isGuest && (
                                         <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[2px] z-10">
                                             <button onClick={() => navigate('/login')} className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-brand-dark hover:bg-stone-100 transition-colors">
-                                                <Lock size={14} className="text-brand-gold" /> Login to Reveal
+                                                <Lock size={17} className="text-brand-gold" /> Login to Reveal
                                             </button>
                                         </div>
                                     )}
@@ -783,12 +783,12 @@ export const ProductDetails: React.FC = () => {
                 {isAdmin && (
                     <div className="bg-white rounded-3xl p-6 space-y-6 border border-stone-100 shadow-lg">
                         <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
-                            <Info size={14} /> Technical Specifications
+                            <Info size={17} /> Technical Specifications
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Acquisition Date */}
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Calendar size={14} /></div>
+                                <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Calendar size={17} /></div>
                                 <div>
                                     <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Acquisition</p>
                                     <p className="text-xs font-bold text-brand-dark">
@@ -800,7 +800,7 @@ export const ProductDetails: React.FC = () => {
                             {/* Camera Model */}
                             {product.meta?.cameraModel && (
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Camera size={14} /></div>
+                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Camera size={17} /></div>
                                     <div>
                                         <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Studio Capture</p>
                                         <p className="text-xs font-bold text-brand-dark truncate max-w-[120px]">{product.meta.cameraModel}</p>
@@ -811,7 +811,7 @@ export const ProductDetails: React.FC = () => {
                             {/* Supplier */}
                             {product.supplier && (
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Package size={14} /></div>
+                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><Package size={17} /></div>
                                     <div>
                                         <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Artisan Source</p>
                                         <p className="text-xs font-bold text-brand-dark">{product.supplier}</p>
@@ -822,7 +822,7 @@ export const ProductDetails: React.FC = () => {
                             {/* Vault Location */}
                             {product.meta?.location && (
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><MapPin size={14} /></div>
+                                    <div className="p-2 bg-stone-50 rounded-xl text-stone-400 border border-stone-100"><MapPin size={17} /></div>
                                     <div>
                                         <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Vault Location</p>
                                         <p className="text-xs font-bold text-brand-dark">{product.meta.location}</p>
@@ -860,7 +860,7 @@ export const ProductDetails: React.FC = () => {
                 <div className="flex items-center justify-between">
                     <div className="space-y-1">
                         <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter">
-                            <Sparkles size={24} className="text-brand-gold" /> Related Pieces
+                            <Sparkles size={29} className="text-brand-gold" /> Related Pieces
                         </h3>
                         <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Curated for your taste</p>
                     </div>
@@ -905,7 +905,7 @@ export const ProductDetails: React.FC = () => {
                 <button onClick={() => setGeneratedLink(null)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800"><X size={20}/></button>
                 <div className="flex flex-col items-center text-center gap-4">
                     <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
-                        <CheckCircle size={24} />
+                        <CheckCircle size={29} />
                     </div>
                     <div>
                         <h3 className="font-serif text-xl font-bold text-stone-800">Private Link Ready</h3>
@@ -925,7 +925,7 @@ export const ProductDetails: React.FC = () => {
                             }}
                             className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2"
                          >
-                            <Copy size={14} /> Copy Link
+                            <Copy size={17} /> Copy Link
                          </button>
                          <button 
                              onClick={() => {
@@ -937,7 +937,7 @@ export const ProductDetails: React.FC = () => {
                              }}
                              className="px-4 py-3 bg-green-50 text-green-700 rounded-xl font-bold uppercase text-[10px] tracking-widest border border-green-100"
                          >
-                            <Share2 size={16} />
+                            <Share2 size={19} />
                          </button>
                     </div>
                 </div>
@@ -951,12 +951,12 @@ export const ProductDetails: React.FC = () => {
                   <div className="p-6 bg-stone-50/50 border-b border-stone-100 flex justify-between items-center">
                       <div>
                           <h3 className="font-serif text-xl font-bold text-brand-dark flex items-center gap-2">
-                              <Sparkles size={20} className="text-brand-gold"/> AI Studio
+                              <Sparkles size={24} className="text-brand-gold"/> AI Studio
                           </h3>
                           <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-0.5">Select Enhancement Style</p>
                       </div>
                       <button onClick={() => setShowTemplateSelector(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400 hover:text-brand-dark">
-                          <X size={20} />
+                          <X size={24} />
                       </button>
                   </div>
                   <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3">
@@ -993,7 +993,7 @@ export const ProductDetails: React.FC = () => {
                   onClick={() => isGuest ? navigate('/login') : storeService.shareToWhatsApp(product)} 
                   className="w-full py-3.5 bg-brand-dark text-white rounded-full font-bold shadow-2xl shadow-brand-dark/40 flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-brand-gold group border border-white/10 backdrop-blur-md"
               >
-                  <MessageCircle size={18} className="group-hover:rotate-12 transition-transform" /> 
+                  <MessageCircle size={22} className="group-hover:rotate-12 transition-transform" /> 
                   <span className="uppercase tracking-[0.2em] text-[9px] font-bold">{isGuest ? 'Member Access Required' : 'Inquire via WhatsApp'}</span>
               </button>
           </div>

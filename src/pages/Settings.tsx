@@ -43,7 +43,7 @@ const PromptSection = ({
             <div className="p-4 bg-stone-50/50 border-b border-stone-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2">
                     <div className="p-2 bg-gold-100/50 text-gold-700 rounded-lg">
-                        <Sparkles size={16} />
+                        <Sparkles size={19} />
                     </div>
                     <label className="text-xs font-bold text-stone-600 uppercase tracking-widest">{title}</label>
                 </div>
@@ -55,7 +55,7 @@ const PromptSection = ({
                     >
                         {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none"/>
+                    <ChevronDown size={17} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none"/>
                 </div>
             </div>
 
@@ -74,7 +74,7 @@ const PromptSection = ({
                             className="bg-white/90 backdrop-blur shadow-sm border border-stone-200 text-stone-500 hover:text-gold-600 hover:border-gold-300 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
                             title="Save as Preset"
                         >
-                            <Save size={12}/> Save Preset
+                            <Save size={14}/> Save Preset
                         </button>
                     </div>
                 </div>
@@ -107,13 +107,13 @@ const PromptSection = ({
                                 onClick={() => setIsSaving(false)}
                                 className="p-2 text-stone-400 hover:text-stone-600"
                             >
-                                <X size={16}/>
+                                <X size={19}/>
                             </button>
                         </div>
                     ) : (
                         <div>
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                <FilePlus size={12}/> Saved Templates ({templates.length})
+                                <FilePlus size={14}/> Saved Templates ({templates.length})
                             </p>
                             
                             <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-1">
@@ -153,7 +153,7 @@ const PromptSection = ({
                                             <>
                                                 <div className="flex justify-between items-center pb-2 border-b border-stone-200/50">
                                                     <div className="flex items-center gap-2 overflow-hidden cursor-pointer flex-1" onClick={() => onPromptChange(t.content)}>
-                                                        <FileText size={12} className="text-stone-400 group-hover:text-gold-500 transition-colors shrink-0"/>
+                                                        <FileText size={14} className="text-stone-400 group-hover:text-gold-500 transition-colors shrink-0"/>
                                                         <span className="text-xs font-bold text-stone-700 group-hover:text-gold-700 truncate">{t.label}</span>
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -162,14 +162,14 @@ const PromptSection = ({
                                                             className="p-1.5 text-stone-400 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors"
                                                             title="Edit Template"
                                                         >
-                                                            <Edit2 size={12}/>
+                                                            <Edit2 size={14}/>
                                                         </button>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); if(confirm('Delete this template?')) onDeleteTemplate(t.id); }}
                                                             className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                                             title="Delete Template"
                                                         >
-                                                            <Trash2 size={12}/>
+                                                            <Trash2 size={14}/>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -190,7 +190,7 @@ const PromptSection = ({
                                 
                                 {templates.length === 0 && (
                                     <div className="col-span-full px-4 py-6 border-2 border-dashed border-stone-100 rounded-xl flex flex-col items-center justify-center text-stone-400 gap-2">
-                                        <Sparkles size={20} className="opacity-20" />
+                                        <Sparkles size={24} className="opacity-20" />
                                         <p className="text-xs">No saved templates found.</p>
                                         <button onClick={() => setIsSaving(true)} className="text-[10px] font-bold uppercase text-gold-600 hover:underline">
                                             Save current prompt as first template
@@ -407,7 +407,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   if (isInitializing || !config) {
       return (
           <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6">
-              <Loader2 className="animate-spin text-gold-600 mb-4" size={40} />
+              <Loader2 className="animate-spin text-gold-600 mb-4" size={48} />
               <p className="text-stone-400 font-serif text-lg">Synchronizing Studio Prefs...</p>
           </div>
       );
@@ -419,7 +419,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         <div className="flex items-center gap-4">
             {onBack && (
                 <button onClick={onBack} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-600">
-                  <ArrowLeft size={24} />
+                  <ArrowLeft size={29} />
                 </button>
             )}
             <div>
@@ -432,7 +432,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             disabled={isLoading}
             className="px-6 py-2 bg-stone-900 text-white rounded-lg flex items-center justify-center gap-2 hover:bg-stone-800 transition shadow-lg disabled:opacity-50"
         >
-            {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save Changes
+            {isLoading ? <Loader2 size={22} className="animate-spin" /> : <Save size={22} />} Save Changes
         </button>
       </header>
 
@@ -448,7 +448,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       {activeTab === 'suppliers' && (
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
-                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Package size={18}/> Manufacturing Sources</h3>
+                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Package size={22}/> Manufacturing Sources</h3>
                 <div className="flex gap-2 mb-6">
                     <input value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="New supplier name..." className="flex-1 p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                     <button onClick={() => {
@@ -467,10 +467,10 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                              </div>
                              <div className="flex items-center gap-2">
                                  <button onClick={() => setConfig({...config, suppliers: (config.suppliers || []).map(sup => sup.id === s.id ? {...sup, isPrivate: !sup.isPrivate} : sup)})} className="p-2 text-stone-400 hover:text-stone-600 transition-colors">
-                                     {s.isPrivate ? <Lock size={16}/> : <Unlock size={16}/>}
+                                     {s.isPrivate ? <Lock size={19}/> : <Unlock size={19}/>}
                                  </button>
                                  <button onClick={() => setConfig({...config, suppliers: (config.suppliers || []).filter(sup => sup.id !== s.id)})} className="p-2 text-stone-400 hover:text-red-500 transition-colors">
-                                     <Trash2 size={16}/>
+                                     <Trash2 size={19}/>
                                  </button>
                              </div>
                         </div>
@@ -483,7 +483,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       {activeTab === 'categories' && (
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
-                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Tag size={18}/> Collection Hierarchy</h3>
+                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Tag size={22}/> Collection Hierarchy</h3>
                 <div className="flex gap-2 mb-6">
                     <input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="New category name..." className="flex-1 p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                     <button onClick={() => {
@@ -498,14 +498,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                     {(config.categories || []).map(c => (
                         <div key={c.id} className="border border-stone-200 rounded-xl overflow-hidden shadow-sm">
                             <div className="bg-stone-50 p-3 flex justify-between items-center border-b border-stone-200">
-                                <span className="font-bold text-stone-700 flex items-center gap-2">{c.name} {c.isPrivate && <Lock size={12} className="text-red-400"/>}</span>
+                                <span className="font-bold text-stone-700 flex items-center gap-2">{c.name} {c.isPrivate && <Lock size={14} className="text-red-400"/>}</span>
                                 <div className="flex items-center gap-2">
                                     <button onClick={async () => {
                                         const link = await storeService.createSharedLink(c.name, 'category');
                                         navigator.clipboard.writeText(link);
                                         alert(`Secure link for "${c.name}" copied to clipboard!`);
                                     }} className="p-1.5 bg-white border border-stone-200 rounded hover:bg-gold-50 hover:border-gold-200 text-stone-500 hover:text-gold-600 transition">
-                                        <LinkIcon size={14} />
+                                        <LinkIcon size={17} />
                                     </button>
                                     <button onClick={() => setConfig({...config, categories: (config.categories || []).map(cat => cat.id === c.id ? {...cat, isPrivate: !cat.isPrivate} : cat)})} className="text-[10px] text-stone-400 hover:text-stone-600 uppercase font-bold tracking-widest ml-2">{c.isPrivate ? 'Make Public' : 'Make Private'}</button>
                                 </div>
@@ -515,7 +515,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                     {c.subCategories.map(sub => (
                                         <span key={sub} className="bg-stone-50 text-stone-600 px-2 py-1 rounded text-[10px] font-bold border border-stone-200 flex items-center gap-1">
                                             {sub.toUpperCase()}
-                                            <button onClick={() => setConfig({...config, categories: (config.categories || []).map(cat => cat.id === c.id ? {...cat, subCategories: cat.subCategories.filter(s => s !== sub)} : cat)})} className="hover:text-red-500 transition-colors"><X size={10} /></button>
+                                            <button onClick={() => setConfig({...config, categories: (config.categories || []).map(cat => cat.id === c.id ? {...cat, subCategories: cat.subCategories.filter(s => s !== sub)} : cat)})} className="hover:text-red-500 transition-colors"><X size={12} /></button>
                                         </span>
                                     ))}
                                 </div>
@@ -539,7 +539,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           <div className="space-y-6 animate-in fade-in duration-300">
               <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                   <h3 className="font-bold text-stone-700 mb-6 flex items-center gap-2">
-                      <BrainCircuit size={20} className="text-gold-600"/> Neural Configuration
+                      <BrainCircuit size={24} className="text-gold-600"/> Neural Configuration
                   </h3>
                   
                   <div className="space-y-8">
@@ -610,15 +610,15 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-stone-700 flex items-center gap-2"><Users size={20}/> Active Personnel</h3>
-                    <button onClick={openAddStaff} className="flex items-center gap-2 px-4 py-2 bg-gold-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-gold-700 transition"><UserPlus size={16}/> Add Staff</button>
+                    <h3 className="font-bold text-stone-700 flex items-center gap-2"><Users size={24}/> Active Personnel</h3>
+                    <button onClick={openAddStaff} className="flex items-center gap-2 px-4 py-2 bg-gold-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-gold-700 transition"><UserPlus size={19}/> Add Staff</button>
                 </div>
                 <div className="space-y-3">
                     {staffList.map(s => (
                         <div key={s.id} className={`p-4 rounded-xl border transition-all flex items-center justify-between ${s.isActive ? 'bg-white border-stone-100 shadow-sm' : 'bg-stone-50 border-stone-200 opacity-60'}`}>
                             <div className="flex items-center gap-4">
                                 <div className={`p-3 rounded-full ${s.role === 'admin' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
-                                    <Shield size={20}/>
+                                    <Shield size={24}/>
                                 </div>
                                 <div>
                                     <p className="font-bold text-stone-800 leading-none mb-1">{s.name}</p>
@@ -627,13 +627,13 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                             </div>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => openEditStaff(s)} className="p-2 text-stone-400 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors" title="Edit / Reset Password">
-                                    <Edit2 size={18} />
+                                    <Edit2 size={22} />
                                 </button>
                                 <button onClick={async () => {
                                     const updated = await storeService.updateStaff(s.id, { isActive: !s.isActive });
                                     setStaffList(staffList.map(item => item.id === s.id ? { ...item, isActive: !item.isActive } : item)); // Optimistic local update as updateStaff returns status
                                 }} className={`p-2 rounded-lg transition ${s.isActive ? 'text-green-500 hover:bg-green-50' : 'text-stone-400 hover:bg-stone-200'}`} title={s.isActive ? "Lock Account" : "Unlock Account"}>
-                                    {s.isActive ? <Unlock size={18}/> : <Lock size={18}/>}
+                                    {s.isActive ? <Unlock size={22}/> : <Lock size={22}/>}
                                 </button>
                                 <button onClick={async () => {
                                     if (s.id === currentUser?.id) return alert("Cannot delete self.");
@@ -642,7 +642,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                         setStaffList(staffList.filter(item => item.id !== s.id));
                                     }
                                 }} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition" title="Delete Account">
-                                    <Trash2 size={18}/>
+                                    <Trash2 size={22}/>
                                 </button>
                             </div>
                         </div>
@@ -655,7 +655,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       {activeTab === 'general' && isAdmin && (
         <div className="space-y-6 animate-in fade-in duration-300">
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
-                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Sparkles size={18}/> Brand Identity</h3>
+                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Sparkles size={22}/> Brand Identity</h3>
                 <div className="space-y-4">
                     <div>
                         <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Application Logo</label>
@@ -666,7 +666,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                             <div className="flex-1">
                                 <p className="text-sm text-stone-500 mb-3">Upload a new logo to replace the current one. Recommended format: PNG with transparent background.</p>
                                 <label className="cursor-pointer px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
-                                    <Plus size={16} /> Choose File
+                                    <Plus size={19} /> Choose File
                                     <input 
                                         type="file" 
                                         accept="image/png, image/jpeg, image/svg+xml" 
@@ -702,7 +702,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 </div>
             </div>
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
-                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><MessageCircle size={18}/> Communication</h3>
+                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><MessageCircle size={22}/> Communication</h3>
                 <div className="space-y-4">
                     <div>
                         <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">WhatsApp Number (For Inquiries)</label>
@@ -729,14 +729,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                 className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900 pr-10" 
                             />
                             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
-                                {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
+                                {showPassword ? <EyeOff size={19}/> : <Eye size={19}/>}
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
-                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Layers size={18}/> Persistence</h3>
+                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><Layers size={22}/> Persistence</h3>
                 <div>
                     <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Link Expiry (Hours)</label>
                     <input type="number" value={config.linkExpiryHours} onChange={e => setConfig({...config, linkExpiryHours: parseInt(e.target.value) || 24})} className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
@@ -752,7 +752,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                       <h3 className="font-bold text-stone-800">
                         {staffModal.mode === 'add' ? 'New Team Member' : 'Edit Staff Profile'}
                       </h3>
-                      <button onClick={() => setStaffModal({...staffModal, isOpen: false})}><X size={20}/></button>
+                      <button onClick={() => setStaffModal({...staffModal, isOpen: false})}><X size={24}/></button>
                   </div>
                   <form onSubmit={handleStaffSubmit} className="p-6 space-y-4">
                       <div className="space-y-1">
@@ -779,7 +779,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                 className="w-full p-3 border rounded-xl text-stone-900 focus:ring-2 focus:ring-gold-500/20 outline-none" 
                             />
                             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
-                                {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+                                {showPassword ? <EyeOff size={22}/> : <Eye size={22}/>}
                             </button>
                           </div>
                       </div>
@@ -793,7 +793,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                       </div>
 
                       <button type="submit" disabled={isLoading} className="w-full py-3 bg-stone-900 text-white rounded-xl font-bold shadow-lg hover:bg-stone-800 transition flex items-center justify-center gap-2">
-                          {isLoading ? <Loader2 className="animate-spin" size={18} /> : (staffModal.mode === 'add' ? <Plus size={18}/> : <Save size={18}/>)}
+                          {isLoading ? <Loader2 className="animate-spin" size={22} /> : (staffModal.mode === 'add' ? <Plus size={22}/> : <Save size={22}/>)}
                           {staffModal.mode === 'add' ? 'Create Account' : 'Save Changes'}
                       </button>
                   </form>

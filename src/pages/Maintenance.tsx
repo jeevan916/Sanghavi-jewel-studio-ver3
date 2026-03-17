@@ -141,7 +141,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 pb-24 animate-fade-in text-stone-800">
       <div className="flex items-center gap-4 mb-8">
-        <button onClick={onBack} className="p-2 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={24}/></button>
+        <button onClick={onBack} className="p-2 hover:bg-stone-100 rounded-full transition-colors"><ArrowLeft size={29}/></button>
         <div>
           <h2 className="font-serif text-3xl text-gold-700">Vault Maintenance</h2>
           <p className="text-stone-500 text-sm">Global image re-processing and data protection tools.</p>
@@ -152,13 +152,13 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
       <div className="bg-stone-900 text-white p-6 rounded-2xl shadow-xl mb-8">
           <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                  <Activity className="text-teal-400" size={20} />
+                  <Activity className="text-teal-400" size={24} />
                   <h3 className="font-bold uppercase tracking-widest text-sm">System Diagnostics</h3>
               </div>
               <div className="flex gap-2">
                   {diagnostics?.demoMode && (
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-gold/20 text-brand-gold rounded-lg text-[10px] font-bold uppercase tracking-widest border border-brand-gold/30">
-                          <Sparkles size={12} className="animate-pulse" /> Demo Mode Active
+                          <Sparkles size={14} className="animate-pulse" /> Demo Mode Active
                       </div>
                   )}
                   <button 
@@ -177,7 +177,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                     disabled={isProcessing}
                     className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
                   >
-                      <RefreshCw size={12} className={isProcessing ? 'animate-spin' : ''} /> Re-Sync DB
+                      <RefreshCw size={14} className={isProcessing ? 'animate-spin' : ''} /> Re-Sync DB
                   </button>
               </div>
           </div>
@@ -217,7 +217,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                   
                   <div className="bg-black/30 p-3 rounded-lg border border-white/5 overflow-hidden flex flex-col">
                       <div className="flex items-center gap-2 mb-2 text-stone-500 text-[10px] font-bold uppercase">
-                          <Server size={12}/> Tables in Schema
+                          <Server size={14}/> Tables in Schema
                       </div>
                       <div className="flex-1 overflow-y-auto pr-2">
                         {diagnostics.tables?.map((t: any, i: number) => (
@@ -230,7 +230,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
               </div>
           ) : (
               <div className="flex items-center gap-2 text-stone-400">
-                  <Loader2 className="animate-spin" size={16} /> Running diagnostics...
+                  <Loader2 className="animate-spin" size={19} /> Running diagnostics...
               </div>
           )}
       </div>
@@ -238,7 +238,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
       {/* NEURAL CORE DEBUG */}
       <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm mb-8">
           <div className="flex items-center gap-2 mb-6">
-              <Shield className="text-gold-600" size={20} />
+              <Shield className="text-gold-600" size={24} />
               <h3 className="font-bold uppercase tracking-widest text-sm">Neural Core Debug (Environment)</h3>
           </div>
           
@@ -255,17 +255,17 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                 className="p-4 bg-stone-50 border border-stone-200 rounded-xl hover:bg-stone-100 transition flex items-center justify-between group"
               >
                   <div className="flex items-center gap-3">
-                      <FileJson className="text-stone-400 group-hover:text-gold-600" size={20} />
+                      <FileJson className="text-stone-400 group-hover:text-gold-600" size={24} />
                       <div className="text-left">
                           <p className="text-xs font-bold text-stone-700">Inspect Environment</p>
                           <p className="text-[10px] text-stone-500">Verify Hostinger DB credentials</p>
                       </div>
                   </div>
-                  <ArrowLeft className="rotate-180 text-stone-300 group-hover:text-gold-600 transition-transform" size={16} />
+                  <ArrowLeft className="rotate-180 text-stone-300 group-hover:text-gold-600 transition-transform" size={19} />
               </button>
 
               <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl flex items-center gap-3">
-                  <History className="text-stone-400" size={20} />
+                  <History className="text-stone-400" size={24} />
                   <div>
                       <p className="text-xs font-bold text-stone-700">Engine Version</p>
                       <p className="text-[10px] text-stone-500">v3.6.0-stable (MySQL Persistence)</p>
@@ -276,21 +276,21 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Cpu size={20} /></div>
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Cpu size={24} /></div>
           <h3 className="font-bold">Next-Gen Engine</h3>
           <p className="text-xs text-stone-500">Transcode entire catalog to AVIF (Storage) and WebP (Speed).</p>
           <button disabled={isProcessing} onClick={runReOptimization} className="w-full py-2 bg-stone-900 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-stone-800 transition">Transcode All</button>
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-          <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><ImageIcon size={20} /></div>
+          <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><ImageIcon size={24} /></div>
           <h3 className="font-bold">Thumbnail Repair</h3>
           <p className="text-xs text-stone-500">Regenerate broken or missing low-res previews.</p>
           <button disabled={isProcessing} onClick={runThumbnailRepair} className="w-full py-2 bg-stone-100 text-stone-800 rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-stone-200 transition">Regenerate Thumbnails</button>
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-          <div className="w-10 h-10 bg-gold-50 text-gold-600 rounded-xl flex items-center justify-center"><Archive size={20} /></div>
+          <div className="w-10 h-10 bg-gold-50 text-gold-600 rounded-xl flex items-center justify-center"><Archive size={24} /></div>
           <h3 className="font-serif">Backup Vault</h3>
           <p className="text-xs text-stone-500">Create a compressed ZIP of the entire database and physical image storage.</p>
           <button disabled={isBackupLoading} onClick={handleCreateBackup} className="w-full py-2 bg-gold-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-gold-700 transition">
@@ -299,14 +299,14 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-          <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center"><Shield size={20} /></div>
+          <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center"><Shield size={24} /></div>
           <h3 className="font-bold">Security</h3>
           <p className="text-xs text-stone-500">Audit logs and persistence integrity checks.</p>
           <button className="w-full py-2 bg-stone-100 text-stone-600 rounded-lg text-xs font-bold hover:bg-stone-200 transition">Audit Health</button>
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-          <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><HardDrive size={20} /></div>
+          <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><HardDrive size={24} /></div>
           <h3 className="font-bold">Storage Optimizer</h3>
           <p className="text-xs text-stone-500">Deduplicate files and rename to CDN-friendly format.</p>
           <button 
@@ -347,22 +347,22 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
 
       <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-8">
         <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center">
-          <h4 className="font-bold text-sm flex items-center gap-2"><History size={16}/> Snapshot History</h4>
+          <h4 className="font-bold text-sm flex items-center gap-2"><History size={19}/> Snapshot History</h4>
           <span className="text-[10px] uppercase font-bold text-stone-400 tracking-widest">{backups.length} Backups stored</span>
         </div>
         <div className="divide-y divide-stone-100">
           {backups.map((b, idx) => (
             <div key={idx} className="px-6 py-4 flex items-center justify-between hover:bg-stone-50 transition-colors">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center text-stone-400"><Database size={20}/></div>
+                <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center text-stone-400"><Database size={24}/></div>
                 <div>
                   <p className="text-sm font-bold text-stone-800">{b.name}</p>
                   <p className="text-[10px] text-stone-500 uppercase tracking-widest">{new Date(b.date).toLocaleString()} • {(b.size/1024/1024).toFixed(2)} MB</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <a href={storeService.downloadBackupUrl(b.name)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Download ZIP"><Download size={18}/></a>
-                <button onClick={() => handleDeleteBackup(b.name)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors" title="Delete Backup"><Trash2 size={18}/></button>
+                <a href={storeService.downloadBackupUrl(b.name)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Download ZIP"><Download size={22}/></a>
+                <button onClick={() => handleDeleteBackup(b.name)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors" title="Delete Backup"><Trash2 size={22}/></button>
               </div>
             </div>
           ))}

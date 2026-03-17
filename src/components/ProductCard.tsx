@@ -69,7 +69,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
           onClick={handleToggleLike} 
           className={`absolute top-3 left-3 p-2.5 rounded-full backdrop-blur-md shadow-sm z-20 transition-all duration-300 active:scale-125 ${isLiked ? 'bg-brand-red text-white' : 'bg-white/80 text-stone-400 hover:bg-white hover:text-brand-red'}`}
         >
-          <Heart size={14} fill={isLiked ? "currentColor" : "none"} />
+          <Heart size={17} fill={isLiked ? "currentColor" : "none"} />
         </button>
 
         {isGuest && (product.images?.length || 0) > 1 && (
@@ -97,7 +97,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
                 <div className={`text-[10px] font-bold bg-stone-50 px-2 py-0.5 rounded-full border border-stone-100 shrink-0 flex items-center gap-1 ${isGuest ? 'text-stone-400' : 'text-brand-dark'}`}>
                     {isGuest ? (
                         <>
-                            <Lock size={8} />
+                            <Lock size={10} />
                             <span className="blur-[3px] select-none">₹XX,XXX</span>
                         </>
                     ) : (

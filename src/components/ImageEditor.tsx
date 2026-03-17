@@ -195,7 +195,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onSave, onCa
       {/* 1. TOP HEADER */}
       <div className="flex justify-between items-center p-4 h-16 bg-black/80 backdrop-blur border-b border-stone-800 z-10">
           <button onClick={onCancel} className="p-2 text-stone-400 hover:text-white transition">
-            <X size={24} />
+            <X size={29} />
           </button>
           <div className="flex flex-col items-center">
             <span className="font-serif text-sm font-bold tracking-widest uppercase text-gold-500">Sanghavi Studio</span>
@@ -263,7 +263,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onSave, onCa
 
           {/* Quick Zoom Tooltip */}
           <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-full backdrop-blur border border-white/10 opacity-60 hover:opacity-100 transition">
-              <ZoomIn size={14} className="text-stone-400" />
+              <ZoomIn size={17} className="text-stone-400" />
               <span className="text-[10px] font-mono">{Math.round(settings.scale * 100)}%</span>
               <button onClick={() => setSettings(s => ({...s, scale: 1, offsetX: 0, offsetY: 0}))} className="ml-2 text-[8px] bg-white/10 px-1.5 py-0.5 rounded hover:bg-white/20">Reset</button>
           </div>
@@ -293,7 +293,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onSave, onCa
                                 onClick={() => setActiveTune(t.id as any)} 
                                 className={`flex flex-col items-center gap-1.5 transition ${activeTune === t.id ? 'text-gold-500' : 'text-stone-600 hover:text-stone-400'}`}
                               >
-                                  <t.icon size={18} strokeWidth={activeTune === t.id ? 2.5 : 2} />
+                                  <t.icon size={22} strokeWidth={activeTune === t.id ? 2.5 : 2} />
                                   <span className="text-[8px] font-bold uppercase tracking-widest">{t.label}</span>
                               </button>
                           ))}
@@ -317,12 +317,12 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onSave, onCa
               
               {activeTool === 'rotate' && (
                   <div className="flex items-center gap-8">
-                       <button onClick={() => setSettings(s => ({...s, rotation: s.rotation - 90}))} className="p-3 bg-stone-900 rounded-full hover:text-gold-500 transition border border-stone-800"><Undo2 size={20}/></button>
+                       <button onClick={() => setSettings(s => ({...s, rotation: s.rotation - 90}))} className="p-3 bg-stone-900 rounded-full hover:text-gold-500 transition border border-stone-800"><Undo2 size={24}/></button>
                        <div className="flex flex-col items-center">
                             <span className="text-xl font-serif text-white">{settings.rotation % 360}°</span>
                             <span className="text-[8px] font-bold text-stone-500 uppercase tracking-widest">Rotation</span>
                        </div>
-                       <button onClick={() => setSettings(s => ({...s, rotation: s.rotation + 90}))} className="p-3 bg-stone-900 rounded-full hover:text-gold-500 transition border border-stone-800"><RotateCw size={20}/></button>
+                       <button onClick={() => setSettings(s => ({...s, rotation: s.rotation + 90}))} className="p-3 bg-stone-900 rounded-full hover:text-gold-500 transition border border-stone-800"><RotateCw size={24}/></button>
                   </div>
               )}
           </div>
@@ -339,7 +339,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onSave, onCa
                     onClick={() => setActiveTool(tool.id as any)} 
                     className={`flex flex-col items-center gap-1.5 p-2 transition-all ${activeTool === tool.id ? 'text-white' : 'text-stone-600 hover:text-stone-400'}`}
                   >
-                      <tool.icon size={22} strokeWidth={activeTool === tool.id ? 2 : 1.5} />
+                      <tool.icon size={26} strokeWidth={activeTool === tool.id ? 2 : 1.5} />
                       <span className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-all ${activeTool === tool.id ? 'opacity-100' : 'opacity-50'}`}>
                         {tool.label}
                       </span>

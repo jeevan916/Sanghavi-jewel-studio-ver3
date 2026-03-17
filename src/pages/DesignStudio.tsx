@@ -58,7 +58,7 @@ export const DesignStudio: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100">
-            <Zap size={12} className="fill-current" />
+            <Zap size={14} className="fill-current" />
             <span className="text-[10px] font-bold uppercase tracking-widest">High Speed Engine</span>
         </div>
       </header>
@@ -91,7 +91,7 @@ export const DesignStudio: React.FC = () => {
                             <option value="" disabled>Load Style...</option>
                             {templates.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                         </select>
-                        <ChevronDown size={12} className="absolute right-0 top-1/2 -translate-y-1/2 text-gold-600 pointer-events-none"/>
+                        <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-gold-600 pointer-events-none"/>
                     </div>
                 )}
             </div>
@@ -133,7 +133,7 @@ export const DesignStudio: React.FC = () => {
                 : 'bg-gold-600 text-white hover:bg-gold-700 shadow-xl shadow-gold-200'
             }`}
           >
-            {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles size={22} />}
+            {isGenerating ? <Loader2 className="animate-spin" size={22} /> : <Sparkles size={26} />}
             {isGenerating ? 'Synthesizing...' : 'Generate Concept'}
           </button>
         </div>
@@ -145,7 +145,7 @@ export const DesignStudio: React.FC = () => {
              ) : (
                <div className="text-center p-8">
                  <div className="w-16 h-16 bg-stone-200 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-400">
-                   <Sparkles />
+                   <Sparkles size={34} />
                  </div>
                  <p className="text-stone-400 text-sm font-medium">Specify details and click generate</p>
                </div>
@@ -157,7 +157,7 @@ export const DesignStudio: React.FC = () => {
                  download={`sanghavi-design-${Date.now()}.png`}
                  className="absolute bottom-4 right-4 p-3 bg-white/90 backdrop-blur rounded-full shadow-lg text-stone-800 hover:text-gold-600 transition-colors"
                >
-                 <Download size={20} />
+                 <Download size={24} />
                </a>
              )}
           </div>

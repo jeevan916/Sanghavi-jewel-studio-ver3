@@ -162,14 +162,14 @@ export const UploadWizard: React.FC = () => {
         </div>
         <div className="flex bg-stone-50 p-1 rounded-xl border border-stone-100">
             <button onClick={() => setMode('single')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all uppercase tracking-tighter ${mode === 'single' ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400'}`}>Wizard</button>
-            <button onClick={() => setMode('batch')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 uppercase tracking-tighter ${mode === 'batch' ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400'}`}><Layers size={14} /> Batch</button>
+            <button onClick={() => setMode('batch')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 uppercase tracking-tighter ${mode === 'batch' ? 'bg-white shadow-sm text-brand-red' : 'text-stone-400'}`}><Layers size={17} /> Batch</button>
         </div>
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm mb-6">
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-            <Briefcase size={12} /> Identification
+            <Briefcase size={14} /> Identification
           </h4>
           <div className="flex items-center gap-6">
              <div className="flex items-center gap-2">
@@ -233,8 +233,8 @@ export const UploadWizard: React.FC = () => {
             className="space-y-6"
           >
             <div className="flex gap-4">
-                <label htmlFor="batch-library-input" className="flex-1 px-4 py-4 bg-stone-900 text-white rounded-xl font-bold shadow-lg hover:bg-stone-800 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[10px] cursor-pointer"><ImagePlus size={16} /> Library</label>
-                <label htmlFor="batch-camera-input" className="flex-1 px-4 py-4 bg-gold-600 text-white rounded-xl font-bold shadow-lg hover:bg-gold-700 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[10px] cursor-pointer"><Camera size={16} /> Camera</label>
+                <label htmlFor="batch-library-input" className="flex-1 px-4 py-4 bg-stone-900 text-white rounded-xl font-bold shadow-lg hover:bg-stone-800 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[10px] cursor-pointer"><ImagePlus size={19} /> Library</label>
+                <label htmlFor="batch-camera-input" className="flex-1 px-4 py-4 bg-gold-600 text-white rounded-xl font-bold shadow-lg hover:bg-gold-700 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[10px] cursor-pointer"><Camera size={19} /> Camera</label>
             </div>
             
             <AnimatePresence>
@@ -247,7 +247,7 @@ export const UploadWizard: React.FC = () => {
                     >
                         <div className="p-3 bg-stone-50 border-b border-stone-100 flex justify-between items-center">
                           <div className="flex items-center gap-2">
-                             <Layers size={14} className="text-stone-400" />
+                             <Layers size={17} className="text-stone-400" />
                              <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Queue: {queue.length} Assets</span>
                           </div>
                           <div className="flex items-center gap-3">
@@ -263,7 +263,7 @@ export const UploadWizard: React.FC = () => {
                                         <img src={item.previewUrl} className="w-10 h-10 object-cover rounded-lg border border-stone-100 shadow-sm" />
                                         {item.status === 'complete' && (
                                             <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full p-0.5 shadow-sm">
-                                                <CheckCircle size={10} />
+                                                <CheckCircle size={12} />
                                             </div>
                                         )}
                                     </div>
@@ -281,12 +281,12 @@ export const UploadWizard: React.FC = () => {
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {item.status === 'error' && <AlertCircle size={14} className="text-red-400" />}
+                                        {item.status === 'error' && <AlertCircle size={17} className="text-red-400" />}
                                         <button 
                                             onClick={() => removeFromQueue(item.id)} 
                                             className="p-2 text-stone-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                         >
-                                            <Trash2 size={14}/>
+                                            <Trash2 size={17}/>
                                         </button>
                                     </div>
                                 </div>
@@ -317,7 +317,7 @@ export const UploadWizard: React.FC = () => {
                         className="border-2 border-dashed border-gold-500/30 rounded-3xl p-8 flex flex-col items-center justify-center bg-gold-50/30 cursor-pointer hover:bg-gold-50/50 transition shadow-inner group"
                       >
                         <div className="p-4 bg-white rounded-full shadow-md mb-4 border border-gold-100 group-hover:scale-110 transition-transform">
-                          <Camera size={40} className="text-gold-600" />
+                          <Camera size={48} className="text-gold-600" />
                         </div>
                         <p className="font-sans font-bold text-xl text-stone-800 uppercase tracking-tight">Capture from Camera</p>
                         <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">Direct Studio Shot</p>
@@ -328,7 +328,7 @@ export const UploadWizard: React.FC = () => {
                         className="border-2 border-dashed border-stone-200 rounded-3xl p-8 flex flex-col items-center justify-center bg-stone-50/50 cursor-pointer hover:bg-stone-100 transition shadow-inner group"
                       >
                         <div className="p-4 bg-white rounded-full shadow-md mb-4 border border-stone-100 group-hover:scale-110 transition-transform">
-                          <ImageIcon size={40} className="text-stone-400 group-hover:text-gold-600 transition-colors" />
+                          <ImageIcon size={48} className="text-stone-400 group-hover:text-gold-600 transition-colors" />
                         </div>
                         <p className="font-sans font-bold text-xl text-stone-800 uppercase tracking-tight">Select from Library</p>
                         <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">Pick from Gallery</p>
@@ -344,7 +344,7 @@ export const UploadWizard: React.FC = () => {
                     className="space-y-6"
                   >
                       <div className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
-                        <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Eye size={14}/> Selected Assets</h4>
+                        <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Eye size={17}/> Selected Assets</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {images.map((img: string, idx: number) => {
                               const isVideo = img.includes('video/') || img.includes('data:video/') || img.endsWith('.webm') || img.endsWith('.mp4') || img.endsWith('.mov');
@@ -361,25 +361,36 @@ export const UploadWizard: React.FC = () => {
                                     setImages(newImages);
                                     if (newImages.length === 0) setStep(1);
                                 }} className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                  <Trash2 size={24} className="text-white"/>
+                                  <Trash2 size={29} className="text-white"/>
                                 </button>
                               </div>
                             )})}
                             
-                            {/* Add More Button */}
-                            <label 
-                                htmlFor="wizard-camera-input"
-                                className="aspect-square rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-gold-400 hover:text-gold-600 hover:bg-gold-50/30 transition-all group cursor-pointer"
-                            >
-                                <div className="p-2 bg-stone-50 rounded-full group-hover:bg-white transition-colors">
-                                    <Plus size={20} />
-                                </div>
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Add More</span>
-                            </label>
+                            {/* Add More Buttons */}
+                            <div className="flex flex-col gap-4">
+                                <label 
+                                    htmlFor="wizard-camera-input"
+                                    className="flex-1 aspect-square rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-gold-400 hover:text-gold-600 hover:bg-gold-50/30 transition-all group cursor-pointer"
+                                >
+                                    <div className="p-2 bg-stone-50 rounded-full group-hover:bg-white transition-colors">
+                                        <Camera size={24} />
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">Camera</span>
+                                </label>
+                                <label 
+                                    htmlFor="wizard-library-input"
+                                    className="flex-1 aspect-square rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-gold-400 hover:text-gold-600 hover:bg-gold-50/30 transition-all group cursor-pointer"
+                                >
+                                    <div className="p-2 bg-stone-50 rounded-full group-hover:bg-white transition-colors">
+                                        <ImageIcon size={24} />
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">Library</span>
+                                </label>
+                            </div>
                         </div>
                       </div>
                       <button onClick={handleProceedToDetails} disabled={isAnalyzing} className="w-full py-4 bg-gold-600 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 transition-all uppercase tracking-widest text-xs">
-                        {isAnalyzing ? <Loader2 className="animate-spin" /> : <ArrowRight size={18} />}
+                        {isAnalyzing ? <Loader2 className="animate-spin" /> : <ArrowRight size={22} />}
                         {isAnalyzing ? 'Analyzing with Neural Engine...' : 'Proceed to Details'}
                       </button>
                   </motion.div>
@@ -427,7 +438,7 @@ export const UploadWizard: React.FC = () => {
                       <div className="flex gap-4">
                         <button onClick={() => setStep(2)} className="px-6 py-4 bg-stone-50 text-stone-400 rounded-2xl font-bold uppercase tracking-widest text-[10px] border border-stone-100">Back</button>
                         <button onClick={handleSingleSave} disabled={isSaving} className="flex-1 py-4 bg-stone-900 text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 hover:bg-stone-800 transition-colors uppercase tracking-widest text-xs">
-                          {isSaving ? <Loader2 className="animate-spin" /> : <Save size={18} />} 
+                          {isSaving ? <Loader2 className="animate-spin" /> : <Save size={22} />} 
                           {isSaving ? 'Saving...' : 'Commit to Vault'}
                         </button>
                       </div>
@@ -437,7 +448,7 @@ export const UploadWizard: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      {uploadError && <div className="mt-6 p-4 bg-brand-red/10 border border-brand-red/20 rounded-2xl flex items-start gap-3"><AlertCircle className="text-brand-red mt-0.5" size={18} /><p className="text-sm text-brand-red">{uploadError}</p></div>}
+      {uploadError && <div className="mt-6 p-4 bg-brand-red/10 border border-brand-red/20 rounded-2xl flex items-start gap-3"><AlertCircle className="text-brand-red mt-0.5" size={22} /><p className="text-sm text-brand-red">{uploadError}</p></div>}
       
       {/* Hidden Inputs for File Selection */}
       <input 

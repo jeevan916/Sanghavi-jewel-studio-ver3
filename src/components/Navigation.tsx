@@ -69,7 +69,7 @@ export const Navigation: React.FC<NavigationProps> = ({ user, onLogout }) => {
                   : 'text-stone-400 hover:text-brand-gold'
               }`}
             >
-              <tab.icon size={18} strokeWidth={isActive(tab.path) ? 2.5 : 2} className="group-hover:scale-110 transition-transform" />
+              <tab.icon size={22} strokeWidth={isActive(tab.path) ? 2.5 : 2} className="group-hover:scale-110 transition-transform" />
               <span className="text-[8px] uppercase font-bold tracking-[0.2em]">{tab.label}</span>
               {isActive(tab.path) && (
                 <div className={`absolute -bottom-2 md:-bottom-4 h-[3px] rounded-full w-6 ${isStaffRoute ? 'bg-brand-gold' : 'bg-brand-dark'} animate-fade-in`} />
@@ -80,12 +80,12 @@ export const Navigation: React.FC<NavigationProps> = ({ user, onLogout }) => {
           <div className="md:hidden flex items-center pl-4 ml-2 border-l border-stone-200/20">
              {user ? (
                 <button onClick={onLogout} className="flex flex-col items-center gap-1.5 text-brand-red">
-                  <LogOut size={18} />
+                  <LogOut size={22} />
                   <span className="text-[8px] uppercase font-bold tracking-widest">Exit</span>
                 </button>
              ) : (
                 <button onClick={() => navigate('/login')} className="flex flex-col items-center gap-1.5 text-brand-gold">
-                  <LogIn size={18} />
+                  <LogIn size={22} />
                   <span className="text-[8px] uppercase font-bold tracking-widest">Login</span>
                 </button>
              )}
@@ -100,11 +100,11 @@ export const Navigation: React.FC<NavigationProps> = ({ user, onLogout }) => {
           </div>
           {user ? (
             <button onClick={onLogout} className="text-[10px] uppercase font-bold tracking-[0.2em] text-stone-400 hover:text-brand-red transition-all flex items-center gap-2 group">
-              <LogOut size={14} className="group-hover:-translate-x-1 transition-transform" /> Sign Out
+              <LogOut size={17} className="group-hover:-translate-x-1 transition-transform" /> Sign Out
             </button>
           ) : (
             <Link to="/login" className="text-[10px] uppercase font-bold tracking-[0.2em] text-stone-400 hover:text-brand-gold transition-all flex items-center gap-2 group">
-              <LogIn size={14} className="group-hover:translate-x-1 transition-transform" /> Member Access
+              <LogIn size={17} className="group-hover:translate-x-1 transition-transform" /> Member Access
             </Link>
           )}
         </div>

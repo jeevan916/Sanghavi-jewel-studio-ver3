@@ -33,7 +33,7 @@ export const Landing: React.FC = () => {
       <main className="flex-1 flex flex-col items-center justify-center px-6 relative z-10 text-center">
         <div className="max-w-4xl space-y-12 animate-fade-in">
           <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-brand-gold text-[10px] font-bold uppercase tracking-[0.4em] mb-4">
-             <Sparkles size={12} /> The Future of Bespoke Artistry
+             <Sparkles size={14} /> The Future of Bespoke Artistry
           </div>
           
           <div className="space-y-4">
@@ -49,7 +49,7 @@ export const Landing: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
             <Link to="/collection" className="group relative px-12 py-5 bg-white text-black rounded-full font-bold text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 overflow-hidden">
               <span className="relative z-10 flex items-center gap-3">
-                Enter Studio <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                Enter Studio <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
               </span>
               <div className="absolute inset-0 bg-brand-gold opacity-0 group-hover:opacity-10 transition-opacity"></div>
             </Link>
@@ -65,7 +65,7 @@ export const Landing: React.FC = () => {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 items-center">
           <div className="flex items-center gap-6">
             <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-brand-gold">
-              <Gem size={20} />
+              <Gem size={24} />
             </div>
             <div>
               <h4 className="text-[10px] uppercase font-bold tracking-widest text-white/40 mb-1">Heritage</h4>
@@ -75,7 +75,7 @@ export const Landing: React.FC = () => {
           
           <div className="flex items-center gap-6">
             <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-brand-gold">
-              <Sparkles size={20} />
+              <Sparkles size={24} />
             </div>
             <div>
               <h4 className="text-[10px] uppercase font-bold tracking-widest text-white/40 mb-1">Innovation</h4>
@@ -85,7 +85,7 @@ export const Landing: React.FC = () => {
 
           <div className="flex items-center gap-6">
             <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-brand-gold">
-              <ShieldCheck size={20} />
+              <ShieldCheck size={24} />
             </div>
             <div>
               <h4 className="text-[10px] uppercase font-bold tracking-widest text-white/40 mb-1">Security</h4>
