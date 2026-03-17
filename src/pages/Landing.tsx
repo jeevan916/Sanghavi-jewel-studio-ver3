@@ -11,9 +11,9 @@ export const Landing: React.FC = () => {
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black z-10"></div>
         <img 
-          src="https://picsum.photos/seed/jewelry-hero/1920/1080?blur=2" 
-          alt="Luxury Background" 
-          className="w-full h-full object-cover opacity-40 scale-105 animate-pulse"
+          src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=1920&auto=format&fit=crop" 
+          alt="Luxury Jewelry Background" 
+          className="w-full h-full object-cover opacity-30 scale-105"
           referrerPolicy="no-referrer"
         />
         {/* Animated Orbs */}
