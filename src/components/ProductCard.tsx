@@ -28,6 +28,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
   };
 
   const isGuest = !storeService.getCurrentUser();
+  const isUnlocked = storeService.getUnlockedProducts().includes(product.id) || 
+                     storeService.getUnlockedCategories().includes(product.category);
+  const showDetails = !isGuest || isUnlocked;
+
   const displayImage = product.thumbnails?.[0] || product.images?.[0] || '';
   const config = storeService.getCached().config;
   const priceData = config ? storeService.calculatePrice(product, config) : null;
@@ -72,7 +76,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
           <Heart size={17} fill={isLiked ? "currentColor" : "none"} />
         </button>
 
-        {isGuest && (product.images?.length || 0) > 1 && (
+        {!showDetails && (product.images?.length || 0) > 1 && (
           <div className="absolute top-3 right-3 px-2 py-1 bg-black/40 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-[0.2em] pointer-events-none z-20">
             +{(product.images?.length || 0) - 1} Locked
           </div>
@@ -94,8 +98,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
               <span className="shrink-0">{product.weight}g</span>
             </div>
             {priceData && (
-                <div className={`text-[10px] font-bold bg-stone-50 px-2 py-0.5 rounded-full border border-stone-100 shrink-0 flex items-center gap-1 ${isGuest ? 'text-stone-400' : 'text-brand-dark'}`}>
-                    {isGuest ? (
+                <div className={`text-[10px] font-bold bg-stone-50 px-2 py-0.5 rounded-full border border-stone-100 shrink-0 flex items-center gap-1 ${!showDetails ? 'text-stone-400' : 'text-brand-dark'}`}>
+                    {!showDetails ? (
                         <>
                             <Lock size={10} />
                             <span className="blur-[3px] select-none">₹XX,XXX</span>

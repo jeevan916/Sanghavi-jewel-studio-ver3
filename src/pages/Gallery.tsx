@@ -155,6 +155,7 @@ export const Gallery: React.FC = () => {
   }, [navigate]);
 
   const unlockedCats = useMemo(() => storeService.getUnlockedCategories(), []);
+  const isCategoryUnlocked = unlockedCats.includes(activeCategory);
   
   const categoryList = (config?.categories || [])
     .filter(c => !isGuest || !c.isPrivate || unlockedCats.includes(c.name))
@@ -241,16 +242,20 @@ export const Gallery: React.FC = () => {
                             </button>
                         </div>
                         <div className="flex gap-6 md:gap-8 overflow-x-auto pb-8 scrollbar-hide snap-x">
-                            {curated.latest.slice(0, isGuest ? 3 : undefined).map((p, idx) => (
-                                <div key={p.id} className="w-64 md:w-72 shrink-0 snap-start">
-                                    <ProductCard 
-                                        product={p} 
-                                        isAdmin={isAdmin} 
-                                        onClick={() => navigateToProduct(p.id)} 
-                                        priority={idx < 4}
-                                    />
-                                </div>
-                            ))}
+                            {curated.latest.slice(0, isGuest ? 8 : undefined).map((p, idx) => {
+                                const isProductUnlocked = unlockedCats.includes(p.category);
+                                if (isGuest && idx >= 3 && !isProductUnlocked) return null;
+                                return (
+                                    <div key={p.id} className="w-64 md:w-72 shrink-0 snap-start">
+                                        <ProductCard 
+                                            product={p} 
+                                            isAdmin={isAdmin} 
+                                            onClick={() => navigateToProduct(p.id)} 
+                                            priority={idx < 4}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
                     </section>
                 )}
@@ -272,15 +277,19 @@ export const Gallery: React.FC = () => {
                             <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Most Coveted Pieces This Week</p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
-                            {curated.trending.slice(0, isGuest ? 3 : 8).map((p, idx) => (
-                                <ProductCard 
-                                    key={p.id} 
-                                    product={p} 
-                                    isAdmin={isAdmin} 
-                                    onClick={() => navigateToProduct(p.id)} 
-                                    priority={idx < 4}
-                                />
-                            ))}
+                            {curated.trending.slice(0, isGuest ? 12 : 8).map((p, idx) => {
+                                const isProductUnlocked = unlockedCats.includes(p.category);
+                                if (isGuest && idx >= 3 && !isProductUnlocked) return null;
+                                return (
+                                    <ProductCard 
+                                        key={p.id} 
+                                        product={p} 
+                                        isAdmin={isAdmin} 
+                                        onClick={() => navigateToProduct(p.id)} 
+                                        priority={idx < 4}
+                                    />
+                                );
+                            })}
                         </div>
                     </section>
                 )}
@@ -302,15 +311,19 @@ export const Gallery: React.FC = () => {
                             <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">Timeless Favorites</p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
-                            {curated.loved.slice(0, isGuest ? 3 : 4).map((p, idx) => (
-                                <ProductCard 
-                                    key={p.id} 
-                                    product={p} 
-                                    isAdmin={isAdmin} 
-                                    onClick={() => navigateToProduct(p.id)} 
-                                    priority={idx < 4}
-                                />
-                            ))}
+                            {curated.loved.slice(0, isGuest ? 12 : 4).map((p, idx) => {
+                                const isProductUnlocked = unlockedCats.includes(p.category);
+                                if (isGuest && idx >= 3 && !isProductUnlocked) return null;
+                                return (
+                                    <ProductCard 
+                                        key={p.id} 
+                                        product={p} 
+                                        isAdmin={isAdmin} 
+                                        onClick={() => navigateToProduct(p.id)} 
+                                        priority={idx < 4}
+                                    />
+                                );
+                            })}
                         </div>
                     </section>
                 )}
@@ -333,7 +346,9 @@ export const Gallery: React.FC = () => {
             >
               {isLoading && products.length === 0 ? (
                   Array.from({ length: 10 }).map((_, i) => <ProductSkeleton key={i} />)
-              ) : products.slice(0, isGuest ? 3 : undefined).map((product, index) => {
+              ) : products.map((product, index) => {
+                 if (isGuest && !isCategoryUnlocked && index >= 3) return null;
+
                  if (!isGuest && index === products.length - 1) {
                      return (
                         <div ref={lastProductElementRef} key={product.id}>
@@ -358,7 +373,7 @@ export const Gallery: React.FC = () => {
               })}
 
               {/* GUEST LOCK CARD */}
-              {isGuest && (
+              {isGuest && !isCategoryUnlocked && (
                  <div className="bg-white rounded-2xl overflow-hidden border border-dashed border-stone-200 flex flex-col items-center justify-center p-8 text-center space-y-6 min-h-[400px] hover:bg-stone-50 transition-all duration-500 group relative">
                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-stone-50/80 pointer-events-none"></div>
                      <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center text-brand-gold shadow-sm mb-2 relative border border-stone-100 group-hover:scale-110 transition-transform z-10">

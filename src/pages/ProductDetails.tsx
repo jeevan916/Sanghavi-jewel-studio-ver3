@@ -5,7 +5,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '@/types.ts';
 import { ProductCard } from '@/components/ProductCard.tsx';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers, Trash2, Plus } from 'lucide-react';
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
 import { storeService } from '@/services/storeService.ts';
@@ -28,11 +28,46 @@ export const ProductDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 });
+  const [isSharedAccess, setIsSharedAccess] = useState(false);
   const [isRestricted, setIsRestricted] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const user = storeService.getCurrentUser();
+  const isAdminOrContributor = user && (user.role === 'admin' || user.role === 'contributor');
+  const isAdmin = !!isAdminOrContributor;
+
+  const handleAddPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files);
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    
+    try {
+        const response = await fetch('/api/media/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.files) {
+            const newImages = [...(product?.images || []), ...data.files.map((f: any) => f.primary)];
+            const updatedProduct = { ...product!, images: newImages };
+            await storeService.updateProduct(updatedProduct);
+            setProduct(updatedProduct);
+        }
+    } catch (e) {
+        console.error("Upload failed", e);
+    }
+  };
+
+  const handleDeletePhoto = async (index: number) => {
+    if (!product) return;
+    const newImages = product.images.filter((_, i) => i !== index);
+    const updatedProduct = { ...product, images: newImages };
+    await storeService.updateProduct(updatedProduct);
+    setProduct(updatedProduct);
+    if (activeImageIndex >= newImages.length) setActiveImageIndex(newImages.length - 1);
+  };
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiComparison, setAiComparison] = useState<{original: string, enhanced: string} | null>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState<{mode: 'enhance' | 'cleanup', templates: PromptTemplate[]} | null>(null);
@@ -40,8 +75,6 @@ export const ProductDetails: React.FC = () => {
   const [neighbors, setNeighbors] = useState<{prev: string | null, next: string | null}>({ prev: null, next: null });
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
-  const user = storeService.getCurrentUser();
-  const isAdmin = user?.role === 'admin' || user?.role === 'contributor';
   const isGuest = !user;
 
   // Touch handling refs
@@ -109,8 +142,10 @@ export const ProductDetails: React.FC = () => {
             const GUEST_LIMIT = 3;
             
             // Check if this specific product has been unlocked via shared link
-            const isUnlocked = storeService.getUnlockedProducts().includes(fetchedProduct.id);
-            const isSharedAccess = (location.state as any)?.fromSharedLink || isUnlocked;
+            const isUnlocked = storeService.getUnlockedProducts().includes(fetchedProduct.id) || 
+                               storeService.getUnlockedCategories().includes(fetchedProduct.category);
+            const sharedAccess = (location.state as any)?.fromSharedLink || isUnlocked;
+            setIsSharedAccess(sharedAccess);
 
             // Optimization: Use cached products if available to avoid massive fetch
             const cached = storeService.getCached();
@@ -125,7 +160,7 @@ export const ProductDetails: React.FC = () => {
             let navItems = allItems.filter(p => p.category === fetchedProduct.category);
 
             // SECURITY: STRICT GUEST LOCK (Bypassed if shared)
-            if (isGuest && !isSharedAccess) {
+            if (isGuest && !sharedAccess) {
                 const globalIndex = allItems.findIndex(p => p.id === fetchedProduct.id);
                 if (globalIndex >= GUEST_LIMIT) {
                     setIsRestricted(true);
@@ -239,7 +274,7 @@ export const ProductDetails: React.FC = () => {
       setIsProcessingAI(true);
       
       try {
-          const imgUrl = product.images[0];
+          const imgUrl = displayImages[activeImageIndex];
           const base64Input = await urlToBase64(imgUrl);
           if (!base64Input) throw new Error("Could not load source image for processing");
 
@@ -350,7 +385,8 @@ export const ProductDetails: React.FC = () => {
   if (!product) return <div className="h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center"><p className="text-stone-500 mb-4">Product not found.</p><button onClick={() => navigate('/collection')} className="text-gold-600 font-bold">Return to Gallery</button></div>;
 
   const images = product.images;
-  const displayImages = isGuest ? images.slice(0, 1) : images;
+  const showFullDetails = !isGuest || isSharedAccess;
+  const displayImages = showFullDetails ? images : images.slice(0, 1);
 
   const toggleLike = () => {
       if (navigator.vibrate) navigator.vibrate(10);
@@ -450,7 +486,7 @@ export const ProductDetails: React.FC = () => {
                                     ) : (
                                         <img 
                                             src={currentMedia} 
-                                            className="w-full h-full object-cover bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
+                                            className="w-full h-full object-contain bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
                                             onClick={() => setShowFullScreen(true)} 
                                             alt={product.title} 
                                         />
@@ -507,18 +543,33 @@ export const ProductDetails: React.FC = () => {
                             const thumbMedia = product.thumbnails?.[idx] || img;
                             const isVideo = thumbMedia.includes('video/') || thumbMedia.endsWith('.webm') || thumbMedia.endsWith('.mp4') || thumbMedia.endsWith('.mov');
                             return (
-                            <button 
-                                key={idx}
-                                onClick={() => setActiveImageIndex(idx)}
-                                className={`relative flex-shrink-0 w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden border-2 transition-colors ${activeImageIndex === idx ? 'border-brand-gold shadow-md' : 'border-transparent hover:border-brand-gold/50'}`}
-                            >
-                                {isVideo ? (
-                                    <video src={thumbMedia} className="w-full h-full object-cover" autoPlay muted loop playsInline />
-                                ) : (
-                                    <img src={thumbMedia} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                            <div key={idx} className="relative flex-shrink-0">
+                                <button 
+                                    onClick={() => setActiveImageIndex(idx)}
+                                    className={`relative w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden border-2 transition-colors ${activeImageIndex === idx ? 'border-brand-gold shadow-md' : 'border-transparent hover:border-brand-gold/50'}`}
+                                >
+                                    {isVideo ? (
+                                        <video src={thumbMedia} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                                    ) : (
+                                        <img src={thumbMedia} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                                    )}
+                                </button>
+                                {isAdminOrContributor && displayImages.length > 1 && (
+                                    <button 
+                                        onClick={() => handleDeletePhoto(idx)}
+                                        className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-md hover:bg-rose-600 transition-colors z-20"
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
                                 )}
-                            </button>
+                            </div>
                         )})}
+                        {isAdminOrContributor && (
+                            <div className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24 rounded-xl border-2 border-dashed border-stone-300 flex items-center justify-center hover:border-brand-gold hover:text-brand-gold transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                <Plus size={24} />
+                                <input type="file" ref={fileInputRef} onChange={handleAddPhotos} className="hidden" multiple accept="image/*,video/*" />
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -535,10 +586,10 @@ export const ProductDetails: React.FC = () => {
                         <div className="space-y-0.5">
                             <p className="text-[7px] font-bold text-stone-400 uppercase tracking-[0.2em]">Live Valuation</p>
                             <div className="flex items-baseline gap-2">
-                                <span className={`text-2xl font-bold text-brand-dark ${isGuest ? 'blur-md select-none opacity-40' : ''}`}>
-                                    {isGuest ? '₹XX,XXX' : `₹${Math.round(priceData?.total || 0).toLocaleString('en-IN')}`}
+                                <span className={`text-2xl font-bold text-brand-dark ${!showFullDetails ? 'blur-md select-none opacity-40' : ''}`}>
+                                    {!showFullDetails ? '₹XX,XXX' : `₹${Math.round(priceData?.total || 0).toLocaleString('en-IN')}`}
                                 </span>
-                                {!isGuest && <span className="text-[7px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-widest border border-emerald-100">Live</span>}
+                                {showFullDetails && <span className="text-[7px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-widest border border-emerald-100">Live</span>}
                             </div>
                         </div>
                         <div className="text-right">
@@ -546,7 +597,7 @@ export const ProductDetails: React.FC = () => {
                             <p className="text-[10px] font-mono font-bold text-brand-gold">₹{priceData?.goldRate}/g</p>
                         </div>
                         
-                        {isGuest && (
+                        {!showFullDetails && (
                             <div className="absolute inset-0 flex items-center justify-center bg-stone-50/50 backdrop-blur-[2px]">
                                 <button onClick={() => navigate('/login')} className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full shadow-sm border border-stone-200 text-[9px] font-bold uppercase tracking-widest text-brand-dark hover:bg-stone-100 transition-colors">
                                     <Lock size={14} className="text-brand-gold" /> Login to Reveal Price
@@ -664,8 +715,8 @@ export const ProductDetails: React.FC = () => {
                         {!isEditing && (
                             <div className="flex items-center gap-2">
                                 <Gem size={19} className="text-brand-gold" />
-                                <span className={`font-mono text-xl ${isGuest ? 'blur-md select-none opacity-30' : 'text-brand-dark font-bold'}`}>
-                                    {isGuest ? '00.00g' : `${product.weight}g`}
+                                <span className={`font-mono text-xl ${!showFullDetails ? 'blur-md select-none opacity-30' : 'text-brand-dark font-bold'}`}>
+                                    {!showFullDetails ? '00.00g' : `${product.weight}g`}
                                 </span>
                             </div>
                         )}
@@ -727,26 +778,26 @@ export const ProductDetails: React.FC = () => {
                             </button>
                             {activeTab === 'price' && priceData && (
                                 <div className="px-5 pb-4 space-y-2 animate-in fade-in slide-in-from-top-1 relative">
-                                    <div className={`space-y-1.5 ${isGuest ? 'blur-md select-none opacity-40' : ''}`}>
+                                    <div className={`space-y-1.5 ${!showFullDetails ? 'blur-md select-none opacity-40' : ''}`}>
                                         <div className="flex justify-between text-xs">
                                             <span className="text-stone-500">Gold Value</span>
-                                            <span className="font-mono text-brand-dark">₹{isGuest ? 'XX,XXX' : Math.round(priceData.basePrice).toLocaleString('en-IN')}</span>
+                                            <span className="font-mono text-brand-dark">₹{!showFullDetails ? 'XX,XXX' : Math.round(priceData.basePrice).toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="flex justify-between text-xs">
                                             <span className="text-stone-500">Making ({priceData.makingPercent}%) <span className="text-[9px] bg-stone-100 px-1.5 py-0.5 rounded text-stone-400 ml-1">{product.meta?.makingChargeSegmentId === 'custom' ? 'Custom' : (config?.makingChargeSegments?.find(s => s.id === (product.meta?.makingChargeSegmentId || config?.defaultMakingChargeSegmentId))?.name || 'Standard')}</span></span>
-                                            <span className="font-mono text-brand-dark">₹{isGuest ? 'X,XXX' : Math.round(priceData.makingCharges).toLocaleString('en-IN')}</span>
+                                            <span className="font-mono text-brand-dark">₹{!showFullDetails ? 'X,XXX' : Math.round(priceData.makingCharges).toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="flex justify-between text-xs">
                                             <span className="text-stone-500">GST ({config?.gstPercent || 3}%)</span>
-                                            <span className="font-mono text-brand-dark">₹{isGuest ? 'X,XXX' : Math.round(priceData.gst).toLocaleString('en-IN')}</span>
+                                            <span className="font-mono text-brand-dark">₹{!showFullDetails ? 'X,XXX' : Math.round(priceData.gst).toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="pt-2 border-t border-stone-100 flex justify-between text-sm font-bold">
                                             <span className="text-brand-dark uppercase tracking-widest">Total</span>
-                                            <span className="text-brand-gold">₹{isGuest ? 'XX,XXX' : Math.round(priceData.total).toLocaleString('en-IN')}</span>
+                                            <span className="text-brand-gold">₹{!showFullDetails ? 'XX,XXX' : Math.round(priceData.total).toLocaleString('en-IN')}</span>
                                         </div>
                                     </div>
                                     
-                                    {isGuest && (
+                                    {!showFullDetails && (
                                         <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[2px] z-10">
                                             <button onClick={() => navigate('/login')} className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-brand-dark hover:bg-stone-100 transition-colors">
                                                 <Lock size={17} className="text-brand-gold" /> Login to Reveal
