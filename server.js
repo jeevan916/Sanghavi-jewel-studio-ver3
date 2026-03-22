@@ -458,8 +458,13 @@ app.get('/api/settings/logo.png', (req, res) => {
     if (existsSync(customLogoPath)) {
         res.sendFile(customLogoPath);
     } else {
-        res.redirect('/logo.png');
+        res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png');
     }
+});
+
+// Catch-all for /logo.png to prevent infinite loops from cached clients
+app.get('/logo.png', (req, res) => {
+    res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png');
 });
 
 // --- API ROUTES ---
@@ -1113,8 +1118,9 @@ console.log(`📂 [Sanghavi Studio] Secondary distPath: ${altDistPath} (Exists: 
 
 // Helper to get the current active dist path dynamically
 const getActiveDistPath = () => {
-  if (existsSync(distPath)) return distPath;
-  if (existsSync(altDistPath)) return altDistPath;
+  if (process.env.NODE_ENV === 'development') return null;
+  if (existsSync(distPath) && existsSync(path.join(distPath, 'index.html'))) return distPath;
+  if (existsSync(altDistPath) && existsSync(path.join(altDistPath, 'index.html'))) return altDistPath;
   return null;
 };
 

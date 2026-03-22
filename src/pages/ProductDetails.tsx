@@ -462,7 +462,7 @@ export const ProductDetails: React.FC = () => {
             
             {/* LEFT COLUMN: Visual Media (Sticky on Desktop) */}
             <div className="lg:sticky lg:top-48 lg:h-[calc(100vh-14rem)]">
-                <div className="relative w-full aspect-[4/5] md:h-auto md:aspect-video lg:aspect-auto lg:h-full bg-white overflow-hidden select-none group rounded-none md:rounded-[2.5rem] border-b md:border border-stone-100 shadow-2xl transition-all duration-700">
+                <div className="relative w-full aspect-[4/3] bg-white overflow-hidden select-none group rounded-none md:rounded-[2.5rem] border-b md:border border-stone-100 shadow-2xl transition-all duration-700">
                     {aiComparison ? (
                         <ComparisonSlider 
                             before={aiComparison.original} 
@@ -479,7 +479,7 @@ export const ProductDetails: React.FC = () => {
                                     return isVideo ? (
                                         <video 
                                             src={currentMedia} 
-                                            className="w-full h-full object-cover bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
+                                            className="w-full h-full object-contain bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
                                             onClick={() => setShowFullScreen(true)} 
                                             autoPlay muted loop playsInline
                                         />

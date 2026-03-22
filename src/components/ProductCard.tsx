@@ -50,7 +50,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
         onClick?.(); 
       }}
     >
-      <div className="relative aspect-[4/5] overflow-hidden bg-stone-50">
+      <div className="relative aspect-[4/3] overflow-hidden bg-stone-50">
         <img 
             src={displayImage} 
             alt={product.title} 
@@ -58,7 +58,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
             decoding="async" 
             loading={priority ? "eager" : "lazy"}
             {...(priority ? { fetchpriority: "high" } : {})}
-            className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
+            className={`w-full h-full object-contain transition-all duration-700 group-hover:scale-110 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
         />
         
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500"></div>

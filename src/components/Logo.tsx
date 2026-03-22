@@ -21,7 +21,9 @@ export const Logo: React.FC<LogoProps> = ({ className = '', size = 'md' }) => {
         alt="Sanghavi Jewellers" 
         className={`${sizes[size]} w-auto object-contain drop-shadow-sm`}
         onError={(e) => {
-          (e.target as HTMLImageElement).src = '/logo.png';
+          const target = e.target as HTMLImageElement;
+          target.onerror = null;
+          target.src = 'https://cdn-icons-png.flaticon.com/512/2611/2611152.png';
         }}
       />
     </div>

@@ -661,7 +661,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                         <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Application Logo</label>
                         <div className="flex items-center gap-6">
                             <div className="w-24 h-24 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-center p-2">
-                                <img src={`/api/settings/logo.png?t=${Date.now()}`} alt="Current Logo" className="max-w-full max-h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/logo.png'; }} />
+                                <img src={`/api/settings/logo.png?t=${Date.now()}`} alt="Current Logo" className="max-w-full max-h-full object-contain" onError={(e) => { const target = e.target as HTMLImageElement; target.onerror = null; target.src = 'https://cdn-icons-png.flaticon.com/512/2611/2611152.png'; }} />
                             </div>
                             <div className="flex-1">
                                 <p className="text-sm text-stone-500 mb-3">Upload a new logo to replace the current one. Recommended format: PNG with transparent background.</p>
