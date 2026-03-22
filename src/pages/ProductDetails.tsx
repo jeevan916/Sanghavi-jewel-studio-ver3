@@ -51,7 +51,8 @@ export const ProductDetails: React.FC = () => {
         const data = await response.json();
         if (data.files) {
             const newImages = [...(product?.images || []), ...data.files.map((f: any) => f.primary)];
-            const updatedProduct = { ...product!, images: newImages };
+            const newThumbnails = [...(product?.thumbnails || []), ...data.files.map((f: any) => f.thumbnail || f.primary)];
+            const updatedProduct = { ...product!, images: newImages, thumbnails: newThumbnails };
             await storeService.updateProduct(updatedProduct);
             setProduct(updatedProduct);
         }
@@ -63,10 +64,11 @@ export const ProductDetails: React.FC = () => {
   const handleDeletePhoto = async (index: number) => {
     if (!product) return;
     const newImages = product.images.filter((_, i) => i !== index);
-    const updatedProduct = { ...product, images: newImages };
+    const newThumbnails = (product.thumbnails || []).filter((_, i) => i !== index);
+    const updatedProduct = { ...product, images: newImages, thumbnails: newThumbnails };
     await storeService.updateProduct(updatedProduct);
     setProduct(updatedProduct);
-    if (activeImageIndex >= newImages.length) setActiveImageIndex(newImages.length - 1);
+    if (activeImageIndex >= newImages.length) setActiveImageIndex(Math.max(0, newImages.length - 1));
   };
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiComparison, setAiComparison] = useState<{original: string, enhanced: string} | null>(null);
