@@ -50,7 +50,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
         onClick?.(); 
       }}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-stone-50">
+      <div className="relative aspect-[3/4] overflow-hidden bg-stone-50">
         <img 
             src={displayImage} 
             alt={product.title} 

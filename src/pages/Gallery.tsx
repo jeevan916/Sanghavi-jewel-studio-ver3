@@ -8,7 +8,7 @@ import { Product, AppConfig } from '@/types.ts';
 
 const ProductSkeleton = () => (
   <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 animate-pulse">
-    <div className="aspect-[4/3] bg-stone-100" />
+    <div className="aspect-[3/4] bg-stone-100" />
     <div className="p-4 space-y-3">
       <div className="flex justify-between">
         <div className="h-3 w-20 bg-stone-100 rounded" />
