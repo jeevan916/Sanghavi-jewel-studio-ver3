@@ -6,6 +6,13 @@ import App from './App';
 import './index.css'; 
 import { coreEngine } from './services/coreEngine';
 
+// Suppress Vite HMR WebSocket unhandled rejection error
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason && event.reason.message && event.reason.message.includes("WebSocket closed without opened")) {
+    event.preventDefault();
+  }
+});
+
 // Initialize the Brain
 coreEngine.initialize();
 

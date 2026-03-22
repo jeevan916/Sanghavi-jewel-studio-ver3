@@ -107,6 +107,8 @@ const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
 
 const SecurityLayer = () => {
     useEffect(() => {
+        // TEMPORARILY DISABLED FOR INSPECTION
+        /*
         // Disable right click
         const handleContextMenu = (e: MouseEvent) => {
             e.preventDefault();
@@ -145,6 +147,7 @@ const SecurityLayer = () => {
             document.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('selectstart', handleSelectStart);
         };
+        */
     }, []);
 
     return null;
@@ -179,7 +182,7 @@ function AppContent() {
   const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff';
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'} select-none`}>
+    <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'}`}>
       <SecurityLayer />
       <main className="pb-20 md:pb-0">
         <Suspense fallback={<SafeLoader />}>
