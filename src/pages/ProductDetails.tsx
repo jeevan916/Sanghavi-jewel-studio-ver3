@@ -463,7 +463,7 @@ export const ProductDetails: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
             
             {/* LEFT COLUMN: Visual Media (Sticky on Desktop) */}
-            <div className="lg:sticky lg:top-48 lg:h-[calc(100vh-14rem)]">
+            <div className="lg:sticky lg:top-48 z-10">
                 <div className="relative w-full aspect-[3/4] bg-white overflow-hidden select-none group rounded-none md:rounded-[2.5rem] border-b md:border border-stone-100 shadow-2xl transition-all duration-700">
                     {aiComparison ? (
                         <ComparisonSlider 

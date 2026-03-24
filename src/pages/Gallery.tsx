@@ -167,7 +167,7 @@ export const Gallery: React.FC = () => {
     <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden animate-fade-in">
       <div className="sticky top-0 md:top-24 bg-white/80 backdrop-blur-xl border-b border-stone-100 z-40 transition-all duration-500">
         <div className="max-w-7xl mx-auto p-4">
-            <div className="px-2 md:px-6 h-14 flex items-center justify-between gap-6">
+            <div className="px-2 md:px-6 h-14 flex items-center justify-between gap-3 md:gap-6">
                 <div className="flex-1 max-w-xl relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={22} />
                     <input 
@@ -178,10 +178,18 @@ export const Gallery: React.FC = () => {
                       className="w-full pl-12 pr-4 py-3 bg-stone-50 border border-stone-100 rounded-2xl text-sm focus:ring-2 focus:ring-brand-gold/20 focus:bg-white outline-none transition-all font-sans placeholder:text-stone-300"
                     />
                 </div>
+                
+                {config?.goldRate22k ? (
+                    <div className="flex flex-col items-end justify-center bg-stone-50 px-3 md:px-4 py-1.5 md:py-2 rounded-xl border border-stone-100 whitespace-nowrap">
+                        <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-stone-400">22k Gold</span>
+                        <span className="text-xs md:text-sm font-bold text-brand-gold font-mono">₹{config.goldRate22k.toLocaleString('en-IN')}/g</span>
+                    </div>
+                ) : null}
+
                 {!isOverviewMode && (
                     <button 
                     onClick={() => setViewMode(v => v === 'grid' ? 'detail' : 'grid')} 
-                    className="p-3 text-stone-300 hover:text-brand-gold hover:bg-stone-50 rounded-xl transition-all"
+                    className="p-3 text-stone-300 hover:text-brand-gold hover:bg-stone-50 rounded-xl transition-all shrink-0"
                     title={viewMode === 'grid' ? "Switch to Large View" : "Switch to Grid View"}
                     >
                         {viewMode === 'grid' ? <RectangleVertical size={29}/> : <LayoutGrid size={29}/>}
