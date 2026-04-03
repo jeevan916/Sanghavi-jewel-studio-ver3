@@ -180,13 +180,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       setLoading(false);
   };
 
-  useEffect(() => {
-      console.log("AdminDashboard Config:", config);
-  }, [config]);
-
   const activeSubCategories = useMemo(() => {
     const cat = config?.categories?.find(c => c.name === moveCategory);
-    console.log("Debug Move Modal:", { moveCategory, cat, subCategories: cat?.subCategories });
     return cat?.subCategories || [];
   }, [config, moveCategory]);
 
@@ -782,7 +777,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                   <div className="p-6 space-y-4">
                       <div>
                           <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Destination Category</label>
-                          <select value={moveCategory} onChange={e => { setMoveCategory(e.target.value); setMoveSubCategory(''); }} className="w-full p-3 border border-stone-100 rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-brand-gold">
+                          <select value={moveCategory} onChange={e => { setMoveCategory(e.target.value); setMoveSubCategory(''); }} className="w-full p-3 border border-stone-100 rounded-xl bg-stone-50 text-brand-dark outline-none focus:ring-1 focus:ring-brand-gold">
                               <option value="">Select Category...</option>
                               {config?.categories?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                           </select>
@@ -791,7 +786,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       {activeSubCategories.length > 0 && (
                           <div>
                               <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Sub-Category</label>
-                              <select value={moveSubCategory} onChange={e => setMoveSubCategory(e.target.value)} className="w-full p-3 border border-stone-100 rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-brand-gold">
+                              <select value={moveSubCategory} onChange={e => setMoveSubCategory(e.target.value)} className="w-full p-3 border border-stone-100 rounded-xl bg-stone-50 text-brand-dark outline-none focus:ring-1 focus:ring-brand-gold">
                                   <option value="">Select Sub-Category...</option>
                                   {activeSubCategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
                               </select>
