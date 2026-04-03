@@ -180,7 +180,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       setLoading(false);
   };
 
-  const activeSubCategories = config?.categories?.find(c => c.name === moveCategory)?.subCategories || [];
+  useEffect(() => {
+      console.log("AdminDashboard Config:", config);
+  }, [config]);
+
+  const activeSubCategories = useMemo(() => {
+    const cat = config?.categories?.find(c => c.name === moveCategory);
+    console.log("Debug Move Modal:", { moveCategory, cat, subCategories: cat?.subCategories });
+    return cat?.subCategories || [];
+  }, [config, moveCategory]);
 
   if (loading && products.length === 0) {
     return (

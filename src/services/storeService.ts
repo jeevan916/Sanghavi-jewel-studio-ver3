@@ -118,6 +118,10 @@ export const storeService = {
           queryParams.append('category', filters.category);
       }
 
+      if (filters.subCategory && filters.subCategory !== 'All') {
+          queryParams.append('subCategory', filters.subCategory);
+      }
+
       if (filters.search) {
           queryParams.append('search', filters.search);
       }
