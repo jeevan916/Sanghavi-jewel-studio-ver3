@@ -29,6 +29,7 @@ export const Gallery: React.FC = () => {
   
   // Filtering State
   const [activeCategory, setActiveCategory] = useState('All');
+  const [activeSubCategory, setActiveSubCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'detail'>('grid');
   
@@ -68,9 +69,10 @@ export const Gallery: React.FC = () => {
             if (cur) setCurated(cur);
 
             // Handle Shared Category Link Logic
-            const sharedCat = (location.state as any)?.sharedCategory;
-            if (sharedCat) {
-                setActiveCategory(sharedCat);
+            const state = location.state as any;
+            if (state?.category) {
+                setActiveCategory(state.category);
+                if (state.subCategory) setActiveSubCategory(state.subCategory);
                 // Clear state to prevent sticky behavior
                 window.history.replaceState({}, document.title);
             }
@@ -103,6 +105,7 @@ export const Gallery: React.FC = () => {
           const res = await storeService.getProducts(targetPage, BATCH_SIZE, { 
               publicOnly: true,
               category: activeCategory !== 'All' ? activeCategory : undefined,
+              subCategory: activeSubCategory !== 'All' ? activeSubCategory : undefined,
               search: search || undefined
           });
           
@@ -120,14 +123,14 @@ export const Gallery: React.FC = () => {
           setIsFetchingMore(false);
           setIsLoading(false);
       }
-  }, [page, hasMore, isFetchingMore, activeCategory, search]);
+  }, [page, hasMore, isFetchingMore, activeCategory, activeSubCategory, search]);
 
   // Trigger fetch when category or search changes
   useEffect(() => {
       setPage(0);
       setHasMore(true);
       fetchProducts(true);
-  }, [activeCategory, search]);
+  }, [activeCategory, activeSubCategory, search]);
 
   // 3. Infinite Scroll Observer
   useEffect(() => {
@@ -160,6 +163,16 @@ export const Gallery: React.FC = () => {
   const categoryList = (config?.categories || [])
     .filter(c => !isGuest || !c.isPrivate || unlockedCats.includes(c.name))
     .map(c => c.name);
+
+  const subCategoryList = useMemo(() => {
+    if (activeCategory === 'All') return [];
+    const cat = config?.categories.find(c => c.name === activeCategory);
+    return cat ? ['All', ...cat.subCategories] : ['All'];
+  }, [activeCategory, config]);
+
+  useEffect(() => {
+    setActiveSubCategory('All');
+  }, [activeCategory]);
 
   const isOverviewMode = activeCategory === 'All' && !search;
 
@@ -215,6 +228,20 @@ export const Gallery: React.FC = () => {
                     </button>
                 )}
             </div>
+            {/* Sub-category Filter */}
+            {!isOverviewMode && subCategoryList.length > 1 && (
+                <div className="px-2 md:px-6 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+                    {subCategoryList.map(sub => (
+                        <button
+                            key={sub}
+                            onClick={() => setActiveSubCategory(sub)}
+                            className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeSubCategory === sub ? 'bg-brand-gold text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
+                        >
+                            {sub}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
       </div>
 

@@ -105,6 +105,24 @@ export const ProductDetails: React.FC = () => {
     }
   }, [location.state]);
 
+  const images = product?.images || [];
+  const showFullDetails = !isGuest || isSharedAccess;
+  const displayImages = showFullDetails ? images : images.slice(0, 1);
+
+  // Swipe Tutorial State
+  const [showSwipeTutorial, setShowSwipeTutorial] = useState(false);
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem('hasSeenSwipeTutorial');
+    if (!hasSeenTutorial && displayImages.length > 1) {
+        setShowSwipeTutorial(true);
+        const timer = setTimeout(() => {
+            setShowSwipeTutorial(false);
+            localStorage.setItem('hasSeenSwipeTutorial', 'true');
+        }, 3000);
+        return () => clearTimeout(timer);
+    }
+  }, [displayImages.length]);
+
   useEffect(() => {
     if (!id) return;
     
@@ -386,10 +404,6 @@ export const ProductDetails: React.FC = () => {
   if (isLoading && !product) return <div className="h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-gold-600" size={40} /></div>;
   if (!product) return <div className="h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center"><p className="text-stone-500 mb-4">Product not found.</p><button onClick={() => navigate('/collection')} className="text-gold-600 font-bold">Return to Gallery</button></div>;
 
-  const images = product.images;
-  const showFullDetails = !isGuest || isSharedAccess;
-  const displayImages = showFullDetails ? images : images.slice(0, 1);
-
   const toggleLike = () => {
       if (navigator.vibrate) navigator.vibrate(10);
       const liked = storeService.toggleLike(product.id);
@@ -430,7 +444,7 @@ export const ProductDetails: React.FC = () => {
     >
       {/* HEADER: Stable (Outside Animation Key) */}
       <div className="bg-white/90 backdrop-blur-xl border-b border-stone-100 px-4 h-16 flex items-center justify-between sticky top-0 md:top-24 z-30 transition-all duration-500">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-stone-400 hover:text-brand-dark hover:bg-stone-50 rounded-xl transition-all"><ArrowLeft size={24} /></button>
+        <button onClick={() => navigate('/gallery', { state: { category: product?.category, subCategory: product?.subCategory || 'All' } })} className="p-2 -ml-2 text-stone-400 hover:text-brand-dark hover:bg-stone-50 rounded-xl transition-all"><ArrowLeft size={24} /></button>
         <div className="flex flex-col items-center flex-1 px-2 overflow-hidden">
             <span className="text-[7px] font-bold uppercase tracking-[0.3em] text-brand-gold mb-0.5">{product.category}</span>
             <h2 className="font-serif font-bold text-brand-dark text-lg truncate w-full text-center">{product.title}</h2>
@@ -496,6 +510,19 @@ export const ProductDetails: React.FC = () => {
                                 })()
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-stone-300 italic font-serif">Awaiting Visual Asset...</div>
+                            )}
+                            
+                            {/* Swipe Tutorial */}
+                            {showSwipeTutorial && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in z-20">
+                                    <div className="flex flex-col items-center gap-4 text-white">
+                                        <div className="flex gap-4 animate-pulse">
+                                            <ChevronLeft size={48} />
+                                            <ChevronRight size={48} />
+                                        </div>
+                                        <p className="font-sans font-bold uppercase tracking-widest text-sm">Swipe to view more</p>
+                                    </div>
+                                </div>
                             )}
                             
                             <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-8 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none">
