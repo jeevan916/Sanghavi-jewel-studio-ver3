@@ -313,25 +313,15 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
             disabled={isProcessing} 
             onClick={async () => {
                 setIsProcessing(true);
-                addLog("Scanning for heavy images...");
+                addLog("Starting Storage Optimization...");
+                
+                // Use EventSource or polling to get progress
+                // For now, let's just trigger the process and assume it runs
                 try {
                     const res = await storeService.optimizeStorage();
-                    if (res.heavyImages && res.heavyImages.length > 0) {
-                        const confirmMsg = "Found heavy images:\n" + 
-                            res.heavyImages.map((i: any) => `${i.filename} (${i.size})`).join('\n') + 
-                            "\n\nProceed with optimization?";
-                        if (window.confirm(confirmMsg)) {
-                            // Re-run optimization with confirmation
-                            // Note: This requires a small change in server.js to accept a 'confirm' param
-                            // For now, I will assume the user wants to proceed if they click OK
-                            addLog("Optimization proceeding...");
-                            // ... (implementation of confirmed optimization)
-                        }
-                    } else {
-                        addLog(`Optimization complete: ${res.message}`);
-                        addLog(`Space saved: ${res.spaceSaved}`);
-                        addLog(`DB records updated: ${res.dbUpdates}`);
-                    }
+                    addLog(`Optimization complete: ${res.message}`);
+                    addLog(`Space saved: ${res.spaceSaved}`);
+                    addLog(`DB records updated: ${res.dbUpdates}`);
                 } catch (e: any) {
                     addLog(`Optimization error: ${e.message}`);
                 } finally {
