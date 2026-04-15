@@ -782,11 +782,13 @@ app.post('/api/admin/optimize-storage', async (req, res) => {
         
         // If no heavy images, just run optimization
         if (heavyImages.length === 0) {
+            console.log(`🚀 [Optimize] Starting full storage optimization...`);
             for (const size of sizes) {
                 const dir = path.join(UPLOADS_ROOT, size);
                 if (!existsSync(dir)) continue;
                 
                 const files = readdirSync(dir);
+                console.log(`📂 [Optimize] Processing directory: ${dir} (${files.length} files)`);
                 for (const filename of files) {
                     const filepath = path.join(dir, filename);
                     if (statSync(filepath).isDirectory()) continue;
@@ -796,12 +798,15 @@ app.post('/api/admin/optimize-storage', async (req, res) => {
                     
                     // Optimization: Resize/Compress if > 800KB
                     if (stats.size > 800 * 1024) {
-                        console.log(`🖼️ [Optimize] Compressing heavy file: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
+                        console.log(`🖼️ [Optimize] Compressing: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
                         buffer = await sharp(buffer)
                             .rotate()
                             .resize(parseInt(size), null, { withoutEnlargement: true })
                             .toFormat('webp', { quality: 80 })
                             .toBuffer();
+                        console.log(`✅ [Optimize] Compressed: ${filename} -> ${(buffer.length / 1024).toFixed(0)}KB`);
+                    } else {
+                        console.log(`⏩ [Optimize] Skipping (optimal): ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
                     }
     
                     const hash = getHash(buffer);
@@ -823,6 +828,7 @@ app.post('/api/admin/optimize-storage', async (req, res) => {
                     }
                 }
             }
+            console.log(`🏁 [Optimize] Storage optimization complete.`);
     
             // 2. Update Database
             for (const product of products) {
