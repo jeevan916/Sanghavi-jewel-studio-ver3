@@ -762,6 +762,7 @@ app.post('/api/admin/optimize-storage', async (req, res) => {
         const oldToNewMap = new Map(); // size/oldName -> newName
 
         const sizes = ['300', '1080'];
+        const { default: sharp } = await import('sharp');
         for (const size of sizes) {
             const dir = path.join(UPLOADS_ROOT, size);
             if (!existsSync(dir)) continue;
@@ -771,10 +772,21 @@ app.post('/api/admin/optimize-storage', async (req, res) => {
                 const filepath = path.join(dir, filename);
                 if (statSync(filepath).isDirectory()) continue;
 
-                const buffer = readFileSync(filepath);
+                let buffer = readFileSync(filepath);
+                const stats = statSync(filepath);
+                
+                // Optimization: Resize/Compress if > 800KB
+                if (stats.size > 800 * 1024) {
+                    console.log(`🖼️ [Optimize] Compressing heavy file: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
+                    buffer = await sharp(buffer)
+                        .rotate()
+                        .resize(parseInt(size), null, { withoutEnlargement: true })
+                        .toFormat('webp', { quality: 80 })
+                        .toBuffer();
+                }
+
                 const hash = getHash(buffer);
-                const ext = path.extname(filename);
-                // Keep the original slug if possible, or use 'asset'
+                const ext = stats.size > 800 * 1024 ? '.webp' : path.extname(filename);
                 const slug = filename.split('-')[0] || 'asset';
                 const newFilename = `${hash}-${slug}-${size}w${ext}`;
                 
@@ -783,10 +795,11 @@ app.post('/api/admin/optimize-storage', async (req, res) => {
                 const newFilepath = path.join(dir, newFilename);
                 if (filename !== newFilename) {
                     if (existsSync(newFilepath)) {
-                        spaceSaved += statSync(filepath).size;
+                        spaceSaved += stats.size;
                         unlinkSync(filepath);
                     } else {
-                        fs.renameSync(filepath, newFilepath);
+                        writeFileSync(newFilepath, buffer);
+                        unlinkSync(filepath);
                     }
                 }
             }
