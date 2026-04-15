@@ -1180,6 +1180,116 @@ app.use((err, req, res, next) => { console.error(err); res.status(500).json({ er
 // --- API ROUTES ---
 // (Moved to top)
 
+// --- API ROUTES ---
+// 1. Image Compression Only
+app.post('/api/admin/compress-images', async (req, res) => {
+    try {
+        const { default: sharp } = await import('sharp');
+        const sizes = ['300', '1080'];
+        let compressedCount = 0;
+
+        for (const size of sizes) {
+            const dir = path.join(UPLOADS_ROOT, size);
+            if (!existsSync(dir)) continue;
+            
+            const files = readdirSync(dir);
+            for (const filename of files) {
+                const filepath = path.join(dir, filename);
+                if (statSync(filepath).isDirectory()) continue;
+                const stats = statSync(filepath);
+
+                if (stats.size > 800 * 1024) {
+                    console.log(`🖼️ [Compress] Compressing: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
+                    const buffer = await sharp(readFileSync(filepath))
+                        .rotate()
+                        .resize(parseInt(size), null, { withoutEnlargement: true })
+                        .toFormat('webp', { quality: 80 })
+                        .toBuffer();
+                    writeFileSync(filepath, buffer);
+                    compressedCount++;
+                }
+            }
+        }
+        res.json({ success: true, message: `Compressed ${compressedCount} images.` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 2. CDN/Deduplication Only
+app.post('/api/admin/deduplicate-storage', async (req, res) => {
+    try {
+        const [products] = await pool.query('SELECT id, images, thumbnails FROM products');
+        const oldToNewMap = new Map();
+        const sizes = ['300', '1080'];
+        let spaceSaved = 0;
+        let dbUpdates = 0;
+
+        for (const size of sizes) {
+            const dir = path.join(UPLOADS_ROOT, size);
+            if (!existsSync(dir)) continue;
+            
+            const files = readdirSync(dir);
+            for (const filename of files) {
+                const filepath = path.join(dir, filename);
+                if (statSync(filepath).isDirectory()) continue;
+
+                const buffer = readFileSync(filepath);
+                const stats = statSync(filepath);
+                const hash = getHash(buffer);
+                const ext = path.extname(filename);
+                const slug = filename.split('-')[0] || 'asset';
+                const newFilename = `${hash}-${slug}-${size}w${ext}`;
+                
+                oldToNewMap.set(`${size}/${filename}`, newFilename);
+
+                const newFilepath = path.join(dir, newFilename);
+                if (filename !== newFilename) {
+                    if (existsSync(newFilepath)) {
+                        spaceSaved += stats.size;
+                        unlinkSync(filepath);
+                    } else {
+                        writeFileSync(newFilepath, buffer);
+                        unlinkSync(filepath);
+                    }
+                }
+            }
+        }
+
+        for (const product of products) {
+            const images = safeParse(product.images);
+            const thumbnails = safeParse(product.thumbnails);
+            let changed = false;
+
+            const updateList = (list, size) => {
+                return list.map(url => {
+                    if (!url || typeof url !== 'string' || !url.startsWith('/uploads/')) return url;
+                    const oldName = path.basename(url);
+                    const newName = oldToNewMap.get(`${size}/${oldName}`);
+                    if (newName && oldName !== newName) {
+                        changed = true;
+                        return `/uploads/${size}/${newName}`;
+                    }
+                    return url;
+                });
+            };
+
+            const newImages = updateList(images, '1080');
+            const newThumbnails = updateList(thumbnails, '300');
+
+            if (changed) {
+                await pool.query('UPDATE products SET images = ?, thumbnails = ? WHERE id = ?', 
+                    [JSON.stringify(newImages), JSON.stringify(newThumbnails), product.id]);
+                dbUpdates++;
+            }
+        }
+
+        res.json({ success: true, message: "Deduplication complete", dbUpdates });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // API 404 Handler - Ensures /api/* always returns JSON
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'API Route Not Found', path: req.originalUrl });
