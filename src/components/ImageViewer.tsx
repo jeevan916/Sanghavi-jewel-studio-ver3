@@ -29,6 +29,30 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [swipeX, setSwipeX] = useState(0);        // For unzoomed image swiping
   const [isDragging, setIsDragging] = useState(false); // Disables transition during drag
   const [loadError, setLoadError] = useState(false);
+  const [optimizedSrc, setOptimizedSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+      const checkAndOptimize = async () => {
+          if (!activeImageSrc || activeImageSrc.startsWith('data:') || activeImageSrc.includes('/api/media/resize')) {
+              setOptimizedSrc(activeImageSrc);
+              return;
+          }
+          
+          try {
+              const res = await fetch(`/api/media/info?url=${encodeURIComponent(activeImageSrc)}`);
+              const data = await res.json();
+              
+              if (data.size > 800 * 1024) { // > 800KB
+                  setOptimizedSrc(`/api/media/resize?url=${encodeURIComponent(activeImageSrc)}&width=1080&format=webp&quality=80`);
+              } else {
+                  setOptimizedSrc(activeImageSrc);
+              }
+          } catch (e) {
+              setOptimizedSrc(activeImageSrc);
+          }
+      };
+      checkAndOptimize();
+  }, [activeImageSrc]);
 
   // Lock body scroll when viewer is open
   useEffect(() => {
@@ -344,21 +368,20 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                  return isVideo ? (
                      <video 
                         key={safeIndex} 
-                        src={activeImageSrc} 
+                        src={optimizedSrc || activeImageSrc} 
                         draggable={false}
                         onError={() => setLoadError(true)}
-                        className="max-w-full max-h-full object-contain will-change-transform"
+                        className="max-w-full max-h-full object-contain"
                         style={{ 
                           transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
-                          transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.19, 1, 0.22, 1)', 
+                          willChange: 'transform',
                           cursor: scale > 1 ? 'move' : 'grab'
                         }}
-                        autoPlay muted loop playsInline controls
                      />
                  ) : (
                      <img 
                         key={safeIndex} 
-                        src={activeImageSrc} 
+                        src={optimizedSrc || activeImageSrc} 
                         alt="Zoom View"
                         draggable={false}
                         onError={() => setLoadError(true)}

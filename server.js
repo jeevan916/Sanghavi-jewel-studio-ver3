@@ -300,17 +300,65 @@ const initDB = async () => {
   }
 };
 
+// --- DYNAMIC IMAGE RESIZING ---
+app.get('/api/media/resize', async (req, res) => {
+    try {
+        const { url, width, format = 'webp', quality = 80 } = req.query;
+        if (!url) return res.status(400).json({ error: 'Missing url' });
+        
+        // Ensure URL is within uploads
+        const safeUrl = url.startsWith('/') ? url : `/${url}`;
+        const filepath = path.join(UPLOADS_ROOT, safeUrl.replace('/uploads/', ''));
+        
+        if (!existsSync(filepath)) return res.status(404).json({ error: 'Image not found' });
+
+        const { default: sharp } = await import('sharp');
+        const transformer = sharp(filepath);
+        
+        if (width) {
+            transformer.resize(parseInt(width), null, { withoutEnlargement: true });
+        }
+        
+        const buffer = await transformer.toFormat(format, { quality: parseInt(quality) }).toBuffer();
+        
+        res.setHeader('Content-Type', `image/${format}`);
+        res.send(buffer);
+    } catch (e) {
+        console.error('Dynamic resize failed:', e);
+        res.status(500).json({ error: 'Resize failed' });
+    }
+});
+
+// --- IMAGE METADATA ---
+app.get('/api/media/info', async (req, res) => {
+    try {
+        const { url } = req.query;
+        if (!url) return res.status(400).json({ error: 'Missing url' });
+        
+        const safeUrl = url.startsWith('/') ? url : `/${url}`;
+        const filepath = path.join(UPLOADS_ROOT, safeUrl.replace('/uploads/', ''));
+        
+        if (!existsSync(filepath)) return res.status(404).json({ error: 'Image not found' });
+        
+        const stats = statSync(filepath);
+        res.json({ size: stats.size });
+    } catch (e) {
+        console.error('Metadata fetch failed:', e);
+        res.status(500).json({ error: 'Metadata fetch failed' });
+    }
+});
+
 // --- MEDIA PROCESSING ---
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }, // Increased to 100MB for videos
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.match(/^(image\/(jpeg|png|webp|heic|avif)|video\/(mp4|quicktime|webm|x-matroska))$/)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Unsupported file format'), false);
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 }, // Increased to 100MB for videos
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.match(/^(image\/(jpeg|png|webp|heic|avif)|video\/(mp4|quicktime|webm|x-matroska))$/)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Unsupported file format'), false);
+        }
     }
-  }
 });
 
 const slugify = (text) => text.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
