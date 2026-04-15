@@ -60,6 +60,16 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
 
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 50));
 
+  const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+    const response = await fetch(`/api${endpoint}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Server Error (${response.status})`);
+    return data;
+  };
+
   const runReOptimization = async () => {
     if (!window.confirm(`Re-optimize all ${products.length} products to Next-Gen AVIF/WebP formats?`)) return;
     setIsProcessing(true);
