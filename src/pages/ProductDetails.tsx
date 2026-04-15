@@ -502,9 +502,10 @@ export const ProductDetails: React.FC = () => {
                                     ) : (
                                         <img 
                                             src={currentMedia} 
-                                            className="w-full h-full object-contain bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
+                                            className="w-full h-full object-contain bg-white cursor-zoom-in active:scale-105 transition-transform duration-300 ease-out" 
                                             onClick={() => setShowFullScreen(true)} 
                                             alt={product.title} 
+                                            loading="lazy"
                                         />
                                     );
                                 })()
@@ -580,7 +581,7 @@ export const ProductDetails: React.FC = () => {
                                     {isVideo ? (
                                         <video src={thumbMedia} className="w-full h-full object-cover" autoPlay muted loop playsInline />
                                     ) : (
-                                        <img src={thumbMedia} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                                        <img src={thumbMedia} alt={`View ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
                                     )}
                                 </button>
                                 {isAdminOrContributor && displayImages.length > 1 && (

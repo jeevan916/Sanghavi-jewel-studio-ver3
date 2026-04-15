@@ -70,6 +70,7 @@ export const Gallery: React.FC = () => {
 
             // Handle Shared Category Link Logic
             const state = location.state as any;
+            console.log("Gallery location state:", state);
             if (state?.category) {
                 setActiveCategory(state.category);
                 if (state.subCategory) setActiveSubCategory(state.subCategory);
