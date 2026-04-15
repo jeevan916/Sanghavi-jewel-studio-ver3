@@ -760,7 +760,7 @@ app.post('/api/admin/optimize-storage', async (req, res) => {
 
         // 1. First, build a map of OLD filename -> NEW filename based on content hash
         const oldToNewMap = new Map(); // size/oldName -> newName
-
+        
         const sizes = ['300', '1080'];
         const { default: sharp } = await import('sharp');
         const heavyImages = [];
@@ -780,86 +780,88 @@ app.post('/api/admin/optimize-storage', async (req, res) => {
             }
         }
         
-        // 1. First, build a map of OLD filename -> NEW filename based on content hash
-        const oldToNewMap = new Map(); // size/oldName -> newName
-        
-        for (const size of sizes) {
-            const dir = path.join(UPLOADS_ROOT, size);
-            if (!existsSync(dir)) continue;
-            
-            const files = readdirSync(dir);
-            for (const filename of files) {
-                const filepath = path.join(dir, filename);
-                if (statSync(filepath).isDirectory()) continue;
-
-                let buffer = readFileSync(filepath);
-                const stats = statSync(filepath);
+        // If no heavy images, just run optimization
+        if (heavyImages.length === 0) {
+            for (const size of sizes) {
+                const dir = path.join(UPLOADS_ROOT, size);
+                if (!existsSync(dir)) continue;
                 
-                // Optimization: Resize/Compress if > 800KB
-                if (stats.size > 800 * 1024) {
-                    console.log(`🖼️ [Optimize] Compressing heavy file: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
-                    buffer = await sharp(buffer)
-                        .rotate()
-                        .resize(parseInt(size), null, { withoutEnlargement: true })
-                        .toFormat('webp', { quality: 80 })
-                        .toBuffer();
-                }
-
-                const hash = getHash(buffer);
-                const ext = stats.size > 800 * 1024 ? '.webp' : path.extname(filename);
-                const slug = filename.split('-')[0] || 'asset';
-                const newFilename = `${hash}-${slug}-${size}w${ext}`;
-                
-                oldToNewMap.set(`${size}/${filename}`, newFilename);
-
-                const newFilepath = path.join(dir, newFilename);
-                if (filename !== newFilename) {
-                    if (existsSync(newFilepath)) {
-                        spaceSaved += stats.size;
-                        unlinkSync(filepath);
-                    } else {
-                        writeFileSync(newFilepath, buffer);
-                        unlinkSync(filepath);
+                const files = readdirSync(dir);
+                for (const filename of files) {
+                    const filepath = path.join(dir, filename);
+                    if (statSync(filepath).isDirectory()) continue;
+    
+                    let buffer = readFileSync(filepath);
+                    const stats = statSync(filepath);
+                    
+                    // Optimization: Resize/Compress if > 800KB
+                    if (stats.size > 800 * 1024) {
+                        console.log(`🖼️ [Optimize] Compressing heavy file: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
+                        buffer = await sharp(buffer)
+                            .rotate()
+                            .resize(parseInt(size), null, { withoutEnlargement: true })
+                            .toFormat('webp', { quality: 80 })
+                            .toBuffer();
+                    }
+    
+                    const hash = getHash(buffer);
+                    const ext = stats.size > 800 * 1024 ? '.webp' : path.extname(filename);
+                    const slug = filename.split('-')[0] || 'asset';
+                    const newFilename = `${hash}-${slug}-${size}w${ext}`;
+                    
+                    oldToNewMap.set(`${size}/${filename}`, newFilename);
+    
+                    const newFilepath = path.join(dir, newFilename);
+                    if (filename !== newFilename) {
+                        if (existsSync(newFilepath)) {
+                            spaceSaved += stats.size;
+                            unlinkSync(filepath);
+                        } else {
+                            writeFileSync(newFilepath, buffer);
+                            unlinkSync(filepath);
+                        }
                     }
                 }
             }
-        }
-
-        // 2. Update Database
-        for (const product of products) {
-            const images = safeParse(product.images);
-            const thumbnails = safeParse(product.thumbnails);
-            let changed = false;
-
-            const updateList = (list, size) => {
-                return list.map(url => {
-                    if (!url || typeof url !== 'string' || !url.startsWith('/uploads/')) return url;
-                    const oldName = path.basename(url);
-                    const newName = oldToNewMap.get(`${size}/${oldName}`);
-                    if (newName && oldName !== newName) {
-                        changed = true;
-                        return `/uploads/${size}/${newName}`;
-                    }
-                    return url;
-                });
-            };
-
-            const newImages = updateList(images, '1080');
-            const newThumbnails = updateList(thumbnails, '300');
-
-            if (changed) {
-                await pool.query('UPDATE products SET images = ?, thumbnails = ? WHERE id = ?', 
-                    [JSON.stringify(newImages), JSON.stringify(newThumbnails), product.id]);
-                dbUpdates++;
+    
+            // 2. Update Database
+            for (const product of products) {
+                const images = safeParse(product.images);
+                const thumbnails = safeParse(product.thumbnails);
+                let changed = false;
+    
+                const updateList = (list, size) => {
+                    return list.map(url => {
+                        if (!url || typeof url !== 'string' || !url.startsWith('/uploads/')) return url;
+                        const oldName = path.basename(url);
+                        const newName = oldToNewMap.get(`${size}/${oldName}`);
+                        if (newName && oldName !== newName) {
+                            changed = true;
+                            return `/uploads/${size}/${newName}`;
+                        }
+                        return url;
+                    });
+                };
+    
+                const newImages = updateList(images, '1080');
+                const newThumbnails = updateList(thumbnails, '300');
+    
+                if (changed) {
+                    await pool.query('UPDATE products SET images = ?, thumbnails = ? WHERE id = ?', 
+                        [JSON.stringify(newImages), JSON.stringify(newThumbnails), product.id]);
+                    dbUpdates++;
+                }
             }
+    
+            res.json({ 
+                success: true, 
+                message: "Storage optimized successfully", 
+                spaceSaved: `${(spaceSaved / (1024 * 1024)).toFixed(2)} MB`,
+                dbUpdates 
+            });
+        } else {
+            res.json({ success: true, heavyImages });
         }
-
-        res.json({ 
-            success: true, 
-            message: "Storage optimized successfully", 
-            spaceSaved: `${(spaceSaved / (1024 * 1024)).toFixed(2)} MB`,
-            dbUpdates 
-        });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
