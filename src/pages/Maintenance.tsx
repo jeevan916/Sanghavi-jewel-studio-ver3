@@ -319,9 +319,15 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                 // For now, let's just trigger the process and assume it runs
                 try {
                     const res = await storeService.optimizeStorage();
-                    addLog(`Optimization complete: ${res.message}`);
-                    addLog(`Space saved: ${res.spaceSaved}`);
-                    addLog(`DB records updated: ${res.dbUpdates}`);
+                    if (res.success) {
+                        addLog(`Optimization complete: ${res.message || 'Success'}`);
+                        addLog(`Space saved: ${res.spaceSaved || '0 MB'}`);
+                        addLog(`DB records updated: ${res.dbUpdates || 0}`);
+                    } else if (res.heavyImages) {
+                        addLog(`Found ${res.heavyImages.length} heavy images. Please confirm.`);
+                    } else {
+                        addLog(`Optimization finished: ${res.message || 'No changes needed'}`);
+                    }
                 } catch (e: any) {
                     addLog(`Optimization error: ${e.message}`);
                 } finally {
