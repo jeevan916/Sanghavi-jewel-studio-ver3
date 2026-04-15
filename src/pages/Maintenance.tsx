@@ -315,7 +315,8 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                 setIsProcessing(true);
                 addLog("Starting Image Compression...");
                 try {
-                    const res = await apiFetch('/admin/compress-images', { method: 'POST' });
+                    const response = await fetch('/api/admin/compress-images', { method: 'POST' });
+                    const res = await response.json();
                     addLog(res.message);
                 } catch (e: any) {
                     addLog(`Compression error: ${e.message}`);
@@ -340,7 +341,8 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
                 setIsProcessing(true);
                 addLog("Starting CDN/Deduplication...");
                 try {
-                    const res = await apiFetch('/admin/deduplicate-storage', { method: 'POST' });
+                    const response = await fetch('/api/admin/deduplicate-storage', { method: 'POST' });
+                    const res = await response.json();
                     addLog(res.message);
                     addLog(`DB records updated: ${res.dbUpdates}`);
                 } catch (e: any) {
@@ -353,7 +355,6 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
           >
             Run Deduplication
           </button>
-        </div>
       </div>
 
       {isProcessing && (
