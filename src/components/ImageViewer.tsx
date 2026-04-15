@@ -362,10 +362,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                         alt="Zoom View"
                         draggable={false}
                         onError={() => setLoadError(true)}
-                        className="max-w-full max-h-full object-contain will-change-transform"
+                        className="max-w-full max-h-full object-contain"
                         style={{ 
                           transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
-                          transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.19, 1, 0.22, 1)', 
+                          willChange: 'transform',
                           cursor: scale > 1 ? 'move' : 'grab'
                         }}
                      />
