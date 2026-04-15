@@ -306,37 +306,52 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-          <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><HardDrive size={24} /></div>
-          <h3 className="font-bold">Storage Optimizer</h3>
-          <p className="text-xs text-stone-500">Deduplicate files and rename to CDN-friendly format.</p>
-           <button 
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Cpu size={24} /></div>
+          <h3 className="font-bold">Compress Images</h3>
+          <p className="text-xs text-stone-500">Compress images larger than 800KB to WebP.</p>
+          <button 
             disabled={isProcessing} 
             onClick={async () => {
                 setIsProcessing(true);
-                addLog("Starting Storage Optimization...");
-                
-                // Use EventSource or polling to get progress
-                // For now, let's just trigger the process and assume it runs
+                addLog("Starting Image Compression...");
                 try {
-                    const res = await storeService.optimizeStorage();
-                    if (res.success) {
-                        addLog(`Optimization complete: ${res.message || 'Success'}`);
-                        addLog(`Space saved: ${res.spaceSaved || '0 MB'}`);
-                        addLog(`DB records updated: ${res.dbUpdates || 0}`);
-                    } else if (res.heavyImages) {
-                        addLog(`Found ${res.heavyImages.length} heavy images. Please confirm.`);
-                    } else {
-                        addLog(`Optimization finished: ${res.message || 'No changes needed'}`);
-                    }
+                    const res = await apiFetch('/admin/compress-images', { method: 'POST' });
+                    addLog(res.message);
                 } catch (e: any) {
-                    addLog(`Optimization error: ${e.message}`);
+                    addLog(`Compression error: ${e.message}`);
+                } finally {
+                    setIsProcessing(false);
+                }
+            }} 
+            className="w-full py-2 bg-stone-900 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-stone-800 transition"
+          >
+            Compress Images
+          </button>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+          <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><HardDrive size={24} /></div>
+          <h3 className="font-bold">CDN/Deduplication</h3>
+          <p className="text-xs text-stone-500">Deduplicate files and rename to CDN-friendly format.</p>
+          <button 
+            disabled={isProcessing} 
+            onClick={async () => {
+                if (!window.confirm("Run CDN/Deduplication? This will rename all files and deduplicate them. It may take a moment.")) return;
+                setIsProcessing(true);
+                addLog("Starting CDN/Deduplication...");
+                try {
+                    const res = await apiFetch('/admin/deduplicate-storage', { method: 'POST' });
+                    addLog(res.message);
+                    addLog(`DB records updated: ${res.dbUpdates}`);
+                } catch (e: any) {
+                    addLog(`Deduplication error: ${e.message}`);
                 } finally {
                     setIsProcessing(false);
                 }
             }} 
             className="w-full py-2 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition disabled:opacity-50"
           >
-            Optimize Storage
+            Run Deduplication
           </button>
         </div>
       </div>
