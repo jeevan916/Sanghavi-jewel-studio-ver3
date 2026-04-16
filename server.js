@@ -753,16 +753,23 @@ app.post('/api/config', async (req, res) => {
 
 // 1. Image Compression Only
 app.post('/api/admin/compress-images', async (req, res) => {
+    console.log(`🖼️ [Compress] Attempting optimization. UPLOADS_ROOT: ${UPLOADS_ROOT}`);
     try {
         const { default: sharp } = await import('sharp');
-        const sizes = ['300', '1080'];
+        const sizes = ['300', '720', '1080'];
         let compressedCount = 0;
+        let checkedPaths = [];
 
         for (const size of sizes) {
             const dir = path.join(UPLOADS_ROOT, size);
-            if (!existsSync(dir)) continue;
+            checkedPaths.push(dir);
+            if (!existsSync(dir)) {
+                console.log(`🖼️ [Compress] Directory not found: ${dir}`);
+                continue;
+            }
             
             const files = readdirSync(dir);
+            console.log(`🖼️ [Compress] Checking ${dir}. Found ${files.length} files.`);
             for (const filename of files) {
                 const filepath = path.join(dir, filename);
                 if (statSync(filepath).isDirectory()) continue;
@@ -784,8 +791,9 @@ app.post('/api/admin/compress-images', async (req, res) => {
                 }
             }
         }
-        res.json({ success: true, message: `Compressed ${compressedCount} images.` });
+        res.json({ success: true, message: `Checked ${checkedPaths.join(', ')}. Compressed ${compressedCount} images.` });
     } catch (e) {
+        console.error(`❌ [Compress] Route error: ${e.message}`);
         res.status(500).json({ error: e.message });
     }
 });
