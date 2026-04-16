@@ -770,13 +770,17 @@ app.post('/api/admin/compress-images', async (req, res) => {
 
                 if (stats.size > 800 * 1024) {
                     console.log(`🖼️ [Compress] Compressing: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
-                    const buffer = await sharp(readFileSync(filepath))
-                        .rotate()
-                        .resize(parseInt(size), null, { withoutEnlargement: true })
-                        .toFormat('webp', { quality: 80 })
-                        .toBuffer();
-                    writeFileSync(filepath, buffer);
-                    compressedCount++;
+                    try {
+                        const buffer = await sharp(readFileSync(filepath))
+                            .rotate()
+                            .resize(parseInt(size), null, { withoutEnlargement: true })
+                            .toFormat('webp', { quality: 80 })
+                            .toBuffer();
+                        writeFileSync(filepath, buffer);
+                        compressedCount++;
+                    } catch (err) {
+                        console.error(`❌ [Compress] Failed to compress ${filename}: ${err.message}`);
+                    }
                 }
             }
         }
@@ -1181,40 +1185,6 @@ app.use((err, req, res, next) => { console.error(err); res.status(500).json({ er
 // (Moved to top)
 
 // --- API ROUTES ---
-// 1. Image Compression Only
-app.post('/api/admin/compress-images', async (req, res) => {
-    try {
-        const { default: sharp } = await import('sharp');
-        const sizes = ['300', '1080'];
-        let compressedCount = 0;
-
-        for (const size of sizes) {
-            const dir = path.join(UPLOADS_ROOT, size);
-            if (!existsSync(dir)) continue;
-            
-            const files = readdirSync(dir);
-            for (const filename of files) {
-                const filepath = path.join(dir, filename);
-                if (statSync(filepath).isDirectory()) continue;
-                const stats = statSync(filepath);
-
-                if (stats.size > 800 * 1024) {
-                    console.log(`🖼️ [Compress] Compressing: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
-                    const buffer = await sharp(readFileSync(filepath))
-                        .rotate()
-                        .resize(parseInt(size), null, { withoutEnlargement: true })
-                        .toFormat('webp', { quality: 80 })
-                        .toBuffer();
-                    writeFileSync(filepath, buffer);
-                    compressedCount++;
-                }
-            }
-        }
-        res.json({ success: true, message: `Compressed ${compressedCount} images.` });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
 
 // 2. CDN/Deduplication Only
 app.post('/api/admin/deduplicate-storage', async (req, res) => {
