@@ -363,6 +363,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
           >
             Run Deduplication
           </button>
+        </div>
       </div>
 
       {isProcessing && (
