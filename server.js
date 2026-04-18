@@ -131,21 +131,29 @@ app.use((req, res, next) => {
 // Robust Data Root Resolution for Hostinger
 const localDataPath = path.resolve(__dirname, 'data');
 const persistencePath = path.resolve(__dirname, '..', 'sanghavi_persistence');
+const filesPersistencePath = path.resolve('/', 'files', 'sanghavi_persistence'); // Hardcoded attempt to hit Hostinger /files path
 
 let DATA_ROOT = localDataPath;
 if (existsSync(persistencePath)) {
     DATA_ROOT = persistencePath;
     console.log(`📂 [Sanghavi Studio] Using persistent data directory: ${DATA_ROOT}`);
+} else if (existsSync(filesPersistencePath)) {
+    DATA_ROOT = filesPersistencePath;
+    console.log(`📂 [Sanghavi Studio] Using Hostinger files persistent directory: ${DATA_ROOT}`);
 } else {
     console.log(`📂 [Sanghavi Studio] Using local data directory: ${DATA_ROOT}`);
 }
 
 let UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 const publicHtmlUploads = path.resolve(__dirname, '..', 'public_html', 'uploads');
+const rootUploads = path.resolve('/', 'uploads');
 
 if (!existsSync(UPLOADS_ROOT) && existsSync(publicHtmlUploads)) {
     UPLOADS_ROOT = publicHtmlUploads;
     console.log(`📂 [Sanghavi Studio] Found existing uploads in public_html: ${UPLOADS_ROOT}`);
+} else if (!existsSync(UPLOADS_ROOT) && existsSync(rootUploads)) {
+    UPLOADS_ROOT = rootUploads;
+    console.log(`📂 [Sanghavi Studio] Found existing uploads in root: ${UPLOADS_ROOT}`);
 }
 
 const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
@@ -751,17 +759,40 @@ app.post('/api/config', async (req, res) => {
     }
 });
 
-// 1. Image Compression Only
-app.post('/api/admin/compress-images', async (req, res) => {
-    console.log(`🖼️ [Compress] Attempting optimization. UPLOADS_ROOT: ${UPLOADS_ROOT}`);
+// 1. Overall Optimization (Compression & Path checking)
+app.post('/api/admin/optimize-storage', async (req, res) => {
+    console.log(`🖼️ [Compress] Attempting optimization. Base UPLOADS_ROOT: ${UPLOADS_ROOT}`);
     try {
         const { default: sharp } = await import('sharp');
         const sizes = ['300', '720', '1080'];
         let compressedCount = 0;
         let checkedPaths = [];
 
+        // Try multiple possible roots since environments differ
+        const possibleRoots = [
+            UPLOADS_ROOT,
+            path.resolve(__dirname, '..', 'sanghavi_persistence', 'uploads'),
+            path.resolve(__dirname, '..', 'public_html', 'uploads'),
+            '/files/sanghavi_persistence/uploads',
+            '/home/u477692720/domains/studio.sanghavijewellers.com/sanghavi_persistence/uploads' // From screenshot path structure
+        ];
+
+        let activeRoot = null;
+        for (const pr of possibleRoots) {
+            checkedPaths.push(`[Check ${pr}]`);
+            if (existsSync(pr)) {
+                activeRoot = pr;
+                console.log(`🖼️ [Compress] Found valid upload root at: ${pr}`);
+                break;
+            }
+        }
+
+        if (!activeRoot) {
+             return res.json({ success: false, message: `Could not find any valid upload root. Checked: ${possibleRoots.join(', ')}` });
+        }
+
         for (const size of sizes) {
-            const dir = path.join(UPLOADS_ROOT, size);
+            const dir = path.join(activeRoot, size);
             checkedPaths.push(dir);
             if (!existsSync(dir)) {
                 console.log(`🖼️ [Compress] Directory not found: ${dir}`);
@@ -775,7 +806,10 @@ app.post('/api/admin/compress-images', async (req, res) => {
                 if (statSync(filepath).isDirectory()) continue;
                 const stats = statSync(filepath);
 
-                if (stats.size > 800 * 1024) {
+                // Check if file is a valid image and greater than 50KB (temporarily dropped to capture EVERYTHING for testing)
+                const isImage = filename.match(/\.(jpg|jpeg|png|webp|avif)$/i);
+                
+                if (isImage && stats.size > 10 * 1024) { // Only skipping things smaller than 10KB
                     console.log(`🖼️ [Compress] Compressing: ${filename} (${(stats.size / 1024).toFixed(0)}KB)`);
                     try {
                         const buffer = await sharp(readFileSync(filepath))
@@ -788,10 +822,13 @@ app.post('/api/admin/compress-images', async (req, res) => {
                     } catch (err) {
                         console.error(`❌ [Compress] Failed to compress ${filename}: ${err.message}`);
                     }
+                } else if (isImage) {
+                    // Log files that are skipped because they are already very small
+                    // console.log(`⏩ [Compress] Skipped: ${filename} (Already optimized: ${(stats.size / 1024).toFixed(0)}KB)`);
                 }
             }
         }
-        res.json({ success: true, message: `Checked ${checkedPaths.join(', ')}. Compressed ${compressedCount} images.` });
+        res.json({ success: true, message: `Used root ${activeRoot}. Compressed ${compressedCount} images.` });
     } catch (e) {
         console.error(`❌ [Compress] Route error: ${e.message}`);
         res.status(500).json({ error: e.message });
