@@ -31,6 +31,48 @@ export const ProductDetails: React.FC = () => {
   const [isSharedAccess, setIsSharedAccess] = useState(false);
   const [isRestricted, setIsRestricted] = useState(false);
   
+  // Dwell Time & Behavior Tracking
+  const viewStartTime = useRef<number>(Date.now());
+  const currentViewedProductId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (product && !isLoading) {
+      viewStartTime.current = Date.now();
+      currentViewedProductId.current = product.id;
+    }
+    
+    return () => {
+      if (currentViewedProductId.current && product) {
+        const durationSeconds = Math.round((Date.now() - viewStartTime.current) / 1000);
+        if (durationSeconds > 1) { 
+          storeService.logEvent('view', product, undefined, { duration: durationSeconds });
+        }
+      }
+    };
+  }, [product, isLoading]);
+
+  useEffect(() => {
+     if (!product || isAdmin) return; 
+
+     const handleKeyDown = (e: KeyboardEvent) => {
+       if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && ['3','4','5','s'].includes(e.key.toLowerCase()))) {
+          storeService.logEvent('screenshot', product, undefined, { meta: { method: 'keyboard' } });
+       }
+     };
+     
+     const handleCopy = () => {
+        storeService.logEvent('screenshot', product, undefined, { meta: { method: 'copy' } });
+     };
+
+     window.addEventListener('keydown', handleKeyDown);
+     document.addEventListener('copy', handleCopy);
+
+     return () => {
+       window.removeEventListener('keydown', handleKeyDown);
+       document.removeEventListener('copy', handleCopy);
+     }
+  }, [product, isAdmin]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
@@ -504,6 +546,11 @@ export const ProductDetails: React.FC = () => {
                                             src={currentMedia} 
                                             className="w-full h-full object-contain bg-white cursor-zoom-in active:scale-105 transition-transform duration-300 ease-out" 
                                             onClick={() => setShowFullScreen(true)} 
+                                            onContextMenu={() => {
+                                                if (!isAdmin) {
+                                                    storeService.logEvent('screenshot', product, undefined, { meta: { method: 'long_press' } });
+                                                }
+                                            }}
                                             alt={product.title} 
                                             loading="lazy"
                                         />

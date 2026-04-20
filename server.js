@@ -235,6 +235,11 @@ const initDB = async () => {
     // Links Table for Private Sharing
     await pool.query(`CREATE TABLE IF NOT EXISTS links (id VARCHAR(255) PRIMARY KEY, token VARCHAR(255) UNIQUE, targetId VARCHAR(255), type VARCHAR(50), expiresAt DATETIME, createdAt DATETIME)`);
 
+    // Schema Updates for Analytics (Dwell Time & Screenshots)
+    try { await pool.query(`ALTER TABLE analytics ADD COLUMN IF NOT EXISTS userPhone VARCHAR(50)`); } catch (e) {}
+    try { await pool.query(`ALTER TABLE analytics ADD COLUMN IF NOT EXISTS duration INT`); } catch (e) {}
+    try { await pool.query(`ALTER TABLE analytics ADD COLUMN IF NOT EXISTS meta JSON`); } catch (e) {}
+
     // 2. Normalized Configuration Tables (Professional Schema)
     await pool.query(`CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255), isPrivate BOOLEAN)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255), isPrivate BOOLEAN)`);
@@ -1190,7 +1195,11 @@ app.delete('/api/staff/:id', async (req, res) => {
 
 app.post('/api/analytics', async (req, res) => {
     try {
-        const event = { id: crypto.randomUUID(), ...req.body, timestamp: new Date() };
+        const body = { ...req.body };
+        if (body.meta && typeof body.meta === 'object') {
+            body.meta = JSON.stringify(body.meta);
+        }
+        const event = { id: crypto.randomUUID(), ...body, timestamp: new Date() };
         await pool.query('INSERT INTO analytics SET ?', event);
         res.status(201).json(event);
     } catch (e) { res.status(500).json({ error: e.message }); }

@@ -201,14 +201,15 @@ export const storeService = {
     return idx === -1;
   },
 
-  logEvent: (type: string, product?: Product, user?: User) => {
+  logEvent: (type: string, product?: Product, user?: User, extra?: any) => {
     const u = user || storeService.getCurrentUser();
     if (!u) return Promise.resolve();
     return apiFetch('/analytics', {
       method: 'POST',
       body: JSON.stringify({
         type, productId: product?.id, productTitle: product?.title,
-        userId: u.id, userName: u.name
+        userId: u.id, userName: u.name, userPhone: u.phone,
+        ...extra
       })
     }).catch(() => {});
   },

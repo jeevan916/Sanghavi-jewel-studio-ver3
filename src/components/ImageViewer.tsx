@@ -132,6 +132,42 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setLoadError(false);
   }, [currentIndex]);
 
+  // Advanced Mobile Screenshot Heuristic (OS Interruption Detection)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+        // When a user takes a screenshot with hardware buttons on iOS/Android, 
+        // the OS often briefly interrupts the browser, triggering a hidden state.
+        if (document.visibilityState === 'hidden') {
+            try {
+                const user = JSON.parse(localStorage.getItem('sanghavi_user_session') || '{}');
+                if (user && user.role !== 'admin') {
+                    fetch('/api/analytics', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'screenshot',
+                            productTitle: title,
+                            userId: user.id || 'unknown',
+                            userName: user.name || 'Anonymous',
+                            userPhone: user.phone,
+                            meta: { method: 'hardware_button_heuristic' }
+                        })
+                    }).catch(() => {});
+                }
+            } catch (e) {}
+        }
+    };
+
+    // Listeners for when the OS overlays the browser
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleVisibilityChange);
+
+    return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('blur', handleVisibilityChange);
+    };
+  }, [title]);
+
   const vibrate = (pattern: number | number[] = 10) => {
     if (navigator.vibrate) navigator.vibrate(pattern);
   };
@@ -385,6 +421,25 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                         alt="Zoom View"
                         draggable={false}
                         onError={() => setLoadError(true)}
+                        onContextMenu={() => {
+                            try {
+                                const user = JSON.parse(localStorage.getItem('sanghavi_user_session') || '{}');
+                                if (user && user.role !== 'admin') {
+                                    fetch('/api/analytics', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            type: 'screenshot',
+                                            productTitle: title,
+                                            userId: user.id || 'unknown',
+                                            userName: user.name || 'Anonymous',
+                                            userPhone: user.phone,
+                                            meta: { method: 'long_press_fullscreen' }
+                                        })
+                                    });
+                                }
+                            } catch (e) {}
+                        }}
                         className="max-w-full max-h-full object-contain"
                         style={{ 
                           transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
