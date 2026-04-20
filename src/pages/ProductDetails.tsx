@@ -444,12 +444,12 @@ export const ProductDetails: React.FC = () => {
 
       if (isSwipeLeft && neighbors.next) {
           if(navigator.vibrate) navigator.vibrate(20); // Haptic Feedback
-          navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } });
+          navigate(`/product/${neighbors.next}`, { state: { ...(location.state || {}), direction: 'next' } });
       }
       
       if (isSwipeRight && neighbors.prev) {
           if(navigator.vibrate) navigator.vibrate(20); // Haptic Feedback
-          navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } });
+          navigate(`/product/${neighbors.prev}`, { state: { ...(location.state || {}), direction: 'prev' } });
       }
 
       // Reset
@@ -507,7 +507,7 @@ export const ProductDetails: React.FC = () => {
     >
       {/* HEADER: Stable (Outside Animation Key) */}
       <div className="bg-white/90 backdrop-blur-xl border-b border-stone-100 px-4 h-16 flex items-center justify-between sticky top-0 md:top-24 z-30 transition-all duration-500">
-        <button onClick={() => navigate('/gallery', { state: { category: product?.category, subCategory: product?.subCategory || 'All' } })} className="p-2 -ml-2 text-stone-400 hover:text-brand-dark hover:bg-stone-50 rounded-xl transition-all"><ArrowLeft size={24} /></button>
+        <button onClick={() => navigate('/gallery', { state: { category: (location.state as any)?.category || product?.category, subCategory: (location.state as any)?.subCategory || product?.subCategory || 'All' } })} className="p-2 -ml-2 text-stone-400 hover:text-brand-dark hover:bg-stone-50 rounded-xl transition-all"><ArrowLeft size={24} /></button>
         <div className="flex flex-col items-center flex-1 px-2 overflow-hidden">
             <span className="text-[7px] font-bold uppercase tracking-[0.3em] text-brand-gold mb-0.5">{product.category}</span>
             <h2 className="font-serif font-bold text-brand-dark text-lg truncate w-full text-center">{product.title}</h2>
@@ -593,7 +593,7 @@ export const ProductDetails: React.FC = () => {
                             <div className="hidden md:flex absolute inset-x-0 top-1/2 -translate-y-1/2 justify-between px-8 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none">
                                 {neighbors.prev && (
                                     <button 
-                                        onClick={() => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev' } })} 
+                                        onClick={() => navigate(`/product/${neighbors.prev}`, { state: { ...(location.state || {}), direction: 'prev' } })} 
                                         className="p-4 bg-white/20 text-white rounded-full hover:bg-white/40 pointer-events-auto backdrop-blur-xl transition-all active:scale-90 border border-white/10"
                                     >
                                         <ChevronLeft size={34}/>
@@ -601,7 +601,7 @@ export const ProductDetails: React.FC = () => {
                                 )}
                                 {neighbors.next && (
                                     <button 
-                                        onClick={() => navigate(`/product/${neighbors.next}`, { state: { direction: 'next' } })} 
+                                        onClick={() => navigate(`/product/${neighbors.next}`, { state: { ...(location.state || {}), direction: 'next' } })} 
                                         className="p-4 bg-white/20 text-white rounded-full hover:bg-white/40 pointer-events-auto backdrop-blur-xl transition-all active:scale-90 border border-white/10"
                                     >
                                         <ChevronRight size={34}/>

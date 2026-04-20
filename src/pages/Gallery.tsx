@@ -155,8 +155,15 @@ export const Gallery: React.FC = () => {
 
   const navigateToProduct = useCallback((productId: string) => {
     if (navigator.vibrate) navigator.vibrate(10);
-    navigate(`/product/${productId}`);
-  }, [navigate]);
+    navigate(`/product/${productId}`, {
+        state: {
+            fromGallery: true,
+            category: activeCategory,
+            subCategory: activeSubCategory,
+            search: search
+        }
+    });
+  }, [navigate, activeCategory, activeSubCategory, search]);
 
   const unlockedCats = useMemo(() => storeService.getUnlockedCategories(), []);
   const isCategoryUnlocked = unlockedCats.includes(activeCategory);
