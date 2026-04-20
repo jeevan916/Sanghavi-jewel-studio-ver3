@@ -56,7 +56,7 @@ export const ProductDetails: React.FC = () => {
   }, [product, isLoading]);
 
   useEffect(() => {
-     if (!product || isAdmin) return; 
+     if (!product) return; 
 
      const handleKeyDown = (e: KeyboardEvent) => {
        if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && ['3','4','5','s'].includes(e.key.toLowerCase()))) {
@@ -70,23 +70,33 @@ export const ProductDetails: React.FC = () => {
 
      // Advanced Mobile Screenshot Heuristic (OS Interruption Detection)
      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'hidden') {
-            storeService.logEvent('screenshot', product, undefined, { meta: { method: 'hardware_button_heuristic' } });
+        if (document.visibilityState === 'hidden' || document.visibilityState === 'visible') {
+            // Check for blur context or hidden. Some mobile OS trigger blur without hidden during screenshots.
+            // Be mindful this is a heuristic.
         }
+     };
+
+     const handleBlur = () => {
+         // Fired when overlay appears on some OS versions during screenshot
+         storeService.logEvent('screenshot', product, undefined, { meta: { method: 'hardware_heuristic_blur' } });
      };
 
      window.addEventListener('keydown', handleKeyDown);
      document.addEventListener('copy', handleCopy);
-     document.addEventListener('visibilitychange', handleVisibilityChange);
-     window.addEventListener('blur', handleVisibilityChange);
+     document.addEventListener('visibilitychange', () => {
+         if (document.visibilityState === 'hidden') {
+             storeService.logEvent('screenshot', product, undefined, { meta: { method: 'hardware_heuristic_hidden' } });
+         }
+     });
+     // We will temporarily listen to blur as well for aggressive testing capture:
+     window.addEventListener('blur', handleBlur);
 
      return () => {
        window.removeEventListener('keydown', handleKeyDown);
        document.removeEventListener('copy', handleCopy);
-       document.removeEventListener('visibilitychange', handleVisibilityChange);
-       window.removeEventListener('blur', handleVisibilityChange);
+       window.removeEventListener('blur', handleBlur);
      }
-  }, [product, isAdmin]);
+  }, [product]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -548,19 +558,15 @@ export const ProductDetails: React.FC = () => {
                                     return isVideo ? (
                                         <video 
                                             src={currentMedia} 
-                                            className="w-full h-full object-contain bg-white cursor-zoom-in active:scale-105 transition-transform duration-1000 ease-out" 
-                                            onClick={() => setShowFullScreen(true)} 
+                                            className="w-full h-full object-contain bg-white transition-transform duration-1000 ease-out" 
                                             autoPlay muted loop playsInline
                                         />
                                     ) : (
                                         <img 
                                             src={currentMedia} 
-                                            className="w-full h-full object-contain bg-white cursor-zoom-in active:scale-105 transition-transform duration-300 ease-out" 
-                                            onClick={() => setShowFullScreen(true)} 
+                                            className="w-full h-full object-contain bg-white transition-transform duration-300 ease-out" 
                                             onContextMenu={() => {
-                                                if (!isAdmin) {
-                                                    storeService.logEvent('screenshot', product, undefined, { meta: { method: 'long_press' } });
-                                                }
+                                                storeService.logEvent('screenshot', product, undefined, { meta: { method: 'long_press' } });
                                             }}
                                             alt={product.title} 
                                             loading="lazy"

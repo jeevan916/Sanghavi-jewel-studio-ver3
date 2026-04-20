@@ -202,8 +202,7 @@ export const storeService = {
   },
 
   logEvent: (type: string, product?: Product, user?: User, extra?: any) => {
-    const u = user || storeService.getCurrentUser();
-    if (!u) return Promise.resolve();
+    const u = user || storeService.getCurrentUser() || { id: 'anonymous', name: 'Guest' } as any;
     return apiFetch('/analytics', {
       method: 'POST',
       body: JSON.stringify({

@@ -236,9 +236,16 @@ const initDB = async () => {
     await pool.query(`CREATE TABLE IF NOT EXISTS links (id VARCHAR(255) PRIMARY KEY, token VARCHAR(255) UNIQUE, targetId VARCHAR(255), type VARCHAR(50), expiresAt DATETIME, createdAt DATETIME)`);
 
     // Schema Updates for Analytics (Dwell Time & Screenshots)
-    try { await pool.query(`ALTER TABLE analytics ADD COLUMN IF NOT EXISTS userPhone VARCHAR(50)`); } catch (e) {}
-    try { await pool.query(`ALTER TABLE analytics ADD COLUMN IF NOT EXISTS duration INT`); } catch (e) {}
-    try { await pool.query(`ALTER TABLE analytics ADD COLUMN IF NOT EXISTS meta JSON`); } catch (e) {}
+    const addColumnIfMissing = async (table, col, def) => {
+        try {
+            await pool.query(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+        } catch(e) {
+            // Ignore if column exists
+        }
+    };
+    await addColumnIfMissing('analytics', 'userPhone', 'VARCHAR(50)');
+    await addColumnIfMissing('analytics', 'duration', 'INT');
+    await addColumnIfMissing('analytics', 'meta', 'JSON');
 
     // 2. Normalized Configuration Tables (Professional Schema)
     await pool.query(`CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255), isPrivate BOOLEAN)`);
