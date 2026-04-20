@@ -134,12 +134,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           }
 
           // Weighted Scoring Algorithm
-          // Inquiry = 5 points
-          // Like = 3 points
-          // View = 1 point
           let weight = 1;
           if (event.type === 'inquiry') weight = 5;
+          else if (event.type === 'screenshot') weight = 4;
           else if (event.type === 'like') weight = 3;
+          else if (event.type === 'view') {
+              const dur = event.meta?.duration || 0;
+              weight = 1 + (dur > 5 ? 1 : 0);
+          }
           
           scores[event.productId].score += weight;
       });

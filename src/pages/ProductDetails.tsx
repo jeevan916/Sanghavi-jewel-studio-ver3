@@ -49,7 +49,7 @@ export const ProductDetails: React.FC = () => {
       if (currentViewedProductId.current && product) {
         const durationSeconds = Math.round((Date.now() - viewStartTime.current) / 1000);
         if (durationSeconds > 1) { 
-          storeService.logEvent('view', product, undefined, { duration: durationSeconds });
+          storeService.logEvent('view', product, undefined, { meta: { duration: durationSeconds } });
         }
       }
     };
@@ -68,12 +68,23 @@ export const ProductDetails: React.FC = () => {
         storeService.logEvent('screenshot', product, undefined, { meta: { method: 'copy' } });
      };
 
+     // Advanced Mobile Screenshot Heuristic (OS Interruption Detection)
+     const handleVisibilityChange = () => {
+        if (document.visibilityState === 'hidden') {
+            storeService.logEvent('screenshot', product, undefined, { meta: { method: 'hardware_button_heuristic' } });
+        }
+     };
+
      window.addEventListener('keydown', handleKeyDown);
      document.addEventListener('copy', handleCopy);
+     document.addEventListener('visibilitychange', handleVisibilityChange);
+     window.addEventListener('blur', handleVisibilityChange);
 
      return () => {
        window.removeEventListener('keydown', handleKeyDown);
        document.removeEventListener('copy', handleCopy);
+       document.removeEventListener('visibilitychange', handleVisibilityChange);
+       window.removeEventListener('blur', handleVisibilityChange);
      }
   }, [product, isAdmin]);
 
