@@ -926,22 +926,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {selectedCustomer && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-fade-in">
-                  <div className="p-6 border-b border-stone-100 flex justify-between items-start bg-stone-50">
-                      <div>
-                          <h2 className="text-2xl font-serif font-bold text-brand-dark flex items-center gap-3">
-                              {selectedCustomer.name} <span className="text-xs bg-brand-gold/10 text-brand-gold px-2 py-1 rounded font-sans uppercase tracking-[0.2em]">{selectedCustomer.role}</span>
+                  <div className="p-4 sm:p-6 border-b border-stone-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-stone-50 relative">
+                      <div className="pr-12 sm:pr-0">
+                          <h2 className="text-xl sm:text-2xl font-serif font-bold text-brand-dark flex flex-wrap items-center gap-2 sm:gap-3">
+                              {selectedCustomer.name} <span className="text-[10px] sm:text-xs bg-brand-gold/10 text-brand-gold px-2 py-1 rounded font-sans uppercase tracking-[0.2em]">{selectedCustomer.role}</span>
                           </h2>
-                          <div className="flex gap-4 mt-2 text-sm text-stone-500 font-mono">
+                          <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-stone-500 font-mono">
                               <span className="flex items-center gap-1"><Smartphone size={14}/> {selectedCustomer.phone}</span>
                               {selectedCustomer.pincode && <span className="flex items-center gap-1"><MapPin size={14}/> {selectedCustomer.pincode}</span>}
                           </div>
                       </div>
                       <div className="flex items-center gap-2">
-                          <button onClick={() => storeService.chatWithLead(selectedCustomer)} className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-600 transition flex items-center gap-2">
-                              <MessageCircle size={16} /> WhatsApp
+                          <button onClick={() => storeService.chatWithLead(selectedCustomer)} className="px-3 sm:px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-600 transition flex items-center gap-2">
+                              <MessageCircle size={16} /> <span className="hidden sm:inline">WhatsApp</span>
                           </button>
-                          <button onClick={() => setSelectedCustomer(null)} className="p-2 text-stone-400 hover:text-brand-dark transition-colors bg-white rounded-xl shadow-sm border border-stone-100"><X size={24}/></button>
                       </div>
+                      <button onClick={() => setSelectedCustomer(null)} className="absolute top-4 right-4 sm:relative sm:top-0 sm:right-0 p-2 text-stone-400 hover:text-brand-dark transition-colors bg-white rounded-xl shadow-sm border border-stone-100"><X size={24}/></button>
                   </div>
                   
                   <div className="flex-1 overflow-y-auto p-6 bg-stone-50/50">
