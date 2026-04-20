@@ -1212,6 +1212,13 @@ app.get('/api/analytics', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/analytics/user/:userId', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM analytics WHERE userId = ? ORDER BY timestamp DESC LIMIT 1000', [req.params.userId]);
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/intelligence', async (req, res) => {
     try {
         const [p] = await pool.query('SELECT COUNT(*) as c FROM products');

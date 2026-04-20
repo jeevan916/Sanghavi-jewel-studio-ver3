@@ -369,6 +369,7 @@ export const storeService = {
   getDesigns: (): Promise<GeneratedDesign[]> => apiFetch('/designs').catch(() => []),
   addDesign: (d: GeneratedDesign) => apiFetch('/designs', { method: 'POST', body: JSON.stringify(d) }),
   getAnalytics: (): Promise<AnalyticsEvent[]> => apiFetch('/analytics').catch(() => []),
+  getCustomerAnalytics: (userId: string): Promise<AnalyticsEvent[]> => apiFetch(`/analytics/user/${userId}`).catch(() => []),
   getCustomers: (): Promise<User[]> => apiFetch('/customers').catch(() => []),
   getBusinessIntelligence: () => apiFetch('/intelligence').catch(() => null),
   chatWithLead: (customer: User) => {

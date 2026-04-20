@@ -7,7 +7,7 @@ import { Product, AnalyticsEvent, User, AppConfig } from '@/types.ts';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, Tag,
-  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight, Clock
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight, Clock, Camera
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -26,6 +26,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [isSyncing, setIsSyncing] = useState(false);
   const [healthInfo, setHealthInfo] = useState<{mode?: string, healthy: boolean}>({healthy: false});
   const [config, setConfig] = useState<AppConfig | null>(null);
+  
+  // Customer History Modal State
+  const [selectedCustomer, setSelectedCustomer] = useState<User | null>(null);
+  const [customerHistory, setCustomerHistory] = useState<AnalyticsEvent[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,6 +148,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           .sort((a, b) => b.score - a.score)
           .slice(0, 10); // Top 10
   }, [analytics]);
+
+  const loadCustomerHistory = async (customer: User) => {
+      setSelectedCustomer(customer);
+      setIsHistoryLoading(true);
+      setCustomerHistory([]);
+      try {
+          const history = await storeService.getCustomerAnalytics(customer.id);
+          setCustomerHistory(history || []);
+      } catch (e) {
+          console.error("Failed to fetch customer history", e);
+      } finally {
+          setIsHistoryLoading(false);
+      }
+  };
 
   // --- Asset Management Handlers ---
   const toggleAssetSelection = (id: string) => {
@@ -569,7 +588,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                           </thead>
                           <tbody className="divide-y divide-stone-50">
                               {customers.length > 0 ? customers.map(c => (
-                                  <tr key={c.id} className="hover:bg-stone-50 transition-colors">
+                                  <tr key={c.id} className="hover:bg-stone-50 cursor-pointer transition-colors" onClick={() => loadCustomerHistory(c)}>
                                       <td className="py-4 pl-4">
                                           <div className="flex items-center gap-3">
                                               <div className="w-8 h-8 rounded-full bg-brand-gold/10 text-brand-gold flex items-center justify-center font-bold text-xs">
@@ -584,10 +603,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                       <td className="py-4 text-sm font-mono text-stone-500">{c.phone}</td>
                                       <td className="py-4 text-sm text-stone-500">{c.pincode || 'N/A'}</td>
                                       <td className="py-4 text-xs text-stone-300">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'N/A'}</td>
-                                      <td className="py-4 text-right pr-4">
+                                      <td className="py-4 text-right pr-4 flex justify-end gap-2">
                                           <button 
-                                              onClick={() => storeService.chatWithLead(c)}
-                                              className="px-3 py-1.5 bg-brand-gold/10 text-brand-gold rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-brand-gold/20 transition-colors flex items-center gap-2 ml-auto"
+                                              onClick={(e) => { e.stopPropagation(); loadCustomerHistory(c); }}
+                                              className="px-3 py-1.5 bg-brand-dark/5 text-brand-dark rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-brand-dark/10 transition-colors flex items-center gap-2"
+                                          >
+                                              <Activity size={17} /> Insights
+                                          </button>
+                                          <button 
+                                              onClick={(e) => { e.stopPropagation(); storeService.chatWithLead(c); }}
+                                              className="px-3 py-1.5 bg-brand-gold/10 text-brand-gold rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-brand-gold/20 transition-colors flex items-center gap-2"
                                           >
                                               <MessageCircle size={17} /> Chat
                                           </button>
@@ -800,6 +825,105 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               </div>
           </div>
       )}
+      {/* Customer Insights Modal */}
+      {selectedCustomer && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-fade-in">
+                  <div className="p-6 border-b border-stone-100 flex justify-between items-start bg-stone-50">
+                      <div>
+                          <h2 className="text-2xl font-serif font-bold text-brand-dark flex items-center gap-3">
+                              {selectedCustomer.name} <span className="text-xs bg-brand-gold/10 text-brand-gold px-2 py-1 rounded font-sans uppercase tracking-[0.2em]">{selectedCustomer.role}</span>
+                          </h2>
+                          <div className="flex gap-4 mt-2 text-sm text-stone-500 font-mono">
+                              <span className="flex items-center gap-1"><Smartphone size={14}/> {selectedCustomer.phone}</span>
+                              {selectedCustomer.pincode && <span className="flex items-center gap-1"><MapPin size={14}/> {selectedCustomer.pincode}</span>}
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <button onClick={() => storeService.chatWithLead(selectedCustomer)} className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-600 transition flex items-center gap-2">
+                              <MessageCircle size={16} /> WhatsApp
+                          </button>
+                          <button onClick={() => setSelectedCustomer(null)} className="p-2 text-stone-400 hover:text-brand-dark transition-colors bg-white rounded-xl shadow-sm border border-stone-100"><X size={24}/></button>
+                      </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6 bg-stone-50/50">
+                      {isHistoryLoading ? (
+                          <div className="flex flex-col items-center justify-center h-40 text-stone-400">
+                              <Loader2 className="animate-spin mb-4 text-brand-gold" size={32} />
+                              <p className="font-serif font-style-italic text-sm">Loading deep insights...</p>
+                          </div>
+                      ) : customerHistory.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-40 text-stone-400 text-center">
+                              <Activity size={48} className="text-stone-200 mb-4" />
+                              <h3 className="font-sans font-bold text-lg text-brand-dark">No Recorded Activity</h3>
+                              <p className="font-serif italic text-sm mt-1">This customer has not interacted with the catalogue yet.</p>
+                          </div>
+                      ) : (
+                          <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-stone-200 before:to-transparent">
+                              {customerHistory.map(event => {
+                                  let Icon = Eye;
+                                  let color = 'text-blue-500 bg-blue-50 border-blue-100';
+                                  
+                                  if (event.type === 'screenshot') { Icon = Camera; color = 'text-purple-600 bg-purple-50 border-purple-100'; }
+                                  if (event.type === 'like') { Icon = Heart; color = 'text-brand-red bg-brand-red/5 border-brand-red/10'; }
+                                  if (event.type === 'inquiry') { Icon = MessageCircle; color = 'text-green-600 bg-green-50 border-green-100'; }
+                                  if (event.type === 'login') { Icon = ShieldCheck; color = 'text-stone-600 bg-white border-stone-200'; }
+
+                                  return (
+                                      <div key={event.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group select-none">
+                                          {/* Timeline dot */}
+                                          <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white shadow-sm shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${color}`}>
+                                              <Icon size={16} />
+                                          </div>
+                                          
+                                          {/* Card */}
+                                          <div className="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl bg-white border border-stone-100 shadow-sm hover:shadow-md transition-all group-hover:-translate-y-1 relative">
+                                              <div className="flex justify-between items-start mb-2">
+                                                  <span className="text-[10px] uppercase font-bold tracking-widest text-stone-400 flex items-center gap-1">
+                                                      <ClockIcon size={12} /> {new Date(event.timestamp).toLocaleString()}
+                                                  </span>
+                                                  <span className="text-[10px] uppercase font-bold tracking-widest bg-stone-100 text-stone-500 px-2 py-0.5 rounded">
+                                                      {event.type}
+                                                  </span>
+                                              </div>
+                                              
+                                              {event.productTitle && (
+                                                  <div className="font-serif font-bold text-lg text-brand-dark mt-1 flex items-start justify-between">
+                                                      {event.productTitle}
+                                                      {event.productId && (
+                                                        <button title="View Asset" onClick={() => window.open(`/#/product/${event.productId}`, '_blank')} className="p-1.5 text-stone-300 hover:text-brand-gold hover:bg-stone-50 rounded-lg transition shrink-0">
+                                                            <ArrowRight size={16}/>
+                                                        </button>
+                                                      )}
+                                                  </div>
+                                              )}
+                                              
+                                              {/* Extended Meta Info */}
+                                              {event.meta && (
+                                                  <div className="mt-3 pt-3 border-t border-stone-50 flex flex-wrap gap-2 text-xs">
+                                                      {event.duration ? (
+                                                          <span className="flex items-center gap-1 text-orange-600 bg-orange-50 px-2 py-1 rounded-md font-mono"><Clock size={12}/> Dwell: {event.duration}s</span>
+                                                      ) : null}
+                                                      {event.meta?.method && (
+                                                          <span className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-md font-mono"><Zap size={12}/> Intercept: {event.meta.method.replace(/_/g, ' ')}</span>
+                                                      )}
+                                                      {event.meta?.location && (
+                                                          <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md font-mono" title={JSON.stringify(event.meta.location)}><MapPin size={12}/> Geo-tagged</span>
+                                                      )}
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };

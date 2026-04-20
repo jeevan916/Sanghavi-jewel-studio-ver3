@@ -31,6 +31,11 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [loadError, setLoadError] = useState(false);
   const [optimizedSrc, setOptimizedSrc] = useState<string | null>(null);
 
+  // Safely determine which image to show
+  // If currentIndex is out of bounds (e.g. data changed), default to 0 to prevent crashes/broken images
+  const safeIndex = currentIndex < images.length ? currentIndex : 0;
+  const activeImageSrc = images[safeIndex];
+
   useEffect(() => {
       const checkAndOptimize = async () => {
           if (!activeImageSrc || activeImageSrc.startsWith('data:') || activeImageSrc.includes('/api/media/resize')) {
@@ -112,10 +117,18 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const initialPinchScale = useRef<number>(1);
   const swipeLocked = useRef<'x' | 'y' | null>(null); // Locks axis during swipe
 
-  // Safely determine which image to show
-  // If currentIndex is out of bounds (e.g. data changed), default to 0 to prevent crashes/broken images
-  const safeIndex = currentIndex < images.length ? currentIndex : 0;
-  const activeImageSrc = images[safeIndex];
+  const vibrate = (pattern: number | number[] = 10) => {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  };
+
+  const resetView = () => {
+    setScale(1);
+    setPan({ x: 0, y: 0 });
+    setSwipeX(0);
+    setIsDragging(false);
+    swipeLocked.current = null;
+    lastTouchCount.current = 0;
+  };
 
   // Effect to sync state if we detect mismatch or change
   useEffect(() => {
@@ -131,8 +144,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     if (scale !== 1 || pan.x !== 0 || pan.y !== 0) resetView();
     setLoadError(false);
   }, [currentIndex]);
-
-  // Advanced Mobile Screenshot Heuristic (OS Interruption Detection)
   useEffect(() => {
     const handleVisibilityChange = () => {
         // When a user takes a screenshot with hardware buttons on iOS/Android, 
@@ -167,19 +178,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         window.removeEventListener('blur', handleVisibilityChange);
     };
   }, [title]);
-
-  const vibrate = (pattern: number | number[] = 10) => {
-    if (navigator.vibrate) navigator.vibrate(pattern);
-  };
-
-  const resetView = () => {
-    setScale(1);
-    setPan({ x: 0, y: 0 });
-    setSwipeX(0);
-    setIsDragging(false);
-    swipeLocked.current = null;
-    lastTouchCount.current = 0;
-  };
 
   const nextImage = () => {
     resetView(); // Reset immediately before state update to prevent flash

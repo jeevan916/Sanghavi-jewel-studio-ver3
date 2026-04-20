@@ -31,6 +31,10 @@ export const ProductDetails: React.FC = () => {
   const [isSharedAccess, setIsSharedAccess] = useState(false);
   const [isRestricted, setIsRestricted] = useState(false);
   
+  const user = storeService.getCurrentUser();
+  const isAdminOrContributor = user && (user.role === 'admin' || user.role === 'contributor');
+  const isAdmin = !!isAdminOrContributor;
+
   // Dwell Time & Behavior Tracking
   const viewStartTime = useRef<number>(Date.now());
   const currentViewedProductId = useRef<string | null>(null);
@@ -77,10 +81,6 @@ export const ProductDetails: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const user = storeService.getCurrentUser();
-  const isAdminOrContributor = user && (user.role === 'admin' || user.role === 'contributor');
-  const isAdmin = !!isAdminOrContributor;
 
   const handleAddPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
