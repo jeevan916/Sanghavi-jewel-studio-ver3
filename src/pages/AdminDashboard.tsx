@@ -14,7 +14,7 @@ interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'trends' | 'neural' | 'market';
+type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
@@ -235,6 +235,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'files', icon: FolderOpen, label: 'Assets' },
               { id: 'leads', icon: UserCheck, label: 'Leads' },
               { id: 'activity', icon: Activity, label: 'Activity' },
+              { id: 'captures', icon: Camera, label: 'Captures' },
               { id: 'trends', icon: TrendingUp, label: 'Trends' },
               { id: 'market', icon: DollarSign, label: 'Market' },
               { id: 'neural', icon: BrainCircuit, label: 'Neural' },
@@ -656,11 +657,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                            analytics.map((event, idx) => (
                                <div key={event.id || idx} className="flex gap-4 p-4 rounded-xl bg-stone-50 border border-stone-100 hover:bg-white hover:shadow-sm transition-all animate-fade-in items-center">
                                    <div className={`p-3 rounded-full shrink-0 ${
+                                       event.type === 'screenshot' ? 'bg-purple-100 text-purple-600' :
                                        event.type === 'like' ? 'bg-brand-red/5 text-brand-red' :
                                        event.type === 'inquiry' ? 'bg-brand-gold/5 text-brand-gold' :
                                        'bg-brand-dark/5 text-brand-dark'
                                    }`}>
-                                       {event.type === 'like' ? <Heart size={22}/> : 
+                                       {event.type === 'screenshot' ? <Camera size={22}/> :
+                                        event.type === 'like' ? <Heart size={22}/> : 
                                         event.type === 'inquiry' ? <MessageCircle size={22}/> : 
                                         <Eye size={22}/>}
                                    </div>
@@ -668,7 +671,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                        <div className="flex justify-between items-start">
                                           <p className="text-sm text-brand-dark truncate pr-2">
                                               <span className="font-bold">{event.userName || 'Guest'}</span> 
-                                              {event.type === 'inquiry' ? ' inquired about' : event.type === 'like' ? ' liked' : ' viewed'} 
+                                              {event.type === 'screenshot' ? ' captured a screenshot of' : event.type === 'inquiry' ? ' inquired about' : event.type === 'like' ? ' liked' : ' viewed'} 
                                               <span className="font-bold text-brand-red"> {event.productTitle || 'an item'}</span>
                                           </p>
                                           <span className="text-[10px] text-stone-300 whitespace-nowrap flex items-center gap-1 shrink-0 font-bold uppercase tracking-tighter">
@@ -678,6 +681,100 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                        {event.userPhone && (
                                             <p className="text-[10px] text-stone-300 font-mono mt-0.5">{event.userPhone}</p>
                                        )}
+                                       {event.meta?.duration && (
+                                            <p className="text-[10px] text-stone-400 font-mono mt-1">Dwell: {event.meta.duration}s</p>
+                                       )}
+                                   </div>
+                                   {event.productId && (
+                                        <button onClick={() => navigate(`/product/${event.productId}`)} className="p-2 text-stone-300 hover:text-brand-dark transition bg-white border border-stone-100 hover:border-stone-300 rounded-lg shadow-sm">
+                                             <ArrowRight size={16}/>
+                                        </button>
+                                   )}
+                               </div>
+                           ))
+                       )}
+                   </div>
+              </div>
+          </div>
+      )}
+
+      {activeView === 'captures' && (
+          <div className="space-y-6 animate-fade-in">
+              <div className="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full min-h-[600px]">
+                   <div className="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 className="font-sans font-bold text-xl text-brand-dark uppercase tracking-tight flex items-center gap-2">
+                                <Camera size={24} className="text-purple-600"/> Screenshot Intelligence
+                            </h3>
+                            <p className="text-xs text-stone-400 font-bold tracking-widest uppercase mt-1">Direct Save & Capture Intercepts</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase bg-stone-50 text-stone-400 px-2 py-1 rounded-lg">
+                                {analytics.filter(a => a.type === 'screenshot').length} Captures
+                            </span>
+                            <button onClick={() => refreshData(true)} className="p-2 text-stone-300 hover:text-brand-dark transition"><RefreshCw size={19}/></button>
+                        </div>
+                   </div>
+                   
+                   <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+                       {analytics.filter(a => a.type === 'screenshot').length === 0 ? (
+                           <div className="h-full flex flex-col items-center justify-center text-stone-200">
+                               <Camera size={40} className="mb-2 opacity-50"/>
+                               <p className="text-sm font-serif italic text-stone-400">No screenshot events detected yet.</p>
+                           </div>
+                       ) : (
+                           analytics.filter(a => a.type === 'screenshot').map((event, idx) => (
+                               <div key={event.id || idx} className="flex flex-col md:flex-row md:items-center gap-4 p-5 rounded-2xl bg-purple-50/30 border border-purple-100 hover:bg-purple-50 transition-all animate-fade-in relative z-10 w-full overflow-hidden shrink-0">
+                                   <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 shadow-sm border border-purple-200">
+                                       <Camera size={24}/>
+                                   </div>
+                                   
+                                   <div className="flex-1 min-w-0">
+                                       <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="text-sm text-brand-dark truncate pr-2">
+                                                    <span className="font-bold">{event.userName || 'Guest'}</span> captured 
+                                                    <span className="font-bold text-purple-700"> {event.productTitle || 'an item'}</span>
+                                                </p>
+                                                <div className="flex items-center gap-3 mt-1.5">
+                                                    {event.userPhone && (
+                                                         <span className="text-xs text-stone-500 font-mono flex items-center gap-1">
+                                                            <Smartphone size={13}/> {event.userPhone}
+                                                         </span>
+                                                    )}
+                                                    {event.meta?.method && (
+                                                         <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-mono uppercase tracking-widest font-bold flex items-center gap-1">
+                                                            <Zap size={10}/> {event.meta.method.replace(/_/g, ' ')}
+                                                         </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] text-stone-400 whitespace-nowrap flex items-center gap-1 shrink-0 font-bold uppercase tracking-widest">
+                                                 <ClockIcon size={12}/> {event.timestamp ? new Date(event.timestamp).toLocaleString() : 'Just now'}
+                                            </span>
+                                       </div>
+                                   </div>
+
+                                   <div className="flex gap-2 w-full md:w-auto pt-4 border-t border-purple-100 md:border-none md:pt-0">
+                                        <button 
+                                            onClick={() => {
+                                                const u = customers.find(c => c.id === event.userId);
+                                                if (u) {
+                                                    storeService.chatWithLead(u);
+                                                } else if (event.userPhone) {
+                                                    window.open(`https://wa.me/${event.userPhone.replace(/\D/g,'')}`, '_blank');
+                                                }
+                                            }}
+                                            disabled={!event.userPhone}
+                                            className="flex-1 md:flex-none px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-600 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                             <MessageCircle size={16}/> Connect
+                                        </button>
+                                        {event.productId && (
+                                             <button onClick={() => navigate(`/product/${event.productId}`)} className="flex-1 md:flex-none px-4 py-2 bg-white text-brand-dark border border-stone-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-stone-50 transition flex items-center justify-center gap-2">
+                                                 <FolderOpen size={16}/> View Asset
+                                             </button>
+                                        )}
                                    </div>
                                </div>
                            ))
