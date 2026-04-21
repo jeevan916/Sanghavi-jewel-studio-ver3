@@ -118,6 +118,8 @@ export interface AppConfig {
   whatsappPhoneId?: string;
   whatsappToken?: string;
   whatsappTemplateName?: string;
+  instagramHandle?: string;
+  instagramToken?: string;
   aiConfig: AIConfig;
 }
 

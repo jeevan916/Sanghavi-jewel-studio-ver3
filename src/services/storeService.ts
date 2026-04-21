@@ -193,6 +193,22 @@ export const storeService = {
     } catch { return []; }
   },
   
+  getRecentViews: () => {
+    try {
+      return JSON.parse(localStorage.getItem('sanghavi_recent_views') || '[]');
+    } catch { return []; }
+  },
+
+  addRecentView: (product: Product) => {
+    try {
+      const views = storeService.getRecentViews();
+      const newView = { id: product.id, title: product.title, category: product.category, ts: Date.now() };
+      const filtered = views.filter((v: any) => v.id !== product.id);
+      filtered.unshift(newView);
+      localStorage.setItem('sanghavi_recent_views', JSON.stringify(filtered.slice(0, 12))); // Keep last 12
+    } catch {}
+  },
+  
   toggleLike: (productId: string) => {
     const likes = storeService.getLikes();
     const idx = likes.indexOf(productId);
@@ -252,6 +268,8 @@ export const storeService = {
             whatsappPhoneId: data?.whatsappPhoneId || '',
             whatsappToken: data?.whatsappToken || '',
             whatsappTemplateName: data?.whatsappTemplateName || 'sanghavi_jewel_studio',
+            instagramHandle: data?.instagramHandle || '',
+            instagramToken: data?.instagramToken || '',
             goldRate22k: Number(data?.goldRate22k) || 6500,
             goldRate24k: Number(data?.goldRate24k) || 7200,
             gstPercent: Number(data?.gstPercent) || 3,
@@ -277,6 +295,8 @@ export const storeService = {
             whatsappPhoneId: '',
             whatsappToken: '',
             whatsappTemplateName: 'sanghavi_jewel_studio',
+            instagramHandle: '',
+            instagramToken: '',
             aiConfig: {
                 models: { 
                     analysis: 'gemini-3-flash-preview', 
@@ -289,6 +309,26 @@ export const storeService = {
             }
         };
     }
+  },
+
+  getInstagramFeed: async (limit: number = 3): Promise<any[]> => {
+      try {
+          const config = await storeService.getConfig();
+          if (!config.instagramToken) {
+              console.warn("No Instagram Token supplied in Settings. Returning empty feed.");
+              return [];
+          }
+          const url = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=${limit}&access_token=${config.instagramToken}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.data) {
+              return data.data;
+          }
+          return [];
+      } catch (e) {
+          console.error("Instagram Fetch Error:", e);
+          return [];
+      }
   },
 
   saveConfig: (c: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(c) }),

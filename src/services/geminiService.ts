@@ -154,3 +154,40 @@ export const removeWatermark = async (base64Image: string, promptOverride?: stri
     throw new Error("Cleanup failed");
   } catch (error) { throw error; }
 };
+
+export const generateCustomerInsight = async (recentViews: any[], likes: any[], igFeed: any[] = []) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
+  
+  try {
+    const activeCategories = Array.from(new Set(recentViews.map(v => v.category))).join(', ');
+    const activeTitles = recentViews.slice(0, 3).map(v => v.title).join(', ');
+    
+    // Inject recent Instagram brand messaging if available
+    let igContext = "";
+    if (igFeed && igFeed.length > 0) {
+        const captions = igFeed.slice(0, 2).map((post: any) => post.caption).filter(Boolean);
+        if (captions.length > 0) {
+            igContext = `\nOur latest brand inspiration from Instagram:\n"${captions.join(' ')}"\nIncorporate the vibe or specific collections mentioned here if it fits naturally.`;
+        }
+    }
+    
+    let prompt = `You are an elite, warm jewelry consultant for "Sanghavi Jewel Studio". 
+    The customer is currently browsing these categories: ${activeCategories}. 
+    They recently looked at: ${activeTitles}.${igContext}
+    
+    Write a very short, elegant, and engaging 2-sentence note. 
+    Act as their personal AI stylist.
+    Encourage them gently based on what they are viewing. Emphasize quality, timelessness, or current trends.
+    Do NOT use hashtags. Keep it under 250 characters. Speak directly to them ("I notice you're exploring...").`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text || "Your taste in jewelry is impeccable. Let us know if you need help finding the perfect piece!";
+  } catch (error) {
+    console.error("Insight Generation Error:", error);
+    return "These pieces are truly special. We'd love to help you find the perfect match.";
+  }
+};

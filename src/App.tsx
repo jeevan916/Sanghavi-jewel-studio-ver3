@@ -153,6 +153,8 @@ const SecurityLayer = () => {
     return null;
 };
 
+import { AIStylistWidget } from '@/components/AIStylistWidget.tsx';
+
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const location = useLocation();
@@ -189,6 +191,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/collection" element={<Gallery />} />
+            <Route path="/gallery" element={<Navigate to="/collection" replace />} />
             <Route path="/product/:id" element={<ProductDetails />} />
             <Route path="/shared/:token" element={<SharedLanding />} />
             <Route 
@@ -211,6 +214,9 @@ function AppContent() {
         </Suspense>
       </main>
 
+      {/* Hide the Stylist Widget on admin routes */}
+      {!isStaffRoute && <AIStylistWidget />}
+      
       <Navigation user={user} onLogout={handleLogout} />
     </div>
   );

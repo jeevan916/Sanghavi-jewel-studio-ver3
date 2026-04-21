@@ -43,6 +43,7 @@ export const ProductDetails: React.FC = () => {
     if (product && !isLoading) {
       viewStartTime.current = Date.now();
       currentViewedProductId.current = product.id;
+      storeService.addRecentView(product);
     }
     
     return () => {

@@ -27,11 +27,30 @@ export const Gallery: React.FC = () => {
   const [curated, setCurated] = useState<CuratedCollections>({ latest: [], loved: [], trending: [], ideal: [] });
   const [config, setConfig] = useState<AppConfig | null>(null);
   
-  // Filtering State
-  const [activeCategory, setActiveCategory] = useState('All');
-  const [activeSubCategory, setActiveSubCategory] = useState('All');
-  const [search, setSearch] = useState('');
+  // Filtering State (Persisted)
+  const getPersisted = (key: string, def: string) => {
+      const stateVal = (location.state as any)?.[key];
+      if (stateVal) return stateVal;
+      try { return sessionStorage.getItem(`gallery_${key}`) || def; } catch { return def; }
+  };
+
+  const [activeCategory, _setActiveCategory] = useState<string>(getPersisted('category', 'All'));
+  const [activeSubCategory, _setActiveSubCategory] = useState<string>(getPersisted('subCategory', 'All'));
+  const [search, _setSearch] = useState<string>(getPersisted('search', ''));
   const [viewMode, setViewMode] = useState<'grid' | 'detail'>('grid');
+
+  const setActiveCategory = (val: string) => {
+      _setActiveCategory(val);
+      sessionStorage.setItem('gallery_category', val);
+  };
+  const setActiveSubCategory = (val: string) => {
+      _setActiveSubCategory(val);
+      sessionStorage.setItem('gallery_subCategory', val);
+  };
+  const setSearch = (val: string) => {
+      _setSearch(val);
+      sessionStorage.setItem('gallery_search', val);
+  };
   
   // Pagination State
   const [page, setPage] = useState(1);
@@ -67,16 +86,6 @@ export const Gallery: React.FC = () => {
             
             if (conf) setConfig(conf);
             if (cur) setCurated(cur);
-
-            // Handle Shared Category Link Logic
-            const state = location.state as any;
-            console.log("Gallery location state:", state);
-            if (state?.category) {
-                setActiveCategory(state.category);
-                if (state.subCategory) setActiveSubCategory(state.subCategory);
-                // Clear state to prevent sticky behavior
-                window.history.replaceState({}, document.title);
-            }
 
         } catch (e) {
             console.error("Gallery Sync failed", e);
@@ -133,6 +142,15 @@ export const Gallery: React.FC = () => {
       fetchProducts(true);
   }, [activeCategory, activeSubCategory, search]);
 
+  useEffect(() => {
+      const state = location.state as any;
+      if (state) {
+          if (state.category && state.category !== activeCategory) setActiveCategory(state.category);
+          if (state.subCategory && state.subCategory !== activeSubCategory) setActiveSubCategory(state.subCategory);
+          if (state.search && state.search !== search) setSearch(state.search);
+      }
+  }, [location.state]);
+
   // 3. Infinite Scroll Observer
   useEffect(() => {
     return () => {
@@ -179,7 +197,11 @@ export const Gallery: React.FC = () => {
   }, [activeCategory, config]);
 
   useEffect(() => {
-    setActiveSubCategory('All');
+    // Only reset if it's not a direct navigation from product details or initial load
+    // Actually we can simply check if the subCategory is valid for the current category, 
+    // but the easiest is only resetting it when user clicks a new category manually,
+    // rather than resetting on every category change.
+    // We will handle this by only clearing if the current subcat is not in the new list.
   }, [activeCategory]);
 
   const isOverviewMode = activeCategory === 'All' && !search;
@@ -221,7 +243,10 @@ export const Gallery: React.FC = () => {
                 {['All', ...categoryList].map(cat => (
                 <button
                     key={cat}
-                    onClick={() => setActiveCategory(cat)}
+                    onClick={() => {
+                        setActiveCategory(cat);
+                        setActiveSubCategory('All');
+                    }}
                     className={`px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap border ${
                       activeCategory === cat ? 'bg-brand-dark text-white border-brand-dark shadow-xl' : 'bg-white text-stone-400 border-stone-100 hover:border-brand-gold/30 hover:text-brand-gold'
                     }`}
@@ -280,7 +305,7 @@ export const Gallery: React.FC = () => {
                                 </h3>
                                 <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">The Latest From Our Studio</p>
                             </div>
-                            <button onClick={() => setActiveCategory('Rings')} className="text-[10px] font-bold uppercase tracking-widest text-brand-gold flex items-center gap-1 hover:gap-2 transition-all">
+                            <button onClick={() => { setActiveCategory('Rings'); setActiveSubCategory('All'); }} className="text-[10px] font-bold uppercase tracking-widest text-brand-gold flex items-center gap-1 hover:gap-2 transition-all">
                                 View All <ChevronRight size={17} />
                             </button>
                         </div>
