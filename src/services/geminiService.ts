@@ -191,3 +191,44 @@ export const generateCustomerInsight = async (recentViews: any[], likes: any[], 
     return "These pieces are truly special. We'd love to help you find the perfect match.";
   }
 };
+
+export const analyzeInstagramComments = async (comments: any[]) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
+    
+    try {
+        if (!comments || comments.length === 0) return { summary: "No comments available for analysis.", demands: [], complaints: [] };
+        
+        const rawTexts = comments.map(c => `[${c.username}]: ${c.text}`).join('\n');
+        const prompt = `You are an expert Social Media & Brand Sentiment Analyst for a luxury jewelry studio called "Sanghavi Jewel Studio".
+        Analyze the following recent Instagram comments left by our customer base. 
+        Determine their general reaction, what specific styles or products they are demanding (Demands), and identify any complaints or pain points (Complaints).
+        
+        Comments:
+        ${rawTexts}
+        
+        Provide the response strictly in JSON format as follows:
+        {
+          "summary": "A 2-3 sentence overview of the general sentiment and reaction.",
+          "demands": ["Demand 1", "Demand 2"],
+          "complaints": ["Complaint 1", "Complaint 2"]
+        }`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+            }
+        });
+
+        const jsonResp = JSON.parse(response.text || '{}');
+        return {
+            summary: jsonResp.summary || "No clear sentiment.",
+            demands: jsonResp.demands || [],
+            complaints: jsonResp.complaints || []
+        };
+    } catch (error) {
+        console.error("AI Comment Analysis Error:", error);
+        return { summary: "Failed to analyze comments using AI.", demands: [], complaints: [] };
+    }
+};

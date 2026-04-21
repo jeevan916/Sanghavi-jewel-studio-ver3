@@ -10,11 +10,13 @@ import {
   LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight, Clock, Camera
 } from 'lucide-react';
 
+import { analyzeInstagramComments } from '@/services/geminiService.ts';
+
 interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market';
+type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
@@ -27,6 +29,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [healthInfo, setHealthInfo] = useState<{mode?: string, healthy: boolean}>({healthy: false});
   const [config, setConfig] = useState<AppConfig | null>(null);
   
+  // Instagram Pulse States
+  const [pulseComments, setPulseComments] = useState<any[]>([]);
+  const [pulseAnalysis, setPulseAnalysis] = useState<any>(null);
+  const [isPulseLoading, setIsPulseLoading] = useState(false);
+  const [isPulseSyncing, setIsPulseSyncing] = useState(false);
+
   // Customer History Modal State
   const [selectedCustomer, setSelectedCustomer] = useState<User | null>(null);
   const [customerHistory, setCustomerHistory] = useState<AnalyticsEvent[]>([]);
@@ -81,8 +89,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   useEffect(() => {
       if (activeView === 'leads' || activeView === 'trends' || activeView === 'activity') {
           refreshData(true);
+      } else if (activeView === 'pulse') {
+          loadPulseData();
       }
   }, [activeView]);
+
+  const loadPulseData = async () => {
+      setIsPulseLoading(true);
+      try {
+          const fetchRes = await storeService.getInstagramComments();
+          const comments = Array.isArray(fetchRes) ? fetchRes : (fetchRes?.comments || []);
+          setPulseComments(comments);
+
+          if (comments.length > 0) {
+              const analysis = await analyzeInstagramComments(comments.slice(0, 50)); // Analyze top 50
+              setPulseAnalysis(analysis);
+          }
+      } catch (e) {
+          console.error("Pulse Load Error", e);
+      } finally {
+          setIsPulseLoading(false);
+      }
+  };
+
+  const handlePulseSync = async () => {
+      setIsPulseSyncing(true);
+      try {
+          await storeService.syncInstagramComments();
+          await loadPulseData();
+      } catch (e) {
+          alert("Sync failed. Check Instagram Token permissions.");
+      } finally {
+          setIsPulseSyncing(false);
+      }
+  };
 
   const folders = useMemo(() => {
       if (!Array.isArray(products)) return ['All', 'Private'];
@@ -241,6 +281,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'trends', icon: TrendingUp, label: 'Trends' },
               { id: 'market', icon: DollarSign, label: 'Market' },
               { id: 'neural', icon: BrainCircuit, label: 'Neural' },
+              { id: 'pulse', icon: MessageCircle, label: 'Pulse' },
             ].map(tab => (
               <button 
                 key={tab.id}
@@ -1020,6 +1061,142 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       )}
                   </div>
               </div>
+          </div>
+      )}
+
+      {activeView === 'pulse' && (
+          <div className="space-y-6 animate-fade-in pb-12">
+              <div className="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                      <h3 className="font-serif font-bold text-2xl text-brand-dark flex items-center gap-2">
+                          <MessageCircle size={28} className="text-brand-gold"/> Social Pulse intelligence
+                      </h3>
+                      <p className="text-stone-500 text-xs tracking-widest uppercase mt-1">AI-Powered Social Media Commentary Analysis</p>
+                  </div>
+                  <button 
+                      onClick={handlePulseSync}
+                      disabled={isPulseSyncing || !config?.instagramToken}
+                      className="px-6 py-3 bg-stone-900 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-brand-gold transition-all shadow-md disabled:opacity-50 flex items-center gap-2 shrink-0"
+                  >
+                      {isPulseSyncing ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                      Sync Instagram Now
+                  </button>
+              </div>
+
+              {!config?.instagramToken && (
+                  <div className="bg-red-50 p-6 rounded-2xl border border-red-100 text-red-700 text-sm">
+                      <strong>Instagram Token Missing:</strong> Please go to Settings <ArrowRight className="inline mx-1" size={14}/> Communication <ArrowRight className="inline mx-1" size={14}/> Instagram Integration to provide your access token.
+                  </div>
+              )}
+
+              {isPulseLoading && pulseComments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-stone-100">
+                      <Loader2 className="animate-spin text-brand-gold mb-4" size={32} />
+                      <p className="text-stone-400 text-xs uppercase tracking-widest">Processing Language Vectors...</p>
+                  </div>
+              ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      
+                      {/* AI Sentiment Analysis Block */}
+                      <div className="lg:col-span-2 space-y-6">
+                          <div className="bg-gradient-to-br from-stone-900 to-stone-800 p-8 rounded-[2rem] shadow-xl text-white relative overflow-hidden">
+                              <div className="absolute top-0 right-0 w-64 h-64 bg-brand-gold/10 blur-[80px] -mr-20 -mt-20 rounded-full" />
+                              <div className="relative">
+                                  <h4 className="font-serif font-bold text-xl mb-4 flex items-center gap-2">
+                                      <BrainCircuit size={22} className="text-brand-gold"/> Neural Pulse Analysis
+                                  </h4>
+                                  
+                                  {pulseAnalysis ? (
+                                      <div className="space-y-6">
+                                          <div className="bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
+                                              <p className="text-sm leading-relaxed text-stone-200">{pulseAnalysis.summary}</p>
+                                          </div>
+                                          
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                              <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20">
+                                                  <h5 className="text-[10px] uppercase font-bold text-emerald-400 tracking-widest mb-3 flex items-center gap-1.5"><TrendingUp size={14}/> Top Demands</h5>
+                                                  <ul className="space-y-2">
+                                                      {pulseAnalysis.demands?.map((d: string, i: number) => (
+                                                          <li key={i} className="text-xs text-emerald-100/80 flex items-start gap-2">
+                                                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0" />
+                                                              {d}
+                                                          </li>
+                                                      ))}
+                                                      {(!pulseAnalysis.demands || pulseAnalysis.demands.length === 0) && <li className="text-xs text-stone-500 italic">No significant demands detected.</li>}
+                                                  </ul>
+                                              </div>
+                                              
+                                              <div className="bg-brand-red/10 p-4 rounded-xl border border-brand-red/20">
+                                                  <h5 className="text-[10px] uppercase font-bold text-brand-red tracking-widest mb-3 flex items-center gap-1.5"><AlertTriangle size={14}/> Complaints & Pain Points</h5>
+                                                  <ul className="space-y-2">
+                                                      {pulseAnalysis.complaints?.map((c: string, i: number) => (
+                                                          <li key={i} className="text-xs text-red-200/80 flex items-start gap-2">
+                                                              <div className="w-1.5 h-1.5 rounded-full bg-brand-red/50 mt-1.5 shrink-0" />
+                                                              {c}
+                                                          </li>
+                                                      ))}
+                                                      {(!pulseAnalysis.complaints || pulseAnalysis.complaints.length === 0) && <li className="text-xs text-stone-500 italic">No significant complaints detected.</li>}
+                                                  </ul>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ) : (
+                                      <div className="flex flex-col items-center justify-center p-8 text-stone-400">
+                                          {pulseComments.length > 0 ? (
+                                              <>
+                                                  <Loader2 className="animate-spin mb-3 text-brand-gold" size={24}/>
+                                                  <p className="text-xs">Analyzing sentiments...</p>
+                                              </>
+                                          ) : (
+                                              <p className="text-xs">Sync Instagram to generate analysis.</p>
+                                          )}
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* Raw Post Stream */}
+                      <div className="bg-white rounded-[2rem] border border-stone-100 shadow-sm overflow-hidden flex flex-col h-[600px]">
+                          <div className="p-5 border-b border-stone-100 bg-stone-50">
+                              <h4 className="font-bold text-sm text-brand-dark uppercase tracking-widest flex items-center gap-2">
+                                  <Smartphone size={16}/> Raw Signal Input
+                              </h4>
+                          </div>
+                          <div className="overflow-y-auto p-4 space-y-3 flex-1 relative">
+                              {pulseComments.length === 0 && !isPulseLoading ? (
+                                  <p className="text-xs text-stone-400 text-center py-10 italic">No comments found. Sync required.</p>
+                              ) : (
+                                  pulseComments.map((c: any) => (
+                                      <div key={c.id} className="p-4 bg-stone-50 border border-stone-100 rounded-2xl hover:border-brand-gold/50 transition-colors">
+                                          <div className="flex justify-between items-start mb-2">
+                                              <span className="text-xs font-bold text-brand-dark flex items-center gap-1.5">
+                                                  <div className="w-4 h-4 bg-brand-gold/20 text-brand-gold rounded flex items-center justify-center text-[8px]">
+                                                      {c.username ? c.username.charAt(0).toUpperCase() : '?'}
+                                                  </div>
+                                                  @{c.username || 'unknown'}
+                                              </span>
+                                              <span className="text-[9px] text-stone-400 tracking-widest">
+                                                  {new Date(c.timestamp).toLocaleDateString()}
+                                              </span>
+                                          </div>
+                                          <p className="text-sm text-stone-600 leading-relaxed">{c.text}</p>
+                                      </div>
+                                  ))
+                              )}
+                              
+                              {/* Overlay loading state if fetching */}
+                              {isPulseSyncing && (
+                                  <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-brand-gold">
+                                      <Loader2 className="animate-spin mb-2" size={32} />
+                                      <span className="text-xs font-bold uppercase tracking-widest bg-white px-3 py-1 rounded-full shadow-lg">Intercepting Signals...</span>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                  </div>
+              )}
           </div>
       )}
 

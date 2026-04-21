@@ -331,6 +331,14 @@ export const storeService = {
       }
   },
 
+  syncInstagramComments: async () => {
+      return apiFetch('/instagram/sync', { method: 'POST' });
+  },
+
+  getInstagramComments: async () => {
+      return apiFetch('/instagram/comments');
+  },
+
   saveConfig: (c: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(c) }),
   
   addProduct: (p: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(p) }),

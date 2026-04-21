@@ -244,6 +244,9 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   }>({ isOpen: false, mode: 'add', name: '', username: '', password: '', role: 'contributor' });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [isTestingIg, setIsTestingIg] = useState(false);
+  const [igTestData, setIgTestData] = useState<any[] | null>(null);
+  const [igTestError, setIgTestError] = useState<string | null>(null);
 
   const currentUser = storeService.getCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
@@ -290,6 +293,32 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         setIsLoading(false);
         alert('Settings Saved Successfully');
     }
+  };
+
+  const handleTestInstagram = async () => {
+      if (!config?.instagramToken) {
+          setIgTestError("Please enter an Instagram Access Token first.");
+          return;
+      }
+      setIsTestingIg(true);
+      setIgTestData(null);
+      setIgTestError(null);
+      try {
+          const url = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=3&access_token=${config.instagramToken}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.error) {
+             setIgTestError(data.error.message || "Failed to fetch from Instagram");
+          } else if (data.data) {
+             setIgTestData(data.data);
+          } else {
+             setIgTestError("Unknown response format from Meta.");
+          }
+      } catch (e: any) {
+          setIgTestError(e.message || "Network Error");
+      } finally {
+          setIsTestingIg(false);
+      }
   };
 
   // --- STAFF MANAGEMENT HANDLERS ---
@@ -789,6 +818,45 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                             </button>
                         </div>
                     </div>
+                </div>
+
+                {/* Test Connection Button */}
+                <div className="mt-6 pt-6 border-t border-stone-100">
+                    <button 
+                        onClick={handleTestInstagram}
+                        disabled={isTestingIg || !config.instagramToken}
+                        className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                        {isTestingIg ? <Loader2 size={16} className="animate-spin" /> : "Test Instagram Connection"}
+                    </button>
+
+                    {igTestError && (
+                        <div className="mt-3 p-3 bg-red-50 text-red-700 text-xs rounded-lg border border-red-100">
+                            <strong>Error:</strong> {igTestError}
+                        </div>
+                    )}
+
+                    {igTestData && (
+                        <div className="mt-4">
+                            <h4 className="text-xs font-bold text-stone-500 uppercase mb-3 text-green-600 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block outline outline-2 outline-green-200 ml-1 mr-1"></span> Successfully Fetched {igTestData.length} Recent Posts</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {igTestData.map((post: any) => (
+                                    <div key={post.id} className="border border-stone-200 rounded-xl overflow-hidden bg-stone-50">
+                                        <div className="h-32 bg-stone-200 relative">
+                                            {post.media_type === 'VIDEO' ? (
+                                                <img src={post.thumbnail_url || post.media_url} alt="IG Thumbnail" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <img src={post.media_url} alt="IG Image" className="w-full h-full object-cover" />
+                                            )}
+                                        </div>
+                                        <div className="p-3">
+                                            <p className="text-[10px] text-stone-500 line-clamp-3">{post.caption || 'No caption'}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
