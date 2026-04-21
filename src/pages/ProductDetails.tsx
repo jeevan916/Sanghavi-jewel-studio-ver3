@@ -223,8 +223,6 @@ export const ProductDetails: React.FC = () => {
         setConfig(fetchedConfig);
 
         if (fetchedProduct) {
-            const GUEST_LIMIT = 3;
-            
             // Check if this specific product has been unlocked via shared link
             const isUnlocked = storeService.getUnlockedProducts().includes(fetchedProduct.id) || 
                                storeService.getUnlockedCategories().includes(fetchedProduct.category);
@@ -242,19 +240,6 @@ export const ProductDetails: React.FC = () => {
 
             // Filter by category for navigation as per user request
             let navItems = allItems.filter(p => p.category === fetchedProduct.category);
-
-            // SECURITY: STRICT GUEST LOCK (Bypassed if shared)
-            if (isGuest && !sharedAccess) {
-                const globalIndex = allItems.findIndex(p => p.id === fetchedProduct.id);
-                if (globalIndex >= GUEST_LIMIT) {
-                    setIsRestricted(true);
-                    setProduct(fetchedProduct); 
-                    setIsLoading(false);
-                    return; 
-                }
-                // Restrict navigation for guests within the category
-                navItems = navItems.slice(0, GUEST_LIMIT);
-            }
 
             const safeProduct = {
                 ...fetchedProduct,
@@ -610,7 +595,7 @@ export const ProductDetails: React.FC = () => {
                                 )}
                             </div>
 
-                            {isGuest && images.length > 1 && (
+                            {isGuest && !isSharedAccess && images.length > 1 && (
                                 <div className="absolute bottom-6 right-6 bg-black/60 backdrop-blur-xl text-white px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 cursor-pointer hover:bg-black/80 transition-all shadow-2xl border border-white/10" onClick={() => navigate('/login')}>
                                     <Lock size={14} /> {images.length - 1} Private Views Locked
                                 </div>

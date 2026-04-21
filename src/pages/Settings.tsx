@@ -304,38 +304,49 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       setIgTestData(null);
       setIgTestError(null);
       try {
-          // 1. Get Pages and connected Instagram Business Account
-          const pagesUrl = `https://graph.facebook.com/v20.0/me/accounts?fields=instagram_business_account&access_token=${config.instagramToken}`;
-          const pagesRes = await fetch(pagesUrl);
-          const pagesData = await pagesRes.json();
-          
-          if (pagesData.error) throw new Error(pagesData.error.message || "Failed to fetch Facebook Pages");
-          
-          const pages = pagesData.data || [];
+          const token = config.instagramToken;
           let igAccountId = null;
-          
-          for (const page of pages) {
-              if (page.instagram_business_account && page.instagram_business_account.id) {
-                  igAccountId = page.instagram_business_account.id;
-                  break;
-              }
-          }
-          
-          if (!igAccountId) {
-              throw new Error("No connected Instagram Professional account found on this Facebook token. Ensure your Instagram account is set to Professional/Business and linked to a Facebook Page.");
+
+          // 1. Check if token is a Page Token
+          const mePageRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=instagram_business_account&access_token=${token}`);
+          const mePageData = await mePageRes.json();
+          if (mePageData.instagram_business_account?.id) {
+              igAccountId = mePageData.instagram_business_account.id;
           }
 
-          // 2. Fetch Media utilizing the exact igAccountId
-          const mediaUrl = `https://graph.facebook.com/v20.0/${igAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=3&access_token=${config.instagramToken}`;
-          const res = await fetch(mediaUrl);
-          const data = await res.json();
-          
-          if (data.error) {
-             setIgTestError(data.error.message || "Failed to fetch media from Instagram");
-          } else if (data.data) {
-             setIgTestData(data.data);
+          // 2. Check if token is a User Token and query accounts
+          if (!igAccountId) {
+              const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=instagram_business_account&access_token=${token}`);
+              const pagesData = await pagesRes.json();
+              
+              if (pagesData.error) {
+                 console.error("Pages API Error:", pagesData.error);
+                 // We will fallback down to graph.instagram.com just in case
+              } else {
+                  for (const page of (pagesData.data || [])) {
+                      if (page.instagram_business_account?.id) {
+                          igAccountId = page.instagram_business_account.id;
+                          break;
+                      }
+                  }
+              }
+          }
+
+          // 3. Fetch Media
+          if (igAccountId) {
+              // Using Business Graph API
+              const mediaUrl = `https://graph.facebook.com/v20.0/${igAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=3&access_token=${token}`;
+              const res = await fetch(mediaUrl);
+              const data = await res.json();
+              if (data.error) throw new Error(data.error.message || "Failed to fetch media from Facebook Graph");
+              setIgTestData(data.data);
           } else {
-             setIgTestError("Unknown response format from Meta.");
+              // Fallback to legacy/consumer Instagram Graph API
+              const mediaUrl = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=3&access_token=${token}`;
+              const res = await fetch(mediaUrl);
+              const data = await res.json();
+              if (data.error) throw new Error(data.error.message || "No connected Professional account found, and legacy fallback failed.");
+              setIgTestData(data.data);
           }
       } catch (e: any) {
           setIgTestError(e.message || "Network Error");

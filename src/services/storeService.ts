@@ -318,26 +318,38 @@ export const storeService = {
               console.warn("No Instagram Token supplied in Settings. Returning empty feed.");
               return [];
           }
-          
-          const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=instagram_business_account&access_token=${config.instagramToken}`);
-          const pagesData = await pagesRes.json();
+          const token = config.instagramToken;
           let igAccountId = null;
           
-          for (const page of (pagesData.data || [])) {
-              if (page.instagram_business_account?.id) {
-                  igAccountId = page.instagram_business_account.id;
-                  break;
+          const mePageRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=instagram_business_account&access_token=${token}`);
+          const mePageData = await mePageRes.json();
+          if (mePageData.instagram_business_account?.id) {
+              igAccountId = mePageData.instagram_business_account.id;
+          }
+
+          if (!igAccountId) {
+              const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=instagram_business_account&access_token=${token}`);
+              const pagesData = await pagesRes.json();
+              for (const page of (pagesData.data || [])) {
+                  if (page.instagram_business_account?.id) {
+                      igAccountId = page.instagram_business_account.id;
+                      break;
+                  }
               }
           }
           
-          if (!igAccountId) return [];
-
-          const url = `https://graph.facebook.com/v20.0/${igAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=${limit}&access_token=${config.instagramToken}`;
-          const res = await fetch(url);
-          const data = await res.json();
-          if (data.data) {
-              return data.data;
+          if (igAccountId) {
+              const url = `https://graph.facebook.com/v20.0/${igAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=${limit}&access_token=${token}`;
+              const res = await fetch(url);
+              const data = await res.json();
+              if (data.data) return data.data;
+          } else {
+              const url = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=${limit}&access_token=${token}`;
+              const res = await fetch(url);
+              const data = await res.json();
+              if (data.data) return data.data;
           }
+          
           return [];
       } catch (e) {
           console.error("Instagram Fetch Error:", e);
