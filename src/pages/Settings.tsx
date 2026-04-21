@@ -304,11 +304,34 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       setIgTestData(null);
       setIgTestError(null);
       try {
-          const url = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=3&access_token=${config.instagramToken}`;
-          const res = await fetch(url);
+          // 1. Get Pages and connected Instagram Business Account
+          const pagesUrl = `https://graph.facebook.com/v20.0/me/accounts?fields=instagram_business_account&access_token=${config.instagramToken}`;
+          const pagesRes = await fetch(pagesUrl);
+          const pagesData = await pagesRes.json();
+          
+          if (pagesData.error) throw new Error(pagesData.error.message || "Failed to fetch Facebook Pages");
+          
+          const pages = pagesData.data || [];
+          let igAccountId = null;
+          
+          for (const page of pages) {
+              if (page.instagram_business_account && page.instagram_business_account.id) {
+                  igAccountId = page.instagram_business_account.id;
+                  break;
+              }
+          }
+          
+          if (!igAccountId) {
+              throw new Error("No connected Instagram Professional account found on this Facebook token. Ensure your Instagram account is set to Professional/Business and linked to a Facebook Page.");
+          }
+
+          // 2. Fetch Media utilizing the exact igAccountId
+          const mediaUrl = `https://graph.facebook.com/v20.0/${igAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&limit=3&access_token=${config.instagramToken}`;
+          const res = await fetch(mediaUrl);
           const data = await res.json();
+          
           if (data.error) {
-             setIgTestError(data.error.message || "Failed to fetch from Instagram");
+             setIgTestError(data.error.message || "Failed to fetch media from Instagram");
           } else if (data.data) {
              setIgTestData(data.data);
           } else {

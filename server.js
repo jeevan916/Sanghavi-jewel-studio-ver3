@@ -1256,15 +1256,28 @@ app.post('/api/instagram/sync', async (req, res) => {
         const token = settingsRows[0]?.setting_value;
         if (!token) return res.status(400).json({ error: "No Instagram Token configured" });
 
+        const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=instagram_business_account&access_token=${token}`);
+        const pagesData = await pagesRes.json();
+        let igAccountId = null;
+        
+        for (const page of (pagesData.data || [])) {
+            if (page.instagram_business_account?.id) {
+                igAccountId = page.instagram_business_account.id;
+                break;
+            }
+        }
+        
+        if (!igAccountId) return res.status(400).json({ error: "No connected Instagram Professional account found on this Facebook token." });
+
         // Fetch recent media
-        const mediaRes = await fetch(`https://graph.instagram.com/me/media?fields=id&limit=10&access_token=${token}`);
+        const mediaRes = await fetch(`https://graph.facebook.com/v20.0/${igAccountId}/media?fields=id&limit=10&access_token=${token}`);
         const mediaData = await mediaRes.json();
         if (!mediaData.data) return res.status(400).json({ error: "Failed to fetch media", details: mediaData });
 
         let totalInserted = 0;
         for (const item of mediaData.data) {
             // Fetch comments for each media
-            const commRes = await fetch(`https://graph.instagram.com/${item.id}/comments?fields=id,text,timestamp,username&access_token=${token}`);
+            const commRes = await fetch(`https://graph.facebook.com/v20.0/${item.id}/comments?fields=id,text,timestamp,username&access_token=${token}`);
             const commData = await commRes.json();
             
             if (commData.data) {
