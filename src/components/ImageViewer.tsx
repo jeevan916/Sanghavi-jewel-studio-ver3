@@ -171,11 +171,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
     // Listeners for when the OS overlays the browser
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleVisibilityChange);
 
     return () => {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('blur', handleVisibilityChange);
     };
   }, [title]);
 

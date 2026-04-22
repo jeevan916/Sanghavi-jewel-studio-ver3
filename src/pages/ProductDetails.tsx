@@ -69,33 +69,20 @@ export const ProductDetails: React.FC = () => {
         storeService.logEvent('screenshot', product, undefined, { meta: { method: 'copy' } });
      };
 
-     // Advanced Mobile Screenshot Heuristic (OS Interruption Detection)
      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'hidden' || document.visibilityState === 'visible') {
-            // Check for blur context or hidden. Some mobile OS trigger blur without hidden during screenshots.
-            // Be mindful this is a heuristic.
-        }
-     };
-
-     const handleBlur = () => {
-         // Fired when overlay appears on some OS versions during screenshot
-         storeService.logEvent('screenshot', product, undefined, { meta: { method: 'hardware_heuristic_blur' } });
+         if (document.visibilityState === 'hidden') {
+             storeService.logEvent('screenshot', product, undefined, { meta: { method: 'hardware_heuristic_hidden' } });
+         }
      };
 
      window.addEventListener('keydown', handleKeyDown);
      document.addEventListener('copy', handleCopy);
-     document.addEventListener('visibilitychange', () => {
-         if (document.visibilityState === 'hidden') {
-             storeService.logEvent('screenshot', product, undefined, { meta: { method: 'hardware_heuristic_hidden' } });
-         }
-     });
-     // We will temporarily listen to blur as well for aggressive testing capture:
-     window.addEventListener('blur', handleBlur);
+     document.addEventListener('visibilitychange', handleVisibilityChange);
 
      return () => {
        window.removeEventListener('keydown', handleKeyDown);
        document.removeEventListener('copy', handleCopy);
-       window.removeEventListener('blur', handleBlur);
+       document.removeEventListener('visibilitychange', handleVisibilityChange);
      }
   }, [product]);
 
