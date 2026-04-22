@@ -92,7 +92,7 @@ export const storeService = {
         const item = localStorage.getItem('sanghavi_user_session');
         if (!item) return null;
         const user = JSON.parse(item);
-        return (user && typeof user === 'object' && (user.id || user.phone)) ? user : null;
+        return (user && typeof user === 'object') ? user : null;
     } catch {
         localStorage.removeItem('sanghavi_user_session');
         return null;
