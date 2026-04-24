@@ -114,7 +114,7 @@ export const Gallery: React.FC = () => {
           // Optimized Fetch: Only gets what we need based on category/search
           const res = await storeService.getProducts(targetPage, BATCH_SIZE, { 
               publicOnly: true,
-              category: activeCategory !== 'All' ? activeCategory : undefined,
+              category: (activeCategory !== 'All' && activeCategory !== 'Latest') ? activeCategory : undefined,
               subCategory: activeSubCategory !== 'All' ? activeSubCategory : undefined,
               search: search || undefined
           });
@@ -191,7 +191,7 @@ export const Gallery: React.FC = () => {
     .map(c => c.name);
 
   const subCategoryList = useMemo(() => {
-    if (activeCategory === 'All') return [];
+    if (activeCategory === 'All' || activeCategory === 'Latest') return [];
     const cat = config?.categories.find(c => c.name === activeCategory);
     return cat ? ['All', ...cat.subCategories] : ['All'];
   }, [activeCategory, config]);
@@ -240,18 +240,18 @@ export const Gallery: React.FC = () => {
                 )}
             </div>
             <div className="flex gap-3 overflow-x-auto scrollbar-hide px-2 md:px-6 pb-2 pt-2">
-                {['All', ...categoryList].map(cat => (
+                {[{id: 'All', label: 'Overview'}, {id: 'Latest', label: 'Latest'}, ...categoryList.map(c => ({id: c, label: c}))].map(cat => (
                 <button
-                    key={cat}
+                    key={cat.id}
                     onClick={() => {
-                        setActiveCategory(cat);
+                        setActiveCategory(cat.id);
                         setActiveSubCategory('All');
                     }}
                     className={`px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap border ${
-                      activeCategory === cat ? 'bg-brand-dark text-white border-brand-dark shadow-xl' : 'bg-white text-stone-400 border-stone-100 hover:border-brand-gold/30 hover:text-brand-gold'
+                      activeCategory === cat.id ? 'bg-brand-dark text-white border-brand-dark shadow-xl' : 'bg-white text-stone-400 border-stone-100 hover:border-brand-gold/30 hover:text-brand-gold'
                     }`}
                 >
-                    {cat}
+                    {cat.label}
                 </button>
                 ))}
                 
@@ -305,7 +305,7 @@ export const Gallery: React.FC = () => {
                                 </h3>
                                 <p className="text-[10px] text-stone-400 uppercase tracking-[0.3em] font-bold ml-9">The Latest From Our Studio</p>
                             </div>
-                            <button onClick={() => { setActiveCategory('Rings'); setActiveSubCategory('All'); }} className="text-[10px] font-bold uppercase tracking-widest text-brand-gold flex items-center gap-1 hover:gap-2 transition-all">
+                            <button onClick={() => { setActiveCategory('Latest'); setActiveSubCategory('All'); }} className="text-[10px] font-bold uppercase tracking-widest text-brand-gold flex items-center gap-1 hover:gap-2 transition-all">
                                 View All <ChevronRight size={17} />
                             </button>
                         </div>
