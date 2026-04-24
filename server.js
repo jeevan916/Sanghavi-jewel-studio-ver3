@@ -1019,14 +1019,56 @@ app.get('/api/products/curated', async (req, res) => {
                 return res.json(demoCurated);
             }
         }
-        const [rows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 60');
-        const items = rows.map(sanitizeProduct);
+        
+        // 1. Latest Arrivals
+        const [latestRows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 8');
+        
+        // 2. Loved (Most Liked)
+        const [lovedRows] = await pool.query(`
+            SELECT p.*, COUNT(a.id) as likeCount 
+            FROM products p 
+            LEFT JOIN analytics a ON p.id = a.productId AND a.type = 'like'
+            WHERE p.isHidden = 0 
+            GROUP BY p.id 
+            ORDER BY likeCount DESC, p.createdAt DESC 
+            LIMIT 8
+        `);
+
+        // 3. Trending (Weighted score of activity in last 30 days)
+        const [trendingRows] = await pool.query(`
+            SELECT p.*, 
+            COALESCE(SUM(
+                CASE 
+                    WHEN a.type = 'inquiry' THEN 5 
+                    WHEN a.type = 'screenshot' THEN 4
+                    WHEN a.type = 'like' THEN 3
+                    WHEN a.type = 'view' THEN 1
+                    ELSE 0 
+                END
+            ), 0) as activityScore 
+            FROM products p 
+            LEFT JOIN analytics a ON p.id = a.productId AND a.timestamp > DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE p.isHidden = 0 
+            GROUP BY p.id 
+            ORDER BY activityScore DESC, p.createdAt DESC 
+            LIMIT 8
+        `);
+
+        // 4. Ideal (Random selection to keep it fresh for the user, or fallback to oldest/classic pieces)
+        const [idealRows] = await pool.query(`
+            SELECT * FROM products 
+            WHERE isHidden = 0 
+            ORDER BY RAND() 
+            LIMIT 4
+        `);
+
         const curated = {
-            latest: items.slice(0, 8),
-            loved: items.filter((_, i) => i % 3 === 0).slice(0, 8), 
-            trending: items.filter((_, i) => i % 2 === 0).slice(0, 8),
-            ideal: items.slice(0, 4)
+            latest: latestRows.map(sanitizeProduct),
+            loved: lovedRows.map(sanitizeProduct),
+            trending: trendingRows.map(sanitizeProduct),
+            ideal: idealRows.map(sanitizeProduct)
         };
+        
         CACHE.curated.data = curated;
         CACHE.curated.lastFetch = now;
         res.json(curated);
