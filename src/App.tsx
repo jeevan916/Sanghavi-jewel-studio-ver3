@@ -98,7 +98,7 @@ interface AuthGuardProps {
 
 const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
   if (!user) {
-    const isStaffRoute = window.location.hash.includes('/admin') || window.location.hash.includes('/staff');
+    const isStaffRoute = window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/staff');
     return <Navigate to={isStaffRoute ? "/staff" : "/login"} replace />;
   }
   if (!allowedRoles.includes(user.role)) return <Navigate to="/collection" replace />;
@@ -157,6 +157,7 @@ import { AIStylistWidget } from '@/components/AIStylistWidget.tsx';
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -172,6 +173,8 @@ function AppContent() {
         storeService.warmup();
     } catch (e) {
         console.error("User fetch error", e);
+    } finally {
+        setIsInitializing(false);
     }
     document.body.classList.add('loaded');
   }, []);
@@ -182,6 +185,10 @@ function AppContent() {
   };
 
   const isStaffRoute = location.pathname.startsWith('/admin') || location.pathname === '/staff';
+  
+  if (isInitializing) {
+      return <SafeLoader />;
+  }
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'}`}>
@@ -215,7 +222,7 @@ function AppContent() {
       </main>
 
       {/* Hide the Stylist Widget on admin routes */}
-      {!isStaffRoute && <AIStylistWidget />}
+      {!isStaffRoute && <AIStylistWidget user={user} />}
       
       <Navigation user={user} onLogout={handleLogout} />
     </div>

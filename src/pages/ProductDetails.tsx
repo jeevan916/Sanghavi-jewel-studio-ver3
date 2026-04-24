@@ -583,7 +583,7 @@ export const ProductDetails: React.FC = () => {
                             </div>
 
                             {isGuest && !isSharedAccess && images.length > 1 && (
-                                <div className="absolute bottom-6 right-6 bg-black/60 backdrop-blur-xl text-white px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 cursor-pointer hover:bg-black/80 transition-all shadow-2xl border border-white/10" onClick={() => navigate('/login')}>
+                                <div className="absolute bottom-6 right-6 bg-black/60 backdrop-blur-xl text-white px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 shadow-2xl border border-white/10 pointer-events-none">
                                     <Lock size={14} /> {images.length - 1} Private Views Locked
                                 </div>
                             )}
@@ -689,7 +689,7 @@ export const ProductDetails: React.FC = () => {
                                 <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
                                     <Settings size={17} /> Admin Pricing Controls
                                 </h3>
-                                <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-brand-dark text-white rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-brand-red transition-all flex items-center gap-2">
+                                <button type="button" onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-brand-dark text-white rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-brand-red transition-all flex items-center gap-2">
                                     {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
                                 </button>
                             </div>
@@ -964,8 +964,8 @@ export const ProductDetails: React.FC = () => {
                 <div className="pt-4">
                     {isEditing ? (
                         <div className="flex gap-4">
-                            <button onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-stone-100 text-stone-400 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-stone-200 transition-all">Cancel</button>
-                            <button onClick={handleSave} className="flex-1 py-5 bg-brand-dark text-white rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 hover:bg-brand-gold transition-all shadow-2xl"><Save size={18}/> Save Masterpiece</button>
+                            <button type="button" onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-stone-100 text-stone-400 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-stone-200 transition-all">Cancel</button>
+                            <button type="button" onClick={handleSave} className="flex-1 py-5 bg-brand-dark text-white rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 hover:bg-brand-gold transition-all shadow-2xl"><Save size={18}/> Save Masterpiece</button>
                         </div>
                     ) : null}
                 </div>

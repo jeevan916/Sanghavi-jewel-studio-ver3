@@ -69,11 +69,11 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ before, afte
        </div>
 
        <div className="h-16 bg-white border-t border-stone-200 flex items-center justify-between px-6 shrink-0">
-          <button onClick={onDiscard} className="text-stone-500 hover:text-red-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
+          <button type="button" onClick={onDiscard} className="text-stone-500 hover:text-red-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
              <X size={22}/> Discard
           </button>
           <span className="text-[10px] text-stone-300 font-bold uppercase tracking-widest hidden md:inline-block">Swipe to Compare</span>
-          <button onClick={onAccept} className="bg-stone-900 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-gold-600 transition-colors shadow-lg flex items-center gap-2">
+          <button type="button" onClick={onAccept} className="bg-stone-900 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-gold-600 transition-colors shadow-lg flex items-center gap-2">
              <Check size={22}/> Keep Changes
           </button>
        </div>

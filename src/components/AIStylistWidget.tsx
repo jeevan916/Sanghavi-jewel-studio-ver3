@@ -3,8 +3,13 @@ import { Sparkles, X, MessageCircle, Gem } from 'lucide-react';
 import { storeService } from '@/services/storeService.ts';
 import { generateCustomerInsight } from '@/services/geminiService.ts';
 import { useNavigate } from 'react-router-dom';
+import { User } from '@/types.ts';
 
-export const AIStylistWidget: React.FC = () => {
+interface AIStylistWidgetProps {
+    user?: User | null;
+}
+
+export const AIStylistWidget: React.FC<AIStylistWidgetProps> = ({ user }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [insight, setInsight] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -87,10 +92,16 @@ export const AIStylistWidget: React.FC = () => {
 
                 {!isLoading && (
                     <button 
-                        onClick={() => navigate('/login')}
+                        onClick={() => {
+                            if (user) {
+                                window.open('https://wa.me/', '_blank');
+                            } else {
+                                navigate('/login');
+                            }
+                        }}
                         className="w-full mt-4 bg-stone-50 hover:bg-stone-100 border border-stone-100 text-[9px] font-bold uppercase tracking-[0.2em] text-brand-dark py-2.5 rounded-xl transition-all"
                     >
-                        Connect with us
+                        {user ? 'Chat on WhatsApp' : 'Connect with us'}
                     </button>
                 )}
             </div>
