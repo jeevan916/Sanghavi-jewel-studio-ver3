@@ -57,7 +57,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
             onLoad={() => setIsLoaded(true)}
             decoding="async" 
             loading={priority ? "eager" : "lazy"}
-            {...(priority ? { fetchpriority: "high" } : {})}
+            {...(priority ? { fetchPriority: "high" } : {})}
             className={`w-full h-full object-contain transition-all duration-700 group-hover:scale-110 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
         />
         

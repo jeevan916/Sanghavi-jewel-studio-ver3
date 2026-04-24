@@ -153,7 +153,7 @@ const SecurityLayer = () => {
     return null;
 };
 
-import { AIStylistWidget } from '@/components/AIStylistWidget.tsx';
+
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
@@ -221,8 +221,7 @@ function AppContent() {
         </Suspense>
       </main>
 
-      {/* Hide the Stylist Widget on admin routes */}
-      {!isStaffRoute && <AIStylistWidget user={user} />}
+
       
       <Navigation user={user} onLogout={handleLogout} />
     </div>
