@@ -1025,11 +1025,10 @@ app.get('/api/products/curated', async (req, res) => {
         
         // 2. Loved (Most Liked)
         const [lovedRows] = await pool.query(`
-            SELECT p.*, COUNT(a.id) as likeCount 
+            SELECT p.*, 
+            (SELECT COUNT(*) FROM analytics a WHERE a.productId = p.id AND a.type = 'like') as likeCount 
             FROM products p 
-            LEFT JOIN analytics a ON p.id = a.productId AND a.type = 'like'
             WHERE p.isHidden = 0 
-            GROUP BY p.id 
             ORDER BY likeCount DESC, p.createdAt DESC 
             LIMIT 8
         `);
@@ -1037,7 +1036,7 @@ app.get('/api/products/curated', async (req, res) => {
         // 3. Trending (Weighted score of activity in last 30 days)
         const [trendingRows] = await pool.query(`
             SELECT p.*, 
-            COALESCE(SUM(
+            (SELECT COALESCE(SUM(
                 CASE 
                     WHEN a.type = 'inquiry' THEN 5 
                     WHEN a.type = 'screenshot' THEN 4
@@ -1045,11 +1044,9 @@ app.get('/api/products/curated', async (req, res) => {
                     WHEN a.type = 'view' THEN 1
                     ELSE 0 
                 END
-            ), 0) as activityScore 
+            ), 0) FROM analytics a WHERE a.productId = p.id AND a.timestamp > DATE_SUB(NOW(), INTERVAL 30 DAY)) as activityScore 
             FROM products p 
-            LEFT JOIN analytics a ON p.id = a.productId AND a.timestamp > DATE_SUB(NOW(), INTERVAL 30 DAY)
             WHERE p.isHidden = 0 
-            GROUP BY p.id 
             ORDER BY activityScore DESC, p.createdAt DESC 
             LIMIT 8
         `);

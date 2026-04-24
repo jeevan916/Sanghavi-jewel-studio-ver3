@@ -69,10 +69,8 @@ export const ProductDetails: React.FC = () => {
         storeService.logEvent('screenshot', product, undefined, { meta: { method: 'copy' } });
      };
 
-     const handleVisibilityChange = () => {
-         if (document.visibilityState === 'hidden') {
-             storeService.logEvent('screenshot', product, undefined, { meta: { method: 'hardware_heuristic_hidden' } });
-         }
+      const handleVisibilityChange = () => {
+         // Hardware heuristic removed to prevent false positives when swiping on mobile browsers.
      };
 
      window.addEventListener('keydown', handleKeyDown);
