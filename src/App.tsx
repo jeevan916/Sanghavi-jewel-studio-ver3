@@ -88,6 +88,7 @@ const Settings = lazy(() => import('@/pages/Settings.tsx').then(m => ({ default:
 const CustomerLogin = lazy(() => import('@/pages/CustomerLogin.tsx').then(m => ({ default: m.CustomerLogin })));
 const StaffLogin = lazy(() => import('@/pages/StaffLogin.tsx').then(m => ({ default: m.StaffLogin })));
 const ProductDetails = lazy(() => import('@/pages/ProductDetails.tsx').then(m => ({ default: m.ProductDetails })));
+const Wishlist = lazy(() => import('@/pages/Wishlist.tsx').then(m => ({ default: m.Wishlist })));
 const SharedLanding = lazy(() => import('@/pages/SharedLanding.tsx').then(m => ({ default: m.SharedLanding })));
 
 interface AuthGuardProps {
@@ -199,6 +200,7 @@ function AppContent() {
             <Route path="/" element={<Landing />} />
             <Route path="/collection" element={<Gallery />} />
             <Route path="/gallery" element={<Navigate to="/collection" replace />} />
+            <Route path="/wishlist" element={<Wishlist user={user} />} />
             <Route path="/product/:id" element={<ProductDetails />} />
             <Route path="/shared/:token" element={<SharedLanding />} />
             <Route 

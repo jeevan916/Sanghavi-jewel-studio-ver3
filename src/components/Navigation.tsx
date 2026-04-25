@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Home, Sparkles, Upload, LayoutDashboard, LogIn, LogOut, Settings, LayoutGrid } from 'lucide-react';
+import { Home, Sparkles, Upload, LayoutDashboard, LogIn, LogOut, Settings, LayoutGrid, Heart } from 'lucide-react';
 import { User } from '@/types.ts';
 import { storeService } from '@/services/storeService.ts';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
@@ -26,6 +26,7 @@ export const Navigation: React.FC<NavigationProps> = ({ user, onLogout }) => {
   const customerTabs = [
     { id: 'landing', path: '/', icon: Home, label: 'Studio' },
     { id: 'gallery', path: '/collection', icon: LayoutGrid, label: 'Catalog' },
+    { id: 'wishlist', path: '/wishlist', icon: Heart, label: 'Wishlist' },
   ];
 
   const staffTabs = [

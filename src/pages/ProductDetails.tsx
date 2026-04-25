@@ -125,6 +125,7 @@ export const ProductDetails: React.FC = () => {
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [neighbors, setNeighbors] = useState<{prev: string | null, next: string | null}>({ prev: null, next: null });
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [isWishlisted, setIsWishlisted] = useState(false);
 
   const isGuest = !user;
 
@@ -238,6 +239,11 @@ export const ProductDetails: React.FC = () => {
             const pStats = await storeService.getProductStats(safeProduct.id);
             setStats(pStats);
             storeService.logEvent('view', safeProduct);
+
+            if (user && user.role === 'customer') {
+               const wl = await storeService.getWishlist(user.id);
+               setIsWishlisted(wl.some((p: any) => p.id === safeProduct.id));
+            }
 
             // Fetch Related Products
             if (!isGuest) {
@@ -445,6 +451,23 @@ export const ProductDetails: React.FC = () => {
       setStats(prev => ({...prev, like: liked ? prev.like + 1 : Math.max(0, prev.like - 1)}));
   };
 
+  const toggleWishlist = async () => {
+      if (!user) {
+          navigate('/login');
+          return;
+      }
+      if (navigator.vibrate) navigator.vibrate(10);
+      
+      const priceNow = priceData?.total || 0;
+      if (isWishlisted) {
+          setIsWishlisted(false);
+          await storeService.removeFromWishlist(user.id, product.id);
+      } else {
+          setIsWishlisted(true);
+          await storeService.addToWishlist(user.id, product.id, priceNow);
+      }
+  };
+
   // --- STRICT RESTRICTED VIEW ---
   if (isRestricted) {
       return (
@@ -499,6 +522,9 @@ export const ProductDetails: React.FC = () => {
                 <>
                     <button onClick={() => toggleLike()} className={`p-3 rounded-2xl transition-all ${isLiked ? 'text-brand-red bg-brand-red/5' : 'text-stone-300 hover:text-brand-dark hover:bg-stone-50'}`}>
                         <Heart size={26} fill={isLiked ? "currentColor" : "none"} />
+                    </button>
+                    <button onClick={() => toggleWishlist()} className={`p-3 rounded-2xl transition-all ${isWishlisted ? 'text-brand-gold bg-brand-gold/5' : 'text-stone-300 hover:text-brand-gold hover:bg-stone-50'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill={isWishlisted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
                     </button>
                     <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-3 text-stone-300 hover:text-brand-dark hover:bg-stone-50 rounded-2xl transition-all"><Share2 size={26} /></button>
                 </>

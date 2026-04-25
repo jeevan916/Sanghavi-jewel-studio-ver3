@@ -158,6 +158,18 @@ export const storeService = {
   getProductStats: (id: string): Promise<ProductStats> => 
     apiFetch(`/products/${id}/stats`).catch(() => ({ like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 })),
   
+  addToWishlist: async (customerId: string, productId: string, priceWhenWishlisted?: number) => {
+    return apiFetch('/wishlist', { method: 'POST', body: JSON.stringify({ customerId, productId, priceWhenWishlisted }) });
+  },
+
+  removeFromWishlist: async (customerId: string, productId: string) => {
+    return apiFetch('/wishlist', { method: 'DELETE', body: JSON.stringify({ customerId, productId }) });
+  },
+
+  getWishlist: async (customerId: string) => {
+    return apiFetch(`/wishlist/${customerId}`).catch(() => []);
+  },
+
   getRelatedProducts: (id: string): Promise<Product[]> => 
     apiFetch(`/products/${id}/related`).catch(() => []),
 
