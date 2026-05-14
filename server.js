@@ -214,6 +214,16 @@ console.log('[Debug] Sanitized DB Config:', {
 });
 
 let pool;
+const poolProxy = {
+    query: (...args) => {
+        if (!pool) throw new Error("Database not initialized yet");
+        return pool.query(...args);
+    },
+    getConnection: (...args) => {
+        if (!pool) throw new Error("Database not initialized yet");
+        return pool.getConnection(...args);
+    }
+};
 let dbInitError = null;
 let DEMO_MODE = false;
 
@@ -341,7 +351,7 @@ const initDB = async () => {
 
 // --- DYNAMIC IMAGE RESIZING ---
 
-    app.use('/api', mediaRoutes(pool, UPLOADS_ROOT));
+    app.use(mediaRoutes(poolProxy, UPLOADS_ROOT));
 
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -737,10 +747,10 @@ const safeParse = (str, fallback = []) => {
 const sanitizeProduct = (p) => p ? ({ ...p, tags: safeParse(p.tags), images: safeParse(p.images), thumbnails: safeParse(p.thumbnails), meta: safeParse(p.meta, {}) }) : null;
 
 
-    app.use('/api', productsRoutes(pool, CACHE, sanitizeProduct));
+    app.use(productsRoutes(poolProxy, CACHE, sanitizeProduct));
 
 
-    app.use('/api', customersRoutes(pool));
+    app.use(customersRoutes(poolProxy));
 
 app.get('/api/staff', async (req, res) => {
     try {
@@ -773,10 +783,10 @@ app.delete('/api/staff/:id', async (req, res) => {
     }
 });
 
-app.use('/api', wishlistRoutes(pool, sanitizeProduct));
+app.use('/api', wishlistRoutes(poolProxy, sanitizeProduct));
 
-app.use('/api', analyticsRoutes(pool, BACKUPS_ROOT));
-app.use('/api', aiRoutes(pool));
+app.use(analyticsRoutes(poolProxy, BACKUPS_ROOT));
+app.use('/api', aiRoutes(poolProxy));
 
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error', message: err.message }); });
 
