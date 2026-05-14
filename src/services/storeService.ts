@@ -26,7 +26,7 @@ const CACHE = {
   goldRate: null as { k22: number, k24: number, lastFetch: number } | null
 };
 
-async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2) {
+export async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2) {
     // Reduce retries for GET requests to improve perceived speed
     const maxRetries = options.method === 'POST' || options.method === 'PUT' ? retries : 0;
     let lastError;
@@ -487,7 +487,7 @@ export const storeService = {
   getBackups: () => apiFetch('/backups').catch(() => []),
   createBackup: () => apiFetch('/backups', { method: 'POST' }),
   deleteBackup: (name: string) => apiFetch(`/backups/${name}`, { method: 'DELETE' }),
-  downloadBackupUrl: (name: string) => `${API_BASE}/backups/download/${name}?key=${process.env.API_KEY}`,
+  downloadBackupUrl: (name: string) => `${API_BASE}/backups/download/${name}`,
   getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message })),
   optimizeStorage: () => apiFetch('/admin/optimize-storage', { method: 'POST' }),
   getDebugEnv: () => apiFetch('/debug-env').catch(e => ({ status: 'error', error: e.message })),

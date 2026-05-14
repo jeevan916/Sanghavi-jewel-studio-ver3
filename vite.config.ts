@@ -20,14 +20,6 @@ export default defineConfig(({ mode }) => {
   return {
     base: '/', // ABSOLUTE PATH: Critical for .htaccess routing to work correctly
     plugins: [react()],
-    define: {
-      'process.env.API_KEY': JSON.stringify(
-        env.VITE_GEMINI_API_KEY || 
-        env.API_KEY || 
-        process.env.API_KEY || 
-        ''
-      ),
-    },
     server: {
       host: true,
       port: 5173,

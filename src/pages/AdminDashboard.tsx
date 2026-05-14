@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { storeService } from '@/services/storeService.ts';
 import { coreEngine } from '@/services/coreEngine.ts';
 import { Product, AnalyticsEvent, User, AppConfig } from '@/types.ts';
+import { WishlistCampaigns } from '@/components/WishlistCampaigns.tsx';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, Tag,
-  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight, Clock, Camera
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight, Clock, Camera, Megaphone
 } from 'lucide-react';
 
 import { analyzeInstagramComments } from '@/services/geminiService.ts';
@@ -282,6 +283,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'market', icon: DollarSign, label: 'Market' },
               { id: 'neural', icon: BrainCircuit, label: 'Neural' },
               { id: 'pulse', icon: MessageCircle, label: 'Pulse' },
+              { id: 'campaigns', icon: Megaphone, label: 'Campaigns' },
             ].map(tab => (
               <button 
                 key={tab.id}
@@ -1197,6 +1199,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
                   </div>
               )}
+          </div>
+      )}
+
+      {activeView === 'campaigns' && config && (
+          <div className="animate-fade-in">
+              <WishlistCampaigns config={config} />
           </div>
       )}
 

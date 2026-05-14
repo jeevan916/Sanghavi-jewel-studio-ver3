@@ -1,3 +1,9 @@
+import analyticsRoutes from './server/routes/analytics.js';
+import mediaRoutes from './server/routes/media.js';
+import customersRoutes from './server/routes/customers.js';
+import productsRoutes from './server/routes/products.js';
+import wishlistRoutes from './server/routes/wishlist.js';
+import aiRoutes from './server/routes/ai.js';
 
 import dotenv from 'dotenv';
 console.log('🚀 [Sanghavi Studio] Server process starting...');
@@ -231,7 +237,7 @@ const initDB = async () => {
     await pool.query(`CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS customers (id VARCHAR(255) PRIMARY KEY, phone VARCHAR(50) UNIQUE, name VARCHAR(255), pincode VARCHAR(20), role VARCHAR(50), createdAt DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS designs (id VARCHAR(255) PRIMARY KEY, imageUrl LONGTEXT, prompt TEXT, aspectRatio VARCHAR(20), createdAt DATETIME)`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS wishlist (id INT AUTO_INCREMENT PRIMARY KEY, customerId VARCHAR(255), productId VARCHAR(255), priceWhenWishlisted FLOAT, createdAt DATETIME, FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE, FOREIGN KEY (customerId) REFERENCES customers(id) ON DELETE CASCADE, UNIQUE KEY unique_wish(customerId, productId))`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS wishlist (id INT AUTO_INCREMENT PRIMARY KEY, customerId VARCHAR(255), productId VARCHAR(255), priceWhenWishlisted FLOAT, createdAt DATETIME, lastNotifiedAt DATETIME, FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE, FOREIGN KEY (customerId) REFERENCES customers(id) ON DELETE CASCADE, UNIQUE KEY unique_wish(customerId, productId))`);
     
     // Links Table for Private Sharing
     await pool.query(`CREATE TABLE IF NOT EXISTS links (id VARCHAR(255) PRIMARY KEY, token VARCHAR(255) UNIQUE, targetId VARCHAR(255), type VARCHAR(50), expiresAt DATETIME, createdAt DATETIME)`);
@@ -240,13 +246,21 @@ const initDB = async () => {
     const addColumnIfMissing = async (table, col, def) => {
         try {
             await pool.query(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+            console.log(`Added column ${col} to ${table}`);
         } catch(e) {
             // Ignore if column exists
         }
     };
+    
+    await addColumnIfMissing('wishlist', 'lastNotifiedAt', 'DATETIME');
     await addColumnIfMissing('analytics', 'userPhone', 'VARCHAR(50)');
     await addColumnIfMissing('analytics', 'duration', 'INT');
     await addColumnIfMissing('analytics', 'meta', 'JSON');
+
+    // Future Optimizations: Indexes to speed up queries
+    try { await pool.query('CREATE INDEX idx_wishlist_price ON wishlist(priceWhenWishlisted)'); } catch(e) {}
+    try { await pool.query('CREATE INDEX idx_analytics_timestamp ON analytics(timestamp)'); } catch(e) {}
+    try { await pool.query('CREATE INDEX idx_customers_createdAt ON customers(createdAt)'); } catch(e) {}
 
     // 2. Normalized Configuration Tables (Professional Schema)
     await pool.query(`CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255), isPrivate BOOLEAN)`);
@@ -323,221 +337,8 @@ const initDB = async () => {
 };
 
 // --- DYNAMIC IMAGE RESIZING ---
-app.get('/api/media/resize', async (req, res) => {
-    try {
-        const { url, width, format = 'webp', quality = 80 } = req.query;
-        if (!url) return res.status(400).json({ error: 'Missing url' });
-        
-        // Ensure URL is within uploads
-        const safeUrl = url.startsWith('/') ? url : `/${url}`;
-        const filepath = path.join(UPLOADS_ROOT, safeUrl.replace('/uploads/', ''));
-        
-        if (!existsSync(filepath)) return res.status(404).json({ error: 'Image not found' });
 
-        const { default: sharp } = await import('sharp');
-        const transformer = sharp(filepath);
-        
-        if (width) {
-            transformer.resize(parseInt(width), null, { withoutEnlargement: true });
-        }
-        
-        const buffer = await transformer.toFormat(format, { quality: parseInt(quality) }).toBuffer();
-        
-        res.setHeader('Content-Type', `image/${format}`);
-        res.send(buffer);
-    } catch (e) {
-        console.error('Dynamic resize failed:', e);
-        res.status(500).json({ error: 'Resize failed' });
-    }
-});
-
-// --- IMAGE METADATA ---
-app.get('/api/media/info', async (req, res) => {
-    try {
-        const { url } = req.query;
-        if (!url) return res.status(400).json({ error: 'Missing url' });
-        
-        const safeUrl = url.startsWith('/') ? url : `/${url}`;
-        const filepath = path.join(UPLOADS_ROOT, safeUrl.replace('/uploads/', ''));
-        
-        if (!existsSync(filepath)) return res.status(404).json({ error: 'Image not found' });
-        
-        const stats = statSync(filepath);
-        res.json({ size: stats.size });
-    } catch (e) {
-        console.error('Metadata fetch failed:', e);
-        res.status(500).json({ error: 'Metadata fetch failed' });
-    }
-});
-
-// --- MEDIA PROCESSING ---
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 100 * 1024 * 1024 }, // Increased to 100MB for videos
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.match(/^(image\/(jpeg|png|webp|heic|avif)|video\/(mp4|quicktime|webm|x-matroska))$/)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Unsupported file format'), false);
-        }
-    }
-});
-
-const slugify = (text) => text.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
-
-const getHash = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 12);
-
-app.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
-  if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
-  const results = [];
-  try {
-    for (const file of req.files) {
-      const originalName = file.originalname.split('.').slice(0, -1).join('.');
-      const safeName = slugify(originalName) || 'asset';
-      const contentHash = getHash(file.buffer);
-      
-      if (file.mimetype.startsWith('video/')) {
-        // Handle Video Processing
-        console.log(`🎬 [Media] Processing video: ${file.originalname} (${file.size} bytes)`);
-        const filename = `${contentHash}-${safeName}.webm`;
-        const filepath = path.join(UPLOADS_ROOT, '1080', filename);
-        const tempInput = path.join(UPLOADS_ROOT, `temp-${contentHash}.tmp`);
-        
-        const fs = await import('fs');
-        
-        // Deduplication Check
-        if (existsSync(filepath)) {
-            console.log(`🎬 [Media] Video already exists, skipping: ${filename}`);
-            results.push({
-                originalName: file.originalname,
-                primary: `/uploads/1080/${filename}`,
-                thumbnail: `/uploads/1080/${filename}`
-            });
-            continue;
-        }
-
-        fs.writeFileSync(tempInput, file.buffer);
-        console.log(`🎬 [Media] Temp file created: ${tempInput}`);
-
-        try {
-            await new Promise((resolve, reject) => {
-              ffmpeg(tempInput)
-                .outputOptions([
-                  '-an', // Remove audio
-                  '-c:v libvpx-vp9', // WebM video codec
-                  '-crf 30', // Constant Rate Factor for quality
-                  '-b:v 0', // Required for CRF in VP9
-                  '-deadline realtime' // Speed up encoding
-                ])
-                .toFormat('webm')
-                .on('start', (cmd) => console.log(`🎬 [Media] FFmpeg started: ${cmd}`))
-                .on('end', () => {
-                  console.log(`🎬 [Media] FFmpeg finished: ${filename}`);
-                  if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput); // Cleanup temp file
-                  resolve();
-                })
-                .on('error', (err) => {
-                  console.error('🎬 [Media] FFmpeg error:', err);
-                  if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
-                  reject(err);
-                })
-                .save(filepath);
-            });
-
-            results.push({
-              originalName: file.originalname,
-              primary: `/uploads/1080/${filename}`,
-              thumbnail: `/uploads/1080/${filename}` // Use video itself as thumbnail
-            });
-        } catch (err) {
-            console.error('🎬 [Media] Video processing failed, falling back to original buffer:', err);
-            // Fallback: save original buffer if ffmpeg fails
-            const fallbackFilename = `${contentHash}-${safeName}${path.extname(file.originalname) || '.mp4'}`;
-            const fallbackPath = path.join(UPLOADS_ROOT, '1080', fallbackFilename);
-            if (!existsSync(fallbackPath)) {
-                fs.writeFileSync(fallbackPath, file.buffer);
-            }
-            results.push({
-                originalName: file.originalname,
-                primary: `/uploads/1080/${fallbackFilename}`,
-                thumbnail: `/uploads/1080/${fallbackFilename}`
-            });
-        }
-      } else {
-        // Handle Image Processing
-        const processVariant = async (width, format, quality) => {
-          const filename = `${contentHash}-${safeName}-${width}w.${format}`;
-          const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
-          
-          // Deduplication Check
-          if (existsSync(filepath)) {
-              console.log(`🖼️ [Media] Image variant already exists, skipping: ${filename}`);
-              return `/uploads/${width}/${filename}`;
-          }
-
-          try {
-            const { default: sharp } = await import('sharp');
-            await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
-          } catch (e) {
-            console.error('Sharp processing failed, saving raw file instead:', e);
-            const fs = await import('fs');
-            fs.writeFileSync(filepath, file.buffer);
-          }
-          return `/uploads/${width}/${filename}`;
-        };
-
-        const [desktopWebP, mobileThumb] = await Promise.all([
-            processVariant(1080, 'webp', 85),
-            processVariant(300, 'webp', 80)
-        ]);
-        
-        results.push({ 
-            originalName: file.originalname, 
-            primary: desktopWebP,
-            thumbnail: mobileThumb 
-        });
-      }
-    }
-    res.json({ success: true, files: results });
-  } catch (error) {
-    res.status(500).json({ error: 'Media processing failed', details: error.message });
-  }
-});
-
-// --- LOGO UPLOAD & SERVE ---
-app.post('/api/settings/logo', upload.single('logo'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-        const filepath = path.join(UPLOADS_ROOT, 'custom_logo.png');
-        try {
-            const { default: sharp } = await import('sharp');
-            await sharp(req.file.buffer).png().toFile(filepath);
-        } catch (e) {
-            console.error('Sharp processing failed, saving raw file instead:', e);
-            const fs = await import('fs');
-            fs.writeFileSync(filepath, req.file.buffer);
-        }
-        res.json({ success: true, url: '/api/settings/logo.png?t=' + Date.now() });
-    } catch (error) {
-        res.status(500).json({ error: 'Logo upload failed', details: error.message });
-    }
-});
-
-app.get('/api/settings/logo.png', (req, res) => {
-    const customLogoPath = path.join(UPLOADS_ROOT, 'custom_logo.png');
-    if (existsSync(customLogoPath)) {
-        res.sendFile(customLogoPath);
-    } else {
-        res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png');
-    }
-});
-
-// Catch-all for /logo.png to prevent infinite loops from cached clients
-app.get('/logo.png', (req, res) => {
-    res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png');
-});
-
-// --- API ROUTES ---
+    app.use('/api', mediaRoutes(pool, UPLOADS_ROOT));
 
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -684,6 +485,7 @@ app.get('/api/config', async (req, res) => {
             whatsappPhoneId: '',
             whatsappToken: '',
             whatsappTemplateName: 'sanghavi_jewel_studio',
+            whatsappWishlistTemplateName: 'wishlist_price_drop',
         };
 
         settingsRows.forEach(row => {
@@ -710,12 +512,10 @@ app.post('/api/config', async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
-        const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, instagramHandle, instagramToken, aiConfig } = req.body;
+        const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, whatsappWishlistTemplateName, instagramHandle, instagramToken, aiConfig } = req.body;
 
         const settings = { 
             linkExpiryHours, 
-            goldRate22k,
-            goldRate24k,
             gstPercent,
             makingChargeSegments: JSON.stringify(makingChargeSegments || []),
             defaultMakingChargeSegmentId,
@@ -723,6 +523,7 @@ app.post('/api/config', async (req, res) => {
             whatsappPhoneId, 
             whatsappToken,
             whatsappTemplateName,
+            whatsappWishlistTemplateName,
             instagramHandle,
             instagramToken,
             ai_model_analysis: aiConfig?.models?.analysis,
@@ -932,287 +733,11 @@ const safeParse = (str, fallback = []) => {
 };
 const sanitizeProduct = (p) => p ? ({ ...p, tags: safeParse(p.tags), images: safeParse(p.images), thumbnails: safeParse(p.thumbnails), meta: safeParse(p.meta, {}) }) : null;
 
-app.get('/api/products', async (req, res) => {
-  try {
-    if (DEMO_MODE) {
-        const demoPath = path.join(DATA_ROOT, 'demo_products.json');
-        if (existsSync(demoPath)) {
-            const data = JSON.parse(readFileSync(demoPath, 'utf8'));
-            return res.json({ 
-                items: data, 
-                meta: { page: 1, limit: 100, totalPages: 1, totalItems: data.length, demo: true } 
-            });
-        }
-    }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 1000;
-    const offset = (page - 1) * limit;
-    const isPublic = req.query.public === 'true';
-    const category = req.query.category;
-    const subCategory = req.query.subCategory;
-    const search = req.query.search;
-    const summary = req.query.summary === 'true';
+    app.use('/api', productsRoutes(pool, CACHE, sanitizeProduct));
 
-    let query = summary 
-        ? 'SELECT id, title, category, subCategory, weight, thumbnails, isHidden, createdAt, meta FROM products WHERE 1=1'
-        : 'SELECT * FROM products WHERE 1=1';
-    const params = [];
 
-    if (isPublic) {
-        query += ' AND isHidden = 0';
-    }
-    
-    if (category && category !== 'All') {
-        query += ' AND category = ?';
-        params.push(category);
-    }
-
-    if (subCategory) {
-        query += ' AND subCategory = ?';
-        params.push(subCategory);
-    }
-
-    if (search) {
-        query += ' AND (title LIKE ? OR tags LIKE ?)';
-        const likeSearch = `%${search}%`;
-        params.push(likeSearch, likeSearch);
-    }
-
-    // Clone query for count BEFORE adding limit/offset
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
-    
-    query += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
-    
-    const [rows] = await pool.query(query, params);
-    
-    // Count parameter handling: params for count query don't include limit/offset
-    const countParams = params.slice(0, params.length - 2); 
-    const [count] = await pool.query(countQuery, countParams);
-    
-    res.json({ 
-        items: rows.map(sanitizeProduct), 
-        meta: { page, limit, totalPages: Math.ceil(count[0].total / limit), totalItems: count[0].total } 
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/products/curated', async (req, res) => {
-    try {
-        const now = Date.now();
-        if (CACHE.curated.data && (now - CACHE.curated.lastFetch < CACHE_TTL)) {
-            return res.json(CACHE.curated.data);
-        }
-
-        if (DEMO_MODE) {
-            const demoPath = path.join(DATA_ROOT, 'demo_products.json');
-            if (existsSync(demoPath)) {
-                const data = JSON.parse(readFileSync(demoPath, 'utf8'));
-                const demoCurated = {
-                    latest: data,
-                    loved: data,
-                    trending: data,
-                    ideal: data
-                };
-                CACHE.curated.data = demoCurated;
-                CACHE.curated.lastFetch = now;
-                return res.json(demoCurated);
-            }
-        }
-        
-        // 1. Latest Arrivals
-        const [latestRows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 8');
-        
-        // 2. Loved (Most Liked)
-        const [lovedRows] = await pool.query(`
-            SELECT p.*, 
-            (SELECT COUNT(*) FROM analytics a WHERE a.productId = p.id AND a.type = 'like') as likeCount 
-            FROM products p 
-            WHERE p.isHidden = 0 
-            ORDER BY likeCount DESC, p.createdAt DESC 
-            LIMIT 8
-        `);
-
-        // 3. Trending (Weighted score of activity in last 30 days)
-        const [trendingRows] = await pool.query(`
-            SELECT p.*, 
-            (SELECT COALESCE(SUM(
-                CASE 
-                    WHEN a.type = 'inquiry' THEN 5 
-                    WHEN a.type = 'screenshot' THEN 4
-                    WHEN a.type = 'like' THEN 3
-                    WHEN a.type = 'view' THEN 1
-                    ELSE 0 
-                END
-            ), 0) FROM analytics a WHERE a.productId = p.id AND a.timestamp > DATE_SUB(NOW(), INTERVAL 30 DAY)) as activityScore 
-            FROM products p 
-            WHERE p.isHidden = 0 
-            ORDER BY activityScore DESC, p.createdAt DESC 
-            LIMIT 8
-        `);
-
-        // 4. Ideal (Random selection to keep it fresh for the user, or fallback to oldest/classic pieces)
-        const [idealRows] = await pool.query(`
-            SELECT * FROM products 
-            WHERE isHidden = 0 
-            ORDER BY RAND() 
-            LIMIT 4
-        `);
-
-        const curated = {
-            latest: latestRows.map(sanitizeProduct),
-            loved: lovedRows.map(sanitizeProduct),
-            trending: trendingRows.map(sanitizeProduct),
-            ideal: idealRows.map(sanitizeProduct)
-        };
-        
-        CACHE.curated.data = curated;
-        CACHE.curated.lastFetch = now;
-        res.json(curated);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/products/:id', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
-        rows[0] ? res.json(sanitizeProduct(rows[0])) : res.status(404).json({ error: 'Not found' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/products/:id/stats', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT type, COUNT(*) as c FROM analytics WHERE productId = ? GROUP BY type', [req.params.id]);
-        const stats = { like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 };
-        rows.forEach(r => { if(stats.hasOwnProperty(r.type)) stats[r.type] = r.c; });
-        res.json(stats);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/products/:id/related', async (req, res) => {
-    try {
-        const [productRows] = await pool.query('SELECT category, tags FROM products WHERE id = ?', [req.params.id]);
-        if (productRows.length === 0) return res.json([]);
-        
-        const { category, tags: tagsJson } = productRows[0];
-        const tags = safeParse(tagsJson, []);
-        
-        // Find products in same category, excluding current one
-        let query = 'SELECT * FROM products WHERE id != ? AND isHidden = 0';
-        const params = [req.params.id];
-        
-        if (category) {
-            query += ' AND category = ?';
-            params.push(category);
-        }
-        
-        // Fetch latest 20 in same category to filter/sort by tags
-        query += ' ORDER BY createdAt DESC LIMIT 20';
-        
-        const [rows] = await pool.query(query, params);
-        let related = rows.map(sanitizeProduct);
-        
-        // Simple tag matching boost if tags exist
-        if (tags && tags.length > 0) {
-            related = related.sort((a, b) => {
-                const aMatches = (a.tags || []).filter(t => tags.includes(t)).length;
-                const bMatches = (b.tags || []).filter(t => tags.includes(t)).length;
-                return bMatches - aMatches;
-            });
-        }
-        
-        res.json(related.slice(0, 8));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/products', async (req, res) => {
-    try {
-        const p = req.body;
-        const productData = {
-            id: p.id,
-            title: p.title,
-            category: p.category,
-            subCategory: p.subCategory,
-            weight: p.weight,
-            description: p.description,
-            tags: JSON.stringify(p.tags || []),
-            images: JSON.stringify(p.images || []),
-            thumbnails: JSON.stringify(p.thumbnails || []),
-            supplier: p.supplier,
-            uploadedBy: p.uploadedBy,
-            isHidden: p.isHidden,
-            createdAt: p.createdAt,
-            dateTaken: p.dateTaken,
-            meta: JSON.stringify(p.meta || {})
-        };
-        await pool.query('INSERT INTO products SET ?', productData);
-        CACHE.curated.data = null; // Invalidate cache
-        res.status(201).json({ success: true });
-    } catch (e) { 
-        console.error('Product save error:', e);
-        res.status(500).json({ error: e.message }); 
-    }
-});
-
-app.put('/api/products/:id', async (req, res) => {
-    try {
-        const p = req.body;
-        await pool.query('UPDATE products SET ? WHERE id = ?', [{
-            title: p.title, category: p.category, subCategory: p.subCategory, weight: p.weight, description: p.description,
-            tags: JSON.stringify(p.tags || []), images: JSON.stringify(p.images || []), thumbnails: JSON.stringify(p.thumbnails || []), 
-            isHidden: p.isHidden, dateTaken: p.dateTaken, meta: JSON.stringify(p.meta || {})
-        }, req.params.id]);
-        CACHE.curated.data = null; // Invalidate cache
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/products/:id', async (req, res) => {
-    try {
-        await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
-        CACHE.curated.data = null; // Invalidate cache
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// Other Entities
-app.get('/api/customers', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT id, name, phone, pincode, role, createdAt FROM customers ORDER BY createdAt DESC');
-        res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/customers/check/:phone', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [req.params.phone]);
-        res.json({ exists: rows.length > 0, user: rows[0] || null });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/customers/login', async (req, res) => {
-    const { phone, name, pincode } = req.body;
-    try {
-        const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
-        let user = rows[0];
-        if (!user) {
-            user = { id: crypto.randomUUID(), phone, name: name || `Client ${phone.slice(-4)}`, pincode, role: 'customer', createdAt: new Date() };
-            await pool.query('INSERT INTO customers SET ?', user);
-        } else if (name || pincode) {
-            await pool.query('UPDATE customers SET name = COALESCE(?, name), pincode = COALESCE(?, pincode) WHERE phone = ?', [name, pincode, phone]);
-            user.name = name || user.name;
-        }
-        res.json({ user });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/login', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [req.body.username, req.body.password]);
-        if (rows[0] && rows[0].isActive) res.json({ user: rows[0] });
-        else res.status(401).json({ error: 'Invalid or Disabled' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
+    app.use('/api', customersRoutes(pool));
 
 app.get('/api/staff', async (req, res) => {
     try {
@@ -1240,163 +765,15 @@ app.delete('/api/staff/:id', async (req, res) => {
     try {
         await pool.query('DELETE FROM staff WHERE id = ?', [req.params.id]);
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
-app.post('/api/wishlist', async (req, res) => {
-    try {
-        const { customerId, productId, priceWhenWishlisted } = req.body;
-        if (!customerId || !productId) return res.status(400).json({ error: 'Missing customerId or productId' });
-        
-        await pool.query(
-            'INSERT INTO wishlist (customerId, productId, priceWhenWishlisted, createdAt) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE priceWhenWishlisted = ?', 
-            [customerId, productId, priceWhenWishlisted || 0, priceWhenWishlisted || 0]
-        );
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
+app.use('/api', wishlistRoutes(pool, sanitizeProduct));
 
-app.delete('/api/wishlist', async (req, res) => {
-    try {
-        const { customerId, productId } = req.body;
-        await pool.query('DELETE FROM wishlist WHERE customerId = ? AND productId = ?', [customerId, productId]);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/wishlist/:customerId', async (req, res) => {
-    try {
-        const [rows] = await pool.query(`
-            SELECT p.*, w.priceWhenWishlisted, w.createdAt as wishlistedAt 
-            FROM wishlist w 
-            JOIN products p ON w.productId = p.id 
-            WHERE w.customerId = ? 
-            ORDER BY w.createdAt DESC
-        `, [req.params.customerId]);
-        res.json(rows.map(sanitizeProduct).map((p, i) => ({ ...p, priceWhenWishlisted: rows[i].priceWhenWishlisted, wishlistedAt: rows[i].wishlistedAt })));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/analytics', async (req, res) => {
-    try {
-        const body = { ...req.body };
-        if (body.meta && typeof body.meta === 'object') {
-            body.meta = JSON.stringify(body.meta);
-        }
-        const event = { id: crypto.randomUUID(), ...body, timestamp: new Date() };
-        await pool.query('INSERT INTO analytics SET ?', event);
-        res.status(201).json(event);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/analytics', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
-        res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/analytics/user/:userId', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT * FROM analytics WHERE userId = ? ORDER BY timestamp DESC LIMIT 1000', [req.params.userId]);
-        res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/intelligence', async (req, res) => {
-    try {
-        const [p] = await pool.query('SELECT COUNT(*) as c FROM products');
-        const [cust] = await pool.query('SELECT COUNT(*) as c FROM customers');
-        const [inq] = await pool.query('SELECT COUNT(*) as c FROM analytics WHERE type="inquiry"');
-        res.json({ summary: { totalInventory: p[0].c, totalLeads: cust[0].c, activeInquiries: inq[0].c } });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/backups', async (req, res) => {
-    const name = `snapshot_${Date.now()}.json`;
-    const [products] = await pool.query('SELECT * FROM products');
-    writeFileSync(path.join(BACKUPS_ROOT, name), JSON.stringify(products));
-    res.json({ success: true, filename: name, size: JSON.stringify(products).length });
-});
-
-app.get('/api/backups', (req, res) => {
-    if (!existsSync(BACKUPS_ROOT)) return res.json([]);
-    res.json(readdirSync(BACKUPS_ROOT).filter(f => f.endsWith('.json')).map(f => ({ name: f, date: statSync(path.join(BACKUPS_ROOT, f)).mtime, size: statSync(path.join(BACKUPS_ROOT, f)).size })));
-});
-
-app.post('/api/instagram/sync', async (req, res) => {
-    try {
-        const [settingsRows] = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = "instagramToken"');
-        const token = settingsRows[0]?.setting_value;
-        if (!token) return res.status(400).json({ error: "No Instagram Token configured" });
-
-        let igAccountId = null;
-        let isBusinessGraph = false;
-
-        // 1. Try Page Token
-        const mePageRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=instagram_business_account&access_token=${token}`);
-        const mePageData = await mePageRes.json();
-        if (mePageData.instagram_business_account?.id) {
-            igAccountId = mePageData.instagram_business_account.id;
-            isBusinessGraph = true;
-        }
-
-        // 2. Try User Token
-        if (!igAccountId) {
-            const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=instagram_business_account&access_token=${token}`);
-            const pagesData = await pagesRes.json();
-            for (const page of (pagesData.data || [])) {
-                if (page.instagram_business_account?.id) {
-                    igAccountId = page.instagram_business_account.id;
-                    isBusinessGraph = true;
-                    break;
-                }
-            }
-        }
-        
-        let mediaData = null;
-        if (isBusinessGraph && igAccountId) {
-            // Fetch recent media
-            const mediaRes = await fetch(`https://graph.facebook.com/v20.0/${igAccountId}/media?fields=id&limit=10&access_token=${token}`);
-            mediaData = await mediaRes.json();
-        } else {
-            // Fallback
-            const mediaRes = await fetch(`https://graph.instagram.com/me/media?fields=id&limit=10&access_token=${token}`);
-            mediaData = await mediaRes.json();
-        }
-        
-        if (!mediaData || !mediaData.data) return res.status(400).json({ error: "Failed to fetch media", details: mediaData });
-
-        let totalInserted = 0;
-        for (const item of mediaData.data) {
-            // Fetch comments for each media
-            const commUrl = isBusinessGraph 
-                 ? `https://graph.facebook.com/v20.0/${item.id}/comments?fields=id,text,timestamp,username&access_token=${token}`
-                 : `https://graph.instagram.com/${item.id}/comments?fields=id,text,timestamp,username&access_token=${token}`;
-            
-            const commRes = await fetch(commUrl);
-            const commData = await commRes.json();
-            
-            if (commData.data) {
-                for (const comment of commData.data) {
-                    await pool.query(
-                        'INSERT INTO instagram_comments (id, media_id, username, text, timestamp) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE text = ?',
-                        [comment.id, item.id, comment.username || 'unknown', comment.text, new Date(comment.timestamp), comment.text]
-                    );
-                    totalInserted++;
-                }
-            }
-        }
-        res.json({ success: true, count: totalInserted });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/instagram/comments', async (req, res) => {
-    try {
-        const [comments] = await pool.query('SELECT * FROM instagram_comments ORDER BY timestamp DESC LIMIT 100');
-        res.json(comments);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
+app.use('/api', analyticsRoutes(pool, BACKUPS_ROOT));
+app.use('/api', aiRoutes(pool));
 
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error', message: err.message }); });
 

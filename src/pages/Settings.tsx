@@ -795,8 +795,12 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                             <input type="text" value={config.whatsappPhoneId || ''} onChange={e => setConfig({...config, whatsappPhoneId: e.target.value})} placeholder="Enter Phone ID from Meta Dashboard" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">WhatsApp Template Name</label>
-                            <input type="text" value={config.whatsappTemplateName || ''} onChange={e => setConfig({...config, whatsappTemplateName: e.target.value})} placeholder="e.g. sanghavi_jewel_studio" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Login OTP Template Name</label>
+                            <input type="text" value={config.whatsappTemplateName || ''} onChange={e => setConfig({...config, whatsappTemplateName: e.target.value})} placeholder="e.g. otp_login" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Wishlist Drop Template Name</label>
+                            <input type="text" value={config.whatsappWishlistTemplateName || ''} onChange={e => setConfig({...config, whatsappWishlistTemplateName: e.target.value})} placeholder="e.g. wishlist_price_drop" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                         </div>
                     </div>
                     <div>
