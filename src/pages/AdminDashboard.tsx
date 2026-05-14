@@ -17,7 +17,7 @@ interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse';
+type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();

@@ -34,7 +34,7 @@ export const WishlistCampaigns = ({ config }: { config: any }) => {
                     images: typeof item.images === 'string' ? JSON.parse(item.images || '[]') : (item.images || []),
                     thumbnails: typeof item.thumbnails === 'string' ? JSON.parse(item.thumbnails || '[]') : (item.thumbnails || []),
                     tags: [],
-                    createdAt: new Date(),
+                    createdAt: new Date().toISOString(),
                     description: '',
                     subCategory: ''
                 };

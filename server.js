@@ -200,7 +200,10 @@ const dbConfig = {
   password: cleanEnv(process.env.DB_PASSWORD) || '',
   database: cleanEnv(process.env.DB_NAME) || 'sanghavi_studio',
   waitForConnections: true,
-  connectionLimit: 10
+  connectionLimit: 10,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 };
 
 console.log('[Debug] Sanitized DB Config:', {
