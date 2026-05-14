@@ -4,6 +4,28 @@ import { GoogleGenAI, Type } from '@google/genai';
 export default function aiRoutes(pool) {
     const router = express.Router();
 
+    // Authentication middleware to block unauthorized AI requests
+    const requireStaff = async (req, res, next) => {
+        const userId = req.headers['x-user-id'];
+        if (!userId) {
+            console.warn("[Security] Blocked unauthorized AI API request: Missing X-User-Id header");
+            return res.status(401).json({ error: "Unauthorized: Missing credentials" });
+        }
+        try {
+            const [rows] = await pool.query('SELECT * FROM staff WHERE id = ?', [userId]);
+            if (rows.length === 0 || !rows[0].isActive) {
+                console.warn(`[Security] Blocked unauthorized AI API request for user ${userId}: Not an active staff`);
+                return res.status(403).json({ error: "Forbidden: Not an active staff member" });
+            }
+            next();
+        } catch (e) {
+            console.error("Auth error in AI route:", e);
+            res.status(500).json({ error: "Authentication check failed" });
+        }
+    };
+
+    router.use('/ai/*', requireStaff);
+
     const getAIConfig = async () => {
         const [rows] = await pool.query('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("ai_model_analysis", "ai_model_enhancement", "ai_model_watermark", "ai_model_design")');
         const dbConfig = {};

@@ -32,9 +32,21 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}, retr
     let lastError;
     for (let i = 0; i <= maxRetries; i++) {
         try {
+            const userStr = localStorage.getItem('sanghavi_user_session');
+            const localHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (userStr) {
+                try {
+                    const sessionData = JSON.parse(userStr);
+                    if (sessionData && sessionData.id && sessionData.role) {
+                        localHeaders['X-User-Id'] = sessionData.id;
+                        localHeaders['X-User-Role'] = sessionData.role;
+                    }
+                } catch (e) {}
+            }
+
             const response = await fetch(`${API_BASE}${endpoint}`, {
                 ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers },
+                headers: { ...localHeaders, ...options.headers },
             });
 
             const contentType = response.headers.get("content-type");
