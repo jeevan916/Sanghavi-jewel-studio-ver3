@@ -88,7 +88,7 @@ const Settings = lazy(() => import('@/pages/Settings.tsx').then(m => ({ default:
 const CustomerLogin = lazy(() => import('@/pages/CustomerLogin.tsx').then(m => ({ default: m.CustomerLogin })));
 const StaffLogin = lazy(() => import('@/pages/StaffLogin.tsx').then(m => ({ default: m.StaffLogin })));
 const ProductDetails = lazy(() => import('@/pages/ProductDetails.tsx').then(m => ({ default: m.ProductDetails })));
-const Wishlist = lazy(() => import('@/pages/Wishlist.tsx').then(m => ({ default: m.Wishlist })));
+const Wishlist = lazy(() => import('@/pages/Wishlist.tsx'));
 const SharedLanding = lazy(() => import('@/pages/SharedLanding.tsx').then(m => ({ default: m.SharedLanding })));
 
 interface AuthGuardProps {

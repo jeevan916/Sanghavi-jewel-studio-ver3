@@ -9,7 +9,7 @@ interface WishlistProps {
   user: User | null;
 }
 
-export const Wishlist: React.FC<WishlistProps> = ({ user }) => {
+export function Wishlist({ user }: WishlistProps) {
   const [wishlist, setWishlist] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
@@ -71,3 +71,4 @@ export const Wishlist: React.FC<WishlistProps> = ({ user }) => {
     </div>
   );
 };
+export default Wishlist;
