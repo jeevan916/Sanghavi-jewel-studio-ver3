@@ -623,7 +623,7 @@ export const ProductDetails: React.FC = () => {
                 </div>
 
                 {/* Thumbnail Gallery */}
-                {displayImages.length > 1 && !aiComparison && (
+                {(displayImages.length > 1 || isAdminOrContributor) && !aiComparison && (
                     <div 
                         className="flex gap-3 overflow-x-auto py-4 px-2 scrollbar-hide"
                         onTouchStart={(e) => e.stopPropagation()}
