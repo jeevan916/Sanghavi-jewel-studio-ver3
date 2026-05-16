@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_ROOT = path.resolve(__dirname, '..', '..', 'data');
 const DEMO_MODE = false;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export default function productsRoutes(pool, CACHE, sanitizeProduct) {
     const router = express.Router();

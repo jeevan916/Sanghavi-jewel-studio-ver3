@@ -18,8 +18,8 @@ router.get('/api/media/resize', async (req, res) => {
         const filepath = path.join(UPLOADS_ROOT, safeUrl.replace('/uploads/', ''));
         
         if (!existsSync(filepath)) {
-            res.setHeader('Content-Type', 'image/svg+xml');
-            return res.send('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><rect width="800" height="800" fill="#fcfbf9"/><circle cx="400" cy="400" r="120" fill="#f0ece4"/><path d="M375 350h50v50h-50z" fill="none" stroke="#a89f91" stroke-width="4"/><circle cx="400" cy="375" r="10" fill="#a89f91"/><path d="M360 410l30-40 20 20 30-30 30 50h-110" fill="#a89f91"/><text x="400" y="470" font-family="sans-serif" font-weight="600" font-size="24" fill="#a89f91" text-anchor="middle" letter-spacing="2">NO IMAGE</text></svg>');
+            const redirectUrl = new URL(req.originalUrl, 'https://studio.sanghavijewellers.com');
+            return res.redirect(redirectUrl.toString());
         }
 
         const { default: sharp } = await import('sharp');
