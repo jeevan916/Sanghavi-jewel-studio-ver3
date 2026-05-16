@@ -76,7 +76,17 @@ console.log('[Debug] DB Config:', {
     hasPassword: !!process.env.DB_PASSWORD
 });
 
+import rateLimit from 'express-rate-limit';
+
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy for rate limiting (e.g. Hostinger / Cloud Run)
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, 
+  message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => req.headers['x-forwarded-for'] || req.headers['forwarded'] || req.ip
+});
 
 // Hostinger Startup Verification
 const startupLog = path.resolve(__dirname, 'public_html', 'server_status.txt');
@@ -90,6 +100,8 @@ try {
 app.use(cors());
 app.use(compression());
 app.use(express.json({ limit: '100mb' }));
+
+app.use('/api/', apiLimiter);
 
 // Simple In-Memory Cache
 const CACHE = {

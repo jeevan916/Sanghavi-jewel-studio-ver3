@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 export default function customersRoutes(pool) {
     const router = express.Router();
@@ -37,7 +38,11 @@ router.post('/api/customers/login', async (req, res) => {
 router.post('/api/login', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [req.body.username, req.body.password]);
-        if (rows[0] && rows[0].isActive) res.json({ user: rows[0] });
+        if (rows[0] && rows[0].isActive) {
+            const user = rows[0];
+            const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET || 'sanghavi-super-secret-key-fallback', { expiresIn: '7d' });
+            res.json({ user: { ...user, token } });
+        }
         else res.status(401).json({ error: 'Invalid or Disabled' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });

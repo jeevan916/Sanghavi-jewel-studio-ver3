@@ -1,29 +1,45 @@
 import express from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
+import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 
 export default function aiRoutes(pool) {
     const router = express.Router();
 
+    const aiLimiter = rateLimit({
+        windowMs: 60 * 60 * 1000, 
+        max: 200, 
+        message: { error: 'Strict Rate limit exceeded for AI generation API. Contact support.' },
+        keyGenerator: (req) => req.headers['x-forwarded-for'] || req.headers['forwarded'] || req.ip
+    });
+
     // Authentication middleware to block unauthorized AI requests
     const requireStaff = async (req, res, next) => {
-        const userId = req.headers['x-user-id'];
-        if (!userId) {
-            console.warn("[Security] Blocked unauthorized AI API request: Missing X-User-Id header");
+        const authHeader = req.headers['authorization'];
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.warn("[Security] Blocked unauthorized AI API request: Missing or invalid Authorization header");
             return res.status(401).json({ error: "Unauthorized: Missing credentials" });
         }
+        
+        const token = authHeader.split(' ')[1];
         try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sanghavi-super-secret-key-fallback');
+            const userId = decoded.id;
+            
             const [rows] = await pool.query('SELECT * FROM staff WHERE id = ?', [userId]);
             if (rows.length === 0 || !rows[0].isActive) {
                 console.warn(`[Security] Blocked unauthorized AI API request for user ${userId}: Not an active staff`);
                 return res.status(403).json({ error: "Forbidden: Not an active staff member" });
             }
+            req.user = rows[0];
             next();
         } catch (e) {
-            console.error("Auth error in AI route:", e);
-            res.status(500).json({ error: "Authentication check failed" });
+            console.error("Auth error in AI route:", e.message);
+            return res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
         }
     };
 
+    router.use('/ai/*', aiLimiter);
     router.use('/ai/*', requireStaff);
 
     const getAIConfig = async () => {

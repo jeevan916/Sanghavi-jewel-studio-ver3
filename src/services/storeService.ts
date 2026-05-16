@@ -41,6 +41,9 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}, retr
                         localHeaders['X-User-Id'] = sessionData.id;
                         localHeaders['X-User-Role'] = sessionData.role;
                     }
+                    if (sessionData && sessionData.token) {
+                        localHeaders['Authorization'] = `Bearer ${sessionData.token}`;
+                    }
                 } catch (e) {}
             }
 
