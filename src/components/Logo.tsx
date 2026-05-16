@@ -20,6 +20,7 @@ export const Logo: React.FC<LogoProps> = ({ className = '', size = 'md' }) => {
         src="/api/settings/logo.png" 
         alt="Sanghavi Jewellers" 
         className={`${sizes[size]} w-auto object-contain drop-shadow-sm`}
+        referrerPolicy="no-referrer"
         onError={(e) => {
           const target = e.target as HTMLImageElement;
           target.onerror = null;
