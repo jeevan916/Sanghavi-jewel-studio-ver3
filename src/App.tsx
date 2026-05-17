@@ -108,20 +108,26 @@ const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
 
 const SecurityLayer = () => {
     useEffect(() => {
-        // TEMPORARILY DISABLED FOR INSPECTION
-        /*
         // Disable right click
         const handleContextMenu = (e: MouseEvent) => {
             e.preventDefault();
         };
 
-        // Disable keyboard shortcuts
+        // Disable keyboard shortcuts, including screenshot shortcuts
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Prevent Print Screen
+            if (e.key === 'PrintScreen') {
+                navigator.clipboard.writeText('');
+                e.preventDefault();
+                return;
+            }
+
             // Prevent F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
             if (
                 e.key === 'F12' ||
-                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
-                (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c' || e.key === 'S' || e.key === 's')) ||
+                (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'P' || e.key === 'p' || e.key === 'S' || e.key === 's')) ||
+                (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S' || e.key === '3' || e.key === '4' || e.key === '5'))
             ) {
                 e.preventDefault();
             }
@@ -135,9 +141,15 @@ const SecurityLayer = () => {
             }
         };
 
+        const handleCopy = (e: ClipboardEvent) => {
+            e.preventDefault();
+            e.clipboardData?.clearData();
+        };
+
         document.addEventListener('contextmenu', handleContextMenu);
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('selectstart', handleSelectStart);
+        document.addEventListener('copy', handleCopy);
 
         // Add a console warning
         console.log("%cStop!", "color: red; font-family: sans-serif; font-size: 4.5em; font-weight: bolder; text-shadow: #000 1px 1px;");
@@ -147,8 +159,8 @@ const SecurityLayer = () => {
             document.removeEventListener('contextmenu', handleContextMenu);
             document.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('selectstart', handleSelectStart);
+            document.removeEventListener('copy', handleCopy);
         };
-        */
     }, []);
 
     return null;
