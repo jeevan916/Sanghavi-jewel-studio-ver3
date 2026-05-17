@@ -118,6 +118,9 @@ const SecurityLayer = () => {
             // Prevent Print Screen
             if (e.key === 'PrintScreen') {
                 navigator.clipboard.writeText('');
+                // Sometimes applying a CSS class helps
+                document.body.style.display = 'none';
+                setTimeout(() => document.body.style.display = 'block', 100);
                 e.preventDefault();
                 return;
             }
@@ -130,6 +133,23 @@ const SecurityLayer = () => {
                 (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S' || e.key === '3' || e.key === '4' || e.key === '5'))
             ) {
                 e.preventDefault();
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'PrintScreen') {
+                navigator.clipboard.writeText('');
+                document.body.style.display = 'none';
+                setTimeout(() => document.body.style.display = 'block', 100);
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                // If they switch tabs/minimize, we can blank the screen so OS thumbnails don't capture it accurately
+                document.body.style.filter = 'blur(10px) grayscale(100%)';
+            } else {
+                document.body.style.filter = 'none';
             }
         };
 
@@ -148,6 +168,8 @@ const SecurityLayer = () => {
 
         document.addEventListener('contextmenu', handleContextMenu);
         document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
         document.addEventListener('selectstart', handleSelectStart);
         document.addEventListener('copy', handleCopy);
 
@@ -158,8 +180,11 @@ const SecurityLayer = () => {
         return () => {
             document.removeEventListener('contextmenu', handleContextMenu);
             document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('keyup', handleKeyUp);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             document.removeEventListener('selectstart', handleSelectStart);
             document.removeEventListener('copy', handleCopy);
+            document.body.style.filter = 'none';
         };
     }, []);
 

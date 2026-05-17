@@ -5,6 +5,20 @@
 @tailwind components;
 @tailwind utilities;
 
+@media print {
+  html, body {
+    display: none !important;
+  }
+}
+
+body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+
 :root {
   scrollbar-gutter: stable;
 }
