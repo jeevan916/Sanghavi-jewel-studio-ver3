@@ -256,12 +256,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [newSubCategory, setNewSubCategory] = useState<{catId: string, val: string}>({catId: '', val: ''});
 
   const textModelOptions = [
+      { id: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash-8B (Lowest Cost)' },
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Fastest Text)' },
       { id: 'gemini-flash-latest', label: 'Gemini Flash (Optimized for JSON)' },
-      { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Fastest Text)' },
       { id: 'gemini-3.1-pro-preview', label: 'Gemini 3 Pro (Complex Reasoning)' }
   ];
 
   const imageModelOptions = [
+      { id: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash-8B (Lowest Cost Vision)' },
       { id: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Fastest Vision)' },
       { id: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image (High Res)' }
   ];
