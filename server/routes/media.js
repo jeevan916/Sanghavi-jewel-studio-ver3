@@ -227,6 +227,30 @@ router.get('/logo.png', (req, res) => {
 
 // --- API ROUTES ---
 
+router.post('/api/media/deterministic-enhance', async (req, res) => {
+    try {
+        const { base64Image } = req.body;
+        const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+        const buffer = Buffer.from(cleanBase64, 'base64');
+        const { default: sharp } = await import('sharp');
+        
+        const enhancedBuffer = await sharp(buffer)
+            .normalize() // basic auto-contrast
+            .modulate({
+                brightness: 1.05,
+                saturation: 1.15
+            })
+            .sharpen({ sigma: 1.5, m1: 1, m2: 1 })
+            .toFormat('jpeg', { quality: 95 })
+            .toBuffer();
+
+        const dataUri = `data:image/jpeg;base64,${enhancedBuffer.toString('base64')}`;
+        res.json({ success: true, data: dataUri });
+    } catch (error) {
+        console.error("Deterministic Enhance Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
     return router;
 }

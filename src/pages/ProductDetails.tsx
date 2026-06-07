@@ -9,7 +9,7 @@ import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, B
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
 import { storeService } from '@/services/storeService.ts';
-import { enhanceJewelryImage, removeWatermark } from '@/services/geminiService.ts';
+import { enhanceJewelryImage, removeWatermark, deterministicEnhance } from '@/services/geminiService.ts';
 import { useUpload } from '@/contexts/UploadContext.tsx';
 
 export const ProductDetails: React.FC = () => {
@@ -315,8 +315,14 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  const initiateAI = (mode: 'enhance' | 'cleanup') => {
+  const initiateAI = (mode: 'enhance' | 'deterministic' | 'cleanup') => {
       if (!config) return;
+      
+      if (mode === 'deterministic') {
+          runAIProcess(mode);
+          return;
+      }
+      
       const templates = mode === 'enhance' 
         ? (config.aiConfig.templates?.enhancement || []) 
         : (config.aiConfig.templates?.watermark || []);
@@ -328,7 +334,7 @@ export const ProductDetails: React.FC = () => {
       }
   };
 
-  const runAIProcess = async (mode: 'enhance' | 'cleanup', promptOverride?: string) => {
+  const runAIProcess = async (mode: 'enhance' | 'deterministic' | 'cleanup', promptOverride?: string) => {
       if (!product) return;
       setShowTemplateSelector(null);
       setIsProcessingAI(true);
@@ -338,11 +344,17 @@ export const ProductDetails: React.FC = () => {
           const base64Input = await urlToBase64(imgUrl);
           if (!base64Input) throw new Error("Could not load source image for processing");
 
-          const rawBase64 = mode === 'enhance' 
-            ? await enhanceJewelryImage(base64Input, promptOverride) 
-            : await removeWatermark(base64Input, promptOverride);
+          let enhancedDataUri = "";
           
-          const enhancedDataUri = `data:image/jpeg;base64,${rawBase64}`;
+          if (mode === 'deterministic') {
+              enhancedDataUri = await deterministicEnhance(base64Input);
+          } else {
+              const rawBase64 = mode === 'enhance' 
+                ? await enhanceJewelryImage(base64Input, promptOverride) 
+                : await removeWatermark(base64Input, promptOverride);
+              enhancedDataUri = `data:image/jpeg;base64,${rawBase64}`;
+          }
+          
           setAiComparison({ original: imgUrl, enhanced: enhancedDataUri });
       } catch (e: any) {
           console.error(e);
@@ -666,8 +678,8 @@ export const ProductDetails: React.FC = () => {
 
                 {isAdmin && isEditing && !aiComparison && (
                     <div className="bg-brand-dark p-4 rounded-b-[2.5rem] flex items-center justify-around gap-6 text-white -mt-1 md:mt-0 shadow-2xl">
-                        <button onClick={() => initiateAI('enhance')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Wand2 size={24}/> Enhance</button>
-                        <button onClick={() => initiateAI('cleanup')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Eraser size={24}/> Cleanup</button>
+                        <button onClick={() => initiateAI('enhance')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Wand2 size={24}/> AI Enhance</button>
+                        <button onClick={() => initiateAI('deterministic')} className="flex flex-col items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-stone-400 hover:text-brand-gold transition-all"><Layers size={24}/> Deterministic</button>
                     </div>
                 )}
 

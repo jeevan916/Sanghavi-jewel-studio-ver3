@@ -68,6 +68,17 @@ export const enhanceJewelryImage = async (base64Image: string, promptOverride?: 
   } catch (error) { throw error; }
 };
 
+export const deterministicEnhance = async (base64Image: string) => {
+  try {
+    const data = await apiFetch('/media/deterministic-enhance', {
+        method: 'POST',
+        body: JSON.stringify({ base64Image })
+    });
+    if (!data.success) throw new Error(data.error || "Deterministic Enhancement Error");
+    return data.data; // this returns full data URl
+  } catch (error) { throw error; }
+};
+
 export const removeWatermark = async (base64Image: string, promptOverride?: string) => {
   try {
     const optimizedBase64 = await downsizeBase64(base64Image, 768);
