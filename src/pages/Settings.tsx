@@ -200,24 +200,6 @@ const PromptSection = ({
                             </div>
                         </div>
                     )}
-                    <div className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm">
-                        <h3 className="text-xs font-bold text-brand-dark uppercase tracking-widest mb-4">Storage Maintenance</h3>
-                        <button 
-                            onClick={async () => {
-                                if (confirm("This will trigger a background task to optimize all existing images. This may take some time. Proceed?")) {
-                                    try {
-                                        await storeService.optimizeStorage();
-                                        alert("Optimization task started in the background.");
-                                    } catch (e) {
-                                        alert("Failed to start optimization.");
-                                    }
-                                }
-                            }}
-                            className="w-full py-3 bg-brand-gold text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-brand-dark transition-all"
-                        >
-                            Run Image Optimization
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -905,6 +887,26 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                     <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Link Expiry (Hours)</label>
                     <input type="number" value={config.linkExpiryHours} onChange={e => setConfig({...config, linkExpiryHours: parseInt(e.target.value) || 24})} className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                 </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
+                <h3 className="text-xs font-bold text-stone-700 uppercase tracking-widest mb-4 flex items-center gap-2"><HardDrive size={22}/> Storage Maintenance</h3>
+                <p className="text-xs text-stone-500 mb-6">Compress and optimize all stored images on the server. This reduces bandwidth usage and AI enhancement token costs.</p>
+                <button 
+                    onClick={async () => {
+                        if (confirm("This will trigger a background task to optimize all existing images. This may take some time. Proceed?")) {
+                            try {
+                                await storeService.optimizeStorage();
+                                alert("Optimization task started in the background.");
+                            } catch (e) {
+                                alert("Failed to start optimization.");
+                            }
+                        }
+                    }}
+                    className="w-full py-3 bg-stone-800 text-white rounded-lg font-bold uppercase text-[10px] tracking-widest hover:bg-black transition-all"
+                >
+                    Run Image Optimization
+                </button>
             </div>
         </div>
       )}
