@@ -68,14 +68,9 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             fileName = input.name;
           } else if (typeof input === 'string') {
             if (input.startsWith('data:')) {
-               // Base64 -> Blob
-               const arr = input.split(',');
-               const mime = arr[0].match(/:(.*?);/)?.[1] || format;
-               const bstr = atob(arr[1]);
-               let n = bstr.length;
-               const u8arr = new Uint8Array(n);
-               while (n--) u8arr[n] = bstr.charCodeAt(n);
-               currentBlob = new Blob([u8arr], { type: mime });
+               // Base64 -> Blob native
+               const res = await fetch(input);
+               currentBlob = await res.blob();
             } else {
                // URL -> Blob (Fetch)
                const res = await fetch(input);

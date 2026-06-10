@@ -385,7 +385,8 @@ export const ProductDetails: React.FC = () => {
             setAiComparison(null);
         }
      } catch (e) {
-        alert("Failed to save enhanced image to vault.");
+        console.error("Apply AI Error:", e);
+        alert("Failed to save enhanced image to vault. " + e.message);
      } finally {
         setIsLoading(false);
      }
