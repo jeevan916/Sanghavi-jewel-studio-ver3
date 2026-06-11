@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw, ChevronUp, ChevronDown, AlertCircle, Download } from 'lucide-react';
 
 interface ImageViewerProps {
   images: string[];
@@ -10,6 +10,7 @@ interface ImageViewerProps {
   onNextProduct?: () => void;
   onPrevProduct?: () => void;
   disableAnimation?: boolean;
+  allowDownload?: boolean;
 }
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({ 
@@ -19,7 +20,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   onClose,
   onNextProduct,
   onPrevProduct,
-  disableAnimation = false
+  disableAnimation = false,
+  allowDownload = false
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   
@@ -371,6 +373,21 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">{safeIndex + 1} of {images.length}</span>
         </div>
         <div className="flex gap-2">
+            {allowDownload && activeImageSrc && !activeImageSrc.includes('video/') && !activeImageSrc.endsWith('.webm') && !activeImageSrc.endsWith('.mp4') && !activeImageSrc.endsWith('.mov') && (
+                <button 
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = activeImageSrc;
+                    link.download = `${title || 'product'}-image-${currentIndex + 1}.jpg`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }} 
+                  className="p-2 bg-white/10 rounded-full hover:bg-white/20 backdrop-blur transition-colors"
+                >
+                  <Download size={24} />
+                </button>
+            )}
             {scale !== 1 && (
                 <button onClick={resetView} className="p-2 bg-white/10 rounded-full hover:bg-white/20 backdrop-blur transition-colors">
                   <RotateCcw size={24} />
@@ -403,11 +420,15 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                         src={optimizedSrc || activeImageSrc} 
                         draggable={false}
                         onError={() => setLoadError(true)}
-                        className="max-w-full max-h-full object-contain"
+                        onContextMenu={(e) => {
+                            if (!allowDownload) e.preventDefault();
+                        }}
+                        className={`max-w-full max-h-full object-contain ${!allowDownload ? 'pointer-events-none select-none' : ''}`}
                         style={{ 
                           transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
                           willChange: 'transform',
-                          cursor: scale > 1 ? 'move' : 'grab'
+                          cursor: scale > 1 ? 'move' : 'grab',
+                          WebkitTouchCallout: allowDownload ? 'default' : 'none'
                         }}
                      />
                  ) : (
@@ -417,7 +438,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                         alt="Zoom View"
                         draggable={false}
                         onError={() => setLoadError(true)}
-                        onContextMenu={() => {
+                        onContextMenu={(e) => {
+                            if (!allowDownload) e.preventDefault();
                             try {
                                 const user = JSON.parse(localStorage.getItem('sanghavi_user_session') || '{}');
                                 if (user && user.role !== 'admin') {
@@ -436,11 +458,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                                 }
                             } catch (e) {}
                         }}
-                        className="max-w-full max-h-full object-contain"
+                        className={`max-w-full max-h-full object-contain ${!allowDownload ? 'pointer-events-none select-none' : ''}`}
                         style={{ 
                           transform: `translate3d(${scale > 1 ? pan.x : swipeX}px, ${pan.y}px, 0) scale(${scale})`,
                           willChange: 'transform',
-                          cursor: scale > 1 ? 'move' : 'grab'
+                          cursor: scale > 1 ? 'move' : 'grab',
+                          WebkitTouchCallout: allowDownload ? 'default' : 'none'
                         }}
                      />
                  );

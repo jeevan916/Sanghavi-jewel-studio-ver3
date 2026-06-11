@@ -561,6 +561,14 @@ export const ProductDetails: React.FC = () => {
                         />
                     ) : (
                         <>
+                            {/* Overlay to catch clicks and prevent right-clicks on the image itself */}
+                            <div 
+                                className="absolute inset-0 z-10 cursor-pointer" 
+                                onClick={() => setShowFullScreen(true)}
+                                onContextMenu={(e) => {
+                                    if (!isAdmin) e.preventDefault();
+                                }}
+                            />
                             {displayImages.length > 0 ? (
                                 (() => {
                                     const currentMedia = displayImages[activeImageIndex] || displayImages[0];
@@ -568,14 +576,17 @@ export const ProductDetails: React.FC = () => {
                                     return isVideo ? (
                                         <video 
                                             src={currentMedia} 
-                                            className="w-full h-full object-contain bg-white transition-transform duration-1000 ease-out" 
+                                            className={`w-full h-full object-contain bg-white transition-transform duration-1000 ease-out ${!isAdmin ? 'pointer-events-none select-none' : ''}`} 
+                                            style={{ WebkitTouchCallout: isAdmin ? 'default' : 'none' }}
                                             autoPlay muted loop playsInline
                                         />
                                     ) : (
                                         <img 
                                             src={currentMedia} 
-                                            className="w-full h-full object-contain bg-white transition-transform duration-300 ease-out" 
-                                            onContextMenu={() => {
+                                            className={`w-full h-full object-contain bg-white transition-transform duration-300 ease-out ${!isAdmin ? 'pointer-events-none select-none' : ''}`} 
+                                            style={{ WebkitTouchCallout: isAdmin ? 'default' : 'none' }}
+                                            onContextMenu={(e) => {
+                                                if (!isAdmin) e.preventDefault();
                                                 storeService.logEvent('screenshot', product, undefined, { meta: { method: 'long_press' } });
                                             }}
                                             alt={product.title} 
@@ -653,9 +664,9 @@ export const ProductDetails: React.FC = () => {
                                     className={`relative w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden border-2 transition-colors ${activeImageIndex === idx ? 'border-brand-gold shadow-md' : 'border-transparent hover:border-brand-gold/50'}`}
                                 >
                                     {isVideo ? (
-                                        <video src={thumbMedia} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                                        <video src={thumbMedia} className={`w-full h-full object-cover ${!isAdmin ? 'pointer-events-none select-none' : ''}`} onContextMenu={(e) => { if (!isAdmin) e.preventDefault(); }} autoPlay muted loop playsInline />
                                     ) : (
-                                        <img src={thumbMedia} alt={`View ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                                        <img src={thumbMedia} alt={`View ${idx + 1}`} className={`w-full h-full object-cover ${!isAdmin ? 'pointer-events-none select-none' : ''}`} onContextMenu={(e) => { if (!isAdmin) e.preventDefault(); }} loading="lazy" />
                                     )}
                                 </button>
                                 {isAdminOrContributor && displayImages.length > 1 && (
@@ -1048,6 +1059,7 @@ export const ProductDetails: React.FC = () => {
             initialIndex={activeImageIndex}
             title={product.title} 
             disableAnimation={startInFullScreen}
+            allowDownload={isAdmin}
             onClose={() => setShowFullScreen(false)} 
             onNextProduct={neighbors.next ? () => navigate(`/product/${neighbors.next}`, { state: { direction: 'next', startInFullScreen: true } }) : undefined}
             onPrevProduct={neighbors.prev ? () => navigate(`/product/${neighbors.prev}`, { state: { direction: 'prev', startInFullScreen: true } }) : undefined}
