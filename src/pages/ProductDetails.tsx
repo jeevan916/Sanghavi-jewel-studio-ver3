@@ -11,6 +11,9 @@ import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
 import { storeService } from '@/services/storeService.ts';
 import { enhanceJewelryImage, removeWatermark, deterministicEnhance } from '@/services/geminiService.ts';
 import { useUpload } from '@/contexts/UploadContext.tsx';
+import { GeneratedLinkModal } from '@/components/GeneratedLinkModal.tsx';
+import { TemplateSelectorModal } from '@/components/TemplateSelectorModal.tsx';
+import { AdminEditControls } from '@/components/AdminEditControls.tsx';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -384,7 +387,7 @@ export const ProductDetails: React.FC = () => {
             setProduct(updated);
             setAiComparison(null);
         }
-     } catch (e) {
+     } catch (e: any) {
         console.error("Apply AI Error:", e);
         alert("Failed to save enhanced image to vault. " + e.message);
      } finally {
@@ -730,92 +733,14 @@ export const ProductDetails: React.FC = () => {
                         <span className="w-1 h-1 rounded-full bg-stone-200"></span>
                         <span className="text-stone-400 text-[9px] font-bold uppercase tracking-[0.3em]">Ref: {product.id.slice(-6).toUpperCase()}</span>
                     </div>
-                    
-                    {isEditing ? (
-                        <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100 space-y-6 animate-in fade-in slide-in-from-top-4">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
-                                    <Settings size={17} /> Admin Pricing Controls
-                                </h3>
-                                <button type="button" onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-brand-dark text-white rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-brand-red transition-all flex items-center gap-2">
-                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-[8px] font-bold uppercase text-stone-400 tracking-widest mb-1.5 ml-1">Product Title</label>
-                                    <input 
-                                        value={editForm.title || ''} 
-                                        onChange={e => setEditForm({...editForm, title: e.target.value})}
-                                        className="w-full font-serif text-2xl text-brand-dark bg-white p-3 rounded-xl border border-stone-100 outline-none focus:border-brand-gold transition-all"
-                                        placeholder="Product Title"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Gold Weight (g)</label>
-                                        <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
-                                            <Gem size={22} className="text-brand-gold" />
-                                            <input 
-                                                type="number" 
-                                                step="0.01"
-                                                value={editForm.weight || 0} 
-                                                onChange={e => setEditForm({...editForm, weight: parseFloat(e.target.value)})}
-                                                className="flex-1 bg-transparent outline-none font-mono font-bold text-brand-dark text-lg"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Making Segment</label>
-                                        <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
-                                            <Tag size={22} className="text-brand-gold" />
-                                            <select 
-                                                value={editForm.meta?.makingChargeSegmentId || ''}
-                                                onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargeSegmentId: e.target.value, makingChargePercent: e.target.value === 'custom' ? (editForm.meta?.makingChargePercent || 12) : undefined}})}
-                                                className="flex-1 bg-transparent outline-none text-xs font-bold uppercase tracking-widest"
-                                            >
-                                                <option value="">Default ({config?.makingChargeSegments.find(s => s.id === config.defaultMakingChargeSegmentId)?.name || '12%'})</option>
-                                                {config?.makingChargeSegments.map(s => (
-                                                    <option key={s.id} value={s.id}>{s.name} ({s.percent}%)</option>
-                                                ))}
-                                                <option value="custom">Custom %</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {editForm.meta?.makingChargeSegmentId === 'custom' && (
-                                        <div className="space-y-2">
-                                            <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Custom Making %</label>
-                                            <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
-                                                <TrendingUp size={22} className="text-brand-gold" />
-                                                <input 
-                                                    type="number"
-                                                    value={editForm.meta?.makingChargePercent || 12}
-                                                    onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), makingChargePercent: parseFloat(e.target.value)}})}
-                                                    className="flex-1 bg-transparent outline-none font-mono font-bold text-brand-dark"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-2">
-                                        <label className="block text-[9px] font-bold uppercase text-stone-400 tracking-widest ml-1">Other Charges (₹)</label>
-                                        <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100">
-                                            <DollarSign size={22} className="text-brand-gold" />
-                                            <input 
-                                                type="number"
-                                                value={editForm.meta?.otherCharges || 0}
-                                                onChange={e => setEditForm({...editForm, meta: {...(editForm.meta || {}), otherCharges: parseFloat(e.target.value)}})}
-                                                className="flex-1 bg-transparent outline-none font-mono font-bold text-brand-dark"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                                   {isEditing ? (
+                        <AdminEditControls 
+                            editForm={editForm} 
+                            setEditForm={setEditForm} 
+                            config={config} 
+                            isSaving={isSaving} 
+                            onSave={handleSave} 
+                        />
                     ) : (
                         <h1 className="font-serif text-4xl md:text-6xl text-brand-dark leading-tight tracking-tight">{product.title}</h1>
                     )}
@@ -1067,90 +992,19 @@ export const ProductDetails: React.FC = () => {
       )}
 
       {generatedLink && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
-                <button onClick={() => setGeneratedLink(null)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800"><X size={20}/></button>
-                <div className="flex flex-col items-center text-center gap-4">
-                    <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
-                        <CheckCircle size={29} />
-                    </div>
-                    <div>
-                        <h3 className="font-serif text-xl font-bold text-stone-800">Private Link Ready</h3>
-                        <p className="text-stone-500 text-xs mt-1">This secure link expires in 24 hours.</p>
-                    </div>
-                    
-                    <div className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl break-all text-xs font-mono text-stone-600 select-all">
-                        {generatedLink}
-                    </div>
-
-                    <div className="flex gap-2 w-full">
-                         <button 
-                            onClick={() => {
-                                navigator.clipboard.writeText(generatedLink);
-                                setGeneratedLink(null);
-                                alert("Copied to clipboard");
-                            }}
-                            className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2"
-                         >
-                            <Copy size={17} /> Copy Link
-                         </button>
-                         <button 
-                             onClick={() => {
-                                 if (navigator.share) {
-                                     navigator.share({ title: 'Private View', url: generatedLink }).catch(()=>{});
-                                 } else {
-                                     window.open(`https://wa.me/?text=${encodeURIComponent(generatedLink)}`, '_blank');
-                                 }
-                             }}
-                             className="px-4 py-3 bg-green-50 text-green-700 rounded-xl font-bold uppercase text-[10px] tracking-widest border border-green-100"
-                         >
-                            <Share2 size={19} />
-                         </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <GeneratedLinkModal 
+            link={generatedLink} 
+            onClose={() => setGeneratedLink(null)} 
+        />
       )}
 
       {showTemplateSelector && (
-          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-6">
-              <div className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-300 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border border-stone-100">
-                  <div className="p-6 bg-stone-50/50 border-b border-stone-100 flex justify-between items-center">
-                      <div>
-                          <h3 className="font-serif text-xl font-bold text-brand-dark flex items-center gap-2">
-                              <Sparkles size={24} className="text-brand-gold"/> AI Studio
-                          </h3>
-                          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-0.5">Select Enhancement Style</p>
-                      </div>
-                      <button onClick={() => setShowTemplateSelector(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400 hover:text-brand-dark">
-                          <X size={24} />
-                      </button>
-                  </div>
-                  <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3">
-                      <button 
-                          onClick={() => runAIProcess(showTemplateSelector.mode)} 
-                          className="w-full text-left p-4 rounded-2xl border border-stone-100 hover:border-brand-gold hover:bg-brand-gold/5 transition-all group flex items-center justify-between"
-                      >
-                          <span className="font-bold text-xs uppercase text-stone-500 group-hover:text-brand-dark tracking-widest">Standard (Default)</span>
-                          <div className="w-2 h-2 rounded-full bg-stone-200 group-hover:bg-brand-gold"></div>
-                      </button>
-                      
-                      {showTemplateSelector.templates.map(t => (
-                          <button 
-                              key={t.id} 
-                              onClick={() => runAIProcess(showTemplateSelector.mode, t.content)} 
-                              className="w-full text-left p-4 rounded-2xl border border-stone-100 hover:border-brand-gold hover:bg-brand-gold/5 transition-all group flex items-center justify-between"
-                          >
-                              <span className="font-bold text-xs uppercase text-stone-500 group-hover:text-brand-dark tracking-widest">{t.label}</span>
-                              <div className="w-2 h-2 rounded-full bg-stone-200 group-hover:bg-brand-gold"></div>
-                          </button>
-                      ))}
-                  </div>
-                  <div className="p-4 bg-stone-50/50 text-center">
-                      <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Powered by Gemini Vision Pro</p>
-                  </div>
-              </div>
-          </div>
+          <TemplateSelectorModal 
+              mode={showTemplateSelector.mode} 
+              templates={showTemplateSelector.templates} 
+              onClose={() => setShowTemplateSelector(null)}
+              onSelect={(prompt) => runAIProcess(showTemplateSelector.mode, prompt)}
+          />
       )}
 
       {/* Floating Action Button: WhatsApp Inquiry */}
