@@ -2,10 +2,12 @@
 import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent, StaffAccount, ProductStats } from "@/types.ts";
 
 export function getProxyPath(endpoint: string) {
-    let clean = endpoint.startsWith('/api') ? endpoint.substring(4) : endpoint;
+    const [pathPart, ...queryParts] = endpoint.split('?');
+    const queryPart = queryParts.join('?');
+    let clean = pathPart.startsWith('/api') ? pathPart.substring(4) : pathPart;
     if (!clean.startsWith('/')) clean = '/' + clean;
     // Basic encoding to obscure paths from scrapers
-    return '/_proxy/' + btoa(encodeURIComponent(clean)).replace(/=/g, '');
+    return '/_proxy/' + btoa(encodeURIComponent(clean)).replace(/=/g, '') + (queryPart ? '?' + queryPart : '');
 }
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));

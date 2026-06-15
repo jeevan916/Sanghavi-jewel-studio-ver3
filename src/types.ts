@@ -122,6 +122,7 @@ export interface AppConfig {
   instagramHandle?: string;
   instagramToken?: string;
   paymentPlanMonths?: number[];
+  advancePercentage?: number;
   aiConfig: AIConfig;
 }
 

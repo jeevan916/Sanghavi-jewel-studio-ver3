@@ -30,7 +30,8 @@ export const FinanceCalculator: React.FC<FinanceCalculatorProps> = ({ product, c
       );
   }
 
-  const advanceAmount = priceData.total * 0.20;
+  const advancePercent = config.advancePercentage || 20;
+  const advanceAmount = priceData.total * (advancePercent / 100);
   const balanceAmount = priceData.total - advanceAmount;
   
   const goldRate24k = config.goldRate24k || (config.goldRate22k * (24/22));
@@ -58,7 +59,7 @@ export const FinanceCalculator: React.FC<FinanceCalculatorProps> = ({ product, c
             
             <div className="flex justify-between items-center mb-4 pb-4 border-b border-stone-200/50">
                 <div>
-                   <p className="text-[9px] text-stone-500 uppercase font-bold tracking-tighter">Booking Advance (20%)</p>
+                   <p className="text-[9px] text-stone-500 uppercase font-bold tracking-tighter">Booking Advance ({advancePercent}%)</p>
                    <p className="text-sm font-bold text-brand-gold">₹{Math.round(advanceAmount).toLocaleString('en-IN')}</p>
                 </div>
                 <div className="text-right">

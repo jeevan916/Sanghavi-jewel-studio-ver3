@@ -1,14 +1,14 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { storeService } from '@/services/storeService.ts';
+import { storeService, apiFetch } from '@/services/storeService.ts';
 import { coreEngine } from '@/services/coreEngine.ts';
 import { Product, AnalyticsEvent, User, AppConfig } from '@/types.ts';
 import { WishlistCampaigns } from '@/components/WishlistCampaigns.tsx';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, Tag,
-  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight, Clock, Camera, Megaphone
+  LayoutDashboard, FolderOpen, UserCheck, HardDrive, Database, RefreshCw, TrendingUp, BrainCircuit, MapPin, DollarSign, Smartphone, MessageCircle, Save, AlertTriangle, Cpu, Activity, ShieldCheck, Zap, FolderInput, Heart, Eye, ArrowRight, Clock, Camera, Megaphone, Wallet
 } from 'lucide-react';
 
 import { analyzeInstagramComments } from '@/services/geminiService.ts';
@@ -17,7 +17,7 @@ interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns';
+type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns' | 'finance';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
@@ -284,6 +284,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'neural', icon: BrainCircuit, label: 'Neural' },
               { id: 'pulse', icon: MessageCircle, label: 'Pulse' },
               { id: 'campaigns', icon: Megaphone, label: 'Campaigns' },
+              { id: 'finance', icon: Wallet, label: 'Finance' },
             ].map(tab => (
               <button 
                 key={tab.id}
@@ -1205,6 +1206,76 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {activeView === 'campaigns' && config && (
           <div className="animate-fade-in">
               <WishlistCampaigns config={config} />
+          </div>
+      )}
+
+      {activeView === 'finance' && config && (
+          <div className="space-y-6 animate-fade-in">
+              <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm">
+                  <h3 className="font-sans text-2xl font-bold flex items-center gap-3 text-brand-dark uppercase tracking-tighter mb-6">
+                      <Wallet size={26} className="text-brand-gold" /> Custom Payment Plans
+                  </h3>
+                  
+                  <div className="space-y-6 max-w-2xl">
+                      <div>
+                          <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Advance Percentage (%)</label>
+                          <input 
+                              type="number" 
+                              value={config.advancePercentage || 20} 
+                              onChange={e => {
+                                  const val = Number(e.target.value);
+                                  if (val >= 0 && val <= 100) setConfig({...config, advancePercentage: val});
+                              }} 
+                              placeholder="e.g. 20" 
+                              className="w-full p-4 border border-stone-200 rounded-xl text-lg font-mono text-stone-900 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold transition-all" 
+                          />
+                          <p className="text-[10px] text-stone-500 mt-2 font-medium">The amount (%) a customer must pay upfront to secure the piece.</p>
+                      </div>
+
+                      <div>
+                          <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Installment Durations (Months)</label>
+                          <input 
+                              type="text" 
+                              value={config.paymentPlanMonths?.join(', ') || '1, 2, 3, 6'} 
+                              onChange={e => {
+                                  // Update displayed value directly inside input
+                                  const val = e.target.value;
+                                  // Parse inside state to keep comma separated string but array logically
+                                  const parsed = val.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0);
+                                  setConfig({...config, paymentPlanMonths: parsed});
+                              }}
+                              onBlur={e => {
+                                  const val = e.target.value;
+                                  const parsed = val.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0);
+                                  e.target.value = parsed.join(', ');
+                              }}
+                              placeholder="e.g. 1, 2, 3, 6" 
+                              className="w-full p-4 border border-stone-200 rounded-xl text-lg font-mono text-stone-900 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold transition-all" 
+                          />
+                          <p className="text-[10px] text-stone-500 mt-2 font-medium">Comma-separated list of durations customers can select to pay the remainder.</p>
+                      </div>
+
+                      <button 
+                          onClick={async () => {
+                              setLoading(true);
+                              try {
+                                  await apiFetch('/config', {
+                                      method: 'POST',
+                                      body: JSON.stringify(config)
+                                  });
+                                  refreshData(true);
+                                  alert('Finance plans updated successfully');
+                              } catch(e) { alert('Failed to save plans'); }
+                              setLoading(false);
+                          }}
+                          disabled={loading}
+                          className="px-6 py-3 bg-brand-dark text-white rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-brand-gold transition-colors flex items-center gap-2"
+                      >
+                          {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
+                          Save Configuration
+                      </button>
+                  </div>
+              </div>
           </div>
       )}
 

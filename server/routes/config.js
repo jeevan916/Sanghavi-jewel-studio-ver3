@@ -54,6 +54,7 @@ export default function configRoutes(pool, CACHE) {
                 else if (row.setting_key === 'paymentPlanMonths') {
                     try { config.paymentPlanMonths = JSON.parse(row.setting_value); } catch { config.paymentPlanMonths = [1, 2, 3, 6]; }
                 }
+                else if (row.setting_key === 'advancePercentage') config.advancePercentage = Number(row.setting_value) || 20;
                 else if (row.setting_key === 'makingChargeSegments') {
                     try { config.makingChargeSegments = JSON.parse(row.setting_value); } catch { config.makingChargeSegments = []; }
                 }
@@ -74,11 +75,12 @@ export default function configRoutes(pool, CACHE) {
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
-            const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, whatsappWishlistTemplateName, instagramHandle, instagramToken, aiConfig, paymentPlanMonths } = req.body;
+            const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, whatsappWishlistTemplateName, instagramHandle, instagramToken, aiConfig, paymentPlanMonths, advancePercentage } = req.body;
 
             const settings = { 
                 linkExpiryHours, 
                 gstPercent,
+                advancePercentage,
                 paymentPlanMonths: paymentPlanMonths ? JSON.stringify(paymentPlanMonths) : undefined,
                 makingChargeSegments: JSON.stringify(makingChargeSegments || []),
                 defaultMakingChargeSegmentId,
