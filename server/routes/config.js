@@ -60,6 +60,15 @@ export default function configRoutes(pool, CACHE) {
                 else if (row.setting_key === 'defaultMakingChargeSegmentId') config.defaultMakingChargeSegmentId = row.setting_value;
                 else config[row.setting_key] = row.setting_value;
             });
+            
+            if (!config.paymentPlans || !Array.isArray(config.paymentPlans) || config.paymentPlans.length === 0) {
+                config.paymentPlans = [
+                    { months: 1, advancePercent: 20 },
+                    { months: 2, advancePercent: 30 },
+                    { months: 3, advancePercent: 50 },
+                    { months: 6, advancePercent: 100 }
+                ];
+            }
 
             CACHE.config.data = config;
             CACHE.config.lastFetch = now;
@@ -79,6 +88,8 @@ export default function configRoutes(pool, CACHE) {
             const settings = { 
                 linkExpiryHours, 
                 gstPercent,
+                goldRate22k,
+                goldRate24k,
                 paymentPlans: paymentPlans ? JSON.stringify(paymentPlans) : undefined,
                 makingChargeSegments: JSON.stringify(makingChargeSegments || []),
                 defaultMakingChargeSegmentId,
