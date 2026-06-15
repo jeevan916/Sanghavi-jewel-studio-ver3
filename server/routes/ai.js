@@ -48,7 +48,7 @@ export default function aiRoutes(pool) {
     router.use('/ai/*', aiLimiter);
     router.use('/ai/*', requireStaff);
 
-    router.get('/api/auth/verify', requireStaff, (req, res) => {
+    router.get('/auth/verify', requireStaff, (req, res) => {
         res.json({ success: true, user: { id: req.user.id, role: req.user.role } });
     });
 

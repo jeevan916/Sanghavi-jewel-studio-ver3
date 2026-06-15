@@ -766,6 +766,43 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                     </div>
                 </div>
             </div>
+
+            <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
+                <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><SettingsIcon size={22}/> Finance & Commerce</h3>
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Gold Rate (22K) / g</label>
+                            <input type="number" value={config.goldRate22k || ''} onChange={e => setConfig({...config, goldRate22k: Number(e.target.value)})} placeholder="e.g. 6800" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Gold Rate (24K) / g</label>
+                            <input type="number" value={config.goldRate24k || ''} onChange={e => setConfig({...config, goldRate24k: Number(e.target.value)})} placeholder="e.g. 7400" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">GST Percentage</label>
+                            <input type="number" value={config.gstPercent || ''} onChange={e => setConfig({...config, gstPercent: Number(e.target.value)})} placeholder="e.g. 3" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Payment Plan Durations (Months)</label>
+                        <input 
+                            type="text" 
+                            defaultValue={config.paymentPlanMonths?.join(', ') || '1, 2, 3, 6'} 
+                            onBlur={e => {
+                                const val = e.target.value;
+                                const parsed = val.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0);
+                                setConfig({...config, paymentPlanMonths: parsed});
+                                e.target.value = parsed.join(', ');
+                            }} 
+                            placeholder="e.g. 1, 2, 3, 6" 
+                            className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" 
+                        />
+                        <p className="text-[10px] text-stone-500 mt-1">Comma-separated list of months allowed for balance payment plans.</p>
+                    </div>
+                </div>
+            </div>
+
              <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <h3 className="font-bold text-stone-700 mb-4 flex items-center gap-2"><MessageCircle size={22}/> Communication</h3>
                 <div className="space-y-4">

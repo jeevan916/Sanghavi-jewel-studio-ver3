@@ -51,6 +51,9 @@ export default function configRoutes(pool, CACHE) {
                 else if (row.setting_key === 'goldRate22k') config.goldRate22k = Number(row.setting_value);
                 else if (row.setting_key === 'goldRate24k') config.goldRate24k = Number(row.setting_value);
                 else if (row.setting_key === 'gstPercent') config.gstPercent = Number(row.setting_value);
+                else if (row.setting_key === 'paymentPlanMonths') {
+                    try { config.paymentPlanMonths = JSON.parse(row.setting_value); } catch { config.paymentPlanMonths = [1, 2, 3, 6]; }
+                }
                 else if (row.setting_key === 'makingChargeSegments') {
                     try { config.makingChargeSegments = JSON.parse(row.setting_value); } catch { config.makingChargeSegments = []; }
                 }
@@ -71,11 +74,12 @@ export default function configRoutes(pool, CACHE) {
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
-            const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, whatsappWishlistTemplateName, instagramHandle, instagramToken, aiConfig } = req.body;
+            const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, whatsappWishlistTemplateName, instagramHandle, instagramToken, aiConfig, paymentPlanMonths } = req.body;
 
             const settings = { 
                 linkExpiryHours, 
                 gstPercent,
+                paymentPlanMonths: paymentPlanMonths ? JSON.stringify(paymentPlanMonths) : undefined,
                 makingChargeSegments: JSON.stringify(makingChargeSegments || []),
                 defaultMakingChargeSegmentId,
                 whatsappNumber, 

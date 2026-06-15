@@ -121,6 +121,7 @@ export interface AppConfig {
   whatsappWishlistTemplateName?: string;
   instagramHandle?: string;
   instagramToken?: string;
+  paymentPlanMonths?: number[];
   aiConfig: AIConfig;
 }
 

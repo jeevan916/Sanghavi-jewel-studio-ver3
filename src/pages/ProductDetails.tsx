@@ -14,6 +14,7 @@ import { useUpload } from '@/contexts/UploadContext.tsx';
 import { GeneratedLinkModal } from '@/components/GeneratedLinkModal.tsx';
 import { TemplateSelectorModal } from '@/components/TemplateSelectorModal.tsx';
 import { AdminEditControls } from '@/components/AdminEditControls.tsx';
+import { FinanceCalculator } from '@/components/FinanceCalculator.tsx';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -453,7 +454,7 @@ export const ProductDetails: React.FC = () => {
   const [selectedCarat, setSelectedCarat] = useState<'9KT' | '14KT' | '18KT' | '22KT'>('22KT');
   const [pincode, setPincode] = useState('');
   const [isPincodeChecked, setIsPincodeChecked] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'price'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'price' | 'finance'>('details');
 
   const priceData = (product && config) ? storeService.calculatePrice(product, config) : null;
 
@@ -844,6 +845,26 @@ export const ProductDetails: React.FC = () => {
                                             </button>
                                         </div>
                                     )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="bg-white border border-stone-100 rounded-xl overflow-hidden relative">
+                            <button 
+                                onClick={() => setActiveTab(activeTab === 'finance' ? 'details' : 'finance')}
+                                className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
+                            >
+                                <span className="text-xs font-bold text-brand-dark uppercase tracking-widest">Finance & Exchange</span>
+                                <ChevronRight size={19} className={`text-stone-400 transition-transform ${activeTab === 'finance' ? 'rotate-90' : ''}`} />
+                            </button>
+                            {activeTab === 'finance' && priceData && config && (
+                                <div className="px-5 pb-4 animate-in fade-in slide-in-from-top-1">
+                                    <FinanceCalculator 
+                                        product={product} 
+                                        config={config} 
+                                        priceData={priceData} 
+                                        showFullDetails={showFullDetails} 
+                                    />
                                 </div>
                             )}
                         </div>

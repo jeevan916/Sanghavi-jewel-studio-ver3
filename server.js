@@ -38,6 +38,13 @@ app.use((req, res, next) => {
             const decoded = decodeURIComponent(Buffer.from(b64, 'base64').toString('utf8'));
             req.url = '/api' + decoded + query;
             delete req._parsedUrl; // force express to re-parse the path
+            
+            // Fix req.query because express populated it before our rewrite
+            const qsIndex = req.url.indexOf('?');
+            if (qsIndex !== -1) {
+                const qs = req.url.substring(qsIndex + 1);
+                req.query = Object.fromEntries(new URLSearchParams(qs));
+            }
         } catch (e) {
             return res.status(400).json({ error: 'Invalid Proxy Routing' });
         }
