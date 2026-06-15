@@ -30,7 +30,11 @@ export const FinanceCalculator: React.FC<FinanceCalculatorProps> = ({ product, c
       );
   }
 
-  const advancePercent = config.advancePercentage || 20;
+  const plans = config.paymentPlans && config.paymentPlans.length > 0 ? config.paymentPlans : [{months: 1, advancePercent: 20}, {months: 3, advancePercent: 50}];
+  const [selectedPlanIdx, setSelectedPlanIdx] = useState(0);
+  const selectedPlan = plans[selectedPlanIdx] || plans[0];
+
+  const advancePercent = selectedPlan.advancePercent;
   const advanceAmount = priceData.total * (advancePercent / 100);
   const balanceAmount = priceData.total - advanceAmount;
   
@@ -68,14 +72,25 @@ export const FinanceCalculator: React.FC<FinanceCalculatorProps> = ({ product, c
                 </div>
             </div>
             
-            <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-3">Balance Payment Schedule</p>
-            <div className={`grid gap-2 ${((config.paymentPlanMonths || [1, 2, 3, 6]).length > 2) ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
-                {(config.paymentPlanMonths && config.paymentPlanMonths.length > 0 ? config.paymentPlanMonths : [1, 2, 3, 6]).map(months => (
-                    <div key={months} className="bg-white border border-stone-100 rounded-lg p-3 text-center">
-                        <p className="text-[10px] text-stone-400 mb-1 font-medium">{months} Month{months > 1 ? 's' : ''}</p>
-                        <p className="text-xs font-mono font-bold text-brand-dark">₹{Math.round(balanceAmount / months).toLocaleString('en-IN')}<span className="text-[9px] text-stone-400 font-sans">/mo</span></p>
-                    </div>
-                ))}
+            <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-3">Select Payment Plan</p>
+            <div className={`grid gap-2 ${plans.length > 2 ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
+                {plans.map((plan, idx) => {
+                    const planAdvance = priceData.total * (plan.advancePercent / 100);
+                    const planBalance = priceData.total - planAdvance;
+                    return (
+                        <button 
+                            key={idx} 
+                            onClick={() => setSelectedPlanIdx(idx)}
+                            className={`border rounded-lg p-3 text-center transition-all ${selectedPlanIdx === idx ? 'bg-brand-gold/5 border-brand-gold ring-1 ring-brand-gold' : 'bg-white border-stone-100 hover:border-brand-gold/30'}`}
+                        >
+                            <p className={`text-[10px] mb-1 font-medium ${selectedPlanIdx === idx ? 'text-brand-dark font-bold' : 'text-stone-400'}`}>{plan.months} Month{plan.months > 1 ? 's' : ''}</p>
+                            <p className={`text-xs font-mono font-bold ${selectedPlanIdx === idx ? 'text-brand-gold' : 'text-brand-dark'}`}>
+                               ₹{Math.round(planBalance / plan.months).toLocaleString('en-IN')}
+                               <span className="text-[9px] text-stone-400 font-sans">/mo</span>
+                            </p>
+                        </button>
+                    );
+                })}
             </div>
         </div>
 

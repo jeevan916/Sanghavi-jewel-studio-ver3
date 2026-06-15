@@ -237,9 +237,15 @@ export const storeService = {
           
           await apiFetch('/auth/verify', { method: 'GET' }, 0);
           return true;
-      } catch (e) {
-          localStorage.removeItem('sanghavi_user_session');
-          return false;
+      } catch (e: any) {
+          // Only remove session if it's an explicit unauthorized error
+          if (e.message?.includes('401') || e.message?.includes('403') || e.message?.toLowerCase().includes('unauthorized') || e.message?.toLowerCase().includes('forbidden')) {
+              localStorage.removeItem('sanghavi_user_session');
+              return false;
+          }
+          // If it's 500 or 503 (database starting up), keep the session alive
+          console.warn('Session verification failed with server error, assuming valid:', e.message);
+          return true;
       }
   },
 

@@ -121,8 +121,7 @@ export interface AppConfig {
   whatsappWishlistTemplateName?: string;
   instagramHandle?: string;
   instagramToken?: string;
-  paymentPlanMonths?: number[];
-  advancePercentage?: number;
+  paymentPlans?: { months: number; advancePercent: number }[];
   aiConfig: AIConfig;
 }
 

@@ -784,22 +784,6 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                             <input type="number" value={config.gstPercent || ''} onChange={e => setConfig({...config, gstPercent: Number(e.target.value)})} placeholder="e.g. 3" className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" />
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Payment Plan Durations (Months)</label>
-                        <input 
-                            type="text" 
-                            defaultValue={config.paymentPlanMonths?.join(', ') || '1, 2, 3, 6'} 
-                            onBlur={e => {
-                                const val = e.target.value;
-                                const parsed = val.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0);
-                                setConfig({...config, paymentPlanMonths: parsed});
-                                e.target.value = parsed.join(', ');
-                            }} 
-                            placeholder="e.g. 1, 2, 3, 6" 
-                            className="w-full p-2 border border-stone-200 rounded-lg text-sm text-stone-900" 
-                        />
-                        <p className="text-[10px] text-stone-500 mt-1">Comma-separated list of months allowed for balance payment plans.</p>
-                    </div>
                 </div>
             </div>
 

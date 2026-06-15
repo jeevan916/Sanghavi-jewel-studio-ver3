@@ -1217,42 +1217,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                   </h3>
                   
                   <div className="space-y-6 max-w-2xl">
-                      <div>
-                          <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Advance Percentage (%)</label>
-                          <input 
-                              type="number" 
-                              value={config.advancePercentage || 20} 
-                              onChange={e => {
-                                  const val = Number(e.target.value);
-                                  if (val >= 0 && val <= 100) setConfig({...config, advancePercentage: val});
-                              }} 
-                              placeholder="e.g. 20" 
-                              className="w-full p-4 border border-stone-200 rounded-xl text-lg font-mono text-stone-900 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold transition-all" 
-                          />
-                          <p className="text-[10px] text-stone-500 mt-2 font-medium">The amount (%) a customer must pay upfront to secure the piece.</p>
-                      </div>
-
-                      <div>
-                          <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Installment Durations (Months)</label>
-                          <input 
-                              type="text" 
-                              value={config.paymentPlanMonths?.join(', ') || '1, 2, 3, 6'} 
-                              onChange={e => {
-                                  // Update displayed value directly inside input
-                                  const val = e.target.value;
-                                  // Parse inside state to keep comma separated string but array logically
-                                  const parsed = val.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0);
-                                  setConfig({...config, paymentPlanMonths: parsed});
+                      <div className="space-y-3">
+                          {(config.paymentPlans || []).map((plan, index) => (
+                              <div key={index} className="flex gap-4 items-end bg-stone-50 p-4 rounded-xl border border-stone-100">
+                                  <div className="flex-1">
+                                      <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Duration (Months)</label>
+                                      <input 
+                                          type="number" 
+                                          value={plan.months} 
+                                          onChange={e => {
+                                              const newPlans = [...(config.paymentPlans || [])];
+                                              newPlans[index].months = Math.max(1, Number(e.target.value));
+                                              setConfig({...config, paymentPlans: newPlans});
+                                          }}
+                                          className="w-full p-2.5 border border-stone-200 rounded-lg text-sm font-mono text-stone-900 focus:outline-none focus:border-brand-gold" 
+                                      />
+                                  </div>
+                                  <div className="flex-1">
+                                      <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Advance (%)</label>
+                                      <input 
+                                          type="number" 
+                                          value={plan.advancePercent} 
+                                          onChange={e => {
+                                              const newPlans = [...(config.paymentPlans || [])];
+                                              const val = Number(e.target.value);
+                                              if (val >= 0 && val <= 100) {
+                                                  newPlans[index].advancePercent = val;
+                                                  setConfig({...config, paymentPlans: newPlans});
+                                              }
+                                          }}
+                                          className="w-full p-2.5 border border-stone-200 rounded-lg text-sm font-mono text-stone-900 focus:outline-none focus:border-brand-gold" 
+                                      />
+                                  </div>
+                                  <button 
+                                      onClick={() => {
+                                          const newPlans = [...(config.paymentPlans || [])];
+                                          newPlans.splice(index, 1);
+                                          setConfig({...config, paymentPlans: newPlans});
+                                      }}
+                                      className="p-2.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"
+                                  >
+                                      <Trash2 size={16} />
+                                  </button>
+                              </div>
+                          ))}
+                          
+                          <button 
+                              onClick={() => {
+                                  const newPlans = [...(config.paymentPlans || []), { months: 1, advancePercent: 20 }];
+                                  setConfig({...config, paymentPlans: newPlans});
                               }}
-                              onBlur={e => {
-                                  const val = e.target.value;
-                                  const parsed = val.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0);
-                                  e.target.value = parsed.join(', ');
-                              }}
-                              placeholder="e.g. 1, 2, 3, 6" 
-                              className="w-full p-4 border border-stone-200 rounded-xl text-lg font-mono text-stone-900 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold transition-all" 
-                          />
-                          <p className="text-[10px] text-stone-500 mt-2 font-medium">Comma-separated list of durations customers can select to pay the remainder.</p>
+                              className="w-full p-4 border-2 border-dashed border-stone-200 rounded-xl text-stone-400 text-sm font-bold uppercase tracking-widest hover:border-brand-gold hover:text-brand-gold transition-colors flex items-center justify-center gap-2"
+                          >
+                              <Plus size={16} /> Add Payment Plan
+                          </button>
                       </div>
 
                       <button 

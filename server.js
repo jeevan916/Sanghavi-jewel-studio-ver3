@@ -38,6 +38,16 @@ app.use((req, res, next) => {
             const decoded = decodeURIComponent(Buffer.from(b64, 'base64').toString('utf8'));
             req.url = '/api' + decoded + query;
             delete req._parsedUrl; // force express to re-parse the path
+            
+            // Fix req.query because express populated it before our rewrite
+            const qsIndex = req.url.indexOf('?');
+            if (qsIndex !== -1) {
+                const qs = req.url.substring(qsIndex + 1);
+                const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+                req.query = Object.fromEntries(parsedUrl.searchParams.entries());
+            } else {
+                req.query = {};
+            }
         } catch (e) {
             return res.status(400).json({ error: 'Invalid Proxy Routing' });
         }
@@ -166,12 +176,8 @@ async function fetchGoldRates() {
 
 // --- MIDDLEWARE ---
 app.use((req, res, next) => {
-    if (req.path.startsWith('/api/') && (!pool || dbInitError) && req.path !== '/api/health' && req.path !== '/api/retry-db') {
-        return res.status(503).json({ 
-            error: 'Database not initialized', 
-            details: dbInitError || 'Initializing...' 
-        });
-    }
+    // Only block if we strictly require a database, but DEMO_MODE handles products
+    // so we should let routes decide if they need the pool.
     next();
 });
 // Robust Data Root Resolution for Hostinger

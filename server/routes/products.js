@@ -17,7 +17,20 @@ router.get('/api/products', async (req, res) => {
     if (DEMO_MODE) {
         const demoPath = path.join(DATA_ROOT, 'demo_products.json');
         if (existsSync(demoPath)) {
-            const data = JSON.parse(readFileSync(demoPath, 'utf8'));
+            let data = JSON.parse(readFileSync(demoPath, 'utf8'));
+            
+            // Apply basic filters for demo mode
+            if (req.query.category && req.query.category !== 'All') {
+                data = data.filter(item => item.category === req.query.category);
+            }
+            if (req.query.subCategory && req.query.subCategory !== 'All') {
+                data = data.filter(item => item.subCategory === req.query.subCategory);
+            }
+            if (req.query.search) {
+                const term = req.query.search.toLowerCase();
+                data = data.filter(item => item.title?.toLowerCase().includes(term) || JSON.stringify(item.tags || []).toLowerCase().includes(term));
+            }
+
             return res.json({ 
                 items: data, 
                 meta: { page: 1, limit: 100, totalPages: 1, totalItems: data.length, demo: true } 
