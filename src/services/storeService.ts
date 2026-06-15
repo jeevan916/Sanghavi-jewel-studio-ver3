@@ -1,7 +1,12 @@
 
 import { Product, User, GeneratedDesign, AppConfig, SharedLink, AnalyticsEvent, StaffAccount, ProductStats } from "@/types.ts";
 
-const API_BASE = '/api';
+export function getProxyPath(endpoint: string) {
+    let clean = endpoint.startsWith('/api') ? endpoint.substring(4) : endpoint;
+    if (!clean.startsWith('/')) clean = '/' + clean;
+    // Basic encoding to obscure paths from scrapers
+    return '/_proxy/' + btoa(encodeURIComponent(clean)).replace(/=/g, '');
+}
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -33,7 +38,13 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}, retr
     for (let i = 0; i <= maxRetries; i++) {
         try {
             const userStr = localStorage.getItem('sanghavi_user_session');
-            const localHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+            const localHeaders: Record<string, string> = {};
+            
+            // Only set Content-Type to JSON if body is NOT FormData
+            if (!(options.body instanceof FormData)) {
+                localHeaders['Content-Type'] = 'application/json';
+            }
+
             if (userStr) {
                 try {
                     const sessionData = JSON.parse(userStr);
@@ -43,11 +54,12 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}, retr
                     }
                     if (sessionData && sessionData.token) {
                         localHeaders['Authorization'] = `Bearer ${sessionData.token}`;
+                        localHeaders['X-Auth-Token'] = sessionData.token;
                     }
                 } catch (e) {}
             }
 
-            const response = await fetch(`${API_BASE}${endpoint}`, {
+            const response = await fetch(getProxyPath(endpoint), {
                 ...options,
                 headers: { ...localHeaders, ...options.headers },
             });
@@ -213,6 +225,21 @@ export const storeService = {
   checkCustomerExistence: (phone: string) => apiFetch(`/customers/check/${phone}`),
   
   logout: () => localStorage.removeItem('sanghavi_user_session'),
+
+  verifySession: async (): Promise<boolean> => {
+      try {
+          const userStr = localStorage.getItem('sanghavi_user_session');
+          if (!userStr) return false;
+          const user = JSON.parse(userStr);
+          if (!user?.token || !user?.role) return false;
+          
+          await apiFetch('/auth/verify', { method: 'GET' }, 0);
+          return true;
+      } catch (e) {
+          localStorage.removeItem('sanghavi_user_session');
+          return false;
+      }
+  },
 
   getLikes: () => {
     try {
@@ -502,7 +529,7 @@ export const storeService = {
   getBackups: () => apiFetch('/backups').catch(() => []),
   createBackup: () => apiFetch('/backups', { method: 'POST' }),
   deleteBackup: (name: string) => apiFetch(`/backups/${name}`, { method: 'DELETE' }),
-  downloadBackupUrl: (name: string) => `${API_BASE}/backups/download/${name}`,
+  downloadBackupUrl: (name: string) => getProxyPath(`/backups/download/${name}`),
   getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message })),
   optimizeStorage: () => apiFetch('/admin/optimize-storage', { method: 'POST' }),
   getDebugEnv: () => apiFetch('/debug-env').catch(e => ({ status: 'error', error: e.message })),

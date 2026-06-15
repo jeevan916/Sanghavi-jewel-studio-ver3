@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Product, QueueItem } from '@/types.ts';
 import { analyzeJewelryImage, enhanceJewelryImage } from '@/services/geminiService.ts';
-import { storeService } from '@/services/storeService.ts';
+import { storeService, apiFetch } from '@/services/storeService.ts';
 
 interface ProcessOptions {
   enhance?: boolean;
@@ -110,7 +110,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           const formData = new FormData();
           formData.append('files', currentBlob, fileName);
 
-          const response = await fetch('/api/media/upload', {
+          const response = await apiFetch('/media/upload', {
               method: 'POST',
               body: formData
           });

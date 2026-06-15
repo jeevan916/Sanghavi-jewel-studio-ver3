@@ -204,17 +204,33 @@ function AppContent() {
   }, [location.pathname]);
 
   useEffect(() => {
-    try {
-        const currentUser = storeService.getCurrentUser();
-        setUser(currentUser);
-        // 🔥 WARM UP: Pre-fetch catalog data in the background
-        storeService.warmup();
-    } catch (e) {
-        console.error("User fetch error", e);
-    } finally {
-        setIsInitializing(false);
-    }
-    document.body.classList.add('loaded');
+    const initializeApp = async () => {
+        try {
+            const currentUser = storeService.getCurrentUser();
+            
+            // Secure Session Validation for Staff
+            if (currentUser && ['admin', 'manager', 'staff'].includes(currentUser.role)) {
+                const isValid = await storeService.verifySession();
+                if (!isValid) {
+                    setUser(null);
+                } else {
+                    setUser(currentUser);
+                }
+            } else {
+                setUser(currentUser);
+            }
+            
+            // 🔥 WARM UP: Pre-fetch catalog data in the background
+            storeService.warmup();
+        } catch (e) {
+            console.error("Initialization error", e);
+        } finally {
+            setIsInitializing(false);
+            document.body.classList.add('loaded');
+        }
+    };
+    
+    initializeApp();
   }, []);
 
   const handleLogout = () => {

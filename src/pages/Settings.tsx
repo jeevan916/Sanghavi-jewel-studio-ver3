@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { storeService } from '../services/storeService';
+import { storeService, apiFetch } from '../services/storeService';
 import { AppConfig, Supplier, CategoryConfig, StaffAccount, PromptTemplate } from '../types';
 import { Save, Plus, Trash2, Lock, Unlock, Settings as SettingsIcon, X, MessageCircle, Loader2, ArrowLeft, Users, Shield, UserPlus, Eye, EyeOff, Package, Tag, Layers, RefreshCw, Link as LinkIcon, HardDrive, Sparkles, BrainCircuit, FilePlus, ChevronDown, FileText, Edit2 } from 'lucide-react';
 import { Maintenance } from './Maintenance';
@@ -744,7 +744,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                             formData.append('logo', file);
                                             
                                             try {
-                                                const res = await fetch('/api/settings/logo', {
+                                                const res = await apiFetch('/settings/logo', {
                                                     method: 'POST',
                                                     body: formData
                                                 });

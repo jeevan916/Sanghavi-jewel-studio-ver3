@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw, ChevronUp, ChevronDown, AlertCircle, Download } from 'lucide-react';
+import { apiFetch } from '@/services/storeService';
 
 interface ImageViewerProps {
   images: string[];
@@ -46,7 +47,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           }
           
           try {
-              const res = await fetch(`/api/media/info?url=${encodeURIComponent(activeImageSrc)}`);
+              const res = await apiFetch(`/media/info?url=${encodeURIComponent(activeImageSrc)}`);
               const data = await res.json();
               
               if (data.size > 800 * 1024) { // > 800KB
@@ -154,7 +155,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             try {
                 const user = JSON.parse(localStorage.getItem('sanghavi_user_session') || '{}');
                 if (user && user.role !== 'admin') {
-                    fetch('/api/analytics', {
+                    apiFetch('/analytics', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -443,7 +444,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                             try {
                                 const user = JSON.parse(localStorage.getItem('sanghavi_user_session') || '{}');
                                 if (user && user.role !== 'admin') {
-                                    fetch('/api/analytics', {
+                                    apiFetch('/analytics', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({

@@ -24,7 +24,32 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
-// Global Error Handlers to prevent silent crashes
+const app = express();
+
+// Request path transformation mapping to foil simple automated scrapers
+app.use((req, res, next) => {
+    if (req.url.startsWith('/_proxy/')) {
+        try {
+            const encoded = req.url.slice(8).split('?')[0]; 
+            const query = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+            // add padding if needed
+            let b64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+            while (b64.length % 4) b64 += '=';
+            const decoded = decodeURIComponent(Buffer.from(b64, 'base64').toString('utf8'));
+            req.url = '/api' + decoded + query;
+            delete req._parsedUrl; // force express to re-parse the path
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid Proxy Routing' });
+        }
+    } else if (req.originalUrl.startsWith('/api/') && process.env.NODE_ENV !== 'development') {
+        // Obfuscate real endpoints, return 404 for direct bot attempts
+        // We only enforce this out of dev for easier local testing, though it's optional.
+        return res.status(404).json({ error: "Endpoint not found." });
+    }
+    next();
+});
+
+// Basic Middlewares
 process.on('uncaughtException', (err) => {
   console.error('🔥 [Sanghavi Studio] Uncaught Exception:', err);
 });
@@ -82,7 +107,6 @@ console.log('[Debug] DB Config:', {
 
 import rateLimit from 'express-rate-limit';
 
-const app = express();
 app.set('trust proxy', 1); // Trust first proxy for rate limiting (e.g. Hostinger / Cloud Run)
 
 const apiLimiter = rateLimit({

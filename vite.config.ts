@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       assetsDir: 'assets',
       minify: 'esbuild',
+      target: 'esnext',
       sourcemap: false,
       rollupOptions: {
         output: {

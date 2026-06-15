@@ -8,7 +8,7 @@ import { ProductCard } from '@/components/ProductCard.tsx';
 import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers, Trash2, Plus } from 'lucide-react';
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
-import { storeService } from '@/services/storeService.ts';
+import { storeService, apiFetch } from '@/services/storeService.ts';
 import { enhanceJewelryImage, removeWatermark, deterministicEnhance } from '@/services/geminiService.ts';
 import { useUpload } from '@/contexts/UploadContext.tsx';
 import { GeneratedLinkModal } from '@/components/GeneratedLinkModal.tsx';
@@ -99,7 +99,7 @@ export const ProductDetails: React.FC = () => {
     files.forEach(file => formData.append('files', file));
     
     try {
-        const response = await fetch('/api/media/upload', { method: 'POST', body: formData });
+        const response = await apiFetch('/media/upload', { method: 'POST', body: formData });
         const data = await response.json();
         if (data.files) {
             const newImages = [...(product?.images || []), ...data.files.map((f: any) => f.primary)];

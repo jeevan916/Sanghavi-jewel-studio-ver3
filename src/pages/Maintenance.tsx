@@ -61,7 +61,8 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 50));
 
   const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
-    const response = await fetch(`/api${endpoint}`, {
+    const { getProxyPath } = await import('@/services/storeService');
+    const response = await fetch(getProxyPath(endpoint), {
         ...options,
         headers: { 'Content-Type': 'application/json', ...options.headers },
     });

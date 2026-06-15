@@ -15,13 +15,19 @@ export default function aiRoutes(pool) {
 
     // Authentication middleware to block unauthorized AI requests
     const requireStaff = async (req, res, next) => {
+        const authToken = req.headers['x-auth-token'];
         const authHeader = req.headers['authorization'];
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            console.warn("[Security] Blocked unauthorized AI API request: Missing or invalid Authorization header");
+        
+        let token = authToken;
+        if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+        }
+
+        if (!token) {
+            console.warn("[Security] Blocked unauthorized AI API request: Missing X-Auth-Token header");
             return res.status(401).json({ error: "Unauthorized: Missing credentials" });
         }
         
-        const token = authHeader.split(' ')[1];
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sanghavi-super-secret-key-fallback');
             const userId = decoded.id;
@@ -41,6 +47,10 @@ export default function aiRoutes(pool) {
 
     router.use('/ai/*', aiLimiter);
     router.use('/ai/*', requireStaff);
+
+    router.get('/api/auth/verify', requireStaff, (req, res) => {
+        res.json({ success: true, user: { id: req.user.id, role: req.user.role } });
+    });
 
     const getAIConfig = async () => {
         const [rows] = await pool.query('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("ai_model_analysis", "ai_model_enhancement", "ai_model_watermark", "ai_model_design")');
