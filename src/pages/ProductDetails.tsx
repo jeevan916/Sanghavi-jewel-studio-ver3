@@ -481,7 +481,7 @@ export const ProductDetails: React.FC = () => {
           await storeService.removeFromWishlist(user.id, product.id);
       } else {
           setIsWishlisted(true);
-          await storeService.addToWishlist(user.id, product.id, priceNow);
+          await storeService.addToWishlist(user.id, product.id, priceNow, { carat: selectedCarat });
       }
   };
 

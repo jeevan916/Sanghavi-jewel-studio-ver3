@@ -5,12 +5,12 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
 
     router.post('/wishlist', async (req, res) => {
         try {
-            const { customerId, productId, priceWhenWishlisted } = req.body;
+            const { customerId, productId, priceWhenWishlisted, preferences } = req.body;
             if (!customerId || !productId) return res.status(400).json({ error: 'Missing customerId or productId' });
             
             await pool.query(
-                'INSERT INTO wishlist (customerId, productId, priceWhenWishlisted, createdAt) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE priceWhenWishlisted = ?', 
-                [customerId, productId, priceWhenWishlisted || 0, priceWhenWishlisted || 0]
+                'INSERT INTO wishlist (customerId, productId, priceWhenWishlisted, preferences, createdAt) VALUES (?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE priceWhenWishlisted = ?, preferences = ?', 
+                [customerId, productId, priceWhenWishlisted || 0, JSON.stringify(preferences || {}), priceWhenWishlisted || 0, JSON.stringify(preferences || {})]
             );
             res.json({ success: true });
         } catch (e) { res.status(500).json({ error: e.message }); }
@@ -27,13 +27,13 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
     router.get('/wishlist/:customerId', async (req, res) => {
         try {
             const [rows] = await pool.query(`
-                SELECT p.*, w.priceWhenWishlisted, w.createdAt as wishlistedAt 
+                SELECT p.*, w.priceWhenWishlisted, w.preferences, w.createdAt as wishlistedAt 
                 FROM wishlist w 
                 JOIN products p ON w.productId = p.id 
                 WHERE w.customerId = ? 
                 ORDER BY w.createdAt DESC
             `, [req.params.customerId]);
-            res.json(rows.map(sanitizeProduct).map((p, i) => ({ ...p, priceWhenWishlisted: rows[i].priceWhenWishlisted, wishlistedAt: rows[i].wishlistedAt })));
+            res.json(rows.map(sanitizeProduct).map((p, i) => ({ ...p, priceWhenWishlisted: rows[i].priceWhenWishlisted, preferences: rows[i].preferences, wishlistedAt: rows[i].wishlistedAt })));
         } catch (e) { res.status(500).json({ error: e.message }); }
     });
 

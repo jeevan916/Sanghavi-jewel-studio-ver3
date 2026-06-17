@@ -302,7 +302,8 @@ const initDB = async () => {
     await pool.query(`CREATE TABLE IF NOT EXISTS analytics (id VARCHAR(255) PRIMARY KEY, type VARCHAR(50), productId VARCHAR(255), productTitle VARCHAR(255), userId VARCHAR(255), userName VARCHAR(255), timestamp DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS customers (id VARCHAR(255) PRIMARY KEY, phone VARCHAR(50) UNIQUE, name VARCHAR(255), pincode VARCHAR(20), role VARCHAR(50), createdAt DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS designs (id VARCHAR(255) PRIMARY KEY, imageUrl LONGTEXT, prompt TEXT, aspectRatio VARCHAR(20), createdAt DATETIME)`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS wishlist (id INT AUTO_INCREMENT PRIMARY KEY, customerId VARCHAR(255), productId VARCHAR(255), priceWhenWishlisted FLOAT, createdAt DATETIME, lastNotifiedAt DATETIME, FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE, FOREIGN KEY (customerId) REFERENCES customers(id) ON DELETE CASCADE, UNIQUE KEY unique_wish(customerId, productId))`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS wishlist (id INT AUTO_INCREMENT PRIMARY KEY, customerId VARCHAR(255), productId VARCHAR(255), priceWhenWishlisted FLOAT, preferences JSON, createdAt DATETIME, lastNotifiedAt DATETIME, FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE, FOREIGN KEY (customerId) REFERENCES customers(id) ON DELETE CASCADE, UNIQUE KEY unique_wish(customerId, productId))`);
+    try { await pool.query(`ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS preferences JSON AFTER priceWhenWishlisted`); } catch (e) { /* ignore if already exists */ }
     
     // Links Table for Private Sharing
     await pool.query(`CREATE TABLE IF NOT EXISTS links (id VARCHAR(255) PRIMARY KEY, token VARCHAR(255) UNIQUE, targetId VARCHAR(255), type VARCHAR(50), expiresAt DATETIME, createdAt DATETIME)`);

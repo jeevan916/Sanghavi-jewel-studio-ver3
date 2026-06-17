@@ -187,8 +187,8 @@ export const storeService = {
   getProductStats: (id: string): Promise<ProductStats> => 
     apiFetch(`/products/${id}/stats`).catch(() => ({ like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 })),
   
-  addToWishlist: async (customerId: string, productId: string, priceWhenWishlisted?: number) => {
-    return apiFetch('/wishlist', { method: 'POST', body: JSON.stringify({ customerId, productId, priceWhenWishlisted }) });
+  addToWishlist: async (customerId: string, productId: string, priceWhenWishlisted?: number, preferences?: any) => {
+    return apiFetch('/wishlist', { method: 'POST', body: JSON.stringify({ customerId, productId, priceWhenWishlisted, preferences }) });
   },
 
   removeFromWishlist: async (customerId: string, productId: string) => {
@@ -303,14 +303,14 @@ export const storeService = {
         // Construct nested AI Config from flat keys
         const aiConfig = {
             models: {
-                analysis: data?.ai_model_analysis || 'gemini-3-flash-preview',
-                enhancement: data?.ai_model_enhancement || 'gemini-2.5-flash-image',
-                watermark: data?.ai_model_watermark || 'gemini-2.5-flash-image',
-                design: data?.ai_model_design || 'gemini-2.5-flash-image'
+                analysis: data?.ai_model_analysis || 'gemini-3.5-flash',
+                enhancement: data?.ai_model_enhancement || 'gemini-3.1-flash-image',
+                watermark: data?.ai_model_watermark || 'gemini-3.1-flash-image',
+                design: data?.ai_model_design || 'gemini-3.1-flash-image'
             },
             prompts: {
                 analysis: data?.ai_prompt_analysis || 'Analyze this jewelry...',
-                enhancement: data?.ai_prompt_enhancement || 'Enhance lighting...',
+                enhancement: data?.ai_prompt_enhancement || 'Professional jewelry studio photography. Improve lighting, clarity, and aesthetics. STRICTLY PRESERVE the exact original shape, structure, and fine details. Do NOT add noise or clutter.',
                 watermark: data?.ai_prompt_watermark || 'Remove text...',
                 design: data?.ai_prompt_design || 'Create design...'
             },

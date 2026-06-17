@@ -59,14 +59,14 @@ export default function aiRoutes(pool) {
         
         return {
             models: {
-                analysis: dbConfig.ai_model_analysis || 'gemini-flash-latest',
-                enhancement: dbConfig.ai_model_enhancement || 'gemini-2.5-flash-image',
-                watermark: dbConfig.ai_model_watermark || 'gemini-2.5-flash-image',
-                design: dbConfig.ai_model_design || 'gemini-2.5-flash-image'
+                analysis: dbConfig.ai_model_analysis || 'gemini-3.5-flash',
+                enhancement: dbConfig.ai_model_enhancement || 'gemini-3.1-flash-image',
+                watermark: dbConfig.ai_model_watermark || 'gemini-3.1-flash-image',
+                design: dbConfig.ai_model_design || 'gemini-3.1-flash-image'
             },
             prompts: {
                 analysis: "Analyze this luxury jewelry piece. Return a JSON object with: title, category, subCategory, weight (number), description, and tags (array of strings).",
-                enhancement: "Enhance lighting and clarity for this jewelry piece.",
+                enhancement: "Professional jewelry studio photography. Improve lighting, clarity, and aesthetics. STRICTLY PRESERVE the exact original shape, structure, and fine details. Do NOT add noise or clutter.",
                 watermark: "Remove any text or watermarks from this jewelry image.",
                 design: "Generate a high-end jewelry design based on: ${prompt}"
             }
