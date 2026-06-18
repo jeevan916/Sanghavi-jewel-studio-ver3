@@ -33,7 +33,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   // Optimized for 3G: Stale-While-Revalidate for UI and Images
-  if (CDN_IMAGE_REGEX.test(request.url) || STATIC_ASSETS.includes(url.pathname)) {
+  if (CDN_IMAGE_REGEX.test(request.url) || STATIC_ASSETS.includes(url.pathname) || url.pathname.match(/\.(js|css|woff2?|png|svg)$/i)) {
     event.respondWith(
       caches.match(request).then((cached) => {
         const fetchPromise = fetch(request).then((networkResponse) => {

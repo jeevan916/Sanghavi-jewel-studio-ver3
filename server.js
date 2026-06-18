@@ -518,7 +518,16 @@ app.use((req, res, next) => {
   
   const activeDistPath = getActiveDistPath();
   if (activeDistPath) {
-    express.static(activeDistPath, { index: false })(req, res, next);
+    express.static(activeDistPath, { 
+      index: false,
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        } else if (path.match(/\.(js|css|woff2?|png|svg|jpe?g|gif|webp|avif)$/i)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      }
+    })(req, res, next);
   } else {
     next();
   }

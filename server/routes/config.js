@@ -72,6 +72,7 @@ export default function configRoutes(pool, CACHE) {
 
             CACHE.config.data = config;
             CACHE.config.lastFetch = now;
+            res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
             res.json(config);
         } catch (e) { 
             res.status(500).json({ error: e.message }); 

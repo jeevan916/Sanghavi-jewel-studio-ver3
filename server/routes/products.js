@@ -149,19 +149,22 @@ router.get('/api/products/curated', async (req, res) => {
         const [idealRows] = await pool.query(`
             SELECT * FROM products 
             WHERE isHidden = 0 
-            ORDER BY RAND() 
-            LIMIT 4
+            ORDER BY createdAt ASC 
+            LIMIT 20
         `);
+        // Shuffle and pick 4 in memory (much faster than DB ORDER BY RAND())
+        const shuffledIdeal = idealRows.sort(() => 0.5 - Math.random()).slice(0, 4);
 
         const curated = {
             latest: latestRows.map(sanitizeProduct),
             loved: lovedRows.map(sanitizeProduct),
             trending: trendingRows.map(sanitizeProduct),
-            ideal: idealRows.map(sanitizeProduct)
+            ideal: shuffledIdeal.map(sanitizeProduct)
         };
         
         CACHE.curated.data = curated;
         CACHE.curated.lastFetch = now;
+        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
         res.json(curated);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
