@@ -13,6 +13,9 @@ export default function aiRoutes(pool) {
         keyGenerator: (req) => req.headers['x-forwarded-for'] || req.headers['forwarded'] || req.ip
     });
 
+    const userQuotas = {};
+    const MONTHLY_LIMIT = 500;
+
     // Authentication middleware to block unauthorized AI requests
     const requireStaff = async (req, res, next) => {
         const authToken = req.headers['x-auth-token'];
@@ -29,7 +32,7 @@ export default function aiRoutes(pool) {
         }
         
         try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sanghavi-super-secret-key-fallback');
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
             const userId = decoded.id;
             
             const [rows] = await pool.query('SELECT * FROM staff WHERE id = ?', [userId]);
@@ -37,6 +40,17 @@ export default function aiRoutes(pool) {
                 console.warn(`[Security] Blocked unauthorized AI API request for user ${userId}: Not an active staff`);
                 return res.status(403).json({ error: "Forbidden: Not an active staff member" });
             }
+
+            // Quota Enforcement
+            const currentMonth = new Date().toISOString().slice(0, 7); // e.g. '2026-06'
+            if (!userQuotas[userId]) userQuotas[userId] = { month: currentMonth, count: 0 };
+            if (userQuotas[userId].month !== currentMonth) userQuotas[userId] = { month: currentMonth, count: 0 };
+            
+            if (userQuotas[userId].count >= MONTHLY_LIMIT) {
+                return res.status(429).json({ error: "Monthly AI quota exceeded. Please contact administrator." });
+            }
+            userQuotas[userId].count++;
+
             req.user = rows[0];
             next();
         } catch (e) {
@@ -112,7 +126,7 @@ export default function aiRoutes(pool) {
             res.json({ success: true, data: JSON.parse(text) });
         } catch (e) {
             console.error("Analysis Error:", e);
-            res.status(500).json({ error: e.message });
+            res.status(500).json({ error: 'Internal server error' });
         }
     });
 
@@ -147,7 +161,7 @@ export default function aiRoutes(pool) {
             throw new Error("Design generation failed.");
         } catch (error) {
             console.error("Generation Error:", error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: 'Internal server error' });
         }
     });
 
@@ -178,7 +192,7 @@ export default function aiRoutes(pool) {
             throw new Error("Studio enhancement failed");
         } catch (error) {
             console.error("Enhancement Error:", error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: 'Internal server error' });
         }
     });
 
@@ -209,7 +223,7 @@ export default function aiRoutes(pool) {
             throw new Error("Cleanup failed");
         } catch (error) {
             console.error("Cleanup Error:", error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: 'Internal server error' });
         }
     });
 
@@ -251,7 +265,7 @@ export default function aiRoutes(pool) {
             } });
         } catch (error) {
             console.error("AI Comment Analysis Error:", error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: 'Internal server error' });
         }
     });
 

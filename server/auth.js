@@ -12,7 +12,7 @@ export const requireStaff = async (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sanghavi-super-secret-key-fallback');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         // We attach user info to req. 
         // We'll trust the token's validity to avoid DB hits on every request unless strictly needed
         req.user = decoded; 
@@ -39,7 +39,7 @@ export const requireAdmin = async (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sanghavi-super-secret-key-fallback');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded; 
         
         if (decoded.role !== 'admin') {

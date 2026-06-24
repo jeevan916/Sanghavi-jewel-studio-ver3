@@ -76,7 +76,7 @@ export default function configRoutes(pool, CACHE) {
             res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
             res.json(config);
         } catch (e) { 
-            res.status(500).json({ error: e.message }); 
+            res.status(500).json({ error: 'Internal server error' }); 
         }
     });
 
@@ -146,7 +146,7 @@ export default function configRoutes(pool, CACHE) {
             res.json({ success: true });
         } catch (e) {
             await conn.rollback();
-            res.status(500).json({ error: e.message });
+            res.status(500).json({ error: 'Internal server error' });
         } finally {
             conn.release();
         }

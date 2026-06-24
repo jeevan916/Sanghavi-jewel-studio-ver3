@@ -16,7 +16,7 @@ export default function linksRoutes(pool) {
                 [crypto.randomUUID(), token, targetId, type, expiresAt, new Date()]);
                 
             res.json({ token, expiresAt });
-        } catch (e) { res.status(500).json({ error: e.message }); }
+        } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
     });
 
     router.get('/api/links/:token', async (req, res) => {
@@ -30,7 +30,7 @@ export default function linksRoutes(pool) {
             }
             
             res.json(link);
-        } catch (e) { res.status(500).json({ error: e.message }); }
+        } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
     });
 
     return router;

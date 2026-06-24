@@ -40,7 +40,7 @@ router.get('/api/media/resize', async (req, res) => {
         res.send(buffer);
     } catch (e) {
         console.error('Dynamic resize failed:', e);
-        res.status(500).json({ error: 'Resize failed' });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -63,19 +63,19 @@ router.get('/api/media/info', async (req, res) => {
         res.json({ size: stats.size });
     } catch (e) {
         console.error('Metadata fetch failed:', e);
-        res.status(500).json({ error: 'Metadata fetch failed' });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 // --- MEDIA PROCESSING ---
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 100 * 1024 * 1024 }, // Increased to 100MB for videos
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     fileFilter: (req, file, cb) => {
-        if (file.mimetype.match(/^(image\/(jpeg|png|webp|heic|avif)|video\/(mp4|quicktime|webm|x-matroska))$/)) {
+        if (file.mimetype.match(/^(image\/(jpeg|png|webp))$/)) {
             cb(null, true);
         } else {
-            cb(new Error('Unsupported file format'), false);
+            cb(new Error('Unsupported file format. Only JPEG, PNG, and WEBP are allowed.'), false);
         }
     }
 });
@@ -197,7 +197,7 @@ router.post('/api/media/upload', requireStaff, upload.array('files', 10), async 
     }
     res.json({ success: true, files: results });
   } catch (error) {
-    res.status(500).json({ error: 'Media processing failed', details: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -216,7 +216,7 @@ router.post('/api/settings/logo', requireStaff, upload.single('logo'), async (re
         }
         res.json({ success: true, url: '/api/settings/logo.png?t=' + Date.now() });
     } catch (error) {
-        res.status(500).json({ error: 'Logo upload failed', details: error.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -257,7 +257,7 @@ router.post('/api/media/deterministic-enhance', requireStaff, async (req, res) =
         res.json({ success: true, data: dataUri });
     } catch (error) {
         console.error("Deterministic Enhance Error:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

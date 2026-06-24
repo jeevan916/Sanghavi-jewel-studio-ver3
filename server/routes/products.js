@@ -89,7 +89,7 @@ router.get('/api/products', async (req, res) => {
         items: rows.map(sanitizeProduct), 
         meta: { page, limit, totalPages: Math.ceil(count[0].total / limit), totalItems: count[0].total } 
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/api/products/curated', async (req, res) => {
@@ -167,14 +167,14 @@ router.get('/api/products/curated', async (req, res) => {
         CACHE.curated.lastFetch = now;
         res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
         res.json(curated);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/api/products/:id', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
         rows[0] ? res.json(sanitizeProduct(rows[0])) : res.status(404).json({ error: 'Not found' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/api/products/:id/stats', async (req, res) => {
@@ -183,7 +183,7 @@ router.get('/api/products/:id/stats', async (req, res) => {
         const stats = { like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 };
         rows.forEach(r => { if(stats.hasOwnProperty(r.type)) stats[r.type] = r.c; });
         res.json(stats);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/api/products/:id/related', async (req, res) => {
@@ -219,7 +219,7 @@ router.get('/api/products/:id/related', async (req, res) => {
         }
         
         res.json(related.slice(0, 8));
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.post('/api/products', requireStaff, async (req, res) => {
@@ -247,7 +247,7 @@ router.post('/api/products', requireStaff, async (req, res) => {
         res.status(201).json({ success: true });
     } catch (e) { 
         console.error('Product save error:', e);
-        res.status(500).json({ error: e.message }); 
+        res.status(500).json({ error: 'Internal server error' }); 
     }
 });
 
@@ -261,7 +261,7 @@ router.put('/api/products/:id', requireStaff, async (req, res) => {
         }, req.params.id]);
         CACHE.curated.data = null; // Invalidate cache
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.delete('/api/products/:id', requireStaff, async (req, res) => {
@@ -269,7 +269,7 @@ router.delete('/api/products/:id', requireStaff, async (req, res) => {
         await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
         CACHE.curated.data = null; // Invalidate cache
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 // Other Entities

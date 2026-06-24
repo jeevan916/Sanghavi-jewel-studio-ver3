@@ -16,21 +16,21 @@ router.post('/api/analytics', async (req, res) => {
         const event = { id: crypto.randomUUID(), ...body, timestamp: new Date() };
         await pool.query('INSERT INTO analytics SET ?', event);
         res.status(201).json(event);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/api/analytics', requireAdmin, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
         res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/api/analytics/user/:userId', requireAdmin, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM analytics WHERE userId = ? ORDER BY timestamp DESC LIMIT 1000', [req.params.userId]);
         res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/api/intelligence', requireAdmin, async (req, res) => {
@@ -39,7 +39,7 @@ router.get('/api/intelligence', requireAdmin, async (req, res) => {
         const [cust] = await pool.query('SELECT COUNT(*) as c FROM customers');
         const [inq] = await pool.query('SELECT COUNT(*) as c FROM analytics WHERE type="inquiry"');
         res.json({ summary: { totalInventory: p[0].c, totalLeads: cust[0].c, activeInquiries: inq[0].c } });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
     const { writeFileSync, existsSync, readdirSync, statSync } = fs;
@@ -133,14 +133,14 @@ router.post('/api/instagram/sync', requireAdmin, async (req, res) => {
             }
         }
         res.json({ success: true, count: totalInserted });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/api/instagram/comments', requireAdmin, async (req, res) => {
     try {
         const [comments] = await pool.query('SELECT * FROM instagram_comments ORDER BY timestamp DESC LIMIT 100');
         res.json(comments);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 

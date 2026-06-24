@@ -10,6 +10,16 @@ import linksRoutes from './server/routes/links.js';
 import aiRoutes from './server/routes/ai.js';
 
 import dotenv from 'dotenv';
+dotenv.config();
+
+const requiredEnv = ['GEMINI_API_KEY', 'JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+for (const key of requiredEnv) {
+  if (!process.env[key]) {
+    console.error(`CRITICAL ERROR: ${key} environment variable is missing.`);
+    process.exit(1);
+  }
+}
+
 console.log('🚀 [Sanghavi Studio] Server process starting...');
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -135,7 +145,23 @@ try {
   console.error('Failed to write startup log', e);
 }
 
-app.use(cors());
+const allowedOrigins = [
+  'https://studio.sanghavijewellers.com',
+  'https://app.sanghavijewellers.com',
+  'https://ais-dev-afcm666ozoj7duxnxvpyyi-8038997919.asia-southeast1.run.app',
+  'https://ais-pre-afcm666ozoj7duxnxvpyyi-8038997919.asia-southeast1.run.app'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-XSS-Protection', '1; mode=block');

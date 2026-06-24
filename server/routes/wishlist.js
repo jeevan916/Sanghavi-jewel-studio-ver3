@@ -13,7 +13,7 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
                 [customerId, productId, priceWhenWishlisted || 0, JSON.stringify(preferences || {}), priceWhenWishlisted || 0, JSON.stringify(preferences || {})]
             );
             res.json({ success: true });
-        } catch (e) { res.status(500).json({ error: e.message }); }
+        } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
     });
 
     router.delete('/wishlist', async (req, res) => {
@@ -21,7 +21,7 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
             const { customerId, productId } = req.body;
             await pool.query('DELETE FROM wishlist WHERE customerId = ? AND productId = ?', [customerId, productId]);
             res.json({ success: true });
-        } catch (e) { res.status(500).json({ error: e.message }); }
+        } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
     });
 
     router.get('/wishlist/:customerId', async (req, res) => {
@@ -34,7 +34,7 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
                 ORDER BY w.createdAt DESC
             `, [req.params.customerId]);
             res.json(rows.map(sanitizeProduct).map((p, i) => ({ ...p, priceWhenWishlisted: rows[i].priceWhenWishlisted, preferences: rows[i].preferences, wishlistedAt: rows[i].wishlistedAt })));
-        } catch (e) { res.status(500).json({ error: e.message }); }
+        } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
     });
 
     router.get('/admin/wishlists/all', async (req, res) => {
@@ -48,7 +48,7 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
                 JOIN customers c ON w.customerId = c.id
             `);
             res.json(rows);
-        } catch (e) { res.status(500).json({ error: e.message }); }
+        } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
     });
 
     router.post('/admin/wishlists/notify', async (req, res) => {
@@ -132,7 +132,7 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
             
             res.json({ success: true, sentCount });
         } catch (e) {
-            res.status(500).json({ error: e.message });
+            res.status(500).json({ error: 'Internal server error' });
         }
     });
 
