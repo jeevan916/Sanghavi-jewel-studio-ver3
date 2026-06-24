@@ -1,4 +1,5 @@
 import express from 'express';
+import { requireAdmin } from '../auth.js';
 
 export default function configRoutes(pool, CACHE) {
     const router = express.Router();
@@ -79,7 +80,7 @@ export default function configRoutes(pool, CACHE) {
         }
     });
 
-    router.post('/api/config', async (req, res) => {
+    router.post('/api/config', requireAdmin, async (req, res) => {
         if (!pool) return res.status(503).json({ error: 'Database connection not initialized.' });
         const conn = await pool.getConnection();
         try {

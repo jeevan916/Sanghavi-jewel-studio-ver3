@@ -2,6 +2,7 @@ import express from 'express';
 import { existsSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { requireAdmin } from '../auth.js';
 
 export default function adminRoutes(pool, UPLOADS_ROOT) {
     const router = express.Router();
@@ -12,7 +13,7 @@ export default function adminRoutes(pool, UPLOADS_ROOT) {
     
     const getHash = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex').substring(0, 16);
 
-    router.post('/api/admin/optimize-storage', async (req, res) => {
+    router.post('/api/admin/optimize-storage', requireAdmin, async (req, res) => {
         try {
             const [products] = await pool.query('SELECT id, images, thumbnails FROM products');
             const usedFiles = new Set();
@@ -52,7 +53,7 @@ export default function adminRoutes(pool, UPLOADS_ROOT) {
         }
     });
 
-    router.post('/api/admin/deduplicate-storage', async (req, res) => {
+router.post('/api/admin/deduplicate-storage', requireAdmin, async (req, res) => {
         try {
             const [products] = await pool.query('SELECT id, images, thumbnails FROM products');
             const oldToNewMap = new Map();

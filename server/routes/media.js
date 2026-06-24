@@ -4,6 +4,7 @@ import path from 'path';
 import fs, { existsSync } from 'fs';
 import crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
+import { requireStaff } from '../auth.js';
 
 export default function mediaRoutes(pool, UPLOADS_ROOT) {
     const router = express.Router();
@@ -15,7 +16,11 @@ router.get('/api/media/resize', async (req, res) => {
         
         // Ensure URL is within uploads
         const safeUrl = url.startsWith('/') ? url : `/${url}`;
-        const filepath = path.join(UPLOADS_ROOT, safeUrl.replace('/uploads/', ''));
+        const filepath = path.resolve(path.join(UPLOADS_ROOT, safeUrl.replace(/^\/uploads\//, '')));
+        
+        if (!filepath.startsWith(path.resolve(UPLOADS_ROOT))) {
+             return res.status(403).json({ error: 'Access denied' });
+        }
         
         if (!existsSync(filepath)) {
             const redirectUrl = new URL(req.originalUrl, 'https://studio.sanghavijewellers.com');
@@ -46,7 +51,11 @@ router.get('/api/media/info', async (req, res) => {
         if (!url) return res.status(400).json({ error: 'Missing url' });
         
         const safeUrl = url.startsWith('/') ? url : `/${url}`;
-        const filepath = path.join(UPLOADS_ROOT, safeUrl.replace('/uploads/', ''));
+        const filepath = path.resolve(path.join(UPLOADS_ROOT, safeUrl.replace(/^\/uploads\//, '')));
+        
+        if (!filepath.startsWith(path.resolve(UPLOADS_ROOT))) {
+             return res.status(403).json({ error: 'Access denied' });
+        }
         
         if (!existsSync(filepath)) return res.status(404).json({ error: 'Image not found' });
         
@@ -75,7 +84,7 @@ const slugify = (text) => text.toString().toLowerCase().replace(/\s+/g, '-').rep
 
 const getHash = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 12);
 
-router.post('/api/media/upload', upload.array('files', 10), async (req, res) => {
+router.post('/api/media/upload', requireStaff, upload.array('files', 10), async (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
   const results = [];
   try {
@@ -193,7 +202,7 @@ router.post('/api/media/upload', upload.array('files', 10), async (req, res) => 
 });
 
 // --- LOGO UPLOAD & SERVE ---
-router.post('/api/settings/logo', upload.single('logo'), async (req, res) => {
+router.post('/api/settings/logo', requireStaff, upload.single('logo'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         const filepath = path.join(UPLOADS_ROOT, 'custom_logo.png');
@@ -227,7 +236,7 @@ router.get('/logo.png', (req, res) => {
 
 // --- API ROUTES ---
 
-router.post('/api/media/deterministic-enhance', async (req, res) => {
+router.post('/api/media/deterministic-enhance', requireStaff, async (req, res) => {
     try {
         const { base64Image } = req.body;
         const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;

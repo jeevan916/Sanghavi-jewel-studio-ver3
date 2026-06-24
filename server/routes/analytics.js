@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-
+import { requireAdmin } from '../auth.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -19,21 +19,21 @@ router.post('/api/analytics', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/api/analytics', async (req, res) => {
+router.get('/api/analytics', requireAdmin, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM analytics ORDER BY timestamp DESC LIMIT 500');
         res.json(rows);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/api/analytics/user/:userId', async (req, res) => {
+router.get('/api/analytics/user/:userId', requireAdmin, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM analytics WHERE userId = ? ORDER BY timestamp DESC LIMIT 1000', [req.params.userId]);
         res.json(rows);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/api/intelligence', async (req, res) => {
+router.get('/api/intelligence', requireAdmin, async (req, res) => {
     try {
         const [p] = await pool.query('SELECT COUNT(*) as c FROM products');
         const [cust] = await pool.query('SELECT COUNT(*) as c FROM customers');
@@ -44,21 +44,24 @@ router.get('/api/intelligence', async (req, res) => {
 
     const { writeFileSync, existsSync, readdirSync, statSync } = fs;
 
-router.post('/api/backups', async (req, res) => {
+router.post('/api/backups', requireAdmin, async (req, res) => {
     const name = `snapshot_${Date.now()}.json`;
     const [products] = await pool.query('SELECT * FROM products');
     writeFileSync(path.join(BACKUPS_ROOT, name), JSON.stringify(products));
     res.json({ success: true, filename: name, size: JSON.stringify(products).length });
 });
 
-router.get('/api/backups', (req, res) => {
+router.get('/api/backups', requireAdmin, (req, res) => {
     if (!existsSync(BACKUPS_ROOT)) return res.json([]);
     res.json(readdirSync(BACKUPS_ROOT).filter(f => f.endsWith('.json')).map(f => ({ name: f, date: statSync(path.join(BACKUPS_ROOT, f)).mtime, size: statSync(path.join(BACKUPS_ROOT, f)).size })));
 });
 
-router.get('/api/backups/download/:name', (req, res) => {
+router.get('/api/backups/download/:name', requireAdmin, (req, res) => {
     // Note: The frontend appends ?key=..., we can validate if needed
-    const filePath = path.join(BACKUPS_ROOT, req.params.name);
+    const filePath = path.resolve(path.join(BACKUPS_ROOT, req.params.name));
+    if (!filePath.startsWith(path.resolve(BACKUPS_ROOT))) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
     if (existsSync(filePath)) {
         res.download(filePath);
     } else {
@@ -66,7 +69,7 @@ router.get('/api/backups/download/:name', (req, res) => {
     }
 });
 
-router.post('/api/instagram/sync', async (req, res) => {
+router.post('/api/instagram/sync', requireAdmin, async (req, res) => {
     try {
         const [settingsRows] = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = "instagramToken"');
         const token = settingsRows[0]?.setting_value;
@@ -133,7 +136,7 @@ router.post('/api/instagram/sync', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/api/instagram/comments', async (req, res) => {
+router.get('/api/instagram/comments', requireAdmin, async (req, res) => {
     try {
         const [comments] = await pool.query('SELECT * FROM instagram_comments ORDER BY timestamp DESC LIMIT 100');
         res.json(comments);

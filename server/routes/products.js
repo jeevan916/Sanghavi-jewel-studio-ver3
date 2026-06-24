@@ -2,6 +2,7 @@ import express from 'express';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { requireStaff } from '../auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -221,7 +222,7 @@ router.get('/api/products/:id/related', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/api/products', async (req, res) => {
+router.post('/api/products', requireStaff, async (req, res) => {
     try {
         const p = req.body;
         const productData = {
@@ -250,7 +251,7 @@ router.post('/api/products', async (req, res) => {
     }
 });
 
-router.put('/api/products/:id', async (req, res) => {
+router.put('/api/products/:id', requireStaff, async (req, res) => {
     try {
         const p = req.body;
         await pool.query('UPDATE products SET ? WHERE id = ?', [{
@@ -263,7 +264,7 @@ router.put('/api/products/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/api/products/:id', async (req, res) => {
+router.delete('/api/products/:id', requireStaff, async (req, res) => {
     try {
         await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
         CACHE.curated.data = null; // Invalidate cache
