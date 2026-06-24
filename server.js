@@ -25,12 +25,14 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
-const requiredEnv = ['GEMINI_API_KEY', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+const requiredEnv = ['GEMINI_API_KEY'];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
-    console.error(`CRITICAL ERROR: ${key} environment variable is missing.`);
-    process.exit(1);
+    console.error(`⚠️ WARNING: ${key} environment variable is missing.`);
   }
+}
+if (!process.env.DB_PASSWORD) {
+  console.error(`⚠️ WARNING: DB_PASSWORD environment variable is missing.`);
 }
 
 console.log('🚀 [Sanghavi Studio] Server process starting...');
