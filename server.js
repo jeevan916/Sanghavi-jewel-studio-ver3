@@ -9,10 +9,23 @@ import staffRoutes from './server/routes/staff.js';
 import linksRoutes from './server/routes/links.js';
 import aiRoutes from './server/routes/ai.js';
 
+import fs, { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync, readFileSync } from 'fs';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const requiredEnv = ['GEMINI_API_KEY', 'JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+if (!process.env.JWT_SECRET) {
+  const newSecret = crypto.randomBytes(32).toString('hex');
+  process.env.JWT_SECRET = newSecret;
+  try {
+    appendFileSync('.env', `\nJWT_SECRET=${newSecret}\n`);
+    console.log('✅ Generated a secure JWT_SECRET and saved it to .env');
+  } catch (err) {
+    console.warn('⚠️ Could not save JWT_SECRET to .env, using an ephemeral in-memory secret for this session.');
+  }
+}
+
+const requiredEnv = ['GEMINI_API_KEY', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
     console.error(`CRITICAL ERROR: ${key} environment variable is missing.`);
@@ -24,10 +37,8 @@ console.log('🚀 [Sanghavi Studio] Server process starting...');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync, readFileSync } from 'fs';
 import cors from 'cors';
 import compression from 'compression';
-import crypto from 'crypto';
 import mysql from 'mysql2/promise';
 import multer from 'multer';
 import ffmpeg from 'fluent-ffmpeg';
