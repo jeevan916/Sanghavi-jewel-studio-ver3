@@ -75,12 +75,12 @@ export default function aiRoutes(pool) {
 
     router.post('/ai/analyze-image', async (req, res) => {
         try {
-            const { base64Image, promptOverride } = req.body;
+            const { base64Image, mimeType: providedMimeType, promptOverride } = req.body;
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
             const config = await getAIConfig();
             
             const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
-            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
+            const mimeType = providedMimeType || (mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg');
             const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
             const response = await ai.models.generateContent({
               model: config.models.analysis || 'gemini-flash-latest', 
@@ -153,12 +153,12 @@ export default function aiRoutes(pool) {
 
     router.post('/ai/enhance-image', async (req, res) => {
         try {
-            const { base64Image, promptOverride } = req.body;
+            const { base64Image, mimeType: providedMimeType, promptOverride } = req.body;
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
             const config = await getAIConfig();
 
             const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
-            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
+            const mimeType = providedMimeType || (mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg');
             const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
             const response = await ai.models.generateContent({
               model: config.models.enhancement, 
@@ -184,12 +184,12 @@ export default function aiRoutes(pool) {
 
     router.post('/ai/remove-watermark', async (req, res) => {
         try {
-            const { base64Image, promptOverride } = req.body;
+            const { base64Image, mimeType: providedMimeType, promptOverride } = req.body;
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
             const config = await getAIConfig();
 
             const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
-            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
+            const mimeType = providedMimeType || (mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg');
             const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
             const response = await ai.models.generateContent({
               model: config.models.watermark, 

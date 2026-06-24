@@ -1,8 +1,13 @@
 import { AspectRatio } from "@/types.ts";
 import { storeService, apiFetch } from "@/services/storeService.ts";
 
-const downsizeBase64 = (base64Str: string, maxDim: number = 768): Promise<string> => {
+const downsizeBase64 = (base64Str: string, maxDim: number = 768, forceMimeType?: string): Promise<string> => {
   return new Promise((resolve) => {
+    let mimeType = 'image/webp'; // Default to webp for better quality/size
+    const match = base64Str.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
+    if (match) mimeType = match[1];
+    if (forceMimeType) mimeType = forceMimeType;
+
     const img = new Image();
     img.onload = () => {
       let { width, height } = img;
@@ -20,19 +25,22 @@ const downsizeBase64 = (base64Str: string, maxDim: number = 768): Promise<string
       const ctx = canvas.getContext('2d');
       if (!ctx) return resolve(base64Str);
       ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      resolve(canvas.toDataURL(mimeType, 0.95)); // Use 95% quality instead of 80%
     };
     img.onerror = () => resolve(base64Str);
-    img.src = base64Str.startsWith('data:') ? base64Str : `data:image/jpeg;base64,${base64Str}`;
+    img.src = base64Str.startsWith('data:') ? base64Str : `data:${mimeType};base64,${base64Str}`;
   });
 };
 
 export const analyzeJewelryImage = async (base64Image: string, promptOverride?: string) => {
   try {
-    const optimizedBase64 = await downsizeBase64(base64Image, 768);
+    const originalMimeType = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || 'image/webp';
+    const optimizedBase64 = await downsizeBase64(base64Image, 768, originalMimeType);
+    const finalMimeType = optimizedBase64.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || originalMimeType;
+    
     const data = await apiFetch('/ai/analyze-image', {
         method: 'POST',
-        body: JSON.stringify({ base64Image: optimizedBase64, promptOverride })
+        body: JSON.stringify({ base64Image: optimizedBase64, mimeType: finalMimeType, promptOverride })
     });
     if (!data.success) throw new Error(data.error || "Analysis Error");
     return data.data;
@@ -58,10 +66,13 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
 
 export const enhanceJewelryImage = async (base64Image: string, promptOverride?: string) => {
   try {
-    const optimizedBase64 = await downsizeBase64(base64Image, 768);
+    const originalMimeType = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || 'image/webp';
+    const optimizedBase64 = await downsizeBase64(base64Image, 768, originalMimeType);
+    const finalMimeType = optimizedBase64.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || originalMimeType;
+
     const data = await apiFetch('/ai/enhance-image', {
         method: 'POST',
-        body: JSON.stringify({ base64Image: optimizedBase64, promptOverride })
+        body: JSON.stringify({ base64Image: optimizedBase64, mimeType: finalMimeType, promptOverride })
     });
     if (!data.success) throw new Error(data.error || "Enhancement Error");
     return data.data;
@@ -81,10 +92,13 @@ export const deterministicEnhance = async (base64Image: string) => {
 
 export const removeWatermark = async (base64Image: string, promptOverride?: string) => {
   try {
-    const optimizedBase64 = await downsizeBase64(base64Image, 768);
+    const originalMimeType = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || 'image/webp';
+    const optimizedBase64 = await downsizeBase64(base64Image, 768, originalMimeType);
+    const finalMimeType = optimizedBase64.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || originalMimeType;
+
     const data = await apiFetch('/ai/remove-watermark', {
         method: 'POST',
-        body: JSON.stringify({ base64Image: optimizedBase64, promptOverride })
+        body: JSON.stringify({ base64Image: optimizedBase64, mimeType: finalMimeType, promptOverride })
     });
     if (!data.success) throw new Error(data.error || "Watermark Removal Error");
     return data.data;
