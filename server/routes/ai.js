@@ -66,7 +66,7 @@ export default function aiRoutes(pool) {
             },
             prompts: {
                 analysis: "Analyze this luxury jewelry piece. Return a JSON object with: title, category, subCategory, weight (number), description, and tags (array of strings).",
-                enhancement: "Professional jewelry studio photography. Improve lighting, clarity, and aesthetics. STRICTLY PRESERVE the exact original shape, structure, and fine details. Do NOT add noise or clutter.",
+                enhancement: "Hyper-realistic macro jewelry photography, 8k resolution, extreme sharpness, studio lighting. Enhance the brilliance, reflections, and metallic luster. STRICTLY PRESERVE the exact original shape, structure, and fine details. Ensure absolute crispness without softness or noise.",
                 watermark: "Remove any text or watermarks from this jewelry image.",
                 design: "Generate a high-end jewelry design based on: ${prompt}"
             }
@@ -79,12 +79,14 @@ export default function aiRoutes(pool) {
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
             const config = await getAIConfig();
             
+            const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
+            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
             const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
             const response = await ai.models.generateContent({
               model: config.models.analysis || 'gemini-flash-latest', 
               contents: {
                 parts: [
-                  { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
+                  { inlineData: { mimeType: mimeType, data: cleanBase64 } },
                   { text: promptOverride || config.prompts.analysis }
                 ]
               },
@@ -155,12 +157,14 @@ export default function aiRoutes(pool) {
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
             const config = await getAIConfig();
 
+            const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
+            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
             const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
             const response = await ai.models.generateContent({
               model: config.models.enhancement, 
               contents: {
                 parts: [
-                  { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
+                  { inlineData: { data: cleanBase64, mimeType: mimeType } },
                   { text: promptOverride || config.prompts.enhancement },
                 ],
               },
@@ -184,12 +188,14 @@ export default function aiRoutes(pool) {
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
             const config = await getAIConfig();
 
+            const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
+            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
             const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
             const response = await ai.models.generateContent({
               model: config.models.watermark, 
               contents: {
                 parts: [
-                  { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
+                  { inlineData: { data: cleanBase64, mimeType: mimeType } },
                   { text: promptOverride || config.prompts.watermark },
                 ],
               },
