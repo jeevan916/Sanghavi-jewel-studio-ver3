@@ -300,7 +300,9 @@ const dbConfig = {
   connectionLimit: 10,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  connectTimeout: 10000,
+  acquireTimeout: 10000
 };
 
 console.log('[Debug] Sanitized DB Config:', {
@@ -594,17 +596,22 @@ async function startServer() {
     const initialDistPath = getActiveDistPath();
 
     if (!initialDistPath) {
-      console.log('[Sanghavi Studio] No production build found. Attempting to start Vite dev server...');
-      try {
-        const { createServer: createViteServer } = await import('vite');
-        const vite = await createViteServer({
-          server: { middlewareMode: true },
-          appType: 'spa',
-        });
-        app.use(vite.middlewares);
-      } catch (e) {
-        console.error('❌ [Sanghavi Studio] Failed to start Vite dev server. Is Vite installed?', e);
-        app.use((req, res) => res.status(500).send(`Frontend build not found and Vite dev server failed to start. Error: ${e.message}`));
+      if (process.env.NODE_ENV === 'production' || __dirname.includes('public_html') || __dirname.includes('Hostinger')) {
+        console.error('❌ [Sanghavi Studio] Production build not found, and running Vite dev server is disabled in production to prevent timeouts.');
+        app.use((req, res) => res.status(503).send('Frontend build (dist) not found. Please run "npm run build".'));
+      } else {
+        console.log('[Sanghavi Studio] No production build found. Attempting to start Vite dev server...');
+        try {
+          const { createServer: createViteServer } = await import('vite');
+          const vite = await createViteServer({
+            server: { middlewareMode: true },
+            appType: 'spa',
+          });
+          app.use(vite.middlewares);
+        } catch (e) {
+          console.error('❌ [Sanghavi Studio] Failed to start Vite dev server. Is Vite installed?', e);
+          app.use((req, res) => res.status(500).send(`Frontend build not found and Vite dev server failed to start. Error: ${e.message}`));
+        }
       }
     }
 
