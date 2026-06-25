@@ -170,7 +170,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true
@@ -553,7 +553,7 @@ console.log(`📂 [Sanghavi Studio] Secondary distPath: ${altDistPath} (Exists: 
 
 // Helper to get the current active dist path dynamically
 const getActiveDistPath = () => {
-  if (process.env.NODE_ENV === 'development') return null;
+  if (process.env.VITE_DEV_SERVER === 'true') return null;
   if (existsSync(distPath) && existsSync(path.join(distPath, 'index.html'))) return distPath;
   if (existsSync(altDistPath) && existsSync(path.join(altDistPath, 'index.html'))) return altDistPath;
   return null;
