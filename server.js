@@ -596,10 +596,7 @@ async function startServer() {
     const initialDistPath = getActiveDistPath();
 
     if (!initialDistPath) {
-      if (process.env.NODE_ENV === 'production' || __dirname.includes('public_html') || __dirname.includes('Hostinger')) {
-        console.error('❌ [Sanghavi Studio] Production build not found, and running Vite dev server is disabled in production to prevent timeouts.');
-        app.use((req, res) => res.status(503).send('Frontend build (dist) not found. Please run "npm run build".'));
-      } else {
+      if (process.env.DISABLE_HMR === 'true' || process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER === 'true') {
         console.log('[Sanghavi Studio] No production build found. Attempting to start Vite dev server...');
         try {
           const { createServer: createViteServer } = await import('vite');
@@ -612,11 +609,14 @@ async function startServer() {
           console.error('❌ [Sanghavi Studio] Failed to start Vite dev server. Is Vite installed?', e);
           app.use((req, res) => res.status(500).send(`Frontend build not found and Vite dev server failed to start. Error: ${e.message}`));
         }
+      } else {
+        console.error('❌ [Sanghavi Studio] Production build not found, and running Vite dev server is disabled in production to prevent timeouts.');
+        app.use((req, res) => res.status(503).send('Frontend build (dist) not found. Please run "npm run build".'));
       }
     }
 
     const PORT = process.env.PORT || 3000;
-    const server = app.listen(PORT, '0.0.0.0', () => {
+    const server = app.listen(PORT, () => {
       console.log("Server running on port", PORT);
       
       // Initialize Database in background after server starts listening
