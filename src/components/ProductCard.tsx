@@ -32,7 +32,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
                      storeService.getUnlockedCategories().includes(product.category);
   const showDetails = !isGuest || isUnlocked;
 
-  const displayImage = product.thumbnails?.[0] || product.images?.[0] || '';
+  const rawImage = product.thumbnails?.[0] || product.images?.[0] || '';
+  const displayImage = storeService.getImageUrl ? storeService.getImageUrl(rawImage) : rawImage;
   const config = storeService.getCached().config;
   const priceData = config ? storeService.calculatePrice(product, config) : null;
 

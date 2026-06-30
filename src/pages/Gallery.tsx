@@ -105,19 +105,30 @@ export const Gallery: React.FC = () => {
       
       const targetPage = reset ? 1 : page + 1;
       setIsFetchingMore(true);
+      
+      const fetchFilters = {
+          publicOnly: true,
+          category: (activeCategory !== 'All' && activeCategory !== 'Latest') ? activeCategory : undefined,
+          subCategory: activeSubCategory !== 'All' ? activeSubCategory : undefined,
+          search: search || undefined
+      };
+
       if (reset) {
-          setIsLoading(true);
-          setProducts([]);
+          const syncCached = storeService.getCachedProductsSync(1, BATCH_SIZE, fetchFilters);
+          if (syncCached) {
+              setProducts(syncCached.items);
+              setPage(1);
+              setHasMore(syncCached.items.length === BATCH_SIZE);
+              setIsLoading(false);
+          } else {
+              setIsLoading(true);
+              setProducts([]);
+          }
       }
 
       try {
           // Optimized Fetch: Only gets what we need based on category/search
-          const res = await storeService.getProducts(targetPage, BATCH_SIZE, { 
-              publicOnly: true,
-              category: (activeCategory !== 'All' && activeCategory !== 'Latest') ? activeCategory : undefined,
-              subCategory: activeSubCategory !== 'All' ? activeSubCategory : undefined,
-              search: search || undefined
-          });
+          const res = await storeService.getProducts(targetPage, BATCH_SIZE, fetchFilters);
           
           if (res.items && res.items.length > 0) {
               setProducts(prev => reset ? res.items : [...prev, ...res.items]);

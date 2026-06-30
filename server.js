@@ -387,6 +387,8 @@ const initDB = async () => {
       "CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)",
       "CREATE INDEX IF NOT EXISTS idx_products_isHidden ON products(isHidden)",
       "CREATE INDEX IF NOT EXISTS idx_products_createdAt ON products(createdAt)",
+      "CREATE INDEX IF NOT EXISTS idx_products_cover ON products(isHidden, createdAt)",
+      "CREATE INDEX IF NOT EXISTS idx_products_cat_sort ON products(isHidden, category, createdAt)",
       "CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics(type)",
       "CREATE INDEX IF NOT EXISTS idx_analytics_timestamp ON analytics(timestamp)"
     ];

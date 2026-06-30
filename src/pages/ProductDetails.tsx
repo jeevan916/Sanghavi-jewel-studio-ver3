@@ -192,14 +192,21 @@ export const ProductDetails: React.FC = () => {
 
     const fetchData = async () => {
       // Check cache first to avoid loader flicker
-      const cached = storeService.getCached();
-      const cachedProduct = cached.products?.find(p => p.id === id);
+      const cachedProduct = storeService.getCachedProductByIdSync(id);
       
-      if (cached.config) setConfig(cached.config);
+      const configCached = storeService.getCached().config;
+      if (configCached) setConfig(configCached);
       
       if (cachedProduct) {
-         setProduct(cachedProduct);
-         setIsLoading(false);
+          const safeCached = {
+              ...cachedProduct,
+              images: Array.isArray(cachedProduct.images) ? cachedProduct.images : [],
+              thumbnails: Array.isArray(cachedProduct.thumbnails) ? cachedProduct.thumbnails : [],
+              tags: Array.isArray(cachedProduct.tags) ? cachedProduct.tags : []
+          };
+          setProduct(safeCached);
+          setEditForm(safeCached);
+          setIsLoading(false);
       } else {
          setIsLoading(true);
       }
@@ -219,18 +226,6 @@ export const ProductDetails: React.FC = () => {
             const sharedAccess = (location.state as any)?.fromSharedLink || isUnlocked;
             setIsSharedAccess(sharedAccess);
 
-            // Optimization: Use cached products if available to avoid massive fetch
-            const cached = storeService.getCached();
-            let allItems = cached.products || [];
-            
-            if (allItems.length === 0 || !allItems.find(p => p.id === fetchedProduct.id)) {
-                const listData = await storeService.getProducts(1, 1000, { publicOnly: true }); 
-                allItems = listData.items;
-            }
-
-            // Filter by category for navigation as per user request
-            let navItems = allItems.filter(p => p.category === fetchedProduct.category);
-
             const safeProduct = {
                 ...fetchedProduct,
                 images: Array.isArray(fetchedProduct.images) ? fetchedProduct.images : [],
@@ -239,36 +234,54 @@ export const ProductDetails: React.FC = () => {
             };
             setProduct(safeProduct);
             setEditForm(safeProduct);
+            setIsLoading(false); // Unblock the UI!
+            
             setIsLiked(storeService.getLikes().includes(safeProduct.id));
-            const pStats = await storeService.getProductStats(safeProduct.id);
-            setStats(pStats);
+            storeService.getProductStats(safeProduct.id).then(setStats);
             storeService.logEvent('view', safeProduct);
 
             if (user && user.role === 'customer') {
-               const wl = await storeService.getWishlist(user.id);
-               setIsWishlisted(wl.some((p: any) => p.id === safeProduct.id));
+               storeService.getWishlist(user.id).then(wl => {
+                   setIsWishlisted(wl.some((p: any) => p.id === safeProduct.id));
+               });
             }
 
-            // Fetch Related Products
+            // Fetch Related Products in background
             if (!isGuest) {
-                const related = await storeService.getRelatedProducts(safeProduct.id);
-                setRelatedProducts(related);
+                storeService.getRelatedProducts(safeProduct.id).then(setRelatedProducts);
             }
 
-            // Calculate Neighbors
-            const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
-            if (idx !== -1) {
-                setNeighbors({
-                    prev: idx > 0 ? navItems[idx - 1].id : null,
-                    next: idx < navItems.length - 1 ? navItems[idx + 1].id : null
-                });
+            // Background fetch for neighbors to avoid blocking product render
+            const cached = storeService.getCached();
+            let allItems = cached.products || [];
+            
+            if (allItems.length === 0 || !allItems.find(p => p.id === fetchedProduct.id)) {
+                storeService.getProducts(1, 30, { category: fetchedProduct.category, publicOnly: true })
+                  .then(listData => {
+                      const navItems = listData.items.filter(p => p.category === fetchedProduct.category);
+                      const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
+                      if (idx !== -1 && (!isGuest || isSharedAccess)) {
+                          setNeighbors({
+                              prev: idx > 0 ? navItems[idx - 1].id : null,
+                              next: idx < navItems.length - 1 ? navItems[idx + 1].id : null
+                          });
+                      }
+                  });
             } else {
-                setNeighbors({ prev: null, next: null });
+                let navItems = allItems.filter(p => p.category === fetchedProduct.category);
+                const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
+                if (idx !== -1 && (!isGuest || isSharedAccess)) {
+                    setNeighbors({
+                        prev: idx > 0 ? navItems[idx - 1].id : null,
+                        next: idx < navItems.length - 1 ? navItems[idx + 1].id : null
+                    });
+                }
             }
         }
       } catch (e) {
         console.error("Fetch error", e);
-      } finally { setIsLoading(false); }
+        setIsLoading(false);
+      }
     };
     fetchData();
   }, [id, isGuest]);
@@ -579,14 +592,14 @@ export const ProductDetails: React.FC = () => {
                                     const isVideo = currentMedia.includes('video/') || currentMedia.endsWith('.webm') || currentMedia.endsWith('.mp4') || currentMedia.endsWith('.mov');
                                     return isVideo ? (
                                         <video 
-                                            src={currentMedia} 
+                                            src={storeService.getImageUrl ? storeService.getImageUrl(currentMedia) : currentMedia} 
                                             className={`w-full h-full object-contain bg-white transition-transform duration-1000 ease-out ${!isAdmin ? 'pointer-events-none select-none' : ''}`} 
                                             style={{ WebkitTouchCallout: isAdmin ? 'default' : 'none' }}
                                             autoPlay muted loop playsInline
                                         />
                                     ) : (
                                         <img 
-                                            src={currentMedia} 
+                                            src={storeService.getImageUrl ? storeService.getImageUrl(currentMedia) : currentMedia} 
                                             className={`w-full h-full object-contain bg-white transition-transform duration-300 ease-out ${!isAdmin ? 'pointer-events-none select-none' : ''}`} 
                                             style={{ WebkitTouchCallout: isAdmin ? 'default' : 'none' }}
                                             onContextMenu={(e) => {
@@ -668,9 +681,9 @@ export const ProductDetails: React.FC = () => {
                                     className={`relative w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden border-2 transition-colors ${activeImageIndex === idx ? 'border-brand-gold shadow-md' : 'border-transparent hover:border-brand-gold/50'}`}
                                 >
                                     {isVideo ? (
-                                        <video src={thumbMedia} className={`w-full h-full object-cover ${!isAdmin ? 'pointer-events-none select-none' : ''}`} onContextMenu={(e) => { if (!isAdmin) e.preventDefault(); }} autoPlay muted loop playsInline />
+                                        <video src={storeService.getImageUrl ? storeService.getImageUrl(thumbMedia) : thumbMedia} className={`w-full h-full object-cover ${!isAdmin ? 'pointer-events-none select-none' : ''}`} onContextMenu={(e) => { if (!isAdmin) e.preventDefault(); }} autoPlay muted loop playsInline />
                                     ) : (
-                                        <img src={thumbMedia} alt={`View ${idx + 1}`} className={`w-full h-full object-cover ${!isAdmin ? 'pointer-events-none select-none' : ''}`} onContextMenu={(e) => { if (!isAdmin) e.preventDefault(); }} loading="lazy" />
+                                        <img src={storeService.getImageUrl ? storeService.getImageUrl(thumbMedia) : thumbMedia} alt={`View ${idx + 1}`} className={`w-full h-full object-cover ${!isAdmin ? 'pointer-events-none select-none' : ''}`} onContextMenu={(e) => { if (!isAdmin) e.preventDefault(); }} loading="lazy" />
                                     )}
                                 </button>
                                 {isAdminOrContributor && displayImages.length > 1 && (
@@ -1001,7 +1014,7 @@ export const ProductDetails: React.FC = () => {
       {showFullScreen && displayImages.length > 0 && (
         <ImageViewer 
             key={product.id}
-            images={displayImages} 
+            images={displayImages.map(img => storeService.getImageUrl ? storeService.getImageUrl(img) : img)} 
             initialIndex={activeImageIndex}
             title={product.title} 
             disableAnimation={startInFullScreen}

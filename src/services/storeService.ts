@@ -10,6 +10,18 @@ export function getProxyPath(endpoint: string) {
     return '/_proxy/' + btoa(encodeURIComponent(clean)).replace(/=/g, '') + (queryPart ? '?' + queryPart : '');
 }
 
+export function getImageUrl(path: string): string {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    // Bypassing express redirect to directly hit the CDN / Live server for uploads
+    // This removes the 302 hop, speeding up image loading significantly
+    if (path.startsWith('/uploads')) {
+        const cdnBase = import.meta.env.VITE_CDN_URL || 'https://studio.sanghavijewellers.com';
+        return `${cdnBase}${path}`;
+    }
+    return path;
+}
+
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export interface CuratedCollections {
@@ -25,6 +37,10 @@ export interface HealthStatus {
 }
 
 // Memory Cache (RAM) - Enables Instant Navigation
+// In-memory cache map for faster navigation
+const productCacheMap = new Map<string, { data: any, timestamp: number }>();
+const singleProductCacheMap = new Map<string, { data: Product, timestamp: number }>();
+
 const CACHE = {
   products: null as Product[] | null,
   curated: null as CuratedCollections | null,
@@ -92,6 +108,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}, retr
 }
 
 export const storeService = {
+  getImageUrl,
   // NEW: Synchronously retrieve data if available
   getCached: () => ({ ...CACHE }),
 
@@ -102,8 +119,8 @@ export const storeService = {
          console.log("🔥 [Store] Warming up cache...");
          storeService.getConfig().catch(e => console.warn("Config warmup failed", e));
          storeService.getCuratedProducts().catch(e => console.warn("Curated warmup failed", e));
-         // Warmup default page 1
-         storeService.getProducts(1, 50).catch(e => console.warn("Product warmup failed", e));
+         // Warmup default page 1 (matches Gallery BATCH_SIZE = 24)
+         storeService.getProducts(1, 24).catch(e => console.warn("Product warmup failed", e));
      } catch (e) { console.warn("Warmup error", e); }
   },
 
@@ -128,8 +145,7 @@ export const storeService = {
     }
   },
 
-  getProducts: async (page = 1, limit = 50, filters: any = {}) => {
-    try {
+  getCachedProductsSync: (page = 1, limit = 50, filters: any = {}) => {
       const queryParams = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
@@ -139,7 +155,6 @@ export const storeService = {
       if (filters.publicOnly !== undefined) {
           queryParams.append('public', String(filters.publicOnly));
       } else {
-          // Default to public only if not specified, unless explicitly requested all
           queryParams.append('public', 'true');
       }
 
@@ -155,12 +170,77 @@ export const storeService = {
           queryParams.append('search', filters.search);
       }
       
-      const data = await apiFetch(`/products?${queryParams.toString()}`);
+      const cacheKey = queryParams.toString();
+      const cached = productCacheMap.get(cacheKey);
+      
+      if (cached && (Date.now() - cached.timestamp < 300000)) {
+          return cached.data;
+      }
+      return null;
+  },
+
+  getProducts: async (page = 1, limit = 50, filters: any = {}) => {
+    try {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        summary: 'true'
+      });
+      
+      if (filters.publicOnly !== undefined) {
+          queryParams.append('public', String(filters.publicOnly));
+      } else {
+          queryParams.append('public', 'true');
+      }
+
+      if (filters.category && filters.category !== 'All') {
+          queryParams.append('category', filters.category);
+      }
+
+      if (filters.subCategory && filters.subCategory !== 'All') {
+          queryParams.append('subCategory', filters.subCategory);
+      }
+
+      if (filters.search) {
+          queryParams.append('search', filters.search);
+      }
+      
+      const cacheKey = queryParams.toString();
+      const cached = productCacheMap.get(cacheKey);
+      
+      // Serve from cache if available and < 5 mins old
+      if (cached && (Date.now() - cached.timestamp < 300000)) {
+          // Trigger background revalidate if older than 1 minute
+          if (Date.now() - cached.timestamp > 60000) {
+              apiFetch(`/products?${cacheKey}`).then(data => {
+                  const result = { 
+                    items: Array.isArray(data.items) ? data.items : [], 
+                    meta: data.meta || { totalPages: 1, page, limit } 
+                  };
+                  productCacheMap.set(cacheKey, { data: result, timestamp: Date.now() });
+                  if (page === 1 && (!filters.category || filters.category === 'All') && !filters.search) {
+                      CACHE.products = result.items;
+                      CACHE.lastFetch = Date.now();
+                  }
+              }).catch(() => {});
+          }
+          return cached.data;
+      }
+
+      const data = await apiFetch(`/products?${cacheKey}`);
       
       const result = { 
         items: Array.isArray(data.items) ? data.items : [], 
         meta: data.meta || { totalPages: 1, page, limit } 
       };
+
+      // Seed single product cache
+      result.items.forEach((p: Product) => {
+          singleProductCacheMap.set(p.id, { data: p, timestamp: Date.now() });
+      });
+
+      // Store in query cache map
+      productCacheMap.set(cacheKey, { data: result, timestamp: Date.now() });
 
       // CACHE STRATEGY: Update memory cache only for the default unfiltered view
       const isDefaultView = page === 1 && (!filters.category || filters.category === 'All') && !filters.search;
@@ -175,9 +255,29 @@ export const storeService = {
     }
   },
 
+  getCachedProductByIdSync: (id: string): Product | null => {
+      const cached = singleProductCacheMap.get(id);
+      if (cached && (Date.now() - cached.timestamp < 300000)) {
+          return cached.data;
+      }
+      return null;
+  },
+
   getProductById: async (id: string): Promise<Product | null> => {
       try {
-          return await apiFetch(`/products/${id}`);
+          const cached = singleProductCacheMap.get(id);
+          if (cached && (Date.now() - cached.timestamp < 300000)) {
+              if (Date.now() - cached.timestamp > 60000) {
+                  apiFetch(`/products/${id}`).then(p => {
+                      if (p) singleProductCacheMap.set(id, { data: p, timestamp: Date.now() });
+                  }).catch(() => {});
+              }
+              return cached.data;
+          }
+          
+          const p = await apiFetch(`/products/${id}`);
+          if (p) singleProductCacheMap.set(id, { data: p, timestamp: Date.now() });
+          return p;
       } catch (e) {
           console.error(`Product ${id} fetch failed`, e);
           return null;
@@ -292,6 +392,7 @@ export const storeService = {
   },
 
   getConfig: async (): Promise<AppConfig> => {
+    if (CACHE.config) return CACHE.config;
     try {
         const data = await apiFetch('/config');
         
@@ -463,7 +564,7 @@ export const storeService = {
   },
   
   calculatePrice: (product: Product, config: AppConfig) => {
-    const goldRate = product.category.toLowerCase().includes('24k') ? config.goldRate24k : config.goldRate22k;
+    const goldRate = product.category?.toLowerCase()?.includes('24k') ? config.goldRate24k : config.goldRate22k;
     const basePrice = product.weight * goldRate;
     
     // Determine making charge percentage
