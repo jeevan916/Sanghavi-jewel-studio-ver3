@@ -145,8 +145,7 @@ app.set('trust proxy', 1); // Trust first proxy for rate limiting (e.g. Hostinge
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, 
-  message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => req.headers['x-forwarded-for'] || req.headers['forwarded'] || req.ip
+  message: { error: 'Too many requests, please try again later.' }
 });
 
 // Hostinger Startup Verification
@@ -301,8 +300,7 @@ const dbConfig = {
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  connectTimeout: 10000,
-  acquireTimeout: 10000
+  connectTimeout: 10000
 };
 
 console.log('[Debug] Sanitized DB Config:', {

@@ -257,7 +257,8 @@ export const storeService = {
 
   getCachedProductByIdSync: (id: string): Product | null => {
       const cached = singleProductCacheMap.get(id);
-      if (cached && (Date.now() - cached.timestamp < 300000)) {
+      const isSummary = cached && (!cached.data.images || cached.data.images.length === 0);
+      if (cached && (Date.now() - cached.timestamp < 300000) && !isSummary) {
           return cached.data;
       }
       return null;
@@ -266,7 +267,9 @@ export const storeService = {
   getProductById: async (id: string): Promise<Product | null> => {
       try {
           const cached = singleProductCacheMap.get(id);
-          if (cached && (Date.now() - cached.timestamp < 300000)) {
+          const isSummary = cached && (!cached.data.images || cached.data.images.length === 0);
+          
+          if (cached && (Date.now() - cached.timestamp < 300000) && !isSummary) {
               if (Date.now() - cached.timestamp > 60000) {
                   apiFetch(`/products/${id}`).then(p => {
                       if (p) singleProductCacheMap.set(id, { data: p, timestamp: Date.now() });

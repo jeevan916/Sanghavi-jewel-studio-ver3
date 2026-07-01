@@ -15,6 +15,7 @@ import { GeneratedLinkModal } from '@/components/GeneratedLinkModal.tsx';
 import { TemplateSelectorModal } from '@/components/TemplateSelectorModal.tsx';
 import { AdminEditControls } from '@/components/AdminEditControls.tsx';
 import { FinanceCalculator } from '@/components/FinanceCalculator.tsx';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor.ts';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +31,7 @@ export const ProductDetails: React.FC = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  usePerformanceMonitor('ProductDetails', isLoading);
   const [isLiked, setIsLiked] = useState(false);
   const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 });
   const [isSharedAccess, setIsSharedAccess] = useState(false);

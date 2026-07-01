@@ -193,7 +193,10 @@ const SecurityLayer = () => {
 
 
 
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor.ts';
+
 function AppContent() {
+  usePerformanceMonitor('App');
   const [user, setUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const location = useLocation();

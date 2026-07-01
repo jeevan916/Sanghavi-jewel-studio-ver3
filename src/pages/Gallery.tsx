@@ -5,6 +5,7 @@ import { ProductCard } from '@/components/ProductCard.tsx';
 import { storeService, CuratedCollections } from '@/services/storeService.ts';
 import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight, X, Sparkles, MessageCircle } from 'lucide-react';
 import { Product, AppConfig } from '@/types.ts';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor.ts';
 
 const ProductSkeleton = () => (
   <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 animate-pulse">
@@ -60,6 +61,7 @@ export const Gallery: React.FC = () => {
   
   // Initial Load State
   const [isLoading, setIsLoading] = useState(true);
+  usePerformanceMonitor('Gallery', isLoading);
 
   const user = storeService.getCurrentUser();
   const isAdmin = user?.role === 'admin' || user?.role === 'contributor';

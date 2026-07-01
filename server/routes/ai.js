@@ -9,8 +9,7 @@ export default function aiRoutes(pool) {
     const aiLimiter = rateLimit({
         windowMs: 60 * 60 * 1000, 
         max: 200, 
-        message: { error: 'Strict Rate limit exceeded for AI generation API. Contact support.' },
-        keyGenerator: (req) => req.headers['x-forwarded-for'] || req.headers['forwarded'] || req.ip
+        message: { error: 'Strict Rate limit exceeded for AI generation API. Contact support.' }
     });
 
     const userQuotas = {};
