@@ -74,7 +74,7 @@ router.get('/api/products', async (req, res) => {
     }
 
     // Clone query for count BEFORE adding limit/offset
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
+    const countQuery = query.replace(/^SELECT .* FROM products/, 'SELECT COUNT(*) as total FROM products');
     
     query += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
