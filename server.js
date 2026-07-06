@@ -225,32 +225,47 @@ app.use((req, res, next) => {
     next();
 });
 // Robust Data Root Resolution for Hostinger
-const localDataPath = path.resolve(__dirname, 'data');
-const persistencePath = path.resolve(__dirname, '..', 'sanghavi_persistence');
-const filesPersistencePath = path.resolve('/', 'files', 'sanghavi_persistence'); // Hardcoded attempt to hit Hostinger /files path
+const DATA_ROOT = path.resolve(__dirname, '..', 'sanghavi_persistence');
+const UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
 
-let DATA_ROOT = localDataPath;
-if (existsSync(persistencePath)) {
-    DATA_ROOT = persistencePath;
-    console.log(`📂 [Sanghavi Studio] Using persistent data directory: ${DATA_ROOT}`);
-} else if (existsSync(filesPersistencePath)) {
-    DATA_ROOT = filesPersistencePath;
-    console.log(`📂 [Sanghavi Studio] Using Hostinger files persistent directory: ${DATA_ROOT}`);
-} else {
-    console.log(`📂 [Sanghavi Studio] Using local data directory: ${DATA_ROOT}`);
-}
+// --- MERGE SCATTERED UPLOADS ---
+const mergeFolders = () => {
+  const possiblePaths = [
+    path.resolve(__dirname, 'data', 'uploads'),
+    path.resolve(__dirname, '..', '.builds', 'sanghavi_persistence', 'uploads'),
+    path.resolve(__dirname, '..', 'public_html', 'uploads'),
+    path.resolve('/', 'files', 'sanghavi_persistence', 'uploads'),
+    path.resolve('/', 'uploads')
+  ];
 
-let UPLOADS_ROOT = path.resolve(DATA_ROOT, 'uploads');
-const publicHtmlUploads = path.resolve(__dirname, '..', 'public_html', 'uploads');
-const rootUploads = path.resolve('/', 'uploads');
+  const copyRecursiveSync = (src, dest) => {
+    if (!existsSync(src)) return;
+    const stats = statSync(src);
+    if (stats.isDirectory()) {
+      if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
+      readdirSync(src).forEach(childItemName => {
+        copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
+      });
+    } else {
+      if (!existsSync(dest)) {
+          fs.copyFileSync(src, dest);
+          console.log(`Moved: ${src} -> ${dest}`);
+      }
+    }
+  };
 
-if (!existsSync(UPLOADS_ROOT) && existsSync(publicHtmlUploads)) {
-    UPLOADS_ROOT = publicHtmlUploads;
-    console.log(`📂 [Sanghavi Studio] Found existing uploads in public_html: ${UPLOADS_ROOT}`);
-} else if (!existsSync(UPLOADS_ROOT) && existsSync(rootUploads)) {
-    UPLOADS_ROOT = rootUploads;
-    console.log(`📂 [Sanghavi Studio] Found existing uploads in root: ${UPLOADS_ROOT}`);
-}
+  possiblePaths.forEach(p => {
+    if (p !== UPLOADS_ROOT && existsSync(p)) {
+      console.log(`📦 [Merge] Merging scattered uploads from ${p} into ${UPLOADS_ROOT}`);
+      try {
+        copyRecursiveSync(p, UPLOADS_ROOT);
+      } catch (e) {
+        console.error(`Failed to merge from ${p}`, e);
+      }
+    }
+  });
+};
+mergeFolders();
 
 const BACKUPS_ROOT = path.resolve(DATA_ROOT, 'backups');
 
