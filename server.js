@@ -523,7 +523,16 @@ const safeParse = (str, fallback = []) => {
   if (Array.isArray(str)) return str;
   try { return JSON.parse(str) || fallback; } catch (e) { return fallback; }
 };
-const sanitizeProduct = (p) => p ? ({ ...p, tags: safeParse(p.tags), images: safeParse(p.images), thumbnails: safeParse(p.thumbnails), meta: safeParse(p.meta, {}) }) : null;
+const sanitizeProduct = (p) => {
+    if (!p) return null;
+    let images = safeParse(p.images);
+    let thumbnails = safeParse(p.thumbnails);
+    
+    images = images.map((img, i) => (typeof img === 'string' && img.startsWith('data:') ? `/api/media/stream/${p.id}/image/${i}.webp` : img));
+    thumbnails = thumbnails.map((img, i) => (typeof img === 'string' && img.startsWith('data:') ? `/api/media/stream/${p.id}/thumb/${i}.webp` : img));
+
+    return { ...p, tags: safeParse(p.tags), images, thumbnails, meta: safeParse(p.meta, {}) };
+};
 
 
     app.use(productsRoutes(poolProxy, CACHE, sanitizeProduct));
