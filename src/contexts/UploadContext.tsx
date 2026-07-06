@@ -110,20 +110,17 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           const formData = new FormData();
           formData.append('files', currentBlob, fileName);
 
-          const response = await apiFetch('/media/upload', {
+          const data = await apiFetch('/media/upload', {
               method: 'POST',
               body: formData
           });
 
-          if (response.ok) {
-              const data = await response.json();
-              if (data.success && data.files?.[0]) {
-                  // STEP 4: CDN Delivery (Return both Primary and Thumbnail)
-                  return {
-                      primary: data.files[0].primary,
-                      thumbnail: data.files[0].thumbnail || data.files[0].primary // Fallback to primary if thumb fails
-                  }; 
-              }
+          if (data && data.success && data.files?.[0]) {
+              // STEP 4: CDN Delivery (Return both Primary and Thumbnail)
+              return {
+                  primary: data.files[0].primary,
+                  thumbnail: data.files[0].thumbnail || data.files[0].primary // Fallback to primary if thumb fails
+              }; 
           }
           throw new Error('Upload Engine Failed');
 

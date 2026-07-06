@@ -102,9 +102,8 @@ export const ProductDetails: React.FC = () => {
     files.forEach(file => formData.append('files', file));
     
     try {
-        const response = await apiFetch('/media/upload', { method: 'POST', body: formData });
-        const data = await response.json();
-        if (data.files) {
+        const data = await apiFetch('/media/upload', { method: 'POST', body: formData });
+        if (data && data.files) {
             const newImages = [...(product?.images || []), ...data.files.map((f: any) => f.primary)];
             const newThumbnails = [...(product?.thumbnails || []), ...data.files.map((f: any) => f.thumbnail || f.primary)];
             const updatedProduct = { ...product!, images: newImages, thumbnails: newThumbnails };

@@ -47,10 +47,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           }
           
           try {
-              const res = await apiFetch(`/media/info?url=${encodeURIComponent(activeImageSrc)}`);
-              const data = await res.json();
+              const data = await apiFetch(`/media/info?url=${encodeURIComponent(activeImageSrc)}`);
               
-              if (data.size > 800 * 1024) { // > 800KB
+              if (data && data.size > 800 * 1024) { // > 800KB
                   setOptimizedSrc(`/api/media/resize?url=${encodeURIComponent(activeImageSrc)}&width=1080&format=webp&quality=80`);
               } else {
                   setOptimizedSrc(activeImageSrc);
