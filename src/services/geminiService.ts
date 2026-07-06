@@ -66,13 +66,11 @@ export const generateJewelryDesign = async (prompt: string, aspectRatio: AspectR
 
 export const enhanceJewelryImage = async (base64Image: string, promptOverride?: string) => {
   try {
-    const originalMimeType = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || 'image/webp';
-    const optimizedBase64 = await downsizeBase64(base64Image, 768, originalMimeType);
-    const finalMimeType = optimizedBase64.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || originalMimeType;
+    const finalMimeType = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || 'image/webp';
 
     const data = await apiFetch('/ai/enhance-image', {
         method: 'POST',
-        body: JSON.stringify({ base64Image: optimizedBase64, mimeType: finalMimeType, promptOverride })
+        body: JSON.stringify({ base64Image, mimeType: finalMimeType, promptOverride })
     });
     if (!data.success) throw new Error(data.error || "Enhancement Error");
     return data.data;
@@ -92,13 +90,11 @@ export const deterministicEnhance = async (base64Image: string) => {
 
 export const removeWatermark = async (base64Image: string, promptOverride?: string) => {
   try {
-    const originalMimeType = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || 'image/webp';
-    const optimizedBase64 = await downsizeBase64(base64Image, 768, originalMimeType);
-    const finalMimeType = optimizedBase64.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || originalMimeType;
+    const finalMimeType = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/)?.[1] || 'image/webp';
 
     const data = await apiFetch('/ai/remove-watermark', {
         method: 'POST',
-        body: JSON.stringify({ base64Image: optimizedBase64, mimeType: finalMimeType, promptOverride })
+        body: JSON.stringify({ base64Image, mimeType: finalMimeType, promptOverride })
     });
     if (!data.success) throw new Error(data.error || "Watermark Removal Error");
     return data.data;

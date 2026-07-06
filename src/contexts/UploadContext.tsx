@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Product, QueueItem } from '@/types.ts';
-import { analyzeJewelryImage, enhanceJewelryImage } from '@/services/geminiService.ts';
+import { analyzeJewelryImage, enhanceJewelryImage, deterministicEnhance } from '@/services/geminiService.ts';
 import { storeService, apiFetch } from '@/services/storeService.ts';
 
 interface ProcessOptions {
@@ -82,7 +82,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             throw new Error("Invalid input type");
           }
 
-          // STEP 2: AI Enhancement (Gemini)
+          // STEP 2: AI Enhancement (Gemini vs Deterministic)
           const isVideo = currentBlob.type.startsWith('video/');
           if (enhance && !isVideo) {
              const base64 = await new Promise<string>((resolve) => {
@@ -91,13 +91,14 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 reader.readAsDataURL(currentBlob);
              });
              
-             // Call Gemini Service
-             const enhancedBase64Raw = await enhanceJewelryImage(base64);
+             // Use Deterministic Enhancement for bulk uploads to preserve exact product details and speed up processing
+             const enhancedDataUri = await deterministicEnhance(base64);
              
-             if (!enhancedBase64Raw) throw new Error("AI Enhancement returned empty data");
+             if (!enhancedDataUri) throw new Error("Enhancement returned empty data");
 
-             // Convert Raw Base64 back to Blob (Buffer)
-             const byteCharacters = atob(enhancedBase64Raw);
+             // Convert Data URI back to Blob (Buffer)
+             const base64Data = enhancedDataUri.split(',')[1];
+             const byteCharacters = atob(base64Data);
              const byteNumbers = new Array(byteCharacters.length);
              for (let i = 0; i < byteCharacters.length; i++) {
                  byteNumbers[i] = byteCharacters.charCodeAt(i);
