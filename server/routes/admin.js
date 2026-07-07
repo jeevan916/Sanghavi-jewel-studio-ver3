@@ -1,5 +1,6 @@
+import * as fs from 'fs';
 import express from 'express';
-import { existsSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { requireAdmin } from '../auth.js';
@@ -26,13 +27,34 @@ export default function adminRoutes(pool, UPLOADS_ROOT, DATA_ROOT) {
     
     const getHash = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex').substring(0, 16);
 
-        router.post('/api/admin/migrate-blobs', requireAdmin, async (req, res) => {
+    const logFile = path.join(DATA_ROOT, 'migration.log');
+    const logMigration = (msg) => {
+        const line = `[${new Date().toISOString()}] ${msg}\n`;
+        try { fs.appendFileSync(logFile, line); } catch(e) { console.error('Failed to write log', e); }
+    };
+
+    router.get('/api/admin/migration-log', requireAdmin, (req, res) => {
         try {
+            if (!existsSync(logFile)) return res.json({ logs: [] });
+            const data = fs.readFileSync(logFile, 'utf8');
+            const lines = data.split('\n').filter(Boolean);
+            res.json({ logs: lines.slice(-20) });
+        } catch(e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // Make migration asynchronous so it doesn't block
+    router.post('/api/admin/migrate-blobs', requireAdmin, async (req, res) => {
+        // Return immediately
+        res.json({ message: 'Migration started in background' });
+        
+        try {
+            logMigration('Starting blob migration...');
             const [products] = await pool.query('SELECT id, images, thumbnails FROM products');
             let updatedCount = 0;
             let totalProcessed = 0;
-            const { mkdirSync } = require('fs');
-
+            
             for (const p of products) {
                 let changed = false;
                 let images = safeParse(p.images);
@@ -62,6 +84,7 @@ export default function adminRoutes(pool, UPLOADS_ROOT, DATA_ROOT) {
                                 }
                                 changed = true;
                                 totalProcessed++;
+                                logMigration(`Extracted blob to ${filename}`);
                                 return `/uploads/${sizeFolder}/${filename}`;
                             }
                         }
@@ -75,13 +98,14 @@ export default function adminRoutes(pool, UPLOADS_ROOT, DATA_ROOT) {
                 if (changed) {
                     await pool.query('UPDATE products SET images = ?, thumbnails = ? WHERE id = ?', [JSON.stringify(images), JSON.stringify(thumbnails), p.id]);
                     updatedCount++;
+                    logMigration(`Updated DB references for product ${p.id}`);
                 }
             }
 
-            res.json({ message: `Successfully migrated ${totalProcessed} blobs across ${updatedCount} products to physical storage.` });
+            logMigration(`Migration completed. Migrated ${totalProcessed} blobs across ${updatedCount} products.`);
         } catch(e) {
+            logMigration(`Migration failed: ${e.message}`);
             console.error('Migration error:', e);
-            res.status(500).json({ error: e.message });
         }
     });
 

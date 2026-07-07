@@ -5,6 +5,7 @@ import { storeService, apiFetch } from '@/services/storeService.ts';
 import { coreEngine } from '@/services/coreEngine.ts';
 import { Product, AnalyticsEvent, User, AppConfig } from '@/types.ts';
 import { WishlistCampaigns } from '@/components/WishlistCampaigns.tsx';
+import { MigrationDebugger } from '@/components/admin/MigrationDebugger.tsx';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, Tag,
@@ -87,6 +88,9 @@ const StorageView = () => {
                             ))}
                         </div>
                     </div>
+
+                    <MigrationDebugger />
+
                 </div>
             </div>
         </div>
