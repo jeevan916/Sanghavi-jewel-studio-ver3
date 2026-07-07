@@ -16,8 +16,8 @@ export function getImageUrl(path: string): string {
     // Bypassing express redirect to directly hit the CDN / Live server for uploads
     // This removes the 302 hop, speeding up image loading significantly
     if (path.startsWith('/uploads')) {
-        const cdnBase = import.meta.env.VITE_CDN_URL || 'https://studio.sanghavijewellers.com';
-        return `${cdnBase}${path}`;
+        const cdnBase = import.meta.env.VITE_CDN_URL || '';
+        return cdnBase ? `${cdnBase}${path}` : path;
     }
     return path;
 }

@@ -33,6 +33,28 @@ export default function adminRoutes(pool, UPLOADS_ROOT, DATA_ROOT) {
         try { fs.appendFileSync(logFile, line); } catch(e) { console.error('Failed to write log', e); }
     };
 
+    
+    router.get('/api/admin/migration-status', requireAdmin, async (req, res) => {
+        try {
+            const [products] = await pool.query('SELECT id, images FROM products');
+            let pendingCount = 0;
+            let pendingProducts = [];
+            
+            for (const p of products) {
+                let images = safeParse(p.images);
+                let hasBase64 = images.some(img => typeof img === 'string' && img.startsWith('data:'));
+                if (hasBase64) {
+                    pendingCount++;
+                    pendingProducts.push(p.id);
+                }
+            }
+            
+            res.json({ pendingCount, pendingProducts: pendingProducts.slice(0, 50) }); // Send top 50
+        } catch(e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
     router.get('/api/admin/migration-log', requireAdmin, (req, res) => {
         try {
             if (!existsSync(logFile)) return res.json({ logs: [] });
@@ -46,12 +68,22 @@ export default function adminRoutes(pool, UPLOADS_ROOT, DATA_ROOT) {
 
     // Make migration asynchronous so it doesn't block
     router.post('/api/admin/migrate-blobs', requireAdmin, async (req, res) => {
+        const { productId } = req.body || {};
+        
         // Return immediately
-        res.json({ message: 'Migration started in background' });
+        res.json({ message: productId ? `Migration started for product ${productId}` : 'Migration started in background' });
         
         try {
-            logMigration('Starting blob migration...');
-            const [products] = await pool.query('SELECT id, images, thumbnails FROM products');
+            logMigration(productId ? `Starting blob migration for product ${productId}...` : 'Starting blob migration for all products...');
+            
+            let query = 'SELECT id, images, thumbnails FROM products';
+            let params = [];
+            if (productId) {
+                query += ' WHERE id = ?';
+                params.push(productId);
+            }
+            
+            const [products] = await pool.query(query, params);
             let updatedCount = 0;
             let totalProcessed = 0;
             
