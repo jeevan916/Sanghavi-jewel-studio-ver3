@@ -189,16 +189,15 @@ const SecurityLayer = () => {
     }, []);
 
     return (
-        <form style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -9999 }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '10px', height: '10px', zIndex: 9999, pointerEvents: 'none' }}>
             <input 
                 type="password"
-                name="protection"
-                autoComplete="current-password"
-                defaultValue="screenshot protection"
-                style={{ width: '100%', height: '100%', opacity: 0.99, border: 'none', background: 'transparent', outline: 'none' }}
+                defaultValue="screenshot"
+                style={{ position: 'absolute', top: 0, left: 0, width: '10px', height: '10px', border: 'none', padding: 0, margin: 0, outline: 'none' }}
                 tabIndex={-1}
             />
-        </form>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '10px', height: '10px', background: '#f5f5f4' }} />
+        </div>
     );
 };
 
