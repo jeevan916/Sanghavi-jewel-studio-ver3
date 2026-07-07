@@ -4,8 +4,21 @@ import path from 'path';
 import crypto from 'crypto';
 import { requireAdmin } from '../auth.js';
 
-export default function adminRoutes(pool, UPLOADS_ROOT) {
+export default function adminRoutes(pool, UPLOADS_ROOT, DATA_ROOT) {
     const router = express.Router();
+
+    router.get('/api/admin/storage-config', requireAdmin, (req, res) => {
+        try {
+            res.json({
+                uploadsRoot: UPLOADS_ROOT,
+                dataRoot: DATA_ROOT,
+                engineFolders: ['1080', '300'],
+                imageFormats: ['webp', 'mp4 (for videos)']
+            });
+        } catch(e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
     
     function safeParse(str, fallback = []) {
         try { return JSON.parse(str); } catch { return fallback; }

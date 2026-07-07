@@ -5,7 +5,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '@/types.ts';
 import { ProductCard } from '@/components/ProductCard.tsx';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers, Trash2, Plus, Database } from 'lucide-react';
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
 import { storeService, apiFetch } from '@/services/storeService.ts';
@@ -259,8 +259,8 @@ export const ProductDetails: React.FC = () => {
             if (allItems.length === 0 || !allItems.find(p => p.id === fetchedProduct.id)) {
                 storeService.getProducts(1, 30, { category: fetchedProduct.category, publicOnly: true })
                   .then(listData => {
-                      const navItems = listData.items.filter(p => p.category === fetchedProduct.category);
-                      const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
+                      const navItems = listData.items.filter((p: Product) => p.category === fetchedProduct.category);
+                      const idx = navItems.findIndex((p: Product) => p.id === fetchedProduct.id);
                       if (idx !== -1 && (!isGuest || isSharedAccess)) {
                           setNeighbors({
                               prev: idx > 0 ? navItems[idx - 1].id : null,
@@ -269,8 +269,8 @@ export const ProductDetails: React.FC = () => {
                       }
                   });
             } else {
-                let navItems = allItems.filter(p => p.category === fetchedProduct.category);
-                const idx = navItems.findIndex(p => p.id === fetchedProduct.id);
+                let navItems = allItems.filter((p: Product) => p.category === fetchedProduct.category);
+                const idx = navItems.findIndex((p: Product) => p.id === fetchedProduct.id);
                 if (idx !== -1 && (!isGuest || isSharedAccess)) {
                     setNeighbors({
                         prev: idx > 0 ? navItems[idx - 1].id : null,
@@ -952,6 +952,46 @@ export const ProductDetails: React.FC = () => {
                                     <div>
                                         <p className="text-[8px] font-bold uppercase text-stone-400 tracking-widest">Vault Location</p>
                                         <p className="text-xs font-bold text-brand-dark">{product.meta.location}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {isAdmin && (
+                    <div className="bg-white rounded-3xl p-6 space-y-6 border border-stone-100 shadow-lg mt-6">
+                        <h3 className="text-[9px] font-bold text-brand-gold uppercase tracking-[0.3em] flex items-center gap-2">
+                            <Database size={17} /> Vault Image Diagnostics
+                        </h3>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <h4 className="text-[10px] font-bold uppercase text-stone-400 tracking-widest mb-2">Original Images (1080p)</h4>
+                                <div className="space-y-2">
+                                    {product.images?.map((img, i) => (
+                                        <div key={i} className="p-3 bg-stone-50 rounded-xl border border-stone-100 text-[10px] font-mono text-brand-dark flex flex-col gap-1 break-all">
+                                            <span className="text-brand-gold font-bold">Image {i + 1}:</span>
+                                            <span>{img}</span>
+                                            {img.includes('/api/media/stream/') && <span className="text-stone-400">Format: Database Blob Streaming</span>}
+                                            {img.includes('.webp') && !img.includes('/api/media/stream/') && <span className="text-stone-400">Format: WEBP (Disk Optimized)</span>}
+                                            {img.includes('.avif') && !img.includes('/api/media/stream/') && <span className="text-stone-400">Format: AVIF (Disk Optimized)</span>}
+                                            {img.includes('.mp4') && !img.includes('/api/media/stream/') && <span className="text-stone-400">Format: MP4 (Video Disk)</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {product.thumbnails && product.thumbnails.length > 0 && (
+                                <div className="pt-2">
+                                    <h4 className="text-[10px] font-bold uppercase text-stone-400 tracking-widest mb-2">Thumbnails (300p)</h4>
+                                    <div className="space-y-2">
+                                        {product.thumbnails?.map((img, i) => (
+                                            <div key={i} className="p-3 bg-stone-50 rounded-xl border border-stone-100 text-[10px] font-mono text-brand-dark flex flex-col gap-1 break-all">
+                                                <span className="text-brand-gold font-bold">Thumb {i + 1}:</span>
+                                                <span>{img}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}

@@ -75,7 +75,7 @@ app.use((req, res, next) => {
         } catch (e) {
             return res.status(400).json({ error: 'Invalid Proxy Routing' });
         }
-    } else if (req.originalUrl.startsWith('/api/') && process.env.NODE_ENV !== 'development') {
+    } else if (req.originalUrl.startsWith('/api/') && !req.originalUrl.startsWith('/api/media/stream') && process.env.NODE_ENV !== 'development') {
         // Obfuscate real endpoints, return 404 for direct bot attempts
         // We only enforce this out of dev for easier local testing, though it's optional.
         return res.status(404).json({ error: "Endpoint not found." });
@@ -560,7 +560,7 @@ const sanitizeProduct = (p) => {
 
     app.use(productsRoutes(poolProxy, CACHE, sanitizeProduct));
     app.use(configRoutes(poolProxy, CACHE));
-    app.use(adminRoutes(poolProxy, UPLOADS_ROOT));
+    app.use(adminRoutes(poolProxy, UPLOADS_ROOT, DATA_ROOT));
     app.use(staffRoutes(poolProxy));
     app.use(linksRoutes(poolProxy));
     app.use(customersRoutes(poolProxy));
