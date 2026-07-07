@@ -62,7 +62,22 @@ const StorageView = () => {
                     </div>
 
                     <div className="border-t border-stone-100 pt-6">
-                        <p className="text-xs font-bold uppercase tracking-widest text-stone-400 mb-4">Storage Formats & Engine</p>
+                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
+                            <p className="text-xs font-bold uppercase tracking-widest text-stone-400">Storage Formats & Engine</p>
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const res = await apiFetch('/api/admin/migrate-blobs', { method: 'POST' });
+                                        alert(res.message || 'Migration successful');
+                                    } catch (e: any) {
+                                        alert('Migration failed: ' + e.message);
+                                    }
+                                }}
+                                className="px-4 py-2 bg-brand-dark text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-gold transition-colors flex items-center gap-2"
+                            >
+                                <RefreshCw size={14} /> Migrate Blobs to Disk
+                            </button>
+                        </div>
                         <div className="flex flex-wrap gap-2">
                             {storageConfig.engineFolders.map((f: string) => (
                                 <span key={f} className="px-3 py-1 bg-white border border-stone-200 rounded-full text-[10px] font-bold uppercase tracking-widest text-stone-500">Size: {f}w</span>
