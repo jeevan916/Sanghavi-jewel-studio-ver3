@@ -189,15 +189,15 @@ const SecurityLayer = () => {
     }, []);
 
     return (
-        <input 
-            type="password" 
-            value="screenshot-protection"
-            readOnly
-            aria-hidden="true"
-            tabIndex={-1}
-            className="fixed inset-0 w-full h-full z-[9999] pointer-events-none opacity-[0.001]" 
-            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-        />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }}>
+            <input 
+                type="password" 
+                defaultValue="protection"
+                style={{ width: '100%', height: '100%', opacity: 1, background: 'transparent', color: 'transparent', border: 'none', outline: 'none', pointerEvents: 'none' }}
+                tabIndex={-1}
+                autoComplete="off"
+            />
+        </div>
     );
 };
 
