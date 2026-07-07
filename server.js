@@ -1,3 +1,4 @@
+import { requireAdmin } from "./server/auth.js";
 import analyticsRoutes from './server/routes/analytics.js';
 import mediaRoutes from './server/routes/media.js';
 import customersRoutes from './server/routes/customers.js';
@@ -502,7 +503,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/diagnostics', async (req, res) => {
+app.get('/api/diagnostics', requireAdmin, async (req, res) => {
     try {
         const [tables] = await pool.query('SHOW TABLES');
         const [p] = await pool.query('SELECT COUNT(*) as c FROM products');
@@ -519,7 +520,7 @@ app.get('/api/diagnostics', async (req, res) => {
     }
 });
 
-app.get('/api/debug-env', (req, res) => {
+app.get('/api/debug-env', requireAdmin, (req, res) => {
     res.json({
         DB_HOST: process.env.DB_HOST || 'Not Set',
         DB_USER: process.env.DB_USER || 'Not Set',
@@ -530,7 +531,7 @@ app.get('/api/debug-env', (req, res) => {
     });
 });
 
-app.get('/api/retry-db', async (req, res) => {
+app.get('/api/retry-db', requireAdmin, async (req, res) => {
     try {
         await initDB();
         res.json({ status: 'success', message: 'Database connected successfully' });

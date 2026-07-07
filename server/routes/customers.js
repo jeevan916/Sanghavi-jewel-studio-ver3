@@ -1,9 +1,16 @@
 import express from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 
 export default function customersRoutes(pool) {
     const router = express.Router();
+
+    const authLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 20, // limit each IP to 20 login requests per windowMs
+        message: { error: 'Too many login attempts, please try again later.' }
+    });
 
 router.get('/api/customers', async (req, res) => {
     try {
@@ -19,7 +26,7 @@ router.get('/api/customers/check/:phone', async (req, res) => {
     } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
-router.post('/api/customers/login', async (req, res) => {
+router.post('/api/customers/login', authLimiter, async (req, res) => {
     const { phone, name, pincode } = req.body;
     try {
         const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
@@ -35,7 +42,7 @@ router.post('/api/customers/login', async (req, res) => {
     } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
-router.post('/api/login', async (req, res) => {
+router.post('/api/login', authLimiter, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT id, username, role, name, isActive FROM staff WHERE username = ? AND password = ?', [req.body.username, req.body.password]);
         if (rows[0] && rows[0].isActive) {

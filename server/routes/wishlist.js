@@ -1,4 +1,5 @@
 import express from 'express';
+import { requireStaff } from '../auth.js';
 
 export default function wishlistRoutes(pool, sanitizeProduct) {
     const router = express.Router();
@@ -37,7 +38,7 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
         } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
     });
 
-    router.get('/admin/wishlists/all', async (req, res) => {
+    router.get('/admin/wishlists/all', requireStaff, async (req, res) => {
         try {
             const [rows] = await pool.query(`
                 SELECT w.id as wishlistId, w.customerId, w.productId, w.priceWhenWishlisted, w.createdAt, w.lastNotifiedAt,
@@ -51,7 +52,7 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
         } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
     });
 
-    router.post('/admin/wishlists/notify', async (req, res) => {
+    router.post('/admin/wishlists/notify', requireStaff, async (req, res) => {
         try {
             const { notifications } = req.body; // Array of { wishlistId, customerId, phone, productTitle, currentPrice }
             

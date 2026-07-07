@@ -59,8 +59,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick, prio
             decoding="async" 
             loading={priority ? "eager" : "lazy"}
             referrerPolicy="no-referrer"
+            draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
             {...(priority ? { fetchPriority: "high" } : {})}
-            className={`w-full h-full object-contain transition-all duration-700 group-hover:scale-110 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
+            className={`w-full h-full object-contain pointer-events-none select-none transition-all duration-700 group-hover:scale-110 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} 
         />
         
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500"></div>
