@@ -108,101 +108,27 @@ const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
 
 const SecurityLayer = () => {
     useEffect(() => {
-        // Disable right click
-        const handleContextMenu = (e: MouseEvent) => {
-            e.preventDefault();
-        };
-
-        // Disable keyboard shortcuts, including screenshot shortcuts
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // Prevent Print Screen
-            if (e.key === 'PrintScreen') {
-                navigator.clipboard.writeText('');
-                // Sometimes applying a CSS class helps
-                document.body.style.display = 'none';
-                setTimeout(() => document.body.style.display = 'block', 100);
-                e.preventDefault();
-                return;
-            }
-
-            // Prevent F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
-            if (
-                e.key === 'F12' ||
-                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c' || e.key === 'S' || e.key === 's')) ||
-                (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'P' || e.key === 'p' || e.key === 'S' || e.key === 's')) ||
-                (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S' || e.key === '3' || e.key === '4' || e.key === '5'))
-            ) {
-                e.preventDefault();
-            }
-        };
-
-        const handleKeyUp = (e: KeyboardEvent) => {
-            if (e.key === 'PrintScreen') {
-                navigator.clipboard.writeText('');
-                document.body.style.display = 'none';
-                setTimeout(() => document.body.style.display = 'block', 100);
-            }
-        };
-
         const handleVisibilityChange = () => {
             if (document.hidden) {
-                // If they switch tabs/minimize, we can blank the screen so OS thumbnails don't capture it accurately
+                // Secondary privacy protection
                 document.body.style.filter = 'blur(10px) grayscale(100%)';
             } else {
                 document.body.style.filter = 'none';
             }
         };
 
-        // Disable text selection globally except for inputs
-        const handleSelectStart = (e: Event) => {
-            const target = e.target as HTMLElement;
-            if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
-                e.preventDefault();
-            }
-        };
-
-        const handleCopy = (e: ClipboardEvent) => {
-            e.preventDefault();
-            e.clipboardData?.clearData();
-        };
-
-        document.addEventListener('contextmenu', handleContextMenu);
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('keyup', handleKeyUp);
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        document.addEventListener('selectstart', handleSelectStart);
-        document.addEventListener('copy', handleCopy);
-
-        // Add a console warning
-        console.log("%cStop!", "color: red; font-family: sans-serif; font-size: 4.5em; font-weight: bolder; text-shadow: #000 1px 1px;");
-        console.log("%cThis is a browser feature intended for developers. If someone told you to copy-paste something here to enable a feature or 'hack' someone's account, it is a scam and will give them access to your account.", "font-family: sans-serif; font-size: 1.25em;");
 
         return () => {
-            document.removeEventListener('contextmenu', handleContextMenu);
-            document.removeEventListener('keydown', handleKeyDown);
-            document.removeEventListener('keyup', handleKeyUp);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
-            document.removeEventListener('selectstart', handleSelectStart);
-            document.removeEventListener('copy', handleCopy);
             document.body.style.filter = 'none';
         };
     }, []);
 
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '10px', height: '10px', zIndex: 9999, pointerEvents: 'none' }}>
-            <input 
-                type="password"
-                defaultValue="screenshot"
-                style={{ position: 'absolute', top: 0, left: 0, width: '10px', height: '10px', border: 'none', padding: 0, margin: 0, outline: 'none' }}
-                tabIndex={-1}
-            />
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '10px', height: '10px', background: '#f5f5f4' }} />
-        </div>
-    );
+    return null;
 };
 
-
-
+import { SecurityWatermark } from '@/components/security/SecurityWatermark.tsx';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor.ts';
 
 function AppContent() {
@@ -260,6 +186,7 @@ function AppContent() {
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'}`}>
       <SecurityLayer />
+      <SecurityWatermark user={user} />
       <main className="pb-20 md:pb-0">
         <Suspense fallback={<SafeLoader />}>
           <Routes>

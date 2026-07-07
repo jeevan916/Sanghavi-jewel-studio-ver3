@@ -2,6 +2,7 @@ import { requireAdmin } from "./server/auth.js";
 import analyticsRoutes from './server/routes/analytics.js';
 import mediaRoutes from './server/routes/media.js';
 import customersRoutes from './server/routes/customers.js';
+import securityRoutes from './server/routes/security.js';
 import productsRoutes from './server/routes/products.js';
 import wishlistRoutes from './server/routes/wishlist.js';
 import configRoutes from './server/routes/config.js';
@@ -17,14 +18,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 if (!process.env.JWT_SECRET) {
-  const newSecret = crypto.randomBytes(32).toString('hex');
-  process.env.JWT_SECRET = newSecret;
-  try {
-    appendFileSync('.env', `\nJWT_SECRET=${newSecret}\n`);
-    console.log('✅ Generated a secure JWT_SECRET and saved it to .env');
-  } catch (err) {
-    console.warn('⚠️ Could not save JWT_SECRET to .env, using an ephemeral in-memory secret for this session.');
-  }
+  console.error('FATAL: JWT_SECRET environment variable is missing.');
+  process.exit(1);
 }
 
 const requiredEnv = ['GEMINI_API_KEY'];
@@ -178,8 +173,10 @@ app.use(cors({
 }));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // Simple CSP that allows images from any source, scripts from self/inline (for vite), and API connections
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob: *; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: https:;");
   next();
 });
 app.use(compression());
@@ -403,6 +400,7 @@ const initDB = async () => {
     await pool.query(`CREATE TABLE IF NOT EXISTS sub_categories (id INT AUTO_INCREMENT PRIMARY KEY, categoryId VARCHAR(50), name VARCHAR(255), FOREIGN KEY (categoryId) REFERENCES categories(id) ON DELETE CASCADE)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value TEXT)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS instagram_comments (id VARCHAR(255) PRIMARY KEY, media_id VARCHAR(255), username VARCHAR(255), text TEXT, timestamp DATETIME)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS security_traces (trace_id VARCHAR(255) PRIMARY KEY, staff_id VARCHAR(255), role VARCHAR(50), ip_hmac VARCHAR(255), user_agent_hmac VARCHAR(255), created_at DATETIME, expires_at DATETIME)`);
 
     // 3. ENTERPRISE SCALABILITY: High-Performance Indexes
     const indexQueries = [
@@ -448,16 +446,22 @@ const initDB = async () => {
     // 5. Seed Default Admin User
     const [adminCheck] = await pool.query('SELECT id FROM staff WHERE role = "admin" LIMIT 1');
     if (adminCheck.length === 0) {
-        console.log('[Database] Seeding default admin user...');
-        await pool.query('INSERT INTO staff (id, username, password, role, name, isActive, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)', [
-            crypto.randomUUID(),
-            'admin',
-            'admin123', // Default password
-            'admin',
-            'System Admin',
-            true,
-            new Date()
-        ]);
+        if (process.env.ADMIN_BOOTSTRAP_USERNAME && process.env.ADMIN_BOOTSTRAP_PASSWORD) {
+            console.log('[Database] Seeding bootstrap admin user...');
+            const bcrypt = await import('bcryptjs');
+            const hashedPassword = await bcrypt.default.hash(process.env.ADMIN_BOOTSTRAP_PASSWORD, 10);
+            await pool.query('INSERT INTO staff (id, username, password, role, name, isActive, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+                crypto.randomUUID(),
+                process.env.ADMIN_BOOTSTRAP_USERNAME,
+                hashedPassword,
+                'admin',
+                'System Admin',
+                true,
+                new Date()
+            ]);
+        } else {
+            console.warn('⚠️ [Database] No admin exists and bootstrap credentials (ADMIN_BOOTSTRAP_USERNAME, ADMIN_BOOTSTRAP_PASSWORD) are missing. Skipping admin creation.');
+        }
     }
 
     console.log('[Database] Schema Verified and Ready');
@@ -474,7 +478,7 @@ const initDB = async () => {
 };
 
 // --- DYNAMIC IMAGE RESIZING ---
-
+    app.locals.pool = poolProxy;
     app.use(mediaRoutes(poolProxy, UPLOADS_ROOT));
 
 app.get('/api/health', (req, res) => {
@@ -565,6 +569,7 @@ const sanitizeProduct = (p) => {
     app.use(staffRoutes(poolProxy));
     app.use(linksRoutes(poolProxy));
     app.use(customersRoutes(poolProxy));
+    app.use(securityRoutes(poolProxy));
     app.use('/api', wishlistRoutes(poolProxy, sanitizeProduct));
 
     app.use(analyticsRoutes(poolProxy, BACKUPS_ROOT));
