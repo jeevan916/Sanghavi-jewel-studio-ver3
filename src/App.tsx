@@ -189,16 +189,14 @@ const SecurityLayer = () => {
     }, []);
 
     return (
-        <form style={{ position: 'fixed', bottom: '0', right: '0', zIndex: 9999, opacity: 0.02 }}>
+        <form style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -9999 }}>
             <input 
                 type="password"
                 name="protection"
                 autoComplete="current-password"
                 defaultValue="screenshot protection"
-                style={{ width: '50px', height: '20px', fontSize: '16px', border: 'none', outline: 'none' }}
+                style={{ width: '100%', height: '100%', opacity: 0.99, border: 'none', background: 'transparent', outline: 'none' }}
                 tabIndex={-1}
-                onFocus={(e) => e.target.blur()}
-                aria-hidden="true"
             />
         </form>
     );
