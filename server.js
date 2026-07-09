@@ -19,8 +19,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is missing.');
-  process.exit(1);
+  console.warn('WARNING: JWT_SECRET environment variable is missing. Using a default secret for development.');
+  process.env.JWT_SECRET = 'default_dev_jwt_secret_change_in_production';
 }
 
 const requiredEnv = ['GEMINI_API_KEY'];
@@ -656,8 +656,8 @@ async function startServer() {
       }
     }
 
-    const PORT = process.env.PORT || 3000;
-    const server = app.listen(PORT, () => {
+    const PORT = 3000;
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log("Server running on port", PORT);
       
       // Initialize Database in background after server starts listening
