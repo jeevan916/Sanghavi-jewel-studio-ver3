@@ -5,7 +5,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Product, ProductStats, PromptTemplate, AppConfig } from '@/types.ts';
 import { ProductCard } from '@/components/ProductCard.tsx';
-import { ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers, Trash2, Plus, Database } from 'lucide-react';
+import { Bell, ArrowLeft, Share2, MessageCircle, Info, Tag, Heart, ShoppingBag, Gem, BarChart2, Loader2, Lock, Edit2, Save, Link as LinkIcon, Wand2, Eraser, ChevronLeft, ChevronRight, Calendar, Camera, User, Package, MapPin, Hash, Sparkles, Eye, EyeOff, X, CheckCircle, Copy, TrendingUp, Settings, DollarSign, ShieldCheck, Smartphone, RefreshCw, Clock, Layers, Trash2, Plus, Database } from 'lucide-react';
 import { ImageViewer } from '@/components/ImageViewer.tsx';
 import { ComparisonSlider } from '@/components/ComparisonSlider.tsx';
 import { storeService, apiFetch } from '@/services/storeService.ts';
@@ -33,6 +33,7 @@ export const ProductDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   usePerformanceMonitor('ProductDetails', isLoading);
   const [isLiked, setIsLiked] = useState(false);
+  const [isPriceAlertSet, setIsPriceAlertSet] = useState(false);
   const [stats, setStats] = useState<ProductStats>({ like: 0, dislike: 0, inquiry: 0, sold: 0, view: 0 });
   const [isSharedAccess, setIsSharedAccess] = useState(false);
   const [isRestricted, setIsRestricted] = useState(false);
@@ -482,6 +483,29 @@ export const ProductDetails: React.FC = () => {
       setStats(prev => ({...prev, like: liked ? prev.like + 1 : Math.max(0, prev.like - 1)}));
   };
 
+
+  const togglePriceAlert = async () => {
+      if (!user) {
+          navigate('/login', { state: { from: location.pathname } });
+          return;
+      }
+      setIsPriceAlertSet(true);
+      try {
+          await apiFetch('/api/price-drop-alerts', {
+              method: 'POST',
+              body: JSON.stringify({
+                  customerId: user.id,
+                  productId: product.id,
+                  currentPrice: priceData?.total || 0
+              })
+          });
+          // Show toast or success indication here if we had a toast system
+      } catch (e) {
+          console.error(e);
+          setIsPriceAlertSet(false);
+      }
+  };
+
   const toggleWishlist = async () => {
       if (!user) {
           navigate('/login');
@@ -554,9 +578,14 @@ export const ProductDetails: React.FC = () => {
                     <button onClick={() => toggleLike()} className={`p-3 rounded-2xl transition-all ${isLiked ? 'text-brand-red bg-brand-red/5' : 'text-stone-300 hover:text-brand-dark hover:bg-stone-50'}`}>
                         <Heart size={26} fill={isLiked ? "currentColor" : "none"} />
                     </button>
+                    
                     <button onClick={() => toggleWishlist()} className={`p-3 rounded-2xl transition-all ${isWishlisted ? 'text-brand-gold bg-brand-gold/5' : 'text-stone-300 hover:text-brand-gold hover:bg-stone-50'}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill={isWishlisted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
                     </button>
+                    <button onClick={() => togglePriceAlert()} title="Notify me on price drop" className={`p-3 rounded-2xl transition-all ${isPriceAlertSet ? 'text-emerald-500 bg-emerald-50' : 'text-stone-300 hover:text-emerald-500 hover:bg-stone-50'}`}>
+                        <Bell size={26} fill={isPriceAlertSet ? "currentColor" : "none"} />
+                    </button>
+
                     <button onClick={() => navigator.share?.({ title: product.title, url: window.location.href })} className="p-3 text-stone-300 hover:text-brand-dark hover:bg-stone-50 rounded-2xl transition-all"><Share2 size={26} /></button>
                 </>
             )}

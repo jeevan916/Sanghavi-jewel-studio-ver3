@@ -3,6 +3,7 @@ import analyticsRoutes from './server/routes/analytics.js';
 import mediaRoutes from './server/routes/media.js';
 import customersRoutes from './server/routes/customers.js';
 import securityRoutes from './server/routes/security.js';
+import alertsRoutes from './server/routes/alerts.js';
 import productsRoutes from './server/routes/products.js';
 import wishlistRoutes from './server/routes/wishlist.js';
 import configRoutes from './server/routes/config.js';
@@ -401,6 +402,7 @@ const initDB = async () => {
     await pool.query(`CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value TEXT)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS instagram_comments (id VARCHAR(255) PRIMARY KEY, media_id VARCHAR(255), username VARCHAR(255), text TEXT, timestamp DATETIME)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS security_traces (trace_id VARCHAR(255) PRIMARY KEY, staff_id VARCHAR(255), role VARCHAR(50), ip_hmac VARCHAR(255), user_agent_hmac VARCHAR(255), created_at DATETIME, expires_at DATETIME)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS price_drop_alerts (id VARCHAR(255) PRIMARY KEY, customerId VARCHAR(255), productId VARCHAR(255), currentPrice FLOAT, targetPrice FLOAT, createdAt DATETIME, lastNotifiedAt DATETIME, isActive BOOLEAN DEFAULT TRUE, FOREIGN KEY (customerId) REFERENCES customers(id) ON DELETE CASCADE, FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE, UNIQUE KEY unique_alert(customerId, productId))`);
 
     // 3. ENTERPRISE SCALABILITY: High-Performance Indexes
     const indexQueries = [
@@ -570,6 +572,7 @@ const sanitizeProduct = (p) => {
     app.use(linksRoutes(poolProxy));
     app.use(customersRoutes(poolProxy));
     app.use(securityRoutes(poolProxy));
+    app.use(alertsRoutes(poolProxy));
     app.use('/api', wishlistRoutes(poolProxy, sanitizeProduct));
 
     app.use(analyticsRoutes(poolProxy, BACKUPS_ROOT));

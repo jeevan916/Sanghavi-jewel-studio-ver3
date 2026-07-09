@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { storeService, apiFetch } from '@/services/storeService.ts';
 import { coreEngine } from '@/services/coreEngine.ts';
 import { Product, AnalyticsEvent, User, AppConfig } from '@/types.ts';
+import { PredictiveMarketingPanel } from '@/components/admin/PredictiveMarketingPanel.tsx';
 import { WishlistCampaigns } from '@/components/WishlistCampaigns.tsx';
 import { MigrationDebugger } from '@/components/admin/MigrationDebugger.tsx';
 import { 
@@ -18,7 +19,7 @@ interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns' | 'finance' | 'storage';
+type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns' | 'finance' | 'storage' | 'predictive';
 
 const StorageView = () => {
     const [storageConfig, setStorageConfig] = useState<any>(null);
@@ -363,6 +364,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'neural', icon: BrainCircuit, label: 'Neural' },
               { id: 'pulse', icon: MessageCircle, label: 'Pulse' },
               { id: 'campaigns', icon: Megaphone, label: 'Campaigns' },
+              { id: 'predictive', icon: Zap, label: 'Predictive Marketing' },
               { id: 'finance', icon: Wallet, label: 'Finance' },
               { id: 'storage', icon: Database, label: 'Storage' },
             ].map(tab => (
@@ -376,6 +378,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
             ))}
         </div>
       </header>
+
+      
+      {activeView === 'predictive' && (
+          <PredictiveMarketingPanel customers={customers} products={products} analytics={analytics} />
+      )}
 
       {activeView === 'overview' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 animate-fade-in">
