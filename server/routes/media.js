@@ -1,322 +1,146 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import fs, { existsSync } from 'fs';
+import { existsSync, writeFileSync, unlinkSync } from 'fs';
 import crypto from 'crypto';
-import ffmpeg from 'fluent-ffmpeg';
-import { requireStaff } from '../auth.js';
 
-export default function mediaRoutes(pool, UPLOADS_ROOT) {
-    const router = express.Router();
+export default function (pool, UPLOADS_ROOT) {
+  const router = express.Router();
+  const storage = multer.memoryStorage();
+  const upload = multer({ storage });
 
-router.get('/api/media/resize', async (req, res) => {
-    try {
-        const { url, width, format = 'webp', quality = 80 } = req.query;
-        if (!url) return res.status(400).json({ error: 'Missing url' });
-        
-        // Ensure URL is within uploads
-        const safeUrl = url.startsWith('/') ? url : `/${url}`;
-        const filepath = path.resolve(path.join(UPLOADS_ROOT, safeUrl.replace(/^\/uploads\//, '')));
-        
-        if (!filepath.startsWith(path.resolve(UPLOADS_ROOT))) {
-             return res.status(403).json({ error: 'Access denied' });
-        }
-        
-        if (!existsSync(filepath)) {
-            const redirectUrl = new URL(req.originalUrl, 'https://studio.sanghavijewellers.com');
-            return res.redirect(redirectUrl.toString());
-        }
-
-        const { default: sharp } = await import('sharp');
-        const transformer = sharp(filepath);
-        
-        if (width) {
-            transformer.resize(parseInt(width), null, { withoutEnlargement: true });
-        }
-        
-        const buffer = await transformer.toFormat(format, { quality: parseInt(quality) }).toBuffer();
-        
-        res.setHeader('Content-Type', `image/${format}`);
-        res.send(buffer);
-    } catch (e) {
-        console.error('Dynamic resize failed:', e);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-// --- IMAGE METADATA ---
-router.get('/api/media/info', async (req, res) => {
-    try {
-        const { url } = req.query;
-        if (!url) return res.status(400).json({ error: 'Missing url' });
-        
-        const safeUrl = url.startsWith('/') ? url : `/${url}`;
-        const filepath = path.resolve(path.join(UPLOADS_ROOT, safeUrl.replace(/^\/uploads\//, '')));
-        
-        if (!filepath.startsWith(path.resolve(UPLOADS_ROOT))) {
-             return res.status(403).json({ error: 'Access denied' });
-        }
-        
-        if (!existsSync(filepath)) return res.status(404).json({ error: 'Image not found' });
-        
-        const stats = statSync(filepath);
-        res.json({ size: stats.size });
-    } catch (e) {
-        console.error('Metadata fetch failed:', e);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-// --- MEDIA PROCESSING ---
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.match(/^(image\/(jpeg|png|webp))$/)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Unsupported file format. Only JPEG, PNG, and WEBP are allowed.'), false);
-        }
-    }
-});
-
-const slugify = (text) => text.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
-
-const getHash = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 12);
-
-router.post('/api/media/upload', requireStaff, upload.array('files', 10), async (req, res) => {
-  if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
-  const results = [];
-  try {
-    for (const file of req.files) {
-      const originalName = file.originalname.split('.').slice(0, -1).join('.');
-      const safeName = slugify(originalName) || 'asset';
-      const contentHash = getHash(file.buffer);
-      
-      if (file.mimetype.startsWith('video/')) {
-        // Handle Video Processing
-        console.log(`🎬 [Media] Processing video: ${file.originalname} (${file.size} bytes)`);
-        const filename = `${contentHash}-${safeName}.webm`;
-        const filepath = path.join(UPLOADS_ROOT, '1080', filename);
-        const tempInput = path.join(UPLOADS_ROOT, `temp-${contentHash}.tmp`);
-        
-        const fs = await import('fs');
-        
-        // Deduplication Check
-        if (existsSync(filepath)) {
-            console.log(`🎬 [Media] Video already exists, skipping: ${filename}`);
-            results.push({
-                originalName: file.originalname,
-                primary: `/uploads/1080/${filename}`,
-                thumbnail: `/uploads/1080/${filename}`
-            });
-            continue;
-        }
-
-        fs.writeFileSync(tempInput, file.buffer);
-        console.log(`🎬 [Media] Temp file created: ${tempInput}`);
-
-        try {
-            await new Promise((resolve, reject) => {
-              ffmpeg(tempInput)
-                .outputOptions([
-                  '-an', // Remove audio
-                  '-c:v libvpx-vp9', // WebM video codec
-                  '-crf 30', // Constant Rate Factor for quality
-                  '-b:v 0', // Required for CRF in VP9
-                  '-deadline realtime' // Speed up encoding
-                ])
-                .toFormat('webm')
-                .on('start', (cmd) => console.log(`🎬 [Media] FFmpeg started: ${cmd}`))
-                .on('end', () => {
-                  console.log(`🎬 [Media] FFmpeg finished: ${filename}`);
-                  if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput); // Cleanup temp file
-                  resolve();
-                })
-                .on('error', (err) => {
-                  console.error('🎬 [Media] FFmpeg error:', err);
-                  if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
-                  reject(err);
-                })
-                .save(filepath);
-            });
-
-            results.push({
-              originalName: file.originalname,
-              primary: `/uploads/1080/${filename}`,
-              thumbnail: `/uploads/1080/${filename}` // Use video itself as thumbnail
-            });
-        } catch (err) {
-            console.error('🎬 [Media] Video processing failed, falling back to original buffer:', err);
-            // Fallback: save original buffer if ffmpeg fails
-            const fallbackFilename = `${contentHash}-${safeName}${path.extname(file.originalname) || '.mp4'}`;
-            const fallbackPath = path.join(UPLOADS_ROOT, '1080', fallbackFilename);
-            if (!existsSync(fallbackPath)) {
-                fs.writeFileSync(fallbackPath, file.buffer);
-            }
-            results.push({
-                originalName: file.originalname,
-                primary: `/uploads/1080/${fallbackFilename}`,
-                thumbnail: `/uploads/1080/${fallbackFilename}`
-            });
-        }
-      } else {
-        // Handle Image Processing
-        const processVariant = async (width, format, quality) => {
-          const filename = `${contentHash}-${safeName}-${width}w.${format}`;
-          const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
-          
-          // Deduplication Check
-          if (existsSync(filepath)) {
-              console.log(`🖼️ [Media] Image variant already exists, skipping: ${filename}`);
-              return `/uploads/${width}/${filename}`;
-          }
-
-          try {
-            const { default: sharp } = await import('sharp');
-            await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
-          } catch (e) {
-            console.error('Sharp processing failed, saving raw file instead:', e);
-            const fs = await import('fs');
-            fs.writeFileSync(filepath, file.buffer);
-          }
-          return `/uploads/${width}/${filename}`;
-        };
-
-        const [desktopWebP, mobileThumb] = await Promise.all([
-            processVariant(1080, 'webp', 85),
-            processVariant(300, 'webp', 80)
-        ]);
-        
-        results.push({ 
-            originalName: file.originalname, 
-            primary: desktopWebP,
-            thumbnail: mobileThumb 
-        });
+  const requireStaff = (req, res, next) => {
+      if (!req.user || !['admin', 'staff', 'manager'].includes(req.user.role)) {
+          return res.status(401).json({ error: 'Unauthorized: Missing credentials' });
       }
-    }
-    res.json({ success: true, files: results });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+      next();
+  };
 
-// --- LOGO UPLOAD & SERVE ---
-router.post('/api/settings/logo', requireStaff, upload.single('logo'), async (req, res) => {
+  router.post('/api/media/upload', requireStaff, upload.array('files'), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-        const filepath = path.join(UPLOADS_ROOT, 'custom_logo.png');
-        try {
-            const { default: sharp } = await import('sharp');
-            await sharp(req.file.buffer).png().toFile(filepath);
-        } catch (e) {
-            console.error('Sharp processing failed, saving raw file instead:', e);
-            const fs = await import('fs');
-            fs.writeFileSync(filepath, req.file.buffer);
-        }
-        res.json({ success: true, url: '/api/settings/logo.png?t=' + Date.now() });
-    } catch (error) {
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-router.get('/api/settings/logo.png', (req, res) => {
-    const customLogoPath = path.join(UPLOADS_ROOT, 'custom_logo.png');
-    if (existsSync(customLogoPath)) {
-        res.sendFile(customLogoPath);
-    } else {
-        res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png');
-    }
-});
-
-// Catch-all for /logo.png to prevent infinite loops from cached clients
-router.get('/logo.png', (req, res) => {
-    res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png');
-});
-
-
-// --- MEDIA STREAMING ---
-router.get('/api/media/stream/:id/:type/:index.webp', async (req, res) => {
-    try {
-        const { id, type, index } = req.params;
-        const [rows] = await pool.query('SELECT images, thumbnails FROM products WHERE id = ?', [id]);
-        if (rows.length === 0) return res.status(404).send('Not found');
+      if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
+      
+      const results = [];
+      for (const file of req.files) {
+        const contentHash = crypto.createHash('md5').update(file.buffer).digest('hex').substring(0, 12);
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
         
-        const col = type === 'thumb' ? rows[0].thumbnails : rows[0].images;
-        if (!col) return res.status(404).send('No images');
-        
-        const arr = typeof col === 'string' ? JSON.parse(col) : col;
-        const imgStr = arr[parseInt(index)] || '';
-        
-        if (!imgStr.startsWith('data:')) {
-            // It might be an external URL or /uploads/ path
-            return res.redirect(imgStr);
-        }
-        
-        const matches = imgStr.match(/^data:([a-zA-Z0-9+\\/\\-]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) {
-            return res.status(400).send('Invalid image format in DB');
-        }
-        
-        const mimeType = matches[1];
-        const base64Data = matches[2];
-        const buffer = Buffer.from(base64Data, 'base64');
-        
-        res.setHeader('Content-Type', mimeType);
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        res.send(buffer);
-    } catch (e) {
-        console.error('Streaming error:', e);
-        res.status(500).send('Internal Server Error');
-    }
-});
-
-// --- API ROUTES ---
-
-router.post('/api/media/deterministic-enhance', requireStaff, async (req, res) => {
-    try {
-        const { base64Image } = req.body;
-        const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
-        
-        const { spawn } = await import('child_process');
-        const { default: sharp } = await import('sharp');
-        
-        // Convert to JPEG first to ensure OpenCV can read it
-        const buffer = Buffer.from(cleanBase64, 'base64');
-        const jpegBuffer = await sharp(buffer).toFormat('jpeg').toBuffer();
-        const jpegBase64 = jpegBuffer.toString('base64');
-
-        const pythonProcess = spawn('python3', [path.resolve(process.cwd(), 'scripts/enhance.py')]);
-        
-        let outputBase64 = '';
-        let errorOutput = '';
-
-        pythonProcess.stdout.on('data', (data) => {
-            outputBase64 += data.toString();
-        });
-
-        pythonProcess.stderr.on('data', (data) => {
-            errorOutput += data.toString();
-        });
-
-        pythonProcess.on('close', (code) => {
-            if (code !== 0) {
-                console.error("Python Script Error:", errorOutput);
-                return res.status(500).json({ error: 'Image processing failed' });
+        if (file.mimetype.startsWith('video/')) {
+          // Fallback simple save for video
+          const fallbackFilename = `${contentHash}-${safeName}${path.extname(file.originalname) || '.mp4'}`;
+          const fallbackPath = path.join(UPLOADS_ROOT, '1080', fallbackFilename);
+          if (!existsSync(fallbackPath)) writeFileSync(fallbackPath, file.buffer);
+          results.push({
+              originalName: file.originalname,
+              primary: `/uploads/1080/${fallbackFilename}`,
+              thumbnail: `/uploads/1080/${fallbackFilename}`
+          });
+        } else {
+          const processVariant = async (width, format, quality) => {
+            const filename = `${contentHash}-${safeName}-${width}w.${format}`;
+            const filepath = path.join(UPLOADS_ROOT, width.toString(), filename);
+            if (existsSync(filepath)) return `/uploads/${width}/${filename}`;
+            try {
+              const { default: sharp } = await import('sharp');
+              await sharp(file.buffer).rotate().resize(width, null, { withoutEnlargement: true }).sharpen({ sigma: 0.8, m1: 0.5, m2: 0.5 }).toFormat(format, { quality }).toFile(filepath);
+            } catch (e) {
+              writeFileSync(filepath, file.buffer);
             }
-            
-            const dataUri = `data:image/jpeg;base64,${outputBase64.trim()}`;
-            res.json({ success: true, data: dataUri });
-        });
-
-        pythonProcess.stdin.write(jpegBase64);
-        pythonProcess.stdin.end();
-
+            return `/uploads/${width}/${filename}`;
+          };
+          const [desktopWebP, mobileThumb] = await Promise.all([
+              processVariant(1080, 'webp', 85),
+              processVariant(300, 'webp', 80)
+          ]);
+          results.push({ originalName: file.originalname, primary: desktopWebP, thumbnail: mobileThumb });
+        }
+      }
+      res.json({ success: true, files: results });
     } catch (error) {
-        console.error("Deterministic Enhance Error:", error);
-        res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Internal server error' });
     }
-});
+  });
 
-    return router;
+  router.post('/api/settings/logo', requireStaff, upload.single('logo'), async (req, res) => {
+      try {
+          if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+          const filepath = path.join(UPLOADS_ROOT, 'custom_logo.png');
+          try {
+              const { default: sharp } = await import('sharp');
+              await sharp(req.file.buffer).png().toFile(filepath);
+          } catch (e) { writeFileSync(filepath, req.file.buffer); }
+          res.json({ success: true, url: '/api/settings/logo.png?t=' + Date.now() });
+      } catch (error) { res.status(500).json({ error: 'Internal server error' }); }
+  });
+
+  router.get('/api/settings/logo.png', (req, res) => {
+      const customLogoPath = path.join(UPLOADS_ROOT, 'custom_logo.png');
+      if (existsSync(customLogoPath)) res.sendFile(customLogoPath);
+      else res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png');
+  });
+
+  router.get('/logo.png', (req, res) => res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png'));
+
+  router.get('/api/media/stream/:id/:type/:index.webp', async (req, res) => {
+      try {
+          const { id, type, index } = req.params;
+          const [rows] = await pool.query('SELECT images, thumbnails FROM products WHERE id = ?', [id]);
+          if (rows.length === 0) return res.status(404).send('Not found');
+          const col = type === 'thumb' ? rows[0].thumbnails : rows[0].images;
+          if (!col) return res.status(404).send('No images');
+          const arr = typeof col === 'string' ? JSON.parse(col) : col;
+          const imgStr = arr[parseInt(index)] || '';
+          if (!imgStr.startsWith('data:')) return res.redirect(imgStr);
+          const matches = imgStr.match(/^data:([a-zA-Z0-9+\/\-]+);base64,(.+)$/);
+          if (!matches || matches.length !== 3) return res.status(400).send('Invalid image format');
+          res.setHeader('Content-Type', matches[1]);
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          res.send(Buffer.from(matches[2], 'base64'));
+      } catch (e) { res.status(500).send('Internal Server Error'); }
+  });
+
+  router.post('/api/media/deterministic-enhance', requireStaff, async (req, res) => {
+      try {
+          const { base64Image } = req.body;
+          const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+          
+          const { spawn } = await import('child_process');
+          const fsPromises = await import('fs/promises');
+          const cryptoModule = await import('crypto');
+          const os = await import('os');
+          
+          const id = cryptoModule.randomUUID();
+          const inputPath = path.join(os.tmpdir(), `${id}_in.jpg`);
+          const outputPath = path.join(os.tmpdir(), `${id}_out.jpg`);
+          
+          await fsPromises.writeFile(inputPath, cleanBase64);
+          
+          const pythonProcess = spawn('python3', [path.resolve(process.cwd(), 'scripts/enhance.py'), inputPath, outputPath]);
+          
+          let errorOutput = '';
+          pythonProcess.stderr.on('data', (data) => errorOutput += data.toString());
+          
+          pythonProcess.on('close', async (code) => {
+              try {
+                  if (code !== 0) {
+                      console.error("Python Script Error:", errorOutput);
+                      return res.status(500).json({ error: 'Image processing failed' });
+                  }
+                  const outputBase64 = await fsPromises.readFile(outputPath, 'utf8');
+                  res.json({ success: true, data: `data:image/jpeg;base64,${outputBase64.trim()}` });
+              } catch (err) {
+                  console.error("Error reading output:", err);
+                  res.status(500).json({ error: 'Failed to read processed image' });
+              } finally {
+                  await fsPromises.unlink(inputPath).catch(() => {});
+                  await fsPromises.unlink(outputPath).catch(() => {});
+              }
+          });
+      } catch (error) {
+          console.error("Deterministic Enhance Error:", error);
+          res.status(500).json({ error: 'Internal server error' });
+      }
+  });
+
+  return router;
 }
