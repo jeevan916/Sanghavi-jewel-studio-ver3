@@ -110,10 +110,10 @@ export default function (pool, UPLOADS_ROOT) {
           const os = await import('os');
           
           const id = cryptoModule.randomUUID();
-          const inputPath = path.join(os.tmpdir(), `${id}_in.jpg`);
-          const outputPath = path.join(os.tmpdir(), `${id}_out.jpg`);
+          const inputPath = path.join(os.tmpdir(), `${id}_in.webp`);
+          const outputPath = path.join(os.tmpdir(), `${id}_out.webp`);
           
-          await fsPromises.writeFile(inputPath, cleanBase64);
+          await fsPromises.writeFile(inputPath, cleanBase64, 'base64');
           
           const pythonProcess = spawn('python3', [path.resolve(process.cwd(), 'scripts/enhance.py'), inputPath, outputPath]);
           
@@ -126,8 +126,8 @@ export default function (pool, UPLOADS_ROOT) {
                       console.error("Python Script Error:", errorOutput);
                       return res.status(500).json({ error: 'Image processing failed' });
                   }
-                  const outputBase64 = await fsPromises.readFile(outputPath, 'utf8');
-                  res.json({ success: true, data: `data:image/jpeg;base64,${outputBase64.trim()}` });
+                  const outputBase64 = await fsPromises.readFile(outputPath, 'base64');
+                  res.json({ success: true, data: `data:image/webp;base64,${outputBase64.trim()}` });
               } catch (err) {
                   console.error("Error reading output:", err);
                   res.status(500).json({ error: 'Failed to read processed image' });
