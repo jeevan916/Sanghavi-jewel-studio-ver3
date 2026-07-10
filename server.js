@@ -174,7 +174,7 @@ app.use(cors({
 }));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  // res.setHeader('X-Frame-Options', 'DENY'); // Removed for AI Studio iframe preview
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   // Simple CSP that allows images from any source, scripts from self/inline (for vite), and API connections
   res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob: *; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: https:;");
