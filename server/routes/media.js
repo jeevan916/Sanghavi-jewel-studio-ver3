@@ -3,18 +3,14 @@ import multer from 'multer';
 import path from 'path';
 import { existsSync, writeFileSync, unlinkSync } from 'fs';
 import crypto from 'crypto';
+import { requireStaff } from '../auth.js';
 
 export default function (pool, UPLOADS_ROOT) {
   const router = express.Router();
   const storage = multer.memoryStorage();
   const upload = multer({ storage });
 
-  const requireStaff = (req, res, next) => {
-      if (!req.user || !['admin', 'staff', 'manager'].includes(req.user.role)) {
-          return res.status(401).json({ error: 'Unauthorized: Missing credentials' });
-      }
-      next();
-  };
+
 
   router.post('/api/media/upload', requireStaff, upload.array('files'), async (req, res) => {
     try {

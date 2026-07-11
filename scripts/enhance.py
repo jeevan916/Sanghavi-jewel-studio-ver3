@@ -2,16 +2,14 @@ import sys
 import numpy as np
 import cv2
 
-def enhance_image(input_path, output_path):
+def enhance_webp_jewelry(input_webp_path, output_webp_path):
     try:
-        sys.stderr.write(f"Python: Reading from {input_path}...\n")
-        
-        img = cv2.imread(input_path)
+        # 1. OpenCV natively decodes WebP images into standard BGR arrays
+        img = cv2.imread(input_webp_path)
         if img is None:
-            sys.stderr.write("Error: cv2.imread returned None. Invalid image format.\n")
+            sys.stderr.write("Error: Could not open or find the WebP image.\n")
             sys.exit(1)
-            
-        sys.stderr.write("Python: Enhancing...\n")
+
         # 2. LIGHTING: Balance mobile highlights and shadows via LAB Space
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         l_channel, a_channel, b_channel = cv2.split(lab)
@@ -36,13 +34,14 @@ def enhance_image(input_path, output_path):
         final_jewelry = cv2.addWeighted(color_graded, 1.7, gaussian_blur, -0.7, 0)
         
         # 5. SERVER SAVE: Write back to WebP with controlled quality parameters
-        success = cv2.imwrite(output_path, final_jewelry, [int(cv2.IMWRITE_WEBP_QUALITY), 92])
+        # CV2_IMWRITE_WEBP_QUALITY tells the server to avoid aggressive compressing (Value: 0-100)
+        # 90-95 is the sweet spot for keeping diamond edges perfectly sharp
+        success = cv2.imwrite(output_webp_path, final_jewelry, [int(cv2.IMWRITE_WEBP_QUALITY), 92])
         if success:
-            sys.stderr.write(f"WebP jewelry photo successfully polished and saved to {output_path}\n")
+            sys.stderr.write(f"WebP jewelry photo successfully polished and saved to {output_webp_path}\n")
         else:
             sys.stderr.write("Error: Failed to encode output image\n")
             sys.exit(1)
-                
     except Exception as e:
         sys.stderr.write(f"Processing error: {str(e)}\n")
         sys.exit(1)
@@ -51,4 +50,4 @@ if __name__ == '__main__':
     if len(sys.argv) != 3:
         sys.stderr.write("Usage: python3 enhance.py <input_path> <output_path>\n")
         sys.exit(1)
-    enhance_image(sys.argv[1], sys.argv[2])
+    enhance_webp_jewelry(sys.argv[1], sys.argv[2])
