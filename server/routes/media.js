@@ -99,39 +99,21 @@ export default function (pool, UPLOADS_ROOT) {
       try {
           const { base64Image } = req.body;
           const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+          const buffer = Buffer.from(cleanBase64, 'base64');
           
-          const { spawn } = await import('child_process');
-          const fsPromises = await import('fs/promises');
-          const cryptoModule = await import('crypto');
-          const os = await import('os');
+          const { default: sharp } = await import('sharp');
           
-          const id = cryptoModule.randomUUID();
-          const inputPath = path.join(os.tmpdir(), `${id}_in.webp`);
-          const outputPath = path.join(os.tmpdir(), `${id}_out.webp`);
-          
-          await fsPromises.writeFile(inputPath, cleanBase64, 'base64');
-          
-          const pythonProcess = spawn('python3', [path.resolve(process.cwd(), 'scripts/enhance.py'), inputPath, outputPath]);
-          
-          let errorOutput = '';
-          pythonProcess.stderr.on('data', (data) => errorOutput += data.toString());
-          
-          pythonProcess.on('close', async (code) => {
-              try {
-                  if (code !== 0) {
-                      console.error("Python Script Error:", errorOutput);
-                      return res.status(500).json({ error: 'Image processing failed' });
-                  }
-                  const outputBase64 = await fsPromises.readFile(outputPath, 'base64');
-                  res.json({ success: true, data: `data:image/webp;base64,${outputBase64.trim()}` });
-              } catch (err) {
-                  console.error("Error reading output:", err);
-                  res.status(500).json({ error: 'Failed to read processed image' });
-              } finally {
-                  await fsPromises.unlink(inputPath).catch(() => {});
-                  await fsPromises.unlink(outputPath).catch(() => {});
-              }
-          });
+          const enhancedBuffer = await sharp(buffer)
+            // Enhance contrast automatically
+            .normalize()
+            // Slight saturation boost
+            .modulate({ saturation: 1.15 })
+            // Aggressive sharpening for jewelry facets
+            .sharpen({ sigma: 1.5, m1: 1.5, m2: 0.8 })
+            .toFormat('webp', { quality: 95 })
+            .toBuffer();
+            
+          res.json({ success: true, data: `data:image/webp;base64,${enhancedBuffer.toString('base64')}` });
       } catch (error) {
           console.error("Deterministic Enhance Error:", error);
           res.status(500).json({ error: 'Internal server error' });
