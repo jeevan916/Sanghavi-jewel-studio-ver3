@@ -143,6 +143,193 @@ router.get('/api/instagram/comments', requireAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
+router.get('/api/admin/location-stats', requireAdmin, async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+            SELECT 
+              c.pincode, 
+              COUNT(DISTINCT c.id) as customer_count,
+              COUNT(a.id) as total_events,
+              SUM(CASE WHEN a.type = 'inquiry' THEN 1 ELSE 0 END) as total_inquiries,
+              SUM(CASE WHEN a.type = 'screenshot' THEN 1 ELSE 0 END) as total_screenshots,
+              COALESCE(SUM(a.duration), 0) as total_duration,
+              ROUND(COALESCE(AVG(NULLIF(a.duration, 0)), 0), 1) as avg_dwell_time
+            FROM customers c
+            LEFT JOIN analytics a ON c.phone = a.userPhone OR c.id = a.userId
+            WHERE c.pincode IS NOT NULL AND c.pincode != ''
+            GROUP BY c.pincode
+            ORDER BY customer_count DESC, total_events DESC
+        `);
+        
+        // Calculate percentages
+        const totalCustomers = rows.reduce((sum, r) => sum + r.customer_count, 0);
+        const processed = rows.map(r => ({
+            ...r,
+            percentage: totalCustomers > 0 ? ((r.customer_count / totalCustomers) * 100).toFixed(1) : "0.0"
+        }));
+
+        res.json({ success: true, data: processed });
+    } catch (e) {
+        console.error("Location stats error:", e);
+        res.status(500).json({ error: 'Internal server error', message: e.message });
+    }
+});
+
+router.get('/api/admin/top-customers', requireAdmin, async (req, res) => {
+    try {
+        // Fetch top 50 customers based on duration & event count
+        const [customers] = await pool.query(`
+            SELECT 
+              c.id, 
+              c.name, 
+              c.phone, 
+              c.pincode, 
+              c.createdAt,
+              c.ai_analysis,
+              COALESCE(SUM(a.duration), 0) as total_duration,
+              SUM(CASE WHEN a.type = 'view' THEN 1 ELSE 0 END) as view_count,
+              SUM(CASE WHEN a.type = 'screenshot' THEN 1 ELSE 0 END) as screenshot_count,
+              SUM(CASE WHEN a.type = 'inquiry' THEN 1 ELSE 0 END) as inquiry_count
+            FROM customers c
+            LEFT JOIN analytics a ON c.phone = a.userPhone OR c.id = a.userId
+            GROUP BY c.id, c.name, c.phone, c.pincode, c.createdAt, c.ai_analysis
+            ORDER BY total_duration DESC, view_count DESC
+            LIMIT 50
+        `);
+
+        // For each customer, query their top product dwell times
+        const data = [];
+        for (const cust of customers) {
+            const [dwells] = await pool.query(`
+                SELECT 
+                  productId,
+                  productTitle,
+                  COALESCE(SUM(duration), 0) as duration,
+                  COUNT(id) as visit_count
+                FROM analytics
+                WHERE (userId = ? OR userPhone = ?) AND productId IS NOT NULL AND productId != ''
+                GROUP BY productId, productTitle
+                ORDER BY duration DESC
+                LIMIT 10
+            `, [cust.id, cust.phone]);
+
+            // Parse ai_analysis if it exists
+            let aiAnalysisParsed = null;
+            if (cust.ai_analysis) {
+                try {
+                    aiAnalysisParsed = typeof cust.ai_analysis === 'string' ? JSON.parse(cust.ai_analysis) : cust.ai_analysis;
+                } catch (e) {
+                    aiAnalysisParsed = { status: 'unknown', reason: 'Error parsing analysis' };
+                }
+            }
+
+            data.push({
+                ...cust,
+                ai_analysis: aiAnalysisParsed,
+                productDwells: dwells
+            });
+        }
+
+        res.json({ success: true, data });
+    } catch (e) {
+        console.error("Top customers error:", e);
+        res.status(500).json({ error: 'Internal server error', message: e.message });
+    }
+});
+
+router.post('/api/admin/check-business-number', requireAdmin, async (req, res) => {
+    const { customerId } = req.body;
+    if (!customerId) return res.status(400).json({ error: "Missing customerId" });
+
+    try {
+        // Fetch customer details and stats
+        const [customers] = await pool.query(`
+            SELECT 
+              c.id, 
+              c.name, 
+              c.phone, 
+              c.pincode, 
+              c.createdAt,
+              COALESCE(SUM(a.duration), 0) as total_duration,
+              SUM(CASE WHEN a.type = 'view' THEN 1 ELSE 0 END) as view_count,
+              SUM(CASE WHEN a.type = 'screenshot' THEN 1 ELSE 0 END) as screenshot_count,
+              SUM(CASE WHEN a.type = 'inquiry' THEN 1 ELSE 0 END) as inquiry_count
+            FROM customers c
+            LEFT JOIN analytics a ON c.phone = a.userPhone OR c.id = a.userId
+            WHERE c.id = ?
+            GROUP BY c.id, c.name, c.phone, c.pincode, c.createdAt
+        `, [customerId]);
+
+        if (customers.length === 0) return res.status(404).json({ error: "Customer not found" });
+        const customer = customers[0];
+
+        // Fetch their top product browse list
+        const [productDwells] = await pool.query(`
+            SELECT 
+              productTitle,
+              COALESCE(SUM(duration), 0) as duration,
+              COUNT(id) as visit_count
+            FROM analytics
+            WHERE (userId = ? OR userPhone = ?) AND productId IS NOT NULL AND productId != ''
+            GROUP BY productId, productTitle
+            ORDER BY duration DESC
+            LIMIT 15
+        `, [customer.id, customer.phone]);
+
+        // Initialize Gemini client using modern GoogleGenAI
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
+
+        const prompt = `You are an expert security and brand-protection analyst at Sanghavi Jewel Studio.
+We are analyzing customer phone numbers and browsing activity to detect whether they are genuine retail customers, or if they are competitors, wholesale dealers, jewelry manufacturers, or scrapers "peeking" at our private designs/pricing.
+
+Customer Details:
+- Name: ${customer.name}
+- Phone: ${customer.phone}
+- Pincode: ${customer.pincode || 'Not Provided'}
+
+Website Behavior & Engagement Stats:
+- Total products browsed: ${customer.view_count || 0}
+- Total dwell time on site: ${customer.total_duration || 0} seconds
+- Total screenshots taken: ${customer.screenshot_count || 0}
+- Inquiries made: ${customer.inquiry_count || 0}
+- Products visited and dwell times:
+${JSON.stringify(productDwells || [], null, 2)}
+
+Instructions:
+1. Examine the phone number and name for business keywords, business directory presence, spam pattern matches, or jeweler designations (e.g., words like 'Jewel', 'Design', 'Gold', 'Silver', 'Ornaments', 'B2B', 'Wholesale').
+2. Evaluate their website behavior. For example, high screenshot counts combined with zero inquiries, or viewing an excessive number of images in a very short duration, is highly characteristic of competitor scanning.
+3. Determine if the customer is likely a "genuine" retail customer, a "business" (e.g. general business or wholesaler), a "competitor_suspicious" (competing jeweler/scraper actively harvesting designs), or if the status is "unknown".
+4. Provide a confidence score (integer 0-100) and a detailed reason explaining your analysis.
+
+Provide the response strictly in JSON format as follows:
+{
+  "status": "genuine" | "business" | "competitor_suspicious" | "unknown",
+  "confidence": 85,
+  "reason": "Provide a thorough explanation details..."
+}`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+            }
+        });
+
+        const jsonResp = JSON.parse(response.text || '{}');
+        const aiAnalysisString = JSON.stringify(jsonResp);
+
+        // Update customer records
+        await pool.query('UPDATE customers SET ai_analysis = ? WHERE id = ?', [aiAnalysisString, customerId]);
+
+        res.json({ success: true, data: jsonResp });
+    } catch (e) {
+        console.error("AI check business number error:", e);
+        res.status(500).json({ error: 'Internal server error', message: e.message });
+    }
+});
+
 
     return router;
 }

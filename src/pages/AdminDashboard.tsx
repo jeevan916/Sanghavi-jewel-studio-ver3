@@ -19,7 +19,7 @@ interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns' | 'finance' | 'storage' | 'predictive';
+type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns' | 'finance' | 'storage' | 'predictive' | 'intelligence';
 
 const StorageView = () => {
     const [storageConfig, setStorageConfig] = useState<any>(null);
@@ -124,6 +124,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Security & Intelligence States
+  const [locationStats, setLocationStats] = useState<any[]>([]);
+  const [topCustomers, setTopCustomers] = useState<any[]>([]);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const [checkingBusinessIds, setCheckingBusinessIds] = useState<Set<string>>(new Set<string>());
+  const [expandedCustIds, setExpandedCustIds] = useState<Set<string>>(new Set<string>());
+
+  const toggleCustomerExpansion = (id: string) => {
+      setExpandedCustIds(prev => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+      });
+  };
+
+  const loadIntelligenceData = async () => {
+      setIsStatsLoading(true);
+      try {
+          const [locRes, topRes] = await Promise.all([
+              apiFetch('/api/admin/location-stats'),
+              apiFetch('/api/admin/top-customers')
+          ]);
+          if (locRes?.success) setLocationStats(locRes.data);
+          if (topRes?.success) setTopCustomers(topRes.data);
+      } catch (e) {
+          console.error("Intelligence stats error:", e);
+      } finally {
+          setIsStatsLoading(false);
+      }
+  };
+
+  const handleAICheckBusiness = async (customerId: string) => {
+      setCheckingBusinessIds(prev => {
+          const next = new Set(prev);
+          next.add(customerId);
+          return next;
+      });
+      try {
+          const res = await apiFetch('/api/admin/check-business-number', {
+              method: 'POST',
+              body: JSON.stringify({ customerId })
+          });
+          if (res?.success) {
+              await loadIntelligenceData();
+              await refreshData(true);
+          } else {
+              alert(res?.error || "AI Check failed");
+          }
+      } catch (e) {
+          console.error(e);
+          alert("AI Check failed");
+      } finally {
+          setCheckingBusinessIds(prev => {
+              const next = new Set(prev);
+              next.delete(customerId);
+              return next;
+          });
+      }
+  };
+
   // Asset Management State
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set<string>());
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
@@ -172,6 +233,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           refreshData(true);
       } else if (activeView === 'pulse') {
           loadPulseData();
+      } else if (activeView === 'intelligence') {
+          loadIntelligenceData();
       }
   }, [activeView]);
 
@@ -367,6 +430,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'predictive', icon: Zap, label: 'Predictive Marketing' },
               { id: 'finance', icon: Wallet, label: 'Finance' },
               { id: 'storage', icon: Database, label: 'Storage' },
+              { id: 'intelligence', icon: ShieldCheck, label: 'Security & Insights' },
             ].map(tab => (
               <button 
                 key={tab.id}
@@ -1282,6 +1346,293 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                       <span className="text-xs font-bold uppercase tracking-widest bg-white px-3 py-1 rounded-full shadow-lg">Intercepting Signals...</span>
                                   </div>
                               )}
+                          </div>
+                      </div>
+
+                  </div>
+              )}
+          </div>
+      )}
+
+      {activeView === 'intelligence' && (
+          <div className="space-y-8 animate-fade-in pb-12">
+              {/* Header Overview Banner */}
+              <div className="bg-gradient-to-br from-stone-950 via-stone-900 to-stone-800 p-8 rounded-[2.5rem] shadow-xl text-white relative overflow-hidden border border-stone-800">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-brand-gold/10 blur-[100px] -mr-20 -mt-20 rounded-full" />
+                  <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div>
+                          <div className="flex items-center gap-3">
+                              <span className="px-3 py-1 bg-brand-gold/10 text-brand-gold rounded-full text-[9px] font-bold uppercase tracking-widest border border-brand-gold/20 flex items-center gap-1.5">
+                                  <ShieldCheck size={12}/> Guard System v4.1
+                              </span>
+                              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                                  Neural Engine Live
+                              </span>
+                          </div>
+                          <h3 className="font-serif font-bold text-3xl text-white mt-3 flex items-center gap-3">
+                              Security & Market Intelligence
+                          </h3>
+                          <p className="text-stone-400 text-xs uppercase tracking-widest mt-1.5">
+                              Real-Time Competitor Detection, Engagement Analytics, and Pincode Market Statistics
+                          </p>
+                      </div>
+                      <button 
+                          onClick={loadIntelligenceData}
+                          disabled={isStatsLoading}
+                          className="px-5 py-3 bg-white text-stone-900 hover:bg-brand-gold hover:text-stone-950 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-md flex items-center gap-2 shrink-0 disabled:opacity-50"
+                      >
+                          <RefreshCw size={14} className={isStatsLoading ? "animate-spin" : ""} />
+                          Refresh Security Logs
+                      </button>
+                  </div>
+              </div>
+
+              {isStatsLoading && locationStats.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-20 bg-white rounded-3xl border border-stone-100 shadow-sm">
+                      <Loader2 className="animate-spin text-brand-gold mb-4" size={36} />
+                      <p className="text-stone-400 text-xs uppercase tracking-widest font-mono">Aggregating Behavioral Metadata...</p>
+                  </div>
+              ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                      
+                      {/* Left: Location & Pincode Demographics */}
+                      <div className="lg:col-span-5 space-y-6">
+                          <div className="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm flex flex-col h-full min-h-[500px]">
+                              <div className="mb-6">
+                                  <h4 className="font-serif font-bold text-xl text-brand-dark flex items-center gap-2">
+                                      <MapPin size={22} className="text-brand-gold" /> Market Location Metrics
+                                  </h4>
+                                  <p className="text-[10px] text-stone-400 uppercase tracking-widest font-bold mt-1">
+                                      Registered Zip codes ordered by customer density
+                                  </p>
+                              </div>
+
+                              <div className="overflow-y-auto space-y-4 flex-1 max-h-[700px] pr-1">
+                                  {locationStats.length === 0 ? (
+                                      <p className="text-xs text-stone-400 text-center py-12 italic">No location demographics recorded.</p>
+                                  ) : (
+                                      locationStats.map((stat, i) => (
+                                          <div key={stat.pincode || i} className="p-4 bg-stone-50 border border-stone-100 rounded-2xl hover:border-brand-gold/30 transition-all shadow-sm hover:shadow">
+                                              <div className="flex justify-between items-start mb-2">
+                                                  <div>
+                                                      <span className="text-xs font-mono font-bold text-stone-400 uppercase tracking-widest">Pincode</span>
+                                                      <h5 className="text-lg font-bold font-mono text-brand-dark tracking-tight">{stat.pincode}</h5>
+                                                  </div>
+                                                  <div className="text-right">
+                                                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Share</span>
+                                                      <p className="text-sm font-bold font-mono text-brand-gold">{stat.percentage}%</p>
+                                                  </div>
+                                              </div>
+
+                                              {/* Demographics details */}
+                                              <div className="grid grid-cols-3 gap-2 text-center bg-white p-2.5 rounded-xl border border-stone-100 mb-3">
+                                                  <div>
+                                                      <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Clients</p>
+                                                      <p className="text-sm font-bold font-mono text-brand-dark">{stat.customer_count}</p>
+                                                  </div>
+                                                  <div>
+                                                      <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Total Actions</p>
+                                                      <p className="text-sm font-bold font-mono text-stone-800">{stat.total_events}</p>
+                                                  </div>
+                                                  <div>
+                                                      <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Avg Dwell</p>
+                                                      <p className="text-sm font-bold font-mono text-stone-800">{stat.avg_dwell_time}s</p>
+                                                  </div>
+                                              </div>
+
+                                              {/* Action stats breakdown */}
+                                              <div className="flex gap-2 justify-between text-[10px] text-stone-500 font-mono mb-2 px-1">
+                                                  <span>Inquiries: <strong>{stat.total_inquiries || 0}</strong></span>
+                                                  <span>Screenshots: <strong>{stat.total_screenshots || 0}</strong></span>
+                                              </div>
+
+                                              {/* Market Share Progress Bar */}
+                                              <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                                                  <div 
+                                                      className="bg-brand-gold h-full rounded-full transition-all" 
+                                                      style={{ width: `${stat.percentage}%` }}
+                                                  />
+                                              </div>
+                                          </div>
+                                      ))
+                                  )}
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* Right: Top 50 Engagement & Competitor Checker */}
+                      <div className="lg:col-span-7 space-y-6">
+                          <div className="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm flex flex-col h-full min-h-[500px]">
+                              <div className="mb-6 flex justify-between items-center">
+                                  <div>
+                                      <h4 className="font-serif font-bold text-xl text-brand-dark flex items-center gap-2">
+                                          <UserCheck size={22} className="text-brand-red" /> Top Engagement & Threat Intelligence
+                                      </h4>
+                                      <p className="text-[10px] text-stone-400 uppercase tracking-widest font-bold mt-1">
+                                          Top 50 clients sorted by total website dwell time
+                                      </p>
+                                  </div>
+                              </div>
+
+                              <div className="space-y-4 overflow-y-auto max-h-[850px] pr-1">
+                                  {topCustomers.length === 0 ? (
+                                      <p className="text-xs text-stone-400 text-center py-12 italic">No customer interaction history found.</p>
+                                  ) : (
+                                      topCustomers.map((cust, idx) => {
+                                          const isExpanded = expandedCustIds.has(cust.id);
+                                          const isChecking = checkingBusinessIds.has(cust.id);
+                                          const minutes = Math.floor(cust.total_duration / 60);
+                                          const seconds = cust.total_duration % 60;
+                                          
+                                          // Badge styles
+                                          let statusBadge = null;
+                                          const ai = cust.ai_analysis;
+                                          if (ai) {
+                                              if (ai.status === 'genuine') {
+                                                  statusBadge = (
+                                                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[9px] font-bold uppercase tracking-wider border border-emerald-100 flex items-center gap-1">
+                                                          <ShieldCheck size={11} /> Genuine Retail Customer ({ai.confidence}%)
+                                                      </span>
+                                                  );
+                                              } else if (ai.status === 'business') {
+                                                  statusBadge = (
+                                                      <span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-bold uppercase tracking-wider border border-amber-100 flex items-center gap-1">
+                                                          <AlertTriangle size={11} /> Wholesale Business ({ai.confidence}%)
+                                                      </span>
+                                                  );
+                                              } else if (ai.status === 'competitor_suspicious') {
+                                                  statusBadge = (
+                                                      <span className="px-2.5 py-1 bg-red-50 text-brand-red rounded-lg text-[9px] font-bold uppercase tracking-wider border border-red-100 flex items-center gap-1">
+                                                          <AlertTriangle size={11} /> Competitor Scraper Warning ({ai.confidence}%)
+                                                      </span>
+                                                  );
+                                              } else {
+                                                  statusBadge = (
+                                                      <span className="px-2.5 py-1 bg-stone-100 text-stone-600 rounded-lg text-[9px] font-bold uppercase tracking-wider border border-stone-200">
+                                                          Unknown Status
+                                                      </span>
+                                                  );
+                                              }
+                                          }
+
+                                          return (
+                                              <div key={cust.id} className="p-5 bg-stone-50 border border-stone-100 rounded-2.5xl hover:border-brand-gold/30 transition-all shadow-sm">
+                                                  
+                                                  {/* Customer Meta Row */}
+                                                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+                                                      <div className="flex items-center gap-3">
+                                                          <div className="w-10 h-10 rounded-full bg-stone-950 text-brand-gold flex items-center justify-center font-bold text-sm border border-stone-800">
+                                                              {idx + 1}
+                                                          </div>
+                                                          <div>
+                                                              <h5 className="font-bold text-brand-dark text-base flex items-center gap-2">
+                                                                  {cust.name} 
+                                                                  <span className="text-[10px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-mono font-normal">Pincode: {cust.pincode || 'N/A'}</span>
+                                                              </h5>
+                                                              <p className="text-xs font-mono text-stone-400 flex items-center gap-1.5 mt-0.5">
+                                                                  {cust.phone} • Joined {new Date(cust.createdAt).toLocaleDateString()}
+                                                              </p>
+                                                          </div>
+                                                      </div>
+                                                      <div className="flex flex-wrap items-center gap-2">
+                                                          {statusBadge}
+                                                          <button
+                                                              onClick={() => handleAICheckBusiness(cust.id)}
+                                                              disabled={isChecking}
+                                                              className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-stone-950 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                                          >
+                                                              {isChecking ? (
+                                                                  <>
+                                                                      <Loader2 size={12} className="animate-spin" />
+                                                                      Auditing...
+                                                                  </>
+                                                              ) : (
+                                                                  <>
+                                                                      <Cpu size={12} />
+                                                                      AI Auditor
+                                                                  </>
+                                                              )}
+                                                          </button>
+                                                      </div>
+                                                  </div>
+
+                                                  {/* Customer Stats Grid */}
+                                                  <div className="grid grid-cols-4 gap-3 py-4 text-center">
+                                                      <div className="bg-white p-2.5 rounded-xl border border-stone-100">
+                                                          <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mb-0.5">Dwell Time</p>
+                                                          <p className="text-xs font-mono font-bold text-brand-dark">{minutes}m {seconds}s</p>
+                                                      </div>
+                                                      <div className="bg-white p-2.5 rounded-xl border border-stone-100">
+                                                          <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mb-0.5">Product Views</p>
+                                                          <p className="text-xs font-mono font-bold text-stone-800">{cust.view_count || 0}</p>
+                                                      </div>
+                                                      <div className="bg-white p-2.5 rounded-xl border border-stone-100">
+                                                          <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mb-0.5">Screenshots</p>
+                                                          <p className="text-xs font-mono font-bold text-brand-red">{cust.screenshot_count || 0}</p>
+                                                      </div>
+                                                      <div className="bg-white p-2.5 rounded-xl border border-stone-100">
+                                                          <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mb-0.5">Inquiries</p>
+                                                          <p className="text-xs font-mono font-bold text-emerald-600">{cust.inquiry_count || 0}</p>
+                                                      </div>
+                                                  </div>
+
+                                                  {/* AI Audit Justification if available */}
+                                                  {ai && ai.reason && (
+                                                      <div className="bg-stone-100/50 p-3.5 rounded-xl border border-stone-200/50 text-xs text-stone-600 leading-relaxed mb-4">
+                                                          <strong className="text-[9px] uppercase font-bold text-stone-500 tracking-wider block mb-1">AI Audit Report Summary:</strong>
+                                                          {ai.reason}
+                                                      </div>
+                                                  )}
+
+                                                  {/* Product Dwell expand toggle */}
+                                                  <div className="flex justify-between items-center">
+                                                      <button 
+                                                          onClick={() => toggleCustomerExpansion(cust.id)}
+                                                          className="text-[10px] uppercase font-bold tracking-widest text-stone-400 hover:text-brand-dark flex items-center gap-1"
+                                                      >
+                                                          {isExpanded ? "Hide Browsing Dwell Timeline ▲" : `View Browsing Dwell Timeline (${cust.productDwells?.length || 0}) ▼`}
+                                                      </button>
+                                                  </div>
+
+                                                  {/* Product Dwell Breakdown List */}
+                                                  {isExpanded && (
+                                                      <div className="mt-4 pt-4 border-t border-stone-100 space-y-2.5 animate-fade-in">
+                                                          <h6 className="text-[9px] uppercase font-bold tracking-widest text-stone-400">Design Browsing Logs & Duration</h6>
+                                                          <div className="grid grid-cols-1 gap-2">
+                                                              {cust.productDwells?.map((dwell: any, dIdx: number) => (
+                                                                  <div key={dwell.productId || dIdx} className="bg-white p-3 rounded-xl border border-stone-100 hover:border-brand-gold/30 transition-colors flex justify-between items-center">
+                                                                      <div className="truncate pr-4">
+                                                                          <p className="text-xs font-serif font-bold text-brand-dark truncate">{dwell.productTitle || "Untitled Piece"}</p>
+                                                                          <p className="text-[9px] text-stone-400 uppercase tracking-widest font-mono mt-0.5">Visits: {dwell.visit_count || 1}</p>
+                                                                      </div>
+                                                                      <div className="flex items-center gap-3 shrink-0">
+                                                                          <span className="px-2 py-1 bg-stone-50 text-stone-600 border border-stone-100 rounded text-[10px] font-mono font-bold flex items-center gap-1">
+                                                                              <Clock size={11} /> {dwell.duration}s
+                                                                          </span>
+                                                                          {dwell.productId && (
+                                                                              <button 
+                                                                                  onClick={() => window.open(`/#/product/${dwell.productId}`, '_blank')}
+                                                                                  className="p-1.5 bg-brand-dark/5 hover:bg-brand-gold hover:text-brand-dark text-brand-dark rounded transition-colors"
+                                                                                  title="Open Design View"
+                                                                              >
+                                                                                  <ArrowRight size={12} />
+                                                                              </button>
+                                                                          )}
+                                                                      </div>
+                                                                  </div>
+                                                              ))}
+                                                              {(!cust.productDwells || cust.productDwells.length === 0) && (
+                                                                  <p className="text-xs text-stone-400 italic py-2">No active product browsing timestamps available.</p>
+                                                              )}
+                                                          </div>
+                                                      </div>
+                                                  )}
+
+                                              </div>
+                                          );
+                                      })
+                                  )}
+                              </div>
                           </div>
                       </div>
 

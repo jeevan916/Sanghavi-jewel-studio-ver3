@@ -389,6 +389,7 @@ const initDB = async () => {
     await addColumnIfMissing('analytics', 'userPhone', 'VARCHAR(50)');
     await addColumnIfMissing('analytics', 'duration', 'INT');
     await addColumnIfMissing('analytics', 'meta', 'JSON');
+    await addColumnIfMissing('customers', 'ai_analysis', 'JSON');
 
     // Future Optimizations: Indexes to speed up queries
     try { await pool.query('CREATE INDEX idx_wishlist_price ON wishlist(priceWhenWishlisted)'); } catch(e) {}
