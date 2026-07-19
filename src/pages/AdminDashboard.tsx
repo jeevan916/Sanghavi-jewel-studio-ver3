@@ -1513,6 +1513,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                                                       </span>
                                                   );
                                               }
+                                          } else {
+                                              statusBadge = (
+                                                  <span className="px-2.5 py-1 bg-amber-500/10 text-amber-600 rounded-lg text-[9px] font-bold uppercase tracking-wider border border-amber-500/20 animate-pulse flex items-center gap-1.5">
+                                                      ⏳ AI Audit Pending (Auto-Generating...)
+                                                  </span>
+                                              );
                                           }
 
                                           return (

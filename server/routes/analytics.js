@@ -176,6 +176,95 @@ router.get('/api/admin/location-stats', requireAdmin, async (req, res) => {
 });
 
 router.get('/api/admin/top-customers', requireAdmin, async (req, res) => {
+    const analyzeCustomer = async (customerId) => {
+        try {
+            // Fetch customer details and stats
+            const [customers] = await pool.query(`
+                SELECT 
+                  c.id, 
+                  c.name, 
+                  c.phone, 
+                  c.pincode, 
+                  c.createdAt,
+                  COALESCE(SUM(a.duration), 0) as total_duration,
+                  SUM(CASE WHEN a.type = 'view' THEN 1 ELSE 0 END) as view_count,
+                  SUM(CASE WHEN a.type = 'screenshot' THEN 1 ELSE 0 END) as screenshot_count,
+                  SUM(CASE WHEN a.type = 'inquiry' THEN 1 ELSE 0 END) as inquiry_count
+                FROM customers c
+                LEFT JOIN analytics a ON c.phone = a.userPhone OR c.id = a.userId
+                WHERE c.id = ?
+                GROUP BY c.id, c.name, c.phone, c.pincode, c.createdAt
+            `, [customerId]);
+
+            if (customers.length === 0) return null;
+            const customer = customers[0];
+
+            // Fetch their top product browse list
+            const [productDwells] = await pool.query(`
+                SELECT 
+                  productTitle,
+                  COALESCE(SUM(duration), 0) as duration,
+                  COUNT(id) as visit_count
+                FROM analytics
+                WHERE (userId = ? OR userPhone = ?) AND productId IS NOT NULL AND productId != ''
+                GROUP BY productId, productTitle
+                ORDER BY duration DESC
+                LIMIT 15
+            `, [customer.id, customer.phone]);
+
+            // Initialize Gemini client using modern GoogleGenAI
+            const { GoogleGenAI } = await import('@google/genai');
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
+
+            const prompt = `You are an expert security and brand-protection analyst at Sanghavi Jewel Studio.
+We are analyzing customer phone numbers and browsing activity to detect whether they are genuine retail customers, or if they are competitors, wholesale dealers, jewelry manufacturers, or scrapers "peeking" at our private designs/pricing.
+
+Customer Details:
+- Name: ${customer.name}
+- Phone: ${customer.phone}
+- Pincode: ${customer.pincode || 'Not Provided'}
+
+Website Behavior & Engagement Stats:
+- Total products browsed: ${customer.view_count || 0}
+- Total dwell time on site: ${customer.total_duration || 0} seconds
+- Total screenshots taken: ${customer.screenshot_count || 0}
+- Inquiries made: ${customer.inquiry_count || 0}
+- Products visited and dwell times:
+${JSON.stringify(productDwells || [], null, 2)}
+
+Instructions:
+1. Examine the phone number and name for business keywords, business directory presence, spam pattern matches, or jeweler designations (e.g., words like 'Jewel', 'Design', 'Gold', 'Silver', 'Ornaments', 'B2B', 'Wholesale').
+2. Evaluate their website behavior. For example, high screenshot counts combined with zero inquiries, or viewing an excessive number of images in a very short duration, is highly characteristic of competitor scanning.
+3. Determine if the customer is likely a "genuine" retail customer, a "business" (e.g. general business or wholesaler), a "competitor_suspicious" (competing jeweler/scraper actively harvesting designs), or if the status is "unknown".
+4. Provide a confidence score (integer 0-100) and a detailed reason explaining your analysis.
+
+Provide the response strictly in JSON format as follows:
+{
+  "status": "genuine" | "business" | "competitor_suspicious" | "unknown",
+  "confidence": 85,
+  "reason": "Provide a thorough explanation details..."
+}`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                }
+            });
+
+            const jsonResp = JSON.parse(response.text || '{}');
+            const aiAnalysisString = JSON.stringify(jsonResp);
+
+            // Update customer records
+            await pool.query('UPDATE customers SET ai_analysis = ? WHERE id = ?', [aiAnalysisString, customerId]);
+            return jsonResp;
+        } catch (e) {
+            console.error(`AI Analysis failed for customer ${customerId}:`, e);
+            return null;
+        }
+    };
+
     try {
         // Fetch top 50 customers based on duration & event count
         const [customers] = await pool.query(`
@@ -199,6 +288,8 @@ router.get('/api/admin/top-customers', requireAdmin, async (req, res) => {
 
         // For each customer, query their top product dwell times
         const data = [];
+        const missingAnalysisIds = [];
+
         for (const cust of customers) {
             const [dwells] = await pool.query(`
                 SELECT 
@@ -221,6 +312,9 @@ router.get('/api/admin/top-customers', requireAdmin, async (req, res) => {
                 } catch (e) {
                     aiAnalysisParsed = { status: 'unknown', reason: 'Error parsing analysis' };
                 }
+            } else {
+                // Keep track of customers that have no analysis yet to run them in the background
+                missingAnalysisIds.push(cust.id);
             }
 
             data.push({
@@ -228,6 +322,23 @@ router.get('/api/admin/top-customers', requireAdmin, async (req, res) => {
                 ai_analysis: aiAnalysisParsed,
                 productDwells: dwells
             });
+        }
+
+        // Fire off asynchronous background analysis for any customer missing it
+        if (missingAnalysisIds.length > 0) {
+            console.log(`[AI BACKGROUND] Found ${missingAnalysisIds.length} customers with missing AI analysis. Initiating lazy background audit...`);
+            (async () => {
+                for (const cid of missingAnalysisIds) {
+                    try {
+                        await analyzeCustomer(cid);
+                        // Sleep slightly to respect Gemini rate limits
+                        await new Promise(r => setTimeout(r, 1500));
+                    } catch (err) {
+                        console.error(`Background auto-analysis failed for customer ${cid}:`, err);
+                    }
+                }
+                console.log(`[AI BACKGROUND] Completed lazy background audit for ${missingAnalysisIds.length} customers.`);
+            })();
         }
 
         res.json({ success: true, data });
@@ -242,7 +353,7 @@ router.post('/api/admin/check-business-number', requireAdmin, async (req, res) =
     if (!customerId) return res.status(400).json({ error: "Missing customerId" });
 
     try {
-        // Fetch customer details and stats
+        // Simple manual execution
         const [customers] = await pool.query(`
             SELECT 
               c.id, 
@@ -276,7 +387,6 @@ router.post('/api/admin/check-business-number', requireAdmin, async (req, res) =
             LIMIT 15
         `, [customer.id, customer.phone]);
 
-        // Initialize Gemini client using modern GoogleGenAI
         const { GoogleGenAI } = await import('@google/genai');
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
 
@@ -320,9 +430,7 @@ Provide the response strictly in JSON format as follows:
         const jsonResp = JSON.parse(response.text || '{}');
         const aiAnalysisString = JSON.stringify(jsonResp);
 
-        // Update customer records
         await pool.query('UPDATE customers SET ai_analysis = ? WHERE id = ?', [aiAnalysisString, customerId]);
-
         res.json({ success: true, data: jsonResp });
     } catch (e) {
         console.error("AI check business number error:", e);
