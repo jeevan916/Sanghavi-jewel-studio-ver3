@@ -94,20 +94,13 @@ export default function whatsappRoutes(pool) {
 
             // Log action if subscribed
             if (isSubscribed) {
-                await pool.query(
-                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, sentAt) VALUES (?, ?, "subscription", "welcome_subscriber", ?, "sent", NOW())',
-                    [
-                        cleanPhone,
-                        customerName,
-                        `Subscribed to daily gold rate updates on WhatsApp. Welcome message queued.`
-                    ]
-                );
-
-                // Optional: Attempt real WhatsApp welcome message if API is configured
+                let status = 'sent';
+                let errMsg = null;
                 const config = await getWhatsAppConfig();
+
                 if (config.whatsappToken && config.whatsappPhoneId) {
                     try {
-                        await fetch(`https://graph.facebook.com/v17.0/${config.whatsappPhoneId}/messages`, {
+                        const response = await fetch(`https://graph.facebook.com/v17.0/${config.whatsappPhoneId}/messages`, {
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${config.whatsappToken}`,
@@ -131,10 +124,32 @@ export default function whatsappRoutes(pool) {
                                 }
                             })
                         });
+
+                        if (!response.ok) {
+                            const textErr = await response.text();
+                            status = 'failed';
+                            errMsg = textErr;
+                            console.error('[WhatsApp Subscription Send Error]', textErr);
+                        }
                     } catch (e) {
+                        status = 'failed';
+                        errMsg = e.message;
                         console.error('[WhatsApp API] Welcome send failed:', e);
                     }
+                } else {
+                    status = 'sent'; // simulated
                 }
+
+                await pool.query(
+                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "subscription", "welcome_subscriber", ?, ?, ?, NOW())',
+                    [
+                        cleanPhone,
+                        customerName,
+                        `Subscribed to daily gold rate updates on WhatsApp. Welcome message queued.`,
+                        status,
+                        errMsg
+                    ]
+                );
             } else {
                 await pool.query(
                     'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, message_body, status, sentAt) VALUES (?, ?, "unsubscription", ?, "sent", NOW())',
@@ -441,7 +456,7 @@ export default function whatsappRoutes(pool) {
                                 to: recPhone,
                                 type: "template",
                                 template: {
-                                    name: "gold_rate_alert_daily",
+                                    name: config.whatsappTemplateName || "gold_rate_alert_daily",
                                     language: { code: "en_US" },
                                     components: [
                                         {
@@ -475,8 +490,8 @@ export default function whatsappRoutes(pool) {
 
                 // Log the send
                 await pool.query(
-                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "gold_rate_alert", "gold_rate_alert_daily", ?, ?, ?, NOW())',
-                    [recPhone, recName, textBody, status, errMsg]
+                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "gold_rate_alert", ?, ?, ?, ?, NOW())',
+                    [recPhone, recName, config.whatsappTemplateName || "gold_rate_alert_daily", textBody, status, errMsg]
                 );
 
                 // Throttling protection
