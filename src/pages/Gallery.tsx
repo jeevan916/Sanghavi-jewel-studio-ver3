@@ -70,9 +70,6 @@ export const Gallery: React.FC = () => {
   const BATCH_SIZE = 24; // Scalable batch size
 
   // WhatsApp Subscription States
-  const [showSubModal, setShowSubModal] = useState(false);
-  const [subName, setSubName] = useState(user?.name || '');
-  const [subPhone, setSubPhone] = useState(user?.phone || '');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -80,37 +77,18 @@ export const Gallery: React.FC = () => {
     if (user?.phone) {
       storeService.checkWhatsAppSubscriptionStatus(user.phone).then(res => {
         setIsSubscribed(res.subscribed);
-        if (res.name) setSubName(res.name);
       });
     }
   }, [user]);
 
   const handleToggleSubscription = async () => {
-    if (!user?.phone) {
-      setShowSubModal(true);
-      return;
-    }
+    if (!user?.phone) return;
 
     setIsSubmitting(true);
     try {
       const newStatus = !isSubscribed;
-      await storeService.subscribeWhatsApp(user.name || subName, user.phone, newStatus);
+      await storeService.subscribeWhatsApp(user.name || 'Valued Customer', user.phone, newStatus);
       setIsSubscribed(newStatus);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleModalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!subPhone) return;
-    setIsSubmitting(true);
-    try {
-      await storeService.subscribeWhatsApp(subName, subPhone, true);
-      setIsSubscribed(true);
-      setShowSubModal(false);
     } catch (e) {
       console.error(e);
     } finally {
@@ -290,19 +268,21 @@ export const Gallery: React.FC = () => {
                             <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-stone-400">22k Gold</span>
                             <span className="text-xs md:text-sm font-bold text-brand-gold font-mono">₹{config.goldRate22k.toLocaleString('en-IN')}/g</span>
                         </div>
-                        <button
-                            onClick={handleToggleSubscription}
-                            disabled={isSubmitting}
-                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest transition-all border ${
-                                isSubscribed 
-                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' 
-                                : 'bg-stone-50 text-stone-400 border-stone-200 hover:border-emerald-300 hover:text-emerald-500'
-                            }`}
-                            title="Receive automated gold rate updates on WhatsApp daily twice a day"
-                        >
-                            <MessageCircle size={10} className={isSubscribed ? 'text-emerald-500 animate-pulse' : 'text-stone-400'} />
-                            <span>{isSubscribed ? 'Subscribed' : 'Alert on WhatsApp'}</span>
-                        </button>
+                        {user && user.role === 'customer' && user.phone ? (
+                            <button
+                                onClick={handleToggleSubscription}
+                                disabled={isSubmitting}
+                                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest transition-all border ${
+                                    isSubscribed 
+                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' 
+                                    : 'bg-stone-50 text-stone-400 border-stone-200 hover:border-emerald-300 hover:text-emerald-500'
+                                }`}
+                                title="Receive automated gold rate updates on WhatsApp daily twice a day"
+                            >
+                                <MessageCircle size={10} className={isSubscribed ? 'text-emerald-500 animate-pulse' : 'text-stone-400'} />
+                                <span>{isSubscribed ? 'Subscribed' : 'Alert on WhatsApp'}</span>
+                            </button>
+                        ) : null}
                     </div>
                 ) : null}
 
@@ -569,70 +549,7 @@ export const Gallery: React.FC = () => {
             No pieces found matching your criteria.
           </div>
         )}
-        {/* WhatsApp Subscription Modal */}
-        {showSubModal && (
-          <div className="fixed inset-0 bg-brand-dark/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-              <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-stone-100 relative">
-                  <button 
-                      onClick={() => setShowSubModal(false)}
-                      className="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition-colors"
-                  >
-                      <X size={18} />
-                  </button>
-                  
-                  <div className="flex flex-col items-center text-center space-y-4">
-                      <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 shadow-sm animate-bounce">
-                          <MessageCircle size={24} />
-                      </div>
-                      
-                      <div className="space-y-1">
-                          <h3 className="font-sans text-lg font-bold text-brand-dark uppercase tracking-tight">Subscribe to Gold Rate</h3>
-                          <p className="text-xs text-stone-400 leading-relaxed font-serif italic">
-                              Receive automated updates on gold rates twice daily direct on your WhatsApp.
-                          </p>
-                      </div>
 
-                      <form onSubmit={handleModalSubmit} className="w-full space-y-4 pt-2">
-                          <div className="text-left space-y-1">
-                              <label className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Your Name</label>
-                              <input 
-                                  type="text"
-                                  required
-                                  value={subName}
-                                  onChange={(e) => setSubName(e.target.value)}
-                                  placeholder="e.g. Anand Sanghavi"
-                                  className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold"
-                              />
-                          </div>
-
-                          <div className="text-left space-y-1">
-                              <label className="text-[9px] font-bold uppercase tracking-widest text-stone-400">WhatsApp Number</label>
-                              <input 
-                                  type="tel"
-                                  required
-                                  value={subPhone}
-                                  onChange={(e) => setSubPhone(e.target.value)}
-                                  placeholder="e.g. +919876543210"
-                                  className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold"
-                              />
-                          </div>
-
-                          <button
-                              type="submit"
-                              disabled={isSubmitting}
-                              className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                          >
-                              {isSubmitting ? (
-                                  <Loader2 size={14} className="animate-spin" />
-                              ) : (
-                                  <>Subscribe on WhatsApp</>
-                              )}
-                          </button>
-                      </form>
-                  </div>
-              </div>
-          </div>
-        )}
       </main>
     </div>
   );
