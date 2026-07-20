@@ -7,6 +7,7 @@ import { Product, AnalyticsEvent, User, AppConfig } from '@/types.ts';
 import { PredictiveMarketingPanel } from '@/components/admin/PredictiveMarketingPanel.tsx';
 import { WishlistCampaigns } from '@/components/WishlistCampaigns.tsx';
 import { MigrationDebugger } from '@/components/admin/MigrationDebugger.tsx';
+import { WhatsAppManagementPanel } from '@/components/admin/WhatsAppManagementPanel.tsx';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, Tag,
@@ -19,7 +20,7 @@ interface AdminDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns' | 'finance' | 'storage' | 'predictive' | 'intelligence';
+type ViewMode = 'overview' | 'files' | 'leads' | 'activity' | 'captures' | 'trends' | 'neural' | 'market' | 'pulse' | 'campaigns' | 'finance' | 'storage' | 'predictive' | 'intelligence' | 'whatsapp';
 
 const StorageView = () => {
     const [storageConfig, setStorageConfig] = useState<any>(null);
@@ -427,6 +428,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               { id: 'neural', icon: BrainCircuit, label: 'Neural' },
               { id: 'pulse', icon: MessageCircle, label: 'Pulse' },
               { id: 'campaigns', icon: Megaphone, label: 'Campaigns' },
+              { id: 'whatsapp', icon: MessageCircle, label: 'WhatsApp' },
               { id: 'predictive', icon: Zap, label: 'Predictive Marketing' },
               { id: 'finance', icon: Wallet, label: 'Finance' },
               { id: 'storage', icon: Database, label: 'Storage' },
@@ -1650,6 +1652,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {activeView === 'campaigns' && config && (
           <div className="animate-fade-in">
               <WishlistCampaigns config={config} />
+          </div>
+      )}
+
+      {activeView === 'whatsapp' && (
+          <div className="animate-fade-in">
+              <WhatsAppManagementPanel />
           </div>
       )}
 

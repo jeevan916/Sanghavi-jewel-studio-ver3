@@ -11,6 +11,7 @@ import adminRoutes from './server/routes/admin.js';
 import staffRoutes from './server/routes/staff.js';
 import linksRoutes from './server/routes/links.js';
 import aiRoutes from './server/routes/ai.js';
+import whatsappRoutes from './server/routes/whatsapp.js';
 
 import fs, { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync, readFileSync } from 'fs';
 import os from 'os';
@@ -390,6 +391,31 @@ const initDB = async () => {
     await addColumnIfMissing('analytics', 'duration', 'INT');
     await addColumnIfMissing('analytics', 'meta', 'JSON');
     await addColumnIfMissing('customers', 'ai_analysis', 'JSON');
+    await addColumnIfMissing('customers', 'gold_rate_subscribed', 'BOOLEAN DEFAULT FALSE');
+
+    // WhatsApp Tables
+    await pool.query(`CREATE TABLE IF NOT EXISTS whatsapp_templates (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) UNIQUE,
+        category VARCHAR(100),
+        body_text TEXT,
+        buttons JSON,
+        status VARCHAR(50) DEFAULT 'draft',
+        is_synced BOOLEAN DEFAULT FALSE,
+        createdAt DATETIME,
+        updatedAt DATETIME
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS whatsapp_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        recipient_phone VARCHAR(50),
+        recipient_name VARCHAR(255),
+        message_type VARCHAR(100),
+        template_name VARCHAR(255),
+        message_body TEXT,
+        status VARCHAR(50),
+        errorMessage TEXT,
+        sentAt DATETIME
+    )`);
 
     // Future Optimizations: Indexes to speed up queries
     try { await pool.query('CREATE INDEX idx_wishlist_price ON wishlist(priceWhenWishlisted)'); } catch(e) {}
@@ -578,6 +604,7 @@ const sanitizeProduct = (p) => {
 
     app.use(analyticsRoutes(poolProxy, BACKUPS_ROOT));
     app.use('/api', aiRoutes(poolProxy));
+    app.use('/api/whatsapp', whatsappRoutes(poolProxy));
 
     app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal Server Error', message: err.message }); });
 

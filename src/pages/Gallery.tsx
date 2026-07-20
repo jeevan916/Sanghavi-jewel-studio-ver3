@@ -69,6 +69,55 @@ export const Gallery: React.FC = () => {
   const GUEST_VIEW_LIMIT = 8;
   const BATCH_SIZE = 24; // Scalable batch size
 
+  // WhatsApp Subscription States
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [subName, setSubName] = useState(user?.name || '');
+  const [subPhone, setSubPhone] = useState(user?.phone || '');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user?.phone) {
+      storeService.checkWhatsAppSubscriptionStatus(user.phone).then(res => {
+        setIsSubscribed(res.subscribed);
+        if (res.name) setSubName(res.name);
+      });
+    }
+  }, [user]);
+
+  const handleToggleSubscription = async () => {
+    if (!user?.phone) {
+      setShowSubModal(true);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const newStatus = !isSubscribed;
+      await storeService.subscribeWhatsApp(user.name || subName, user.phone, newStatus);
+      setIsSubscribed(newStatus);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subPhone) return;
+    setIsSubmitting(true);
+    try {
+      await storeService.subscribeWhatsApp(subName, subPhone, true);
+      setIsSubscribed(true);
+      setShowSubModal(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // 1. Initial Data Setup (Config + Curated)
   useEffect(() => {
     const initializeGallery = async () => {
@@ -223,7 +272,7 @@ export const Gallery: React.FC = () => {
     <div className="min-h-screen bg-stone-50 pb-20 overflow-x-hidden animate-fade-in">
       <div className="sticky top-0 md:top-24 bg-white/80 backdrop-blur-xl border-b border-stone-100 z-40 transition-all duration-500">
         <div className="max-w-7xl mx-auto p-4">
-            <div className="px-2 md:px-6 h-14 flex items-center justify-between gap-3 md:gap-6">
+            <div className="px-2 md:px-6 min-h-14 py-2 flex items-center justify-between gap-3 md:gap-6">
                 <div className="flex-1 max-w-xl relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-brand-gold transition-colors" size={22} />
                     <input 
@@ -236,9 +285,24 @@ export const Gallery: React.FC = () => {
                 </div>
                 
                 {config?.goldRate22k ? (
-                    <div className="flex flex-col items-end justify-center bg-stone-50 px-3 md:px-4 py-1.5 md:py-2 rounded-xl border border-stone-100 whitespace-nowrap">
-                        <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-stone-400">22k Gold</span>
-                        <span className="text-xs md:text-sm font-bold text-brand-gold font-mono">₹{config.goldRate22k.toLocaleString('en-IN')}/g</span>
+                    <div className="flex flex-col items-end justify-center gap-1 shrink-0">
+                        <div className="flex flex-col items-end justify-center bg-stone-50 px-3 md:px-4 py-1 md:py-1.5 rounded-xl border border-stone-100 whitespace-nowrap">
+                            <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-stone-400">22k Gold</span>
+                            <span className="text-xs md:text-sm font-bold text-brand-gold font-mono">₹{config.goldRate22k.toLocaleString('en-IN')}/g</span>
+                        </div>
+                        <button
+                            onClick={handleToggleSubscription}
+                            disabled={isSubmitting}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest transition-all border ${
+                                isSubscribed 
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' 
+                                : 'bg-stone-50 text-stone-400 border-stone-200 hover:border-emerald-300 hover:text-emerald-500'
+                            }`}
+                            title="Receive automated gold rate updates on WhatsApp daily twice a day"
+                        >
+                            <MessageCircle size={10} className={isSubscribed ? 'text-emerald-500 animate-pulse' : 'text-stone-400'} />
+                            <span>{isSubscribed ? 'Subscribed' : 'Alert on WhatsApp'}</span>
+                        </button>
                     </div>
                 ) : null}
 
@@ -503,6 +567,70 @@ export const Gallery: React.FC = () => {
         {products.length === 0 && !isLoading && !isOverviewMode && (
           <div className="text-center py-20 text-stone-300 font-serif italic">
             No pieces found matching your criteria.
+          </div>
+        )}
+        {/* WhatsApp Subscription Modal */}
+        {showSubModal && (
+          <div className="fixed inset-0 bg-brand-dark/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+              <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-stone-100 relative">
+                  <button 
+                      onClick={() => setShowSubModal(false)}
+                      className="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition-colors"
+                  >
+                      <X size={18} />
+                  </button>
+                  
+                  <div className="flex flex-col items-center text-center space-y-4">
+                      <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 shadow-sm animate-bounce">
+                          <MessageCircle size={24} />
+                      </div>
+                      
+                      <div className="space-y-1">
+                          <h3 className="font-sans text-lg font-bold text-brand-dark uppercase tracking-tight">Subscribe to Gold Rate</h3>
+                          <p className="text-xs text-stone-400 leading-relaxed font-serif italic">
+                              Receive automated updates on gold rates twice daily direct on your WhatsApp.
+                          </p>
+                      </div>
+
+                      <form onSubmit={handleModalSubmit} className="w-full space-y-4 pt-2">
+                          <div className="text-left space-y-1">
+                              <label className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Your Name</label>
+                              <input 
+                                  type="text"
+                                  required
+                                  value={subName}
+                                  onChange={(e) => setSubName(e.target.value)}
+                                  placeholder="e.g. Anand Sanghavi"
+                                  className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold"
+                              />
+                          </div>
+
+                          <div className="text-left space-y-1">
+                              <label className="text-[9px] font-bold uppercase tracking-widest text-stone-400">WhatsApp Number</label>
+                              <input 
+                                  type="tel"
+                                  required
+                                  value={subPhone}
+                                  onChange={(e) => setSubPhone(e.target.value)}
+                                  placeholder="e.g. +919876543210"
+                                  className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold"
+                              />
+                          </div>
+
+                          <button
+                              type="submit"
+                              disabled={isSubmitting}
+                              className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                              {isSubmitting ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                  <>Subscribe on WhatsApp</>
+                              )}
+                          </button>
+                      </form>
+                  </div>
+              </div>
           </div>
         )}
       </main>

@@ -20,6 +20,14 @@ export default defineConfig(({ mode }) => {
   return {
     base: '/', // ABSOLUTE PATH: Critical for .htaccess routing to work correctly
     plugins: [react()],
+    esbuild: {
+      target: 'esnext',
+    },
+    optimizeDeps: {
+      esbuildOptions: {
+        target: 'esnext',
+      },
+    },
     server: {
       host: true,
       port: 5173,

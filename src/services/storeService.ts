@@ -648,5 +648,29 @@ export const storeService = {
   getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message })),
   optimizeStorage: () => apiFetch('/admin/optimize-storage', { method: 'POST' }),
   getDebugEnv: () => apiFetch('/debug-env').catch(e => ({ status: 'error', error: e.message })),
-  retryDatabase: () => apiFetch('/retry-db', { method: 'GET' }).catch(e => ({ status: 'error', error: e.message }))
+  retryDatabase: () => apiFetch('/retry-db', { method: 'GET' }).catch(e => ({ status: 'error', error: e.message })),
+
+  // --- WHATSAPP INTEGRATIONS ---
+  subscribeWhatsApp: (name: string, phone: string, subscribed: boolean) => 
+    apiFetch('/whatsapp/subscribe', { method: 'POST', body: JSON.stringify({ name, phone, subscribed }) }),
+  checkWhatsAppSubscriptionStatus: (phone: string) => 
+    apiFetch('/whatsapp/check-status', { method: 'POST', body: JSON.stringify({ phone }) }),
+  getWhatsAppTemplates: () => 
+    apiFetch('/whatsapp/templates').catch(() => []),
+  saveWhatsAppTemplate: (template: any) => 
+    apiFetch('/whatsapp/templates', { method: 'POST', body: JSON.stringify(template) }),
+  deleteWhatsAppTemplate: (id: string) => 
+    apiFetch(`/whatsapp/templates/${id}`, { method: 'DELETE' }),
+  syncWhatsAppTemplate: (id: string) => 
+    apiFetch(`/whatsapp/templates/${id}/sync`, { method: 'POST' }),
+  getWhatsAppLogs: () => 
+    apiFetch('/whatsapp/logs').catch(() => []),
+  clearWhatsAppLogs: () => 
+    apiFetch('/whatsapp/logs/clear', { method: 'POST' }),
+  getWhatsAppSubscribers: () => 
+    apiFetch('/whatsapp/subscribers').catch(() => []),
+  sendManualWhatsApp: (data: any) => 
+    apiFetch('/whatsapp/send-manual', { method: 'POST', body: JSON.stringify(data) }),
+  triggerWhatsAppGoldRateBroadcast: () => 
+    apiFetch('/whatsapp/trigger-gold-rate', { method: 'POST' })
 };
