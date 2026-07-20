@@ -3,7 +3,7 @@ import { storeService } from '@/services/storeService.ts';
 import { 
   MessageCircle, RefreshCw, Send, Trash2, Plus, 
   CheckCircle2, AlertCircle, Loader2, Users, FileText, 
-  Settings, Check, Smartphone, Sparkles, Megaphone
+  Settings, Check, Smartphone, Sparkles, Megaphone, Search
 } from 'lucide-react';
 
 export function WhatsAppManagementPanel() {
@@ -101,6 +101,24 @@ export function WhatsAppManagementPanel() {
       setLogs(lgs);
     } catch (e: any) {
       showFeedback('error', e.message || 'Sync failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 2b. Check Template Status from Meta
+  const handleCheckTemplateStatus = async (id: string) => {
+    setActionLoading(true);
+    try {
+      const res = await storeService.checkWhatsAppTemplateStatus(id);
+      showFeedback('success', res.message || 'Template status checked successfully!');
+      const tpls = await storeService.getWhatsAppTemplates();
+      setTemplates(tpls);
+      // Reload logs too
+      const lgs = await storeService.getWhatsAppLogs();
+      setLogs(lgs);
+    } catch (e: any) {
+      showFeedback('error', e.message || 'Status check failed');
     } finally {
       setActionLoading(false);
     }
@@ -382,14 +400,18 @@ export function WhatsAppManagementPanel() {
                       {tpl.category}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest border ${
-                      tpl.is_synced 
-                      ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                      : 'bg-amber-50 text-amber-600 border-amber-100'
+                      (tpl.status === 'Approved' || tpl.status === 'APPROVED')
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        : (tpl.status === 'Pending' || tpl.status === 'PENDING')
+                        ? 'bg-amber-50 text-amber-600 border-amber-100'
+                        : (tpl.status === 'Rejected' || tpl.status === 'REJECTED' || tpl.status === 'REJECTED_LITE')
+                        ? 'bg-rose-50 text-rose-600 border-rose-100'
+                        : 'bg-stone-50 text-stone-500 border-stone-100'
                     }`}>
-                      {tpl.is_synced ? 'Approved & Synced' : 'Unsynchronized Draft'}
+                      {tpl.status || 'Draft'}
                     </span>
                   </div>
-
+ 
                   <h5 className="font-mono text-xs font-bold text-brand-dark mb-3 break-all">{tpl.name}</h5>
                   
                   <div className="bg-stone-50/50 p-4 rounded-xl border border-stone-100 min-h-[140px] flex flex-col justify-between mb-4">
@@ -408,29 +430,31 @@ export function WhatsAppManagementPanel() {
                     )}
                   </div>
                 </div>
-
+ 
                 <div className="flex items-center gap-2 pt-2 border-t border-stone-50">
-                  {!tpl.is_synced && (
-                    <button
-                      onClick={() => handleSyncTemplate(tpl.id)}
-                      disabled={actionLoading}
-                      className="flex-1 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 border border-emerald-100"
-                      title="Sync this template with Meta WhatsApp Cloud Platform"
-                    >
-                      <RefreshCw size={12} className={actionLoading ? 'animate-spin' : ''} /> Sync to Meta
-                    </button>
-                  )}
-                  {tpl.is_synced && (
-                    <div className="flex-1 py-2 bg-stone-50 text-emerald-600 rounded-xl text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 border border-emerald-50">
-                      <Check size={12} /> Live on Channel
-                    </div>
-                  )}
+                  <button
+                    onClick={() => handleSyncTemplate(tpl.id)}
+                    disabled={actionLoading}
+                    className="flex-1 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 border border-emerald-100 transition-colors"
+                    title="Sync this template with Meta WhatsApp Cloud Platform"
+                  >
+                    <RefreshCw size={11} className={actionLoading ? 'animate-spin' : ''} /> Sync
+                  </button>
+                  <button
+                    onClick={() => handleCheckTemplateStatus(tpl.id)}
+                    disabled={actionLoading}
+                    className="flex-1 py-1.5 bg-sky-50 text-sky-600 hover:bg-sky-100 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 border border-sky-100 transition-colors"
+                    title="Check template approval status from Meta API"
+                  >
+                    <Search size={11} className={actionLoading ? 'animate-spin' : ''} /> Check Status
+                  </button>
                   <button
                     onClick={() => handleDeleteTemplate(tpl.id)}
                     disabled={actionLoading}
-                    className="p-2 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                    className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                    title="Delete template"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={13} />
                   </button>
                 </div>
               </div>

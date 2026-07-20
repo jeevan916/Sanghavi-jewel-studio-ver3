@@ -368,6 +368,88 @@ export default function whatsappRoutes(pool) {
         }
     });
 
+    // 7b. CHECK TEMPLATE STATUS FROM META
+    router.post('/templates/:id/check-status', requireStaff, async (req, res) => {
+        try {
+            const [rows] = await pool.query('SELECT * FROM whatsapp_templates WHERE id = ?', [req.params.id]);
+            if (rows.length === 0) return res.status(404).json({ error: 'Template not found' });
+
+            const template = rows[0];
+            const config = await getWhatsAppConfig();
+
+            if (!config.whatsappToken || !config.whatsappPhoneId) {
+                return res.status(400).json({ error: 'WhatsApp is not configured. Please configure credentials in Preferences.' });
+            }
+
+            // 1. Fetch WABA ID dynamically from Phone ID
+            const wabaUrl = `https://graph.facebook.com/v17.0/${config.whatsappPhoneId}?fields=whatsapp_business_account&access_token=${config.whatsappToken}`;
+            const wabaRes = await fetch(wabaUrl);
+            if (!wabaRes.ok) {
+                const errText = await wabaRes.text();
+                throw new Error(`Failed to resolve WhatsApp Business Account (WABA) ID: ${errText}`);
+            }
+            const wabaData = await wabaRes.json();
+            const wabaId = wabaData.whatsapp_business_account?.id;
+            if (!wabaId) {
+                throw new Error(`WABA ID could not be resolved from Phone ID ${config.whatsappPhoneId}`);
+            }
+
+            // 2. Fetch the templates list from Meta to check actual status
+            const checkUrl = `https://graph.facebook.com/v17.0/${wabaId}/message_templates?name=${encodeURIComponent(template.name)}&access_token=${config.whatsappToken}`;
+            const checkRes = await fetch(checkUrl);
+            if (!checkRes.ok) {
+                const errText = await checkRes.text();
+                throw new Error(`Meta API check failed: ${errText}`);
+            }
+
+            const checkData = await checkRes.json();
+            const metaTemplates = checkData.data || [];
+            
+            // Find our template in the list (case-insensitive match)
+            const matchedMeta = metaTemplates.find(t => t.name.toLowerCase() === template.name.toLowerCase());
+
+            if (!matchedMeta) {
+                return res.status(404).json({
+                    error: 'Not Found on Meta',
+                    message: `Template '${template.name}' was not found on your Meta WhatsApp Business Account. Try syncing it first.`
+                });
+            }
+
+            const metaStatus = matchedMeta.status; // e.g. APPROVED, REJECTED, PENDING
+            
+            // Format status to start with uppercase to match UI (Approved, Pending, Rejected, Draft)
+            let formattedStatus = 'Approved';
+            if (metaStatus === 'APPROVED') formattedStatus = 'Approved';
+            else if (metaStatus === 'PENDING') formattedStatus = 'Pending';
+            else if (metaStatus === 'REJECTED') formattedStatus = 'Rejected';
+            else if (metaStatus === 'REJECTED_LITE') formattedStatus = 'Rejected';
+            else formattedStatus = metaStatus.charAt(0).toUpperCase() + metaStatus.slice(1).toLowerCase();
+
+            // Update database status
+            await pool.query(
+                'UPDATE whatsapp_templates SET status = ?, is_synced = 1, updatedAt = NOW() WHERE id = ?',
+                [formattedStatus, template.id]
+            );
+
+            // Log checking status
+            await pool.query(
+                'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, sentAt) VALUES (?, ?, "template_check", ?, ?, "sent", NOW())',
+                ['Meta API', 'System', 'Check Template Status', template.name, `Checked status for template '${template.name}'. Meta Status: ${metaStatus}`]
+            );
+
+            res.json({
+                success: true,
+                message: `Template status checked successfully! Meta status: ${metaStatus}`,
+                status: formattedStatus,
+                metaDetails: matchedMeta
+            });
+
+        } catch (e) {
+            console.error('[WhatsApp Check Status Error]', e);
+            res.status(400).json({ error: 'Check Status Failed', message: e.message });
+        }
+    });
+
     // 8. GET LOGS
     router.get('/logs', requireStaff, async (req, res) => {
         try {

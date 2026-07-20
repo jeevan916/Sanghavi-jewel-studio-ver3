@@ -663,6 +663,8 @@ export const storeService = {
     apiFetch(`/whatsapp/templates/${id}`, { method: 'DELETE' }),
   syncWhatsAppTemplate: (id: string) => 
     apiFetch(`/whatsapp/templates/${id}/sync`, { method: 'POST' }),
+  checkWhatsAppTemplateStatus: (id: string) => 
+    apiFetch(`/whatsapp/templates/${id}/check-status`, { method: 'POST' }),
   getWhatsAppLogs: () => 
     apiFetch('/whatsapp/logs').catch(() => []),
   clearWhatsAppLogs: () => 
