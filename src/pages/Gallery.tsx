@@ -109,7 +109,7 @@ export const Gallery: React.FC = () => {
       setIsFetchingMore(true);
       
       const fetchFilters = {
-          publicOnly: true,
+          publicOnly: !isAdmin,
           category: (activeCategory !== 'All' && activeCategory !== 'Latest') ? activeCategory : undefined,
           subCategory: activeSubCategory !== 'All' ? activeSubCategory : undefined,
           search: search || undefined

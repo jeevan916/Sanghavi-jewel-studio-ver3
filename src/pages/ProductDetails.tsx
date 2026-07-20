@@ -258,7 +258,7 @@ export const ProductDetails: React.FC = () => {
             let allItems = cached.products || [];
             
             if (allItems.length === 0 || !allItems.find(p => p.id === fetchedProduct.id)) {
-                storeService.getProducts(1, 30, { category: fetchedProduct.category, publicOnly: true })
+                storeService.getProducts(1, 30, { category: fetchedProduct.category, publicOnly: !isAdminOrContributor })
                   .then(listData => {
                       const navItems = listData.items.filter((p: Product) => p.category === fetchedProduct.category);
                       const idx = navItems.findIndex((p: Product) => p.id === fetchedProduct.id);
