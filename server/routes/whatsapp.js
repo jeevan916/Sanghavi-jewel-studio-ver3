@@ -540,7 +540,7 @@ export default function whatsappRoutes(pool) {
                                 to: recPhone,
                                 type: "template",
                                 template: {
-                                    name: config.whatsappTemplateName || "gold_rate_alert_daily",
+                                    name: "gold_rate_alert_daily",
                                     language: { code: "en_US" },
                                     components: [
                                         {
@@ -574,8 +574,8 @@ export default function whatsappRoutes(pool) {
 
                 // Log the send
                 await pool.query(
-                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "gold_rate_alert", ?, ?, ?, ?, NOW())',
-                    [recPhone, recName, config.whatsappTemplateName || "gold_rate_alert_daily", textBody, status, errMsg]
+                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "gold_rate_alert", "gold_rate_alert_daily", ?, ?, ?, NOW())',
+                    [recPhone, recName, textBody, status, errMsg]
                 );
 
                 // Throttling protection
