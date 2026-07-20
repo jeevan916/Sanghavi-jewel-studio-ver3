@@ -58,7 +58,7 @@ export default function whatsappRoutes(pool) {
 
     // 1. GET ALL SUB_SETTING OR API CREDENTIALS FOR WHATSAPP
     const getWhatsAppConfig = async () => {
-        const [rows] = await pool.query('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("whatsappNumber", "whatsappToken", "whatsappPhoneId", "whatsappTemplateName", "whatsappWishlistTemplateName")');
+        const [rows] = await pool.query('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("whatsappNumber", "whatsappToken", "whatsappPhoneId", "whatsappTemplateName", "whatsappWishlistTemplateName", "whatsappWabaId", "whatsappGoldRateTemplateName", "whatsappWelcomeTemplateName")');
         const config = {};
         rows.forEach(r => config[r.setting_key] = r.setting_value);
         return config;
@@ -111,7 +111,7 @@ export default function whatsappRoutes(pool) {
                                 to: cleanPhone,
                                 type: "template",
                                 template: {
-                                    name: "welcome_subscriber",
+                                    name: config.whatsappWelcomeTemplateName || "welcome_subscriber",
                                     language: { code: "en_US" },
                                     components: [
                                         {
@@ -141,10 +141,11 @@ export default function whatsappRoutes(pool) {
                 }
 
                 await pool.query(
-                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "subscription", "welcome_subscriber", ?, ?, ?, NOW())',
+                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "subscription", ?, ?, ?, ?, NOW())',
                     [
                         cleanPhone,
                         customerName,
+                        config.whatsappWelcomeTemplateName || "welcome_subscriber",
                         `Subscribed to daily gold rate updates on WhatsApp. Welcome message queued.`,
                         status,
                         errMsg
@@ -257,17 +258,20 @@ export default function whatsappRoutes(pool) {
 
             if (config.whatsappToken && config.whatsappPhoneId) {
                 try {
-                    // 1. Fetch WABA ID dynamically from Phone ID
-                    const wabaUrl = `https://graph.facebook.com/v17.0/${config.whatsappPhoneId}?fields=whatsapp_business_account&access_token=${config.whatsappToken}`;
-                    const wabaRes = await fetch(wabaUrl);
-                    if (!wabaRes.ok) {
-                        const errText = await wabaRes.text();
-                        throw new Error(`Failed to resolve WhatsApp Business Account (WABA) ID: ${errText}`);
-                    }
-                    const wabaData = await wabaRes.json();
-                    const wabaId = wabaData.whatsapp_business_account?.id;
+                    // 1. Resolve WABA ID (prefer saved config, fallback to dynamic fetch)
+                    let wabaId = config.whatsappWabaId ? config.whatsappWabaId.trim() : null;
                     if (!wabaId) {
-                        throw new Error(`WABA ID could not be resolved from Phone ID ${config.whatsappPhoneId}`);
+                        const wabaUrl = `https://graph.facebook.com/v17.0/${config.whatsappPhoneId}?fields=whatsapp_business_account&access_token=${config.whatsappToken}`;
+                        const wabaRes = await fetch(wabaUrl);
+                        if (!wabaRes.ok) {
+                            const errText = await wabaRes.text();
+                            throw new Error(`Failed to resolve WhatsApp Business Account (WABA) ID: ${errText}`);
+                        }
+                        const wabaData = await wabaRes.json();
+                        wabaId = wabaData.whatsapp_business_account?.id;
+                        if (!wabaId) {
+                            throw new Error(`WABA ID could not be resolved from Phone ID ${config.whatsappPhoneId}`);
+                        }
                     }
 
                     // 2. Format components (BODY and optional BUTTONS)
@@ -378,17 +382,20 @@ export default function whatsappRoutes(pool) {
                 return res.status(400).json({ error: 'WhatsApp is not configured. Please configure credentials in Preferences.' });
             }
 
-            // 1. Fetch WABA ID dynamically from Phone ID
-            const wabaUrl = `https://graph.facebook.com/v17.0/${config.whatsappPhoneId}?fields=whatsapp_business_account&access_token=${config.whatsappToken}`;
-            const wabaRes = await fetch(wabaUrl);
-            if (!wabaRes.ok) {
-                const errText = await wabaRes.text();
-                throw new Error(`Failed to resolve WhatsApp Business Account (WABA) ID: ${errText}`);
-            }
-            const wabaData = await wabaRes.json();
-            const wabaId = wabaData.whatsapp_business_account?.id;
+            // 1. Resolve WABA ID (prefer saved config, fallback to dynamic fetch)
+            let wabaId = config.whatsappWabaId ? config.whatsappWabaId.trim() : null;
             if (!wabaId) {
-                throw new Error(`WABA ID could not be resolved from Phone ID ${config.whatsappPhoneId}`);
+                const wabaUrl = `https://graph.facebook.com/v17.0/${config.whatsappPhoneId}?fields=whatsapp_business_account&access_token=${config.whatsappToken}`;
+                const wabaRes = await fetch(wabaUrl);
+                if (!wabaRes.ok) {
+                    const errText = await wabaRes.text();
+                    throw new Error(`Failed to resolve WhatsApp Business Account (WABA) ID: ${errText}`);
+                }
+                const wabaData = await wabaRes.json();
+                wabaId = wabaData.whatsapp_business_account?.id;
+                if (!wabaId) {
+                    throw new Error(`WABA ID could not be resolved from Phone ID ${config.whatsappPhoneId}`);
+                }
             }
 
             // 2. Fetch the templates list from Meta to check actual status
@@ -637,7 +644,7 @@ export default function whatsappRoutes(pool) {
                                 to: recPhone,
                                 type: "template",
                                 template: {
-                                    name: "gold_rate_alert_daily",
+                                    name: config.whatsappGoldRateTemplateName || "gold_rate_alert_daily",
                                     language: { code: "en_US" },
                                     components: [
                                         {
@@ -671,8 +678,8 @@ export default function whatsappRoutes(pool) {
 
                 // Log the send
                 await pool.query(
-                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "gold_rate_alert", "gold_rate_alert_daily", ?, ?, ?, NOW())',
-                    [recPhone, recName, textBody, status, errMsg]
+                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "gold_rate_alert", ?, ?, ?, ?, NOW())',
+                    [recPhone, recName, config.whatsappGoldRateTemplateName || "gold_rate_alert_daily", textBody, status, errMsg]
                 );
 
                 // Throttling protection

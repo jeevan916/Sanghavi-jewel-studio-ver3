@@ -45,6 +45,9 @@ export default function configRoutes(pool, CACHE) {
                 whatsappToken: '',
                 whatsappTemplateName: 'sanghavi_jewel_studio',
                 whatsappWishlistTemplateName: 'wishlist_price_drop',
+                whatsappWabaId: '',
+                whatsappGoldRateTemplateName: 'gold_rate_alert_daily',
+                whatsappWelcomeTemplateName: 'welcome_subscriber',
             };
 
             settingsRows.forEach(row => {
@@ -85,7 +88,7 @@ export default function configRoutes(pool, CACHE) {
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
-            const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, whatsappWishlistTemplateName, instagramHandle, instagramToken, aiConfig, paymentPlans } = req.body;
+            const { suppliers, categories, makingChargeSegments, defaultMakingChargeSegmentId, linkExpiryHours, goldRate22k, goldRate24k, gstPercent, whatsappNumber, whatsappPhoneId, whatsappToken, whatsappTemplateName, whatsappWishlistTemplateName, whatsappWabaId, whatsappGoldRateTemplateName, whatsappWelcomeTemplateName, instagramHandle, instagramToken, aiConfig, paymentPlans } = req.body;
 
             const settings = { 
                 linkExpiryHours, 
@@ -100,6 +103,9 @@ export default function configRoutes(pool, CACHE) {
                 whatsappToken,
                 whatsappTemplateName,
                 whatsappWishlistTemplateName,
+                whatsappWabaId,
+                whatsappGoldRateTemplateName,
+                whatsappWelcomeTemplateName,
                 instagramHandle,
                 instagramToken,
                 ai_model_analysis: aiConfig?.models?.analysis,

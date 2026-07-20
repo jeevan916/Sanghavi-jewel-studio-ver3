@@ -119,6 +119,9 @@ export interface AppConfig {
   whatsappToken?: string;
   whatsappTemplateName?: string;
   whatsappWishlistTemplateName?: string;
+  whatsappWabaId?: string;
+  whatsappGoldRateTemplateName?: string;
+  whatsappWelcomeTemplateName?: string;
   instagramHandle?: string;
   instagramToken?: string;
   paymentPlans?: { months: number; advancePercent: number }[];
