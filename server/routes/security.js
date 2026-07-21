@@ -36,5 +36,40 @@ export default function securityRoutes(pool) {
         }
     });
 
+    router.post('/api/security/log-capture', async (req, res) => {
+        try {
+            const { action, details } = req.body;
+            let userId = 'anonymous';
+            let role = 'guest';
+            let userName = 'Unknown';
+            
+            if (req.user) {
+                userId = req.user.id;
+                role = req.user.role;
+                userName = req.user.name || 'Unknown';
+            }
+
+            await pool.query(
+                'INSERT INTO capture_logs (user_id, user_name, role, action, details) VALUES (?, ?, ?, ?, ?)',
+                [userId, userName, role, action, JSON.stringify(details)]
+            );
+
+            res.json({ success: true });
+        } catch (e) {
+            console.error('Error logging capture:', e);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    router.get('/api/security/capture-logs', requireStaff, async (req, res) => {
+        try {
+            const [rows] = await pool.query('SELECT * FROM capture_logs ORDER BY created_at DESC LIMIT 100');
+            res.json(rows);
+        } catch (e) {
+            console.error('Error fetching capture logs:', e);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
     return router;
 }

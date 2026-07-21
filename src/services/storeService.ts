@@ -682,5 +682,7 @@ export const storeService = {
   sendManualWhatsApp: (data: any) => 
     apiFetch('/whatsapp/send-manual', { method: 'POST', body: JSON.stringify(data) }),
   triggerWhatsAppGoldRateBroadcast: () => 
-    apiFetch('/whatsapp/trigger-gold-rate', { method: 'POST' })
+    apiFetch('/whatsapp/trigger-gold-rate', { method: 'POST' }),
+  getCaptureLogs: () =>
+    apiFetch('/security/capture-logs').catch(() => [])
 };
