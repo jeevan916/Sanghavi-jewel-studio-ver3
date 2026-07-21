@@ -85,7 +85,8 @@ export default function (pool, UPLOADS_ROOT) {
           const col = type === 'thumb' ? rows[0].thumbnails : rows[0].images;
           if (!col) return res.status(404).send('No images');
           const arr = typeof col === 'string' ? JSON.parse(col) : col;
-          const imgStr = arr[parseInt(index)] || '';
+                    const imgStr = arr[parseInt(index)] || '';
+          if (imgStr.includes('/api/media/stream')) return res.redirect('https://cdn-icons-png.flaticon.com/512/2611/2611152.png');
           if (!imgStr.startsWith('data:')) return res.redirect(imgStr);
           const matches = imgStr.match(/^data:([a-zA-Z0-9+\/\-]+);base64,(.+)$/);
           if (!matches || matches.length !== 3) return res.status(400).send('Invalid image format');

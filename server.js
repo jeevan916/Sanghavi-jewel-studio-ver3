@@ -73,7 +73,7 @@ app.use((req, res, next) => {
         } catch (e) {
             return res.status(400).json({ error: 'Invalid Proxy Routing' });
         }
-    } else if (req.originalUrl.startsWith('/api/') && !req.originalUrl.startsWith('/api/media/stream') && process.env.NODE_ENV !== 'development') {
+    } else if (req.originalUrl.startsWith('/api/') && !req.originalUrl.startsWith('/api/media/stream') && !req.originalUrl.startsWith('/api/settings/logo') && !req.originalUrl.startsWith('/api/security/trace') && process.env.NODE_ENV !== 'development') {
         // Obfuscate real endpoints, return 404 for direct bot attempts
         // We only enforce this out of dev for easier local testing, though it's optional.
         return res.status(404).json({ error: "Endpoint not found." });

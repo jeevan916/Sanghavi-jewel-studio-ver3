@@ -225,6 +225,32 @@ router.get('/api/products/:id/related', async (req, res) => {
 router.post('/api/products', requireStaff, async (req, res) => {
     try {
         const p = req.body;
+        
+        // Resolve stream URLs back to original base64/file path if they were duplicated
+        const resolveImages = async (urls, isThumb) => {
+            if (!urls) return [];
+            const resolved = [];
+            for (const img of urls) {
+                const match = typeof img === 'string' && img.match(/\/api\/media\/stream\/([^\/]+)\/(image|thumb)\/(\d+)\.webp/);
+                if (match) {
+                    const [_, oldId, type, indexStr] = match;
+                    const index = parseInt(indexStr);
+                    const [oldDb] = await pool.query('SELECT images, thumbnails FROM products WHERE id = ?', [oldId]);
+                    if (oldDb.length > 0) {
+                        const colStr = type === 'thumb' ? oldDb[0].thumbnails : oldDb[0].images;
+                        const col = typeof colStr === 'string' ? JSON.parse(colStr || '[]') : colStr;
+                        resolved.push(col[index] || img);
+                        continue;
+                    }
+                }
+                resolved.push(img);
+            }
+            return resolved;
+        };
+
+        p.images = await resolveImages(p.images, false);
+        p.thumbnails = await resolveImages(p.thumbnails, true);
+
         const productData = {
             id: p.id,
             title: p.title,
@@ -254,6 +280,29 @@ router.post('/api/products', requireStaff, async (req, res) => {
 router.put('/api/products/:id', requireStaff, async (req, res) => {
     try {
         const p = req.body;
+        
+        // Fetch existing to restore stream URLs to data URLs
+        const [existing] = await pool.query('SELECT images, thumbnails FROM products WHERE id = ?', [req.params.id]);
+        if (existing.length > 0) {
+            const exImages = typeof existing[0].images === 'string' ? JSON.parse(existing[0].images || '[]') : existing[0].images;
+            const exThumbnails = typeof existing[0].thumbnails === 'string' ? JSON.parse(existing[0].thumbnails || '[]') : existing[0].thumbnails;
+            
+            if (p.images) {
+                p.images = p.images.map((img) => {
+                    const match = typeof img === 'string' && img.match(/\/api\/media\/stream\/[^\/]+\/image\/(\d+)\.webp/);
+                    if (match) return exImages[parseInt(match[1])];
+                    return img;
+                });
+            }
+            if (p.thumbnails) {
+                p.thumbnails = p.thumbnails.map((img) => {
+                    const match = typeof img === 'string' && img.match(/\/api\/media\/stream\/[^\/]+\/thumb\/(\d+)\.webp/);
+                    if (match) return exThumbnails[parseInt(match[1])];
+                    return img;
+                });
+            }
+        }
+
         await pool.query('UPDATE products SET ? WHERE id = ?', [{
             title: p.title, category: p.category, subCategory: p.subCategory, weight: p.weight, description: p.description,
             tags: JSON.stringify(p.tags || []), images: JSON.stringify(p.images || []), thumbnails: JSON.stringify(p.thumbnails || []), 
