@@ -8,44 +8,59 @@ export default function whatsappRoutes(pool) {
     // Helper to seed default templates if empty
     const seedDefaultTemplates = async () => {
         try {
+            const defaults = [
+                {
+                    id: 'gold_rate_alert_daily',
+                    name: 'gold_rate_alert_daily',
+                    category: 'UTILITY',
+                    body_text: "Hello {{1}},\n\nAs requested, here is today's gold rate.\n\n22K Gold: ₹{{2}} per gram\n24K Gold: ₹{{3}} per gram\n\nThis update is provided for your reference.\n\nThank you,\nSanghavi Jewellers",
+                    buttons: JSON.stringify([]),
+                    status: 'Approved',
+                    is_synced: 1
+                },
+                {
+                    id: 'wishlist_price_drop',
+                    name: 'wishlist_price_drop',
+                    category: 'UTILITY',
+                    body_text: "Hello {{1}},\n\nThe price of the jewellery item you requested to track has changed.\n\nProduct: {{2}}\n\nPrevious Price: ₹{{3}}\n\nCurrent Price: ₹{{4}}\n\nThis notification is based on your existing price alert request.\n\nThank you,\nSanghavi Jewellers",
+                    buttons: JSON.stringify([{ type: 'URL', text: 'View Item', url: '/collection?productId={{1}}' }]),
+                    status: 'Approved',
+                    is_synced: 1
+                },
+                {
+                    id: 'welcome_subscriber',
+                    name: 'welcome_subscriber',
+                    category: 'UTILITY',
+                    body_text: "Hello {{1}},\n\nThank you for subscribing to daily Gold Rate updates from Sanghavi Jewellers! ✨\n\nYou will receive automated alerts twice daily keeping you updated on market prices.",
+                    buttons: JSON.stringify([]),
+                    status: 'Approved',
+                    is_synced: 1
+                }
+            ];
+
             const [rows] = await pool.query('SELECT COUNT(*) as c FROM whatsapp_templates');
             if (rows[0] && rows[0].c === 0) {
                 console.log('[WhatsApp] Seeding default templates...');
-                const defaults = [
-                    {
-                        id: 'gold_rate_alert_daily',
-                        name: 'gold_rate_alert_daily',
-                        category: 'UTILITY',
-                        body_text: "Hello {{1}},\n\nToday's Gold Rates at Sanghavi Jewel Studio are:\n✨ 22K Gold: ₹{{2}}/g\n✨ 24K Gold: ₹{{3}}/g\n\nVisit our online catalog to explore our latest bespoke jewelry designs. Have a sparkling day!",
-                        buttons: JSON.stringify([{ type: 'URL', text: 'Explore Vault', url: '/collection' }]),
-                        status: 'Approved',
-                        is_synced: 1
-                    },
-                    {
-                        id: 'wishlist_price_drop',
-                        name: 'wishlist_price_drop',
-                        category: 'MARKETING',
-                        body_text: "Hi {{1}},\n\nGood news! The price of '{{2}}' in your wishlist has dropped to ₹{{3}}. Explore details and custom options before it gets sold out!",
-                        buttons: JSON.stringify([{ type: 'URL', text: 'View Design', url: '/product/{{1}}' }]),
-                        status: 'Approved',
-                        is_synced: 1
-                    },
-                    {
-                        id: 'welcome_subscriber',
-                        name: 'welcome_subscriber',
-                        category: 'UTILITY',
-                        body_text: "Hello {{1}},\n\nThank you for subscribing to daily Gold Rate updates from Sanghavi Jewel Studio! ✨\n\nYou will receive automated alerts twice daily keeping you updated on market prices.",
-                        buttons: JSON.stringify([]),
-                        status: 'Approved',
-                        is_synced: 1
-                    }
-                ];
-
                 for (const t of defaults) {
                     await pool.query(
                         'INSERT INTO whatsapp_templates (id, name, category, body_text, buttons, status, is_synced, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
                         [t.id, t.name, t.category, t.body_text, t.buttons, t.status, t.is_synced]
                     );
+                }
+            } else {
+                // Also enforce updates for existing default templates to be compliant
+                for (const t of defaults) {
+                    const [existing] = await pool.query('SELECT id, body_text FROM whatsapp_templates WHERE id = ?', [t.id]);
+                    if (existing[0]) {
+                        const body = existing[0].body_text || '';
+                        if (body.includes('bespoke') || body.includes('catalog') || body.includes('Good news!') || body.includes('dropped to') || body.includes('latest')) {
+                            console.log(`[WhatsApp] Updating template '${t.id}' to compliant version...`);
+                            await pool.query(
+                                'UPDATE whatsapp_templates SET category = ?, body_text = ?, buttons = ?, status = ?, is_synced = ?, updatedAt = NOW() WHERE id = ?',
+                                [t.category, t.body_text, t.buttons, t.status, t.is_synced, t.id]
+                            );
+                        }
+                    }
                 }
             }
         } catch (e) {
@@ -208,6 +223,91 @@ export default function whatsappRoutes(pool) {
             const { id, name, category, body_text, buttons } = req.body;
             if (!name || !body_text) return res.status(400).json({ error: 'Name and Body Text are required' });
 
+            const templateCategory = category || 'UTILITY';
+
+            // --- Robust WhatsApp Parameter & Compliance Validator ---
+            const validationErrors = [];
+            const trimmedBody = body_text.trim();
+
+            // 1. Mismatched or missing curly braces
+            const singleOpenBraces = (body_text.match(/(?<!{){(?!{)/g) || []).length;
+            const singleCloseBraces = (body_text.match(/(?<!})}(?!})/g) || []).length;
+            if (singleOpenBraces > 0 || singleCloseBraces > 0) {
+                validationErrors.push("Variable parameters may have mismatched curly braces. Ensure they use exactly double curly braces, e.g., {{1}}.");
+            }
+
+            if (body_text.includes('{{{') || body_text.includes('}}}')) {
+                validationErrors.push("Nested curly braces (e.g., {{{...}}} or }}}) are not allowed. Use exactly double curly braces: {{1}}.");
+            }
+
+            // 2. Variable parameters formatting and sequential checks
+            const allBraceContents = [...body_text.matchAll(/\{\{([^}]*)\}\}/g)];
+            const invalidFormatParams = [];
+            const variableIndices = [];
+
+            allBraceContents.forEach(match => {
+                const inside = match[1];
+                // Must be positive integer
+                if (!/^\d+$/.test(inside)) {
+                    invalidFormatParams.push(`{{${inside}}}`);
+                } else {
+                    variableIndices.push(parseInt(inside, 10));
+                }
+            });
+
+            if (invalidFormatParams.length > 0) {
+                validationErrors.push(`Variable parameters must contain only sequential numbers without spaces or special characters (e.g. {{1}}). Invalid: ${invalidFormatParams.join(', ')}.`);
+            }
+
+            if (variableIndices.length > 0) {
+                const uniqueIndices = Array.from(new Set(variableIndices));
+                const maxVal = Math.max(...uniqueIndices);
+
+                if (!uniqueIndices.includes(1)) {
+                    validationErrors.push("Variable parameters must start with {{1}}.");
+                }
+
+                const missingSequence = [];
+                for (let i = 1; i <= maxVal; i++) {
+                    if (!uniqueIndices.includes(i)) {
+                        missingSequence.push(i);
+                    }
+                }
+                if (missingSequence.length > 0) {
+                    validationErrors.push(`Variable parameters must be strictly sequential starting from 1. Missing parameters: ${missingSequence.map(m => `{{${m}}}`).join(', ')}.`);
+                }
+            }
+
+            // 3. Dangling parameters
+            if (trimmedBody.startsWith('{{') || trimmedBody.endsWith('}}')) {
+                validationErrors.push("The template cannot start or end with a parameter (dangling parameters are not allowed). Please add introductory or concluding text.");
+            }
+
+            // 4. Utility Promotional terms check
+            if (templateCategory === 'UTILITY') {
+                const forbidden = [
+                    'offer', 'discount', 'sale', 'buy', 'shop', 'catalog', 'collection',
+                    'browse', 'explore', 'new arrivals', 'festival', 'exclusive', 'limited time', 'book now'
+                ];
+                const detected = [];
+                const normalizedText = body_text.toLowerCase();
+                forbidden.forEach(word => {
+                    if (normalizedText.includes(word)) {
+                        detected.push(word);
+                    }
+                });
+                if (detected.length > 0) {
+                    validationErrors.push(`Utility templates cannot contain promotional terms. Detected: "${detected.join(', ')}". Please change the category to MARKETING or remove these keywords.`);
+                }
+            }
+
+            if (validationErrors.length > 0) {
+                return res.status(400).json({
+                    error: 'Compliance Violation',
+                    message: validationErrors.join(' ')
+                });
+            }
+
             const cleanName = name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
             const buttonsJSON = JSON.stringify(buttons || []);
             const templateId = id || cleanName;
@@ -217,12 +317,12 @@ export default function whatsappRoutes(pool) {
             if (exists.length > 0) {
                 await pool.query(
                     'UPDATE whatsapp_templates SET name = ?, category = ?, body_text = ?, buttons = ?, is_synced = 0, status = "draft", updatedAt = NOW() WHERE id = ?',
-                    [cleanName, category || 'UTILITY', body_text, buttonsJSON, templateId]
+                    [cleanName, templateCategory, body_text, buttonsJSON, templateId]
                 );
             } else {
                 await pool.query(
                     'INSERT INTO whatsapp_templates (id, name, category, body_text, buttons, status, is_synced, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, "draft", 0, NOW(), NOW())',
-                    [templateId, cleanName, category || 'UTILITY', body_text, buttonsJSON]
+                    [templateId, cleanName, templateCategory, body_text, buttonsJSON]
                 );
             }
 

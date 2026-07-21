@@ -6,6 +6,96 @@ import {
   Settings, Check, Smartphone, Sparkles, Megaphone, Search
 } from 'lucide-react';
 
+export function validateWhatsAppBody(text: string, category: string) {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { errors, warnings, parameterCount: 0 };
+  }
+
+  // 1. Mismatched or missing curly braces
+  const singleOpenBraces = (text.match(/(?<!{){(?!{)/g) || []).length;
+  const singleCloseBraces = (text.match(/(?<!})}(?!})/g) || []).length;
+  if (singleOpenBraces > 0 || singleCloseBraces > 0) {
+    warnings.push("Potential mismatched curly braces. Ensure variables use exactly double curly braces: e.g. {{1}}.");
+  }
+
+  if (text.includes('{{{') || text.includes('}}}')) {
+    errors.push("Nested curly braces (e.g. {{{...}}} or }}}) are not allowed. Use exactly {{1}}.");
+  }
+
+  // 2. Variable parameters formatting and sequential checks
+  const allBraceContents = [...text.matchAll(/\{\{([^}]*)\}\}/g)];
+  const invalidFormatParams: string[] = [];
+  const variableIndices: number[] = [];
+
+  allBraceContents.forEach(match => {
+    const inside = match[1];
+    if (!/^\d+$/.test(inside)) {
+      invalidFormatParams.push(`{{${inside}}}`);
+    } else {
+      variableIndices.push(parseInt(inside, 10));
+    }
+  });
+
+  if (invalidFormatParams.length > 0) {
+    errors.push(`Variable parameters must contain only sequential numbers (e.g., {{1}}, {{2}}). No spaces, characters, or symbols are allowed inside. Invalid: ${invalidFormatParams.join(', ')}.`);
+  }
+
+  if (variableIndices.length > 0) {
+    const uniqueIndices = Array.from(new Set(variableIndices));
+    const maxVal = Math.max(...uniqueIndices);
+
+    if (!uniqueIndices.includes(1)) {
+      errors.push("Variable parameters must start with {{1}}.");
+    }
+
+    const missingSequence: number[] = [];
+    for (let i = 1; i <= maxVal; i++) {
+      if (!uniqueIndices.includes(i)) {
+        missingSequence.push(i);
+      }
+    }
+    if (missingSequence.length > 0) {
+      errors.push(`Variable parameters must be strictly sequential. Missing sequential parameters: ${missingSequence.map(m => `{{${m}}}`).join(', ')}.`);
+    }
+  }
+
+  // 3. Dangling parameters
+  if (trimmed.startsWith('{{') || trimmed.endsWith('}}')) {
+    errors.push("The template cannot start or end with a parameter (dangling parameters are not allowed). Please add greeting or concluding text.");
+  }
+
+  // 4. Parameter-to-text density check
+  const uniqueParamCount = new Set(variableIndices).size;
+  if (uniqueParamCount > 0) {
+    const charRatio = text.length / uniqueParamCount;
+    if (charRatio < 15) {
+      warnings.push(`High parameter density. You have ${uniqueParamCount} variable(s) for a ${text.length} character message. Meta may reject this as spam. Consider adding more static text.`);
+    }
+  }
+
+  // 5. Utility Promotional terms
+  if (category === 'UTILITY') {
+    const forbiddenWords = [
+      'offer', 'discount', 'sale', 'buy', 'shop', 'catalog', 'collection',
+      'browse', 'explore', 'new arrivals', 'festival', 'exclusive', 'limited time', 'book now'
+    ];
+    const detected = forbiddenWords.filter(word => text.toLowerCase().includes(word));
+    if (detected.length > 0) {
+      errors.push(`Utility templates cannot contain promotional terms. Detected: "${detected.join(', ')}". Please change the category to MARKETING or remove these terms.`);
+    }
+  }
+
+  return {
+    errors,
+    warnings,
+    parameterCount: uniqueParamCount
+  };
+}
+
 export function WhatsAppManagementPanel() {
   const [activeSubTab, setActiveSubTab] = useState<'templates' | 'send' | 'subscribers' | 'logs'>('templates');
   const [templates, setTemplates] = useState<any[]>([]);
@@ -65,6 +155,13 @@ export function WhatsAppManagementPanel() {
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tplName || !tplBodyText) return;
+
+    const { errors } = validateWhatsAppBody(tplBodyText, tplCategory);
+    if (errors.length > 0) {
+      showFeedback('error', `Rejected: ${errors[0]}`);
+      return;
+    }
+
     setActionLoading(true);
     try {
       await storeService.saveWhatsAppTemplate({
@@ -370,6 +467,67 @@ export function WhatsAppManagementPanel() {
                   className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 font-sans leading-relaxed"
                 />
               </div>
+
+              {(() => {
+                const { errors, warnings } = validateWhatsAppBody(tplBodyText, tplCategory);
+                if (!tplBodyText.trim()) return null;
+
+                const hasPromotionalError = errors.some(e => e.includes('promotional terms'));
+
+                return (
+                  <div className="space-y-3 animate-fade-in text-xs">
+                    {errors.length > 0 && (
+                      <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl space-y-2 text-rose-800">
+                        <div className="flex items-start gap-2.5">
+                          <AlertCircle className="text-rose-600 flex-shrink-0 mt-0.5" size={16} />
+                          <div className="flex-1">
+                            <p className="font-bold">Compliance Error - Submission Blocked</p>
+                            <ul className="list-disc pl-4 mt-1.5 space-y-1 text-[11px] text-rose-700 leading-relaxed">
+                              {errors.map((err, i) => (
+                                <li key={i}>{err}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                        {hasPromotionalError && (
+                          <div className="pt-2 border-t border-rose-100 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setTplCategory('MARKETING')}
+                              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition-colors"
+                            >
+                              Switch to Marketing
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {warnings.length > 0 && (
+                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800">
+                        <div className="flex items-start gap-2.5">
+                          <AlertCircle className="text-amber-600 flex-shrink-0 mt-0.5" size={16} />
+                          <div>
+                            <p className="font-bold">Optimization Warning</p>
+                            <ul className="list-disc pl-4 mt-1.5 space-y-1 text-[11px] text-amber-700 leading-relaxed">
+                              {warnings.map((warn, i) => (
+                                <li key={i}>{warn}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {errors.length === 0 && warnings.length === 0 && (
+                      <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 flex items-center gap-2">
+                        <CheckCircle2 className="text-emerald-600 flex-shrink-0" size={16} />
+                        <span className="text-[11px] font-bold">✓ Template matches parameter format & compliance guidelines!</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
