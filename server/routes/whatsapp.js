@@ -244,107 +244,9 @@ export default function whatsappRoutes(pool) {
     });
 
     // 7. SYNC TEMPLATE TO META
-        router.post('/templates/:id/sync', requireStaff, async (req, res) => {
-        try {
-            const [rows] = await pool.query('SELECT * FROM whatsapp_templates WHERE id = ?', [req.params.id]);
-            if (rows.length === 0) return res.status(404).json({ error: 'Template not found' });
-
-            const template = rows[0];
-            const config = await getWhatsAppConfig();
-
-            let realSyncSuccess = false;
-            let syncMessage = 'Template simulated sync successfully';
-            let metaStatus = 'Approved'; // Default fallback status
-
-            if (config.whatsappToken && config.whatsappPhoneId) {
-                try {
-                    let wabaId = config.whatsappWabaId ? config.whatsappWabaId.trim() : null;
-                    if (!wabaId) {
-                        const wabaUrl = `https://graph.facebook.com/v17.0/${config.whatsappPhoneId}?fields=whatsapp_business_account&access_token=${config.whatsappToken}`;
-                        const wabaRes = await fetch(wabaUrl);
-                        if (!wabaRes.ok) {
-                            const errText = await wabaRes.text();
-                            throw new Error(`Failed to resolve WABA ID: ${errText}`);
-                        }
-                        const wabaData = await wabaRes.json();
-                        wabaId = wabaData.whatsapp_business_account?.id;
-                        if (!wabaId) {
-                            throw new Error(`WABA ID could not be resolved from Phone ID ${config.whatsappPhoneId}`);
-                        }
-                    }
-
-                    // Pull from Meta
-                    const checkUrl = `https://graph.facebook.com/v17.0/${wabaId}/message_templates?name=${encodeURIComponent(template.name)}&access_token=${config.whatsappToken}`;
-                    const checkRes = await fetch(checkUrl);
-                    
-                    if (!checkRes.ok) {
-                        const errData = await checkRes.json().catch(() => ({}));
-                        const errMsg = errData.error?.message || `Meta API returned HTTP ${checkRes.status}`;
-                        throw new Error(errMsg);
-                    }
-                    
-                    const checkData = await checkRes.json();
-                    const metaTemplates = checkData.data || [];
-                    const matchedMeta = metaTemplates.find(t => t.name.toLowerCase() === template.name.toLowerCase());
-                    
-                    if (!matchedMeta) {
-                        throw new Error(`Template '${template.name}' not found on Meta. Please create it in WhatsApp Manager first.`);
-                    }
-
-                    const bodyComponent = matchedMeta.components.find(c => c.type === 'BODY');
-                    const bodyText = bodyComponent ? bodyComponent.text : '';
-                    
-                    let sampleVariables = null;
-                    if (bodyComponent && bodyComponent.example && bodyComponent.example.body_text) {
-                        sampleVariables = bodyComponent.example.body_text[0];
-                    }
-                    
-                    let formattedButtons = [];
-                    const buttonsComponent = matchedMeta.components.find(c => c.type === 'BUTTONS');
-                    if (buttonsComponent && buttonsComponent.buttons) {
-                        formattedButtons = buttonsComponent.buttons;
-                    }
-
-                    metaStatus = matchedMeta.status;
-                    
-                    await pool.query(
-                        'UPDATE whatsapp_templates SET body_text = ?, buttons = ?, sample_variables = ?, category = ?, status = ?, is_synced = 1, updatedAt = NOW() WHERE id = ?',
-                        [bodyText, JSON.stringify(formattedButtons), JSON.stringify(sampleVariables), matchedMeta.category, metaStatus, template.id]
-                    );
-
-                    realSyncSuccess = true;
-                    syncMessage = `Template successfully synced from Meta!`;
-                    
-                } catch (metaErr) {
-                    console.error('[WhatsApp Sync] Meta API call error:', metaErr);
-                    syncMessage = `Meta API Sync call failed: ${metaErr.message}. Falling back to simulated sync.`;
-                    
-                    await pool.query(
-                        'UPDATE whatsapp_templates SET is_synced = 1, status = ?, updatedAt = NOW() WHERE id = ?',
-                        [metaStatus, template.id]
-                    );
-                }
-            } else {
-                 await pool.query(
-                    'UPDATE whatsapp_templates SET is_synced = 1, status = ?, updatedAt = NOW() WHERE id = ?',
-                    [metaStatus, template.id]
-                );
-            }
-
-            await pool.query(
-                'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, sentAt) VALUES (?, ?, "template_sync", ?, ?, "sent", NOW())',
-                ['Meta API', 'System', 'Sync Template', template.name, `Synchronized template '${template.name}' from Meta (Status: ${metaStatus})`]
-            );
-
-            res.json({ success: true, message: syncMessage, realSync: realSyncSuccess, status: metaStatus });
-
-        } catch (e) {
-            res.status(500).json({ error: 'Internal server error', message: e.message });
-        }
-    });
-
-    // 7b. CHECK TEMPLATE STATUS FROM META
-    router.post('/templates/:id/check-status', requireStaff, async (req, res) => {
+            // 6. SYNC TEMPLATE (STRICT FETCH FROM META)
+    // 6. SYNC TEMPLATE (STRICT FETCH FROM META)
+    router.post('/templates/:id/sync', requireStaff, async (req, res) => {
         try {
             const [rows] = await pool.query('SELECT * FROM whatsapp_templates WHERE id = ?', [req.params.id]);
             if (rows.length === 0) return res.status(404).json({ error: 'Template not found' });
@@ -353,96 +255,139 @@ export default function whatsappRoutes(pool) {
             const config = await getWhatsAppConfig();
 
             if (!config.whatsappToken || !config.whatsappPhoneId) {
-                return res.status(400).json({ error: 'WhatsApp is not configured. Please configure credentials in Preferences.' });
+                return res.status(400).json({ error: 'WhatsApp is not fully configured in settings.' });
             }
 
-            // 1. Resolve WABA ID (prefer saved config, fallback to dynamic fetch)
             let wabaId = config.whatsappWabaId ? config.whatsappWabaId.trim() : null;
             if (!wabaId) {
                 const wabaUrl = `https://graph.facebook.com/v17.0/${config.whatsappPhoneId}?fields=whatsapp_business_account&access_token=${config.whatsappToken}`;
                 const wabaRes = await fetch(wabaUrl);
                 if (!wabaRes.ok) {
-                    const errText = await wabaRes.text();
-                    throw new Error(`Failed to resolve WhatsApp Business Account (WABA) ID: ${errText}`);
+                    throw new Error('Failed to resolve WABA ID dynamically. Please configure it explicitly in settings.');
                 }
                 const wabaData = await wabaRes.json();
                 wabaId = wabaData.whatsapp_business_account?.id;
                 if (!wabaId) {
-                    throw new Error(`WABA ID could not be resolved from Phone ID ${config.whatsappPhoneId}`);
+                    throw new Error('WABA ID could not be resolved from Phone ID. Please configure it explicitly in settings.');
                 }
             }
 
-            // 2. Fetch the templates list from Meta to check actual status
+            // Pull from Meta
             const checkUrl = `https://graph.facebook.com/v17.0/${wabaId}/message_templates?name=${encodeURIComponent(template.name)}&access_token=${config.whatsappToken}`;
             const checkRes = await fetch(checkUrl);
+            
             if (!checkRes.ok) {
-                const errText = await checkRes.text();
-                throw new Error(`Meta API check failed: ${errText}`);
+                const errData = await checkRes.json().catch(() => ({}));
+                let errMsg = errData.error?.message || `Meta API returned HTTP ${checkRes.status}`;
+                
+                // Specific hint for #100
+                if (errMsg.includes('(#100)') && errMsg.includes('message_templates')) {
+                    errMsg = 'Your WABA ID is incorrect. It appears you provided a Phone ID in the WABA ID field in Settings. Please use the WhatsApp Business Account ID.';
+                }
+                throw new Error(errMsg);
             }
-
+            
             const checkData = await checkRes.json();
             const metaTemplates = checkData.data || [];
-            
-            // Find our template in the list (case-insensitive match)
             const matchedMeta = metaTemplates.find(t => t.name.toLowerCase() === template.name.toLowerCase());
-
+            
             if (!matchedMeta) {
-                return res.status(404).json({
-                    error: 'Not Found on Meta',
-                    message: `Template '${template.name}' was not found on your Meta WhatsApp Business Account. Try syncing it first.`
-                });
+                throw new Error(`Template '${template.name}' not found on Meta. Please create it in WhatsApp Manager first with exactly this name.`);
             }
 
-            const metaStatus = matchedMeta.status; // e.g. APPROVED, REJECTED, PENDING
+            const bodyComponent = matchedMeta.components.find(c => c.type === 'BODY');
+            const bodyText = bodyComponent ? bodyComponent.text : '';
             
-            // Format status to start with uppercase to match UI (Approved, Pending, Rejected, Draft)
+            let sampleVariables = null;
+            if (bodyComponent && bodyComponent.example && bodyComponent.example.body_text) {
+                sampleVariables = bodyComponent.example.body_text[0];
+            }
+            
+            let formattedButtons = [];
+            const buttonsComponent = matchedMeta.components.find(c => c.type === 'BUTTONS');
+            if (buttonsComponent && buttonsComponent.buttons) {
+                formattedButtons = buttonsComponent.buttons;
+            }
+
+            const metaStatus = matchedMeta.status;
+            
+            await pool.query(
+                'UPDATE whatsapp_templates SET body_text = ?, buttons = ?, sample_variables = ?, category = ?, status = ?, is_synced = 1, updatedAt = NOW() WHERE id = ?',
+                [bodyText, JSON.stringify(formattedButtons), JSON.stringify(sampleVariables), matchedMeta.category, metaStatus, template.id]
+            );
+
+            await pool.query(
+                'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, sentAt) VALUES (?, ?, "template_sync", ?, ?, "sent", NOW())',
+                ['Meta API', 'System', 'Sync Template', template.name, `Synchronized template '${template.name}' from Meta (Status: ${metaStatus})`]
+            );
+
+            res.json({ success: true, message: `Template successfully synced from Meta!`, status: metaStatus });
+
+        } catch (e) {
+            console.error('[WhatsApp Sync Error]:', e.message);
+            res.status(400).json({ error: e.message || 'Sync failed.' });
+        }
+    });
+
+    // 7. CHECK STATUS
+    router.post('/templates/:id/check-status', requireStaff, async (req, res) => {
+        try {
+            const [rows] = await pool.query('SELECT * FROM whatsapp_templates WHERE id = ?', [req.params.id]);
+            if (rows.length === 0) return res.status(404).json({ error: 'Template not found' });
+            
+            const template = rows[0];
+            const config = await getWhatsAppConfig();
+
+            if (!config.whatsappToken || !config.whatsappPhoneId) {
+                return res.status(400).json({ error: 'WhatsApp is not configured. Please configure credentials in Preferences.' });
+            }
+
+            let wabaId = config.whatsappWabaId ? config.whatsappWabaId.trim() : null;
+            if (!wabaId) {
+                const wabaUrl = `https://graph.facebook.com/v17.0/${config.whatsappPhoneId}?fields=whatsapp_business_account&access_token=${config.whatsappToken}`;
+                const wabaRes = await fetch(wabaUrl);
+                if (!wabaRes.ok) throw new Error('Failed to resolve WABA ID. Please configure it explicitly.');
+                const wabaData = await wabaRes.json();
+                wabaId = wabaData.whatsapp_business_account?.id;
+                if (!wabaId) throw new Error('WABA ID could not be resolved from Phone ID.');
+            }
+
+            const checkUrl = `https://graph.facebook.com/v17.0/${wabaId}/message_templates?name=${encodeURIComponent(template.name)}&access_token=${config.whatsappToken}`;
+            const checkRes = await fetch(checkUrl);
+            
+            if (!checkRes.ok) {
+                const errData = await checkRes.json().catch(() => ({}));
+                let errMsg = errData.error?.message || `Meta API returned HTTP ${checkRes.status}`;
+                if (errMsg.includes('(#100)') && errMsg.includes('message_templates')) {
+                    errMsg = 'Your WABA ID is incorrect. It appears you provided a Phone ID in the WABA ID field in Settings. Please use the WhatsApp Business Account ID.';
+                }
+                throw new Error(errMsg);
+            }
+            
+            const checkData = await checkRes.json();
+            const matchedMeta = (checkData.data || []).find(t => t.name.toLowerCase() === template.name.toLowerCase());
+            
+            if (!matchedMeta) {
+                return res.status(404).json({ error: `Template '${template.name}' not found on Meta.` });
+            }
+
+            const metaStatus = matchedMeta.status;
             let formattedStatus = 'Approved';
             if (metaStatus === 'APPROVED') formattedStatus = 'Approved';
             else if (metaStatus === 'PENDING') formattedStatus = 'Pending';
-            else if (metaStatus === 'REJECTED') formattedStatus = 'Rejected';
-            else if (metaStatus === 'REJECTED_LITE') formattedStatus = 'Rejected';
+            else if (metaStatus === 'REJECTED' || metaStatus === 'REJECTED_LITE') formattedStatus = 'Rejected';
             else formattedStatus = metaStatus.charAt(0).toUpperCase() + metaStatus.slice(1).toLowerCase();
 
-            // Update database status
-            await pool.query(
-                'UPDATE whatsapp_templates SET status = ?, is_synced = 1, updatedAt = NOW() WHERE id = ?',
-                [formattedStatus, template.id]
-            );
-
-            // Log checking status
-            await pool.query(
-                'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, sentAt) VALUES (?, ?, "template_check", ?, ?, "sent", NOW())',
-                ['Meta API', 'System', 'Check Template Status', template.name, `Checked status for template '${template.name}'. Meta Status: ${metaStatus}`]
-            );
+            await pool.query('UPDATE whatsapp_templates SET status = ?, is_synced = 1, updatedAt = NOW() WHERE id = ?', [formattedStatus, template.id]);
 
             res.json({
                 success: true,
-                message: `Template status checked successfully! Meta status: ${metaStatus}`,
-                status: formattedStatus,
-                metaDetails: matchedMeta
+                message: `Meta status: ${metaStatus}`,
+                status: formattedStatus
             });
-
         } catch (e) {
-            console.error('[WhatsApp Check Status Error] (falling back to simulation):', e);
-            
-            // Update database status to Approved as a fallback
-            await pool.query(
-                'UPDATE whatsapp_templates SET status = "Approved", is_synced = 1, updatedAt = NOW() WHERE id = ?',
-                [template.id]
-            );
-
-            // Log checking status failure but fallback
-            await pool.query(
-                'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, sentAt) VALUES (?, ?, "template_check", ?, ?, "sent", NOW())',
-                ['Meta API', 'System', 'Check Template Status', template.name, `Meta API check failed: ${e.message}. Falling back to simulated 'Approved' status.`]
-            );
-
-            res.json({
-                success: true,
-                message: `Failed to fetch actual status from Meta (${e.message}). Falling back to local Approved status for testing.`,
-                status: 'Approved',
-                simulated: true
-            });
+            console.error('[WhatsApp Check Status Error]:', e.message);
+            res.status(400).json({ error: e.message || 'Check status failed.' });
         }
     });
 
