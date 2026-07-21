@@ -283,7 +283,7 @@ const ensureFolders = () => {
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
     });
     // Engine Folders - Added 300 for Thumbnails
-    ['300', '720', '1080'].forEach(size => {
+    ['300', '600', '720', '1080'].forEach(size => {
       const dir = path.join(UPLOADS_ROOT, size);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o777 });
     });

@@ -1013,7 +1013,7 @@ export const ProductDetails: React.FC = () => {
                             
                             {product.thumbnails && product.thumbnails.length > 0 && (
                                 <div className="pt-2">
-                                    <h4 className="text-[10px] font-bold uppercase text-stone-400 tracking-widest mb-2">Thumbnails (300p)</h4>
+                                    <h4 className="text-[10px] font-bold uppercase text-stone-400 tracking-widest mb-2">Thumbnails (Optimized)</h4>
                                     <div className="space-y-2">
                                         {product.thumbnails?.map((img, i) => (
                                             <div key={i} className="p-3 bg-stone-50 rounded-xl border border-stone-100 text-[10px] font-mono text-brand-dark flex flex-col gap-1 break-all">

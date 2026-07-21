@@ -1,0 +1,42 @@
+
+> sanghavi-jewel-studio@3.6.0 dev
+> node server.js
+
+WARNING: JWT_SECRET environment variable is missing. Using a default secret for development.
+🚀 [Sanghavi Studio] Server process starting...
+[Config] Checking for .env files...
+[Config] No .env file found. Relying on system environment variables.
+[Debug] DB Config: {
+  host: 'srv1645.hstgr.io',
+  user: 'u477692720_user',
+  db: 'u477692720_jewelstudio4',
+  hasPassword: true
+}
+📦 [Merge] Merging scattered uploads from /app/applet/data/uploads into /app/sanghavi_persistence/uploads
+[Debug] Sanitized DB Config: {
+  host: 'srv1645.hstgr.io',
+  user: 'u477692720_user',
+  db: 'u477692720_jewelstudio4',
+  hasPassword: true
+}
+[WhatsApp] Seeding templates failed: Error: Database not initialized yet
+    at Object.query (file:///app/applet/server.js:339:26)
+    at seedDefaultTemplates (file:///app/applet/server/routes/whatsapp.js:11:39)
+    at whatsappRoutes (file:///app/applet/server/routes/whatsapp.js:57:5)
+    at file:///app/applet/server.js:607:30
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+📂 [Sanghavi Studio] Primary distPath: /app/applet/dist (Exists: true)
+📂 [Sanghavi Studio] Secondary distPath: /app/applet/public_html/dist (Exists: false)
+❌ [Sanghavi Studio] Server failed to start: Error: listen EADDRINUSE: address already in use 0.0.0.0:3000
+    at Server.setupListenHandle [as _listen2] (node:net:1941:16)
+    at listenInCluster (node:net:1998:12)
+    at node:net:2207:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 3000
+}

@@ -23,7 +23,7 @@ export const Landing: React.FC = () => {
 
       {/* Navigation Rail / Header */}
       <header className="relative z-20 flex items-center justify-between px-8 py-6">
-        <Logo size="sm" showText={false} className="opacity-80 hover:opacity-100 transition-opacity" />
+        <Logo size="sm" showText={true} lightText={true} className="opacity-80 hover:opacity-100 transition-opacity" />
         <div className="hidden md:flex items-center gap-8">
           <Link to="/collection" className="text-[10px] uppercase tracking-[0.3em] font-bold text-white/60 hover:text-brand-gold transition-colors">Collection</Link>
           <Link to="/login" className="text-[10px] uppercase tracking-[0.3em] font-bold text-white/60 hover:text-brand-gold transition-colors">Client Portal</Link>

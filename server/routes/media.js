@@ -45,8 +45,8 @@ export default function (pool, UPLOADS_ROOT) {
             return `/uploads/${width}/${filename}`;
           };
           const [desktopWebP, mobileThumb] = await Promise.all([
-              processVariant(1080, 'webp', 85),
-              processVariant(300, 'webp', 80)
+              processVariant(1080, 'webp', 95),
+              processVariant(600, 'webp', 90)
           ]);
           results.push({ originalName: file.originalname, primary: desktopWebP, thumbnail: mobileThumb });
         }
