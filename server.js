@@ -398,13 +398,17 @@ const initDB = async () => {
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) UNIQUE,
         category VARCHAR(100),
+        header_text VARCHAR(255) DEFAULT '',
         body_text TEXT,
+        footer_text VARCHAR(255) DEFAULT '',
         buttons JSON,
         status VARCHAR(50) DEFAULT 'draft',
         is_synced BOOLEAN DEFAULT FALSE,
         createdAt DATETIME,
         updatedAt DATETIME
     )`);
+    await addColumnIfMissing('whatsapp_templates', 'header_text', 'VARCHAR(255) DEFAULT ""');
+    await addColumnIfMissing('whatsapp_templates', 'footer_text', 'VARCHAR(255) DEFAULT ""');
     await pool.query(`CREATE TABLE IF NOT EXISTS whatsapp_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
         recipient_phone VARCHAR(50),

@@ -50,9 +50,11 @@ export default function whatsappRoutes(pool) {
                 {
                     id: 'gold_rate_alert_daily',
                     name: 'gold_rate_alert_daily',
-                    category: 'UTILITY',
-                    body_text: "Hello {{1}},\n\nAs requested, here is today's gold rate.\n\n22K Gold: ₹{{2}} per gram\n24K Gold: ₹{{3}} per gram\n\nThis update is provided for your reference.\n\nThank you,\nSanghavi Jewellers",
-                    buttons: JSON.stringify([]),
+                    category: 'MARKETING',
+                    header_text: "Sanghavi jewellers",
+                    body_text: "Hello {{1}},\n\nAs per your request we are sending you Current Gold Rates :\n✨ 22K Gold: ₹{{2}}/g\n✨ 24K Gold: ₹{{3}}/g",
+                    footer_text: "",
+                    buttons: JSON.stringify([{ type: 'URL', text: 'Check live rates', url: '/collection' }]),
                     status: 'Approved',
                     is_synced: 1
                 },
@@ -60,7 +62,9 @@ export default function whatsappRoutes(pool) {
                     id: 'wishlist_price_drop',
                     name: 'wishlist_price_drop',
                     category: 'UTILITY',
+                    header_text: "",
                     body_text: "Hello {{1}},\n\nThe price of the jewellery item you requested to track has changed.\n\nProduct: {{2}}\n\nPrevious Price: ₹{{3}}\n\nCurrent Price: ₹{{4}}\n\nThis notification is based on your existing price alert request.\n\nThank you,\nSanghavi Jewellers",
+                    footer_text: "",
                     buttons: JSON.stringify([{ type: 'URL', text: 'View Item', url: '/collection?productId={{1}}' }]),
                     status: 'Approved',
                     is_synced: 1
@@ -69,7 +73,9 @@ export default function whatsappRoutes(pool) {
                     id: 'welcome_subscriber',
                     name: 'welcome_subscriber',
                     category: 'UTILITY',
+                    header_text: "",
                     body_text: "Hello {{1}},\n\nThank you for subscribing to daily Gold Rate updates from Sanghavi Jewellers! ✨\n\nYou will receive automated alerts twice daily keeping you updated on market prices.",
+                    footer_text: "",
                     buttons: JSON.stringify([]),
                     status: 'Approved',
                     is_synced: 1
@@ -81,21 +87,30 @@ export default function whatsappRoutes(pool) {
                 console.log('[WhatsApp] Seeding default templates...');
                 for (const t of defaults) {
                     await pool.query(
-                        'INSERT INTO whatsapp_templates (id, name, category, body_text, buttons, status, is_synced, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
-                        [t.id, t.name, t.category, t.body_text, t.buttons, t.status, t.is_synced]
+                        'INSERT INTO whatsapp_templates (id, name, category, header_text, body_text, footer_text, buttons, status, is_synced, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+                        [t.id, t.name, t.category, t.header_text || '', t.body_text, t.footer_text || '', t.buttons, t.status, t.is_synced]
                     );
                 }
             } else {
                 // Also enforce updates for existing default templates to be compliant
                 for (const t of defaults) {
-                    const [existing] = await pool.query('SELECT id, body_text FROM whatsapp_templates WHERE id = ?', [t.id]);
+                    const [existing] = await pool.query('SELECT id, body_text, category FROM whatsapp_templates WHERE id = ?', [t.id]);
                     if (existing[0]) {
                         const body = existing[0].body_text || '';
-                        if (body.includes('bespoke') || body.includes('catalog') || body.includes('Good news!') || body.includes('dropped to') || body.includes('latest')) {
+                        const category = existing[0].category || '';
+                        if (
+                            body.includes('bespoke') || 
+                            body.includes('catalog') || 
+                            body.includes('Good news!') || 
+                            body.includes('dropped to') || 
+                            body.includes('latest') ||
+                            body.includes('As requested, here is today') ||
+                            (t.id === 'gold_rate_alert_daily' && category === 'UTILITY')
+                        ) {
                             console.log(`[WhatsApp] Updating template '${t.id}' to compliant version...`);
                             await pool.query(
-                                'UPDATE whatsapp_templates SET category = ?, body_text = ?, buttons = ?, status = ?, is_synced = ?, updatedAt = NOW() WHERE id = ?',
-                                [t.category, t.body_text, t.buttons, t.status, t.is_synced, t.id]
+                                'UPDATE whatsapp_templates SET category = ?, header_text = ?, body_text = ?, footer_text = ?, buttons = ?, status = ?, is_synced = ?, updatedAt = NOW() WHERE id = ?',
+                                [t.category, t.header_text || '', t.body_text, t.footer_text || '', t.buttons, t.status, t.is_synced, t.id]
                             );
                         }
                     }
@@ -246,6 +261,8 @@ export default function whatsappRoutes(pool) {
             const [rows] = await pool.query('SELECT * FROM whatsapp_templates ORDER BY updatedAt DESC');
             const parsed = rows.map(t => ({
                 ...t,
+                header_text: t.header_text || '',
+                footer_text: t.footer_text || '',
                 buttons: typeof t.buttons === 'string' ? JSON.parse(t.buttons) : (t.buttons || []),
                 is_synced: !!t.is_synced
             }));
@@ -258,7 +275,7 @@ export default function whatsappRoutes(pool) {
     // 5. POST CREATE/UPDATE TEMPLATE
     router.post('/templates', requireStaff, async (req, res) => {
         try {
-            const { id, name, category, body_text, buttons } = req.body;
+            const { id, name, category, header_text, body_text, footer_text, buttons } = req.body;
             if (!name || !body_text) return res.status(400).json({ error: 'Name and Body Text are required' });
 
             const templateCategory = category || 'UTILITY';
@@ -354,13 +371,13 @@ export default function whatsappRoutes(pool) {
 
             if (exists.length > 0) {
                 await pool.query(
-                    'UPDATE whatsapp_templates SET name = ?, category = ?, body_text = ?, buttons = ?, is_synced = 0, status = "draft", updatedAt = NOW() WHERE id = ?',
-                    [cleanName, templateCategory, body_text, buttonsJSON, templateId]
+                    'UPDATE whatsapp_templates SET name = ?, category = ?, header_text = ?, body_text = ?, footer_text = ?, buttons = ?, is_synced = 0, status = "draft", updatedAt = NOW() WHERE id = ?',
+                    [cleanName, templateCategory, header_text || '', body_text, footer_text || '', buttonsJSON, templateId]
                 );
             } else {
                 await pool.query(
-                    'INSERT INTO whatsapp_templates (id, name, category, body_text, buttons, status, is_synced, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, "draft", 0, NOW(), NOW())',
-                    [templateId, cleanName, templateCategory, body_text, buttonsJSON]
+                    'INSERT INTO whatsapp_templates (id, name, category, header_text, body_text, footer_text, buttons, status, is_synced, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, "draft", 0, NOW(), NOW())',
+                    [templateId, cleanName, templateCategory, header_text || '', body_text, footer_text || '', buttonsJSON]
                 );
             }
 
@@ -425,6 +442,21 @@ export default function whatsappRoutes(pool) {
                     }
 
                     const components = [bodyComponent];
+
+                    if (template.header_text) {
+                        components.unshift({
+                            type: 'HEADER',
+                            format: 'TEXT',
+                            text: template.header_text
+                        });
+                    }
+
+                    if (template.footer_text) {
+                        components.push({
+                            type: 'FOOTER',
+                            text: template.footer_text
+                        });
+                    }
 
                     // Check if there are buttons
                     let parsedButtons = [];

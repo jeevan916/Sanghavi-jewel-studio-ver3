@@ -109,7 +109,9 @@ export function WhatsAppManagementPanel() {
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [tplName, setTplName] = useState('');
   const [tplCategory, setTplCategory] = useState('UTILITY');
+  const [tplHeaderText, setTplHeaderText] = useState('');
   const [tplBodyText, setTplBodyText] = useState('');
+  const [tplFooterText, setTplFooterText] = useState('');
   const [tplButtons, setTplButtons] = useState<any[]>([]);
 
   // Form states for manual send
@@ -167,12 +169,16 @@ export function WhatsAppManagementPanel() {
       await storeService.saveWhatsAppTemplate({
         name: tplName,
         category: tplCategory,
+        header_text: tplHeaderText,
         body_text: tplBodyText,
+        footer_text: tplFooterText,
         buttons: tplButtons
       });
       showFeedback('success', `Template '${tplName}' created as Draft. Please sync with Meta.`);
       setTplName('');
+      setTplHeaderText('');
       setTplBodyText('');
+      setTplFooterText('');
       setTplButtons([]);
       setShowCreateTemplate(false);
       // reload
@@ -454,6 +460,17 @@ export function WhatsAppManagementPanel() {
               </div>
 
               <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Header Text (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Sanghavi jewellers"
+                  value={tplHeaderText}
+                  onChange={(e) => setTplHeaderText(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-gold/20"
+                />
+              </div>
+
+              <div className="space-y-1">
                 <div className="flex justify-between items-center">
                   <label className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Message Body Template</label>
                   <span className="text-[8px] font-bold text-brand-gold uppercase tracking-widest">Use {"{{1}}"}, {"{{2}}"} etc. as dynamic placeholders</span>
@@ -465,6 +482,17 @@ export function WhatsAppManagementPanel() {
                   value={tplBodyText}
                   onChange={(e) => setTplBodyText(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 font-sans leading-relaxed"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Footer Text (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Reply STOP to opt out"
+                  value={tplFooterText}
+                  onChange={(e) => setTplFooterText(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-gold/20"
                 />
               </div>
 
@@ -573,9 +601,21 @@ export function WhatsAppManagementPanel() {
                   <h5 className="font-mono text-xs font-bold text-brand-dark mb-3 break-all">{tpl.name}</h5>
                   
                   <div className="bg-stone-50/50 p-4 rounded-xl border border-stone-100 min-h-[140px] flex flex-col justify-between mb-4">
-                    <p className="text-stone-600 text-[11px] leading-relaxed whitespace-pre-line font-sans italic">
-                      {tpl.body_text}
-                    </p>
+                    <div>
+                      {tpl.header_text && (
+                        <div className="text-[11px] font-bold text-stone-800 mb-2 pb-1 border-b border-stone-100 uppercase tracking-wider">
+                          {tpl.header_text}
+                        </div>
+                      )}
+                      <p className="text-stone-600 text-[11px] leading-relaxed whitespace-pre-line font-sans italic">
+                        {tpl.body_text}
+                      </p>
+                      {tpl.footer_text && (
+                        <div className="text-[9px] text-stone-400 mt-2 pt-1 border-t border-stone-100">
+                          {tpl.footer_text}
+                        </div>
+                      )}
+                    </div>
                     
                     {tpl.buttons && tpl.buttons.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap gap-1.5">
