@@ -191,11 +191,23 @@ export default function whatsappRoutes(pool) {
         try {
             await seedDefaultTemplates(); // Ensure seeded
             const [rows] = await pool.query('SELECT * FROM whatsapp_templates ORDER BY updatedAt DESC');
-            const parsed = rows.map(t => ({
-                ...t,
-                buttons: typeof t.buttons === 'string' ? JSON.parse(t.buttons) : (t.buttons || []),
-                is_synced: !!t.is_synced
-            }));
+            const parsed = rows.map(t => {
+                let parsedButtons = [];
+                let parsedSampleVars = [];
+                try {
+                    parsedButtons = typeof t.buttons === 'string' ? JSON.parse(t.buttons) : (t.buttons || []);
+                } catch(e){}
+                try {
+                    parsedSampleVars = typeof t.sample_variables === 'string' ? JSON.parse(t.sample_variables) : (t.sample_variables || []);
+                } catch(e){}
+                
+                return {
+                    ...t,
+                    buttons: Array.isArray(parsedButtons) ? parsedButtons : [],
+                    sample_variables: Array.isArray(parsedSampleVars) ? parsedSampleVars : [],
+                    is_synced: !!t.is_synced
+                };
+            });
             res.json(parsed);
         } catch (e) {
             res.status(500).json({ error: 'Internal server error', message: e.message });

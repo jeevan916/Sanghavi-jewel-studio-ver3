@@ -419,7 +419,7 @@ export function WhatsAppManagementPanel() {
                       {tpl.body_text}
                     </p>
                     
-                    {tpl.sample_variables && tpl.sample_variables.length > 0 && (
+                    {Array.isArray(tpl.sample_variables) && tpl.sample_variables.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-stone-100 flex flex-col gap-1.5">
                         <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Sample Variables</span>
                         <div className="flex flex-wrap gap-1.5">
@@ -432,7 +432,7 @@ export function WhatsAppManagementPanel() {
                       </div>
                     )}
                     
-                    {tpl.buttons && tpl.buttons.length > 0 && (
+                    {Array.isArray(tpl.buttons) && tpl.buttons.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap gap-1.5">
                         {tpl.buttons.map((b: any, bIdx: number) => (
                           <span key={bIdx} className="px-2.5 py-1 bg-white border border-stone-200 rounded-lg text-[8px] font-bold uppercase tracking-widest text-stone-500">
