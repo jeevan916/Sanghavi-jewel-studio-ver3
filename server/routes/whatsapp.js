@@ -588,6 +588,8 @@ export default function whatsappRoutes(pool) {
                 let status = 'sent';
                 let errMsg = null;
 
+                let lastError = null;
+
                 if (config.whatsappToken && config.whatsappPhoneId) {
                     try {
                         const response = await fetch(`https://graph.facebook.com/v17.0/${config.whatsappPhoneId}/messages`, {
@@ -621,12 +623,14 @@ export default function whatsappRoutes(pool) {
                             const txtErr = await response.text();
                             status = 'failed';
                             errMsg = txtErr;
+                            lastError = txtErr;
                         } else {
                             sentCount++;
                         }
                     } catch (apiErr) {
                         status = 'failed';
                         errMsg = apiErr.message;
+                        lastError = apiErr.message;
                     }
                 } else {
                     sentCount++;
@@ -643,7 +647,7 @@ export default function whatsappRoutes(pool) {
                 await new Promise(r => setTimeout(r, 150));
             }
 
-            res.json({ success: true, sentCount, subscriberCount: subscribers.length });
+            res.json({ success: true, sentCount, subscriberCount: subscribers.length, lastError });
         } catch (e) {
             console.error(e);
             res.status(500).json({ error: 'Internal server error', message: e.message });

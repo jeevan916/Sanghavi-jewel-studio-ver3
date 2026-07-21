@@ -196,7 +196,11 @@ export function WhatsAppManagementPanel() {
     setActionLoading(true);
     try {
       const res = await storeService.triggerWhatsAppGoldRateBroadcast();
-      showFeedback('success', `Broadcast complete! Sent gold rate alerts to ${res.sentCount} of ${res.subscriberCount} opt-in subscribers.`);
+      if (res.lastError && res.sentCount === 0) {
+        showFeedback('error', `Broadcast failed: ${res.lastError.substring(0, 100)}...`);
+      } else {
+        showFeedback('success', `Broadcast complete! Sent gold rate alerts to ${res.sentCount} of ${res.subscriberCount} opt-in subscribers.`);
+      }
       const [lgs, subs] = await Promise.all([
         storeService.getWhatsAppLogs(),
         storeService.getWhatsAppSubscribers()
