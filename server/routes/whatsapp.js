@@ -96,6 +96,14 @@ export default function whatsappRoutes(pool) {
             if (isSubscribed) {
                 let status = 'sent';
                 let errMsg = null;
+                
+                // Get language of the welcome template
+                const welcomeTplName = config.whatsappWelcomeTemplateName || "welcome_subscriber";
+                let templateLang = 'en';
+                const [wRows] = await pool.query('SELECT language FROM whatsapp_templates WHERE name = ?', [welcomeTplName]);
+                if (wRows.length > 0 && wRows[0].language) {
+                    templateLang = wRows[0].language;
+                }
                 const config = await getWhatsAppConfig();
 
                 if (config.whatsappToken && config.whatsappPhoneId) {
@@ -112,7 +120,7 @@ export default function whatsappRoutes(pool) {
                                 type: "template",
                                 template: {
                                     name: config.whatsappWelcomeTemplateName || "welcome_subscriber",
-                                    language: { code: "en_US" },
+                                    language: { code: templateLang },
                                     components: [
                                         {
                                             type: "body",
@@ -322,10 +330,11 @@ export default function whatsappRoutes(pool) {
             }
 
             const metaStatus = matchedMeta.status;
+            const metaLanguage = matchedMeta.language || 'en';
             
             await pool.query(
-                'UPDATE whatsapp_templates SET body_text = ?, buttons = ?, sample_variables = ?, category = ?, status = ?, is_synced = 1, updatedAt = NOW() WHERE id = ?',
-                [bodyText, JSON.stringify(formattedButtons), JSON.stringify(sampleVariables), matchedMeta.category, metaStatus, template.id]
+                'UPDATE whatsapp_templates SET body_text = ?, buttons = ?, sample_variables = ?, category = ?, status = ?, language = ?, is_synced = 1, updatedAt = NOW() WHERE id = ?',
+                [bodyText, JSON.stringify(formattedButtons), JSON.stringify(sampleVariables), matchedMeta.category, metaStatus, metaLanguage, template.id]
             );
 
             await pool.query(
@@ -384,6 +393,7 @@ export default function whatsappRoutes(pool) {
             }
 
             const metaStatus = matchedMeta.status;
+            const metaLanguage = matchedMeta.language || 'en';
             let formattedStatus = 'Approved';
             if (metaStatus === 'APPROVED') formattedStatus = 'Approved';
             else if (metaStatus === 'PENDING') formattedStatus = 'Pending';
@@ -445,11 +455,13 @@ export default function whatsappRoutes(pool) {
 
             let messageBody = customText || '';
             let templateName = '';
+            let templateLang = 'en';
 
             if (type === 'template' && templateId) {
                 const [tRows] = await pool.query('SELECT * FROM whatsapp_templates WHERE id = ?', [templateId]);
                 if (tRows.length > 0) {
                     templateName = tRows[0].name;
+                    templateLang = tRows[0].language || 'en';
                     let text = tRows[0].body_text;
                     const vars = variables || [recName];
                     vars.forEach((v, idx) => {
@@ -473,7 +485,7 @@ export default function whatsappRoutes(pool) {
                             type: "template",
                             template: {
                                 name: templateName,
-                                language: { code: "en_US" },
+                                language: { code: templateLang },
                                 components: [
                                     {
                                         type: "body",
@@ -551,6 +563,14 @@ export default function whatsappRoutes(pool) {
 
             const config = await getWhatsAppConfig();
             let sentCount = 0;
+            
+            // Get language of the gold rate template
+            const tplName = config.whatsappGoldRateTemplateName || "gold_rate_alert_daily";
+            let templateLang = 'en'; // default to en
+            const [tplRows] = await pool.query('SELECT language FROM whatsapp_templates WHERE name = ?', [tplName]);
+            if (tplRows.length > 0 && tplRows[0].language) {
+                templateLang = tplRows[0].language;
+            }
 
             for (const sub of subscribers) {
                 const recPhone = sub.phone;
@@ -576,7 +596,7 @@ export default function whatsappRoutes(pool) {
                                 type: "template",
                                 template: {
                                     name: config.whatsappGoldRateTemplateName || "gold_rate_alert_daily",
-                                    language: { code: "en_US" },
+                                    language: { code: templateLang },
                                     components: [
                                         {
                                             type: "body",

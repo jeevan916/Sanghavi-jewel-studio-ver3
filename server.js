@@ -404,6 +404,20 @@ const initDB = async () => {
         sample_variables JSON,
         status VARCHAR(50) DEFAULT 'draft',
         is_synced BOOLEAN DEFAULT FALSE,
+        language VARCHAR(20) DEFAULT 'en',
+        createdAt DATETIME,
+        updatedAt DATETIME
+    )`);
+    await addColumnIfMissing('whatsapp_templates', 'language', 'VARCHAR(20) DEFAULT "en"');
+    //
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) UNIQUE,
+        category VARCHAR(100),
+        body_text TEXT,
+        buttons JSON,
+        sample_variables JSON,
+        status VARCHAR(50) DEFAULT 'draft',
+        is_synced BOOLEAN DEFAULT FALSE,
         createdAt DATETIME,
         updatedAt DATETIME
     )`);
