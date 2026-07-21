@@ -978,7 +978,7 @@ export function WhatsAppManagementPanel() {
                           {log.status === 'sent' ? 'Delivered' : 'Failed'}
                         </span>
                         {log.errorMessage && (
-                          <span className="block text-[8px] text-red-500 font-mono mt-1 break-all max-w-[140px] truncate" title={log.errorMessage}>
+                          <span className="block text-[8px] text-red-500 font-mono mt-1 break-words whitespace-normal max-w-xs">
                             Error: {log.errorMessage}
                           </span>
                         )}
