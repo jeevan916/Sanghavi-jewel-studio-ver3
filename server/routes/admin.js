@@ -254,5 +254,84 @@ router.post('/api/admin/deduplicate-storage', requireAdmin, async (req, res) => 
         }
     });
 
+
+    router.get('/api/admin/backups', requireAdmin, async (req, res) => {
+        try {
+            const { getBackupsList } = await import('../backupService.js');
+            const backups = getBackupsList();
+            res.json({ success: true, backups });
+        } catch (e) {
+            console.error('Failed to list backups:', e);
+            res.status(500).json({ error: 'Failed to list backups' });
+        }
+    });
+
+    router.post('/api/admin/backups/trigger', requireAdmin, async (req, res) => {
+        try {
+            res.json({ success: true, message: 'Backup started in background. Please refresh the page in a few minutes to see it.' });
+            
+            // Run in background
+            import('../backupService.js').then(({ triggerBackup }) => {
+                triggerBackup('manual').catch(e => {
+                    console.error('Failed to run background backup:', e);
+                });
+            }).catch(e => {
+                console.error('Failed to load backupService:', e);
+            });
+        } catch (e) {
+            console.error('Failed to trigger backup:', e);
+            if (!res.headersSent) {
+                res.status(500).json({ error: e.message || 'Backup failed' });
+            }
+        }
+    });
+
+    router.delete('/api/admin/backups/:filename', requireAdmin, (req, res) => {
+        try {
+            
+            
+            const backupsDir = path.join(import.meta.dirname, '..', '..', 'backups');
+            const filepath = path.join(backupsDir, req.params.filename);
+            
+            // basic security check
+            if (filepath.startsWith(backupsDir) && fs.existsSync(filepath)) {
+                fs.unlinkSync(filepath);
+                res.json({ success: true });
+            } else {
+                res.status(404).json({ error: 'File not found' });
+            }
+        } catch (e) {
+            res.status(500).json({ error: 'Failed to delete backup' });
+        }
+    });
+
+        router.get('/api/admin/backups/download/:filename', async (req, res) => {
+        try {
+            const token = req.query.token;
+            if (!token) return res.status(401).send('Missing token');
+            
+            const jwt = (await import('jsonwebtoken')).default;
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+            
+            const [rows] = await pool.query('SELECT role, isActive FROM staff WHERE id = ?', [decoded.id]);
+            const dbUser = rows[0];
+            if (!dbUser || !dbUser.isActive || dbUser.role !== 'admin') {
+                return res.status(403).send('Forbidden: Admin access required');
+            }
+
+            const backupsDir = path.join(import.meta.dirname, '..', '..', 'backups');
+            const filepath = path.join(backupsDir, req.params.filename);
+            
+            if (filepath.startsWith(backupsDir) && existsSync(filepath)) {
+                res.download(filepath);
+            } else {
+                res.status(404).send('File not found');
+            }
+        } catch(e) {
+            res.status(401).send('Invalid token or error: ' + e.message);
+        }
+    });
+
     return router;
 }
+

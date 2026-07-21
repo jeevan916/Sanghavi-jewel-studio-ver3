@@ -8,6 +8,7 @@ import { PredictiveMarketingPanel } from '@/components/admin/PredictiveMarketing
 import { WishlistCampaigns } from '@/components/WishlistCampaigns.tsx';
 import { MigrationDebugger } from '@/components/admin/MigrationDebugger.tsx';
 import { WhatsAppManagementPanel } from '@/components/admin/WhatsAppManagementPanel.tsx';
+import { SystemBackupsPanel } from '@/components/admin/SystemBackupsPanel.tsx';
 import { 
   Loader2, Settings, Folder, Trash2, Edit2, Plus, Search, 
   Grid, List as ListIcon, Lock, CheckCircle, X, Tag,
@@ -92,6 +93,7 @@ const StorageView = () => {
                     </div>
 
                     <MigrationDebugger />
+                    <SystemBackupsPanel />
 
                 </div>
             </div>

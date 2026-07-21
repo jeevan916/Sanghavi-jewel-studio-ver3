@@ -12,6 +12,7 @@ import staffRoutes from './server/routes/staff.js';
 import linksRoutes from './server/routes/links.js';
 import aiRoutes from './server/routes/ai.js';
 import whatsappRoutes from './server/routes/whatsapp.js';
+import { initBackupScheduler } from './server/backupService.js';
 
 import fs, { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync, readFileSync } from 'fs';
 import os from 'os';
@@ -691,7 +692,7 @@ async function startServer() {
       
       // Initialize Database in background after server starts listening
       console.log('🚀 [Sanghavi Studio] Initializing Database in background...');
-      initDB().catch(err => {
+      initDB().then(() => initBackupScheduler()).catch(err => {
         console.error('❌ [Sanghavi Studio] Database Initialization Failed:', err);
       });
     });
