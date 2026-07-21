@@ -415,9 +415,22 @@ export function WhatsAppManagementPanel() {
                   <h5 className="font-mono text-xs font-bold text-brand-dark mb-3 break-all">{tpl.name}</h5>
                   
                   <div className="bg-stone-50/50 p-4 rounded-xl border border-stone-100 min-h-[140px] flex flex-col justify-between mb-4">
-                    <p className="text-stone-600 text-[11px] leading-relaxed whitespace-pre-line font-sans italic">
+                                        <p className="text-stone-600 text-[11px] leading-relaxed whitespace-pre-line font-sans italic">
                       {tpl.body_text}
                     </p>
+                    
+                    {tpl.sample_variables && tpl.sample_variables.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-stone-100 flex flex-col gap-1.5">
+                        <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Sample Variables</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {tpl.sample_variables.map((v: any, vIdx: number) => (
+                            <span key={vIdx} className="px-2 py-0.5 bg-stone-100 border border-stone-200 rounded text-[9px] font-mono text-stone-500">
+                              {"{{"}{vIdx+1}{"}}"}: {v}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     
                     {tpl.buttons && tpl.buttons.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap gap-1.5">

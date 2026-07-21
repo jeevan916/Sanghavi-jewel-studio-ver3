@@ -400,6 +400,7 @@ const initDB = async () => {
         category VARCHAR(100),
         body_text TEXT,
         buttons JSON,
+        sample_variables JSON,
         status VARCHAR(50) DEFAULT 'draft',
         is_synced BOOLEAN DEFAULT FALSE,
         createdAt DATETIME,
