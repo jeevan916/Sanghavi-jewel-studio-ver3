@@ -534,7 +534,11 @@ export const storeService = {
       return apiFetch('/instagram/comments');
   },
 
-  saveConfig: (c: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(c) }),
+  saveConfig: async (c: AppConfig) => {
+      const res = await apiFetch('/config', { method: 'POST', body: JSON.stringify(c) });
+      CACHE.config = c;
+      return res;
+  },
   
   addProduct: (p: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(p) }),
   updateProduct: (p: Product) => apiFetch(`/products/${p.id}`, { method: 'PUT', body: JSON.stringify(p) }),
