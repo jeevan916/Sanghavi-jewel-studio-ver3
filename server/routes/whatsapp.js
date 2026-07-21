@@ -5,6 +5,44 @@ import { requireStaff } from '../auth.js';
 export default function whatsappRoutes(pool) {
     const router = express.Router();
 
+    const generateBodySamples = (text) => {
+        const allBraceContents = [...text.matchAll(/\{\{([^}]*)\}\}/g)];
+        const indices = allBraceContents
+            .map(match => parseInt(match[1], 10))
+            .filter(num => !isNaN(num) && num > 0);
+        
+        if (indices.length === 0) return null;
+        
+        const maxVal = Math.max(...indices);
+        const samples = [];
+        
+        const lowerText = text.toLowerCase();
+        const isGoldRate = lowerText.includes('gold rate') || lowerText.includes('22k') || lowerText.includes('24k');
+        const isPriceDrop = lowerText.includes('price') || lowerText.includes('wishlist') || lowerText.includes('product');
+        
+        for (let i = 1; i <= maxVal; i++) {
+            if (isGoldRate) {
+                if (i === 1) samples.push("Jeevan");
+                else if (i === 2) samples.push("7250");
+                else if (i === 3) samples.push("7910");
+                else samples.push(`Sample ${i}`);
+            } else if (isPriceDrop) {
+                if (i === 1) samples.push("Jeevan");
+                else if (i === 2) samples.push("Bespoke Gold Ring");
+                else if (i === 3) samples.push("50000");
+                else if (i === 4) samples.push("48000");
+                else samples.push(`Sample ${i}`);
+            } else {
+                if (i === 1) samples.push("Jeevan");
+                else if (i === 2) samples.push("Item Name");
+                else if (i === 3) samples.push("100");
+                else samples.push(`Value ${i}`);
+            }
+        }
+        
+        return [samples];
+    };
+
     // Helper to seed default templates if empty
     const seedDefaultTemplates = async () => {
         try {
@@ -375,12 +413,18 @@ export default function whatsappRoutes(pool) {
                     }
 
                     // 2. Format components (BODY and optional BUTTONS)
-                    const components = [
-                        {
-                            type: 'BODY',
-                            text: template.body_text
-                        }
-                    ];
+                    const bodySamples = generateBodySamples(template.body_text);
+                    const bodyComponent = {
+                        type: 'BODY',
+                        text: template.body_text
+                    };
+                    if (bodySamples) {
+                        bodyComponent.example = {
+                            body_text: bodySamples
+                        };
+                    }
+
+                    const components = [bodyComponent];
 
                     // Check if there are buttons
                     let parsedButtons = [];
@@ -393,11 +437,15 @@ export default function whatsappRoutes(pool) {
                             if (btn.type === 'URL') {
                                 const origin = req.get('origin') || `https://${req.get('host')}` || 'https://sanghavi-jewels.com';
                                 const fullUrl = btn.url.startsWith('http') ? btn.url : `${origin}${btn.url}`;
-                                return {
+                                const btnObj = {
                                     type: 'URL',
                                     text: btn.text,
                                     url: fullUrl
                                 };
+                                if (fullUrl.includes('{{1}}')) {
+                                    btnObj.example = [ fullUrl.replace('{{1}}', '123') ];
+                                }
+                                return btnObj;
                             } else if (btn.type === 'PHONE_NUMBER' || btn.type === 'PHONE') {
                                 return {
                                     type: 'PHONE_NUMBER',
