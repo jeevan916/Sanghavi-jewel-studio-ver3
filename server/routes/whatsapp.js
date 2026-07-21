@@ -54,7 +54,7 @@ export default function whatsappRoutes(pool) {
     };
 
     // Pre-seed default templates asynchronously
-    seedDefaultTemplates();
+    setTimeout(seedDefaultTemplates, 10000);
 
     // 1. GET ALL SUB_SETTING OR API CREDENTIALS FOR WHATSAPP
     const getWhatsAppConfig = async () => {
@@ -567,9 +567,11 @@ export default function whatsappRoutes(pool) {
             // Get language of the gold rate template
             const tplName = config.whatsappGoldRateTemplateName || "gold_rate_alert_daily";
             let templateLang = 'en'; // default to en
-            const [tplRows] = await pool.query('SELECT language FROM whatsapp_templates WHERE name = ?', [tplName]);
-            if (tplRows.length > 0 && tplRows[0].language) {
-                templateLang = tplRows[0].language;
+            let templateBodyText = `Hello {{1}},\n\nToday's Gold Rates at Sanghavi Jewel Studio are:\n✨ 22K Gold: ₹{{2}}/g\n✨ 24K Gold: ₹{{3}}/g\n\nVisit our online catalog to explore our latest bespoke jewelry designs. Have a sparkling day!`;
+            const [tplRows] = await pool.query('SELECT language, body_text FROM whatsapp_templates WHERE name = ?', [tplName]);
+            if (tplRows.length > 0) {
+                if (tplRows[0].language) templateLang = tplRows[0].language;
+                if (tplRows[0].body_text) templateBodyText = tplRows[0].body_text;
             }
 
             for (const sub of subscribers) {
@@ -577,7 +579,11 @@ export default function whatsappRoutes(pool) {
                 const recName = sub.name;
 
                 // Format variables: {{1}} name, {{2}} rate22k, {{3}} rate24k
-                let textBody = `Hello ${recName},\n\nToday's Gold Rates at Sanghavi Jewel Studio are:\n✨ 22K Gold: ₹${gold22}/g\n✨ 24K Gold: ₹${gold24}/g\n\nVisit our online catalog to explore our latest bespoke jewelry designs. Have a sparkling day!`;
+                let textBody = templateBodyText;
+                const vars = [recName, String(gold22), String(gold24)];
+                vars.forEach((v, idx) => {
+                    textBody = textBody.replace(new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'), v);
+                });
 
                 let status = 'sent';
                 let errMsg = null;
