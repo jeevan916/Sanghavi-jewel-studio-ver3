@@ -16,8 +16,8 @@ export function getImageUrl(path: string): string {
     // Bypassing express redirect to directly hit the CDN / Live server for uploads
     // This removes the 302 hop, speeding up image loading significantly
     if (path.startsWith('/uploads')) {
-        const cdnBase = import.meta.env.VITE_CDN_URL || '';
-        return cdnBase ? `${cdnBase}${path}` : path;
+        const cdnBase = import.meta.env.VITE_CDN_URL || 'https://studio.sanghavijewellers.com';
+        return `${cdnBase}${path}`;
     }
     return path;
 }
@@ -637,6 +637,7 @@ export const storeService = {
     window.open(`https://wa.me/${customer.phone}`, '_blank');
   },
   getCuratedProducts: async (): Promise<CuratedCollections> => {
+    if (CACHE.curated) return CACHE.curated;
     const data = await apiFetch('/products/curated').catch(() => ({ latest: [], loved: [], trending: [], ideal: [] }));
     CACHE.curated = data;
     return data;
