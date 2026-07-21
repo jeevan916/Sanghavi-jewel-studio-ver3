@@ -76,7 +76,7 @@ export default function configRoutes(pool, CACHE) {
 
             CACHE.config.data = config;
             CACHE.config.lastFetch = now;
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
             res.json(config);
         } catch (e) { 
             res.status(500).json({ error: 'Internal server error' }); 
@@ -85,7 +85,6 @@ export default function configRoutes(pool, CACHE) {
 
     router.post('/api/config', requireAdmin, async (req, res) => {
         if (!pool) return res.status(503).json({ error: 'Database connection not initialized.' });
-        console.log('[CONFIG SAVE INITIATED]', JSON.stringify(req.body).substring(0, 500) + '...');
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
@@ -152,9 +151,8 @@ export default function configRoutes(pool, CACHE) {
             CACHE.config.data = null; // Invalidate cache
             res.json({ success: true });
         } catch (e) {
-            console.error('[CONFIG SAVE ERROR]', e);
             await conn.rollback();
-            res.status(500).json({ error: e.message || 'Internal server error' });
+            res.status(500).json({ error: 'Internal server error' });
         } finally {
             conn.release();
         }

@@ -80,7 +80,6 @@ export const WishlistCampaigns = ({ config }: { config: any }) => {
                 phone: c.phone,
                 productTitle: c.title,
                 productId: c.productId,
-                previousPrice: c.priceWhenWishlisted,
                 currentPrice: c.currentPrice
             }));
             

@@ -67,7 +67,6 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
             }
             
             const templateName = config.whatsappWishlistTemplateName || 'wishlist_price_drop';
-            const isStandardPriceDrop = (templateName === 'wishlist_price_drop');
 
             for (const notif of notifications) {
                 // Check 3 day anti spam logic again
@@ -98,12 +97,7 @@ export default function wishlistRoutes(pool, sanitizeProduct) {
                                 components: [
                                     {
                                         type: "body",
-                                        parameters: isStandardPriceDrop ? [
-                                            { type: "text", text: String(notif.customerName || "Customer").substring(0, 30) },
-                                            { type: "text", text: String(notif.productTitle).substring(0, 30) },
-                                            { type: "text", text: String(notif.previousPrice || notif.priceWhenWishlisted || Math.round(notif.currentPrice * 1.05)) },
-                                            { type: "text", text: String(notif.currentPrice) }
-                                        ] : [
+                                        parameters: [
                                             { type: "text", text: String(notif.customerName || "Customer").substring(0, 30) },
                                             { type: "text", text: String(notif.productTitle).substring(0, 30) }, // Limit length for safety
                                             { type: "text", text: "₹" + String(notif.currentPrice) }

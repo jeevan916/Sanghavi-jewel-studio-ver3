@@ -275,15 +275,9 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const handleSave = async () => {
     if (config) {
         setIsLoading(true);
-        try {
-            await storeService.saveConfig(config);
-            alert('Settings Saved Successfully');
-        } catch (e: any) {
-            console.error('Failed to save config:', e);
-            alert('Failed to save settings: ' + (e.message || 'Unknown error'));
-        } finally {
-            setIsLoading(false);
-        }
+        await storeService.saveConfig(config);
+        setIsLoading(false);
+        alert('Settings Saved Successfully');
     }
   };
 
@@ -756,14 +750,15 @@ export const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                                                     method: 'POST',
                                                     body: formData
                                                 });
-                                                if (res && res.success) {
+                                                if (res.ok) {
                                                     alert('Logo updated successfully! The page will reload to apply changes.');
                                                     window.location.reload();
                                                 } else {
-                                                    alert('Failed to update logo');
+                                                    const err = await res.json();
+                                                    alert('Failed to update logo: ' + (err.error || 'Unknown error'));
                                                 }
-                                            } catch (err: any) {
-                                                alert('Error uploading logo: ' + (err.message || 'Unknown error'));
+                                            } catch (err) {
+                                                alert('Network error while uploading logo.');
                                             }
                                         }} 
                                     />

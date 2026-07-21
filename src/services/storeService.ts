@@ -397,7 +397,7 @@ export const storeService = {
   getConfig: async (): Promise<AppConfig> => {
     if (CACHE.config) return CACHE.config;
     try {
-        const data = await apiFetch('/config?_t=' + Date.now());
+        const data = await apiFetch('/config');
         
         // Helper to safely parse templates
         const parseTemplates = (jsonStr: string) => {
@@ -534,11 +534,7 @@ export const storeService = {
       return apiFetch('/instagram/comments');
   },
 
-  saveConfig: async (c: AppConfig) => {
-      const res = await apiFetch('/config', { method: 'POST', body: JSON.stringify(c) });
-      CACHE.config = c;
-      return res;
-  },
+  saveConfig: (c: AppConfig) => apiFetch('/config', { method: 'POST', body: JSON.stringify(c) }),
   
   addProduct: (p: Product) => apiFetch('/products', { method: 'POST', body: JSON.stringify(p) }),
   updateProduct: (p: Product) => apiFetch(`/products/${p.id}`, { method: 'PUT', body: JSON.stringify(p) }),
@@ -648,7 +644,6 @@ export const storeService = {
   getBackups: () => apiFetch('/backups').catch(() => []),
   createBackup: () => apiFetch('/backups', { method: 'POST' }),
   deleteBackup: (name: string) => apiFetch(`/backups/${name}`, { method: 'DELETE' }),
-  restoreBackup: (name: string) => apiFetch(`/backups/restore/${name}`, { method: 'POST' }),
   downloadBackupUrl: (name: string) => getProxyPath(`/backups/download/${name}`),
   getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message })),
   optimizeStorage: () => apiFetch('/admin/optimize-storage', { method: 'POST' }),

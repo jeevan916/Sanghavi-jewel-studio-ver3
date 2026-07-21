@@ -45,27 +45,10 @@ router.get('/api/intelligence', requireAdmin, async (req, res) => {
     const { writeFileSync, existsSync, readdirSync, statSync } = fs;
 
 router.post('/api/backups', requireAdmin, async (req, res) => {
-    try {
-        const name = `snapshot_${Date.now()}.json`;
-        const [tables] = await pool.query('SHOW TABLES');
-        const dbData = {};
-        for (const row of tables) {
-            const tableName = Object.values(row)[0];
-            const [data] = await pool.query(`SELECT * FROM \`${tableName}\``);
-            dbData[tableName] = data;
-        }
-        
-        if (!existsSync(BACKUPS_ROOT)) {
-            fs.mkdirSync(BACKUPS_ROOT, { recursive: true });
-        }
-        
-        const dumpString = JSON.stringify(dbData);
-        writeFileSync(path.join(BACKUPS_ROOT, name), dumpString);
-        res.json({ success: true, filename: name, size: dumpString.length });
-    } catch (e) {
-        console.error("Backup creation failed:", e);
-        res.status(500).json({ error: 'Internal server error', message: e.message });
-    }
+    const name = `snapshot_${Date.now()}.json`;
+    const [products] = await pool.query('SELECT * FROM products');
+    writeFileSync(path.join(BACKUPS_ROOT, name), JSON.stringify(products));
+    res.json({ success: true, filename: name, size: JSON.stringify(products).length });
 });
 
 router.get('/api/backups', requireAdmin, (req, res) => {
@@ -85,58 +68,6 @@ router.get('/api/backups/download/:name', requireAdmin, (req, res) => {
         res.status(404).send('Backup not found');
     }
 });
-
-router.post('/api/backups/restore/:name', requireAdmin, async (req, res) => {
-    try {
-        const filePath = path.join(BACKUPS_ROOT, req.params.name);
-        if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ error: 'Backup not found' });
-        }
-        
-        const backupData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        
-        const conn = await pool.getConnection();
-        try {
-            await conn.beginTransaction();
-            
-            // For each table in the backup, clear and insert
-            for (const [tableName, rows] of Object.entries(backupData)) {
-                // Ignore analytics and logs if they are huge, but for now we restore everything
-                await conn.query(`DELETE FROM \`${tableName}\``);
-                if (rows.length > 0) {
-                    // Extract columns
-                    const columns = Object.keys(rows[0]);
-                    const values = rows.map(row => columns.map(col => row[col]));
-                    
-                    // We insert in chunks to avoid max_allowed_packet issues
-                    const chunkSize = 500;
-                    for (let i = 0; i < values.length; i += chunkSize) {
-                        const chunk = values.slice(i, i + chunkSize);
-                        const placeholders = chunk.map(() => '(' + columns.map(() => '?').join(',') + ')').join(',');
-                        const flatValues = chunk.flat();
-                        
-                        await conn.query(
-                            `INSERT INTO \`${tableName}\` (${columns.map(c => '`' + c + '`').join(',')}) VALUES ${placeholders}`,
-                            flatValues
-                        );
-                    }
-                }
-            }
-            
-            await conn.commit();
-            res.json({ success: true });
-        } catch (dbError) {
-            await conn.rollback();
-            throw dbError;
-        } finally {
-            conn.release();
-        }
-    } catch (e) {
-        console.error("Backup restore failed:", e);
-        res.status(500).json({ error: 'Internal server error', message: e.message });
-    }
-});
-
 
 router.post('/api/instagram/sync', requireAdmin, async (req, res) => {
     try {
