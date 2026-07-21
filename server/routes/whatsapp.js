@@ -312,7 +312,78 @@ export default function whatsappRoutes(pool) {
             const matchedMeta = metaTemplates.find(t => t.name.toLowerCase() === template.name.toLowerCase());
             
             if (!matchedMeta) {
-                throw new Error(`Template '${template.name}' not found on Meta. Please create it in WhatsApp Manager first with exactly this name.`);
+                // Not found on Meta? Let's push it to Meta!
+                const payload = {
+                    name: template.name,
+                    language: template.language === 'en' ? 'en_US' : (template.language || 'en_US'),
+                    category: template.category || 'UTILITY',
+                    components: [
+                        {
+                            type: 'BODY',
+                            text: template.body_text
+                        }
+                    ]
+                };
+
+                let parsedButtons = [];
+                try {
+                    parsedButtons = typeof template.buttons === 'string' ? JSON.parse(template.buttons) : (template.buttons || []);
+                } catch(e) {}
+                
+                if (parsedButtons && parsedButtons.length > 0) {
+                    payload.components.push({
+                        type: 'BUTTONS',
+                        buttons: parsedButtons
+                    });
+                }
+                
+                let parsedVars = [];
+                try {
+                    parsedVars = typeof template.sample_variables === 'string' ? JSON.parse(template.sample_variables) : (template.sample_variables || []);
+                } catch(e) {}
+                
+                if (parsedVars && parsedVars.length > 0) {
+                    payload.components[0].example = {
+                        body_text: [parsedVars]
+                    };
+                } else if (template.body_text.includes('{{1}}')) {
+                    const match = template.body_text.match(/\{\{(\d+)\}\}/g);
+                    if (match) {
+                        const uniqueVars = [...new Set(match)];
+                        payload.components[0].example = {
+                            body_text: [uniqueVars.map((v, i) => `Sample ${i+1}`)]
+                        };
+                    }
+                }
+
+                const createRes = await fetch(`https://graph.facebook.com/v17.0/${wabaId}/message_templates`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${config.whatsappToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!createRes.ok) {
+                    const errData = await createRes.json().catch(() => ({}));
+                    throw new Error(`Failed to create template on Meta: ${errData.error?.message || createRes.status}`);
+                }
+                
+                const createData = await createRes.json();
+                const metaStatus = createData.status || 'PENDING';
+                
+                await pool.query(
+                    'UPDATE whatsapp_templates SET status = ?, is_synced = 1, updatedAt = NOW() WHERE id = ?',
+                    [metaStatus, template.id]
+                );
+
+                await pool.query(
+                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, sentAt) VALUES (?, ?, "template_sync", ?, ?, "sent", NOW())',
+                    ['Meta API', 'System', 'Push Template', template.name, `Pushed new template '${template.name}' to Meta (Status: ${metaStatus})`]
+                );
+
+                return res.json({ success: true, message: `Template was missing on Meta and has been successfully created!`, status: metaStatus });
             }
 
             const bodyComponent = matchedMeta.components.find(c => c.type === 'BODY');
