@@ -128,7 +128,7 @@ const SecurityLayer = () => {
     return null;
 };
 
-import { SecurityWatermark } from '@/components/security/SecurityWatermark.tsx';
+import { SecurityBlackout } from '@/components/security/SecurityBlackout.tsx';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor.ts';
 
 function AppContent() {
@@ -186,7 +186,7 @@ function AppContent() {
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isStaffRoute ? 'bg-slate-950 text-slate-100' : 'bg-stone-50 text-stone-900'}`}>
       <SecurityLayer />
-      <SecurityWatermark user={user} />
+      <SecurityBlackout user={user} />
       <main className="pb-20 md:pb-0">
         <Suspense fallback={<SafeLoader />}>
           <Routes>
