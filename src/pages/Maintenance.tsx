@@ -50,6 +50,23 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
     }
   };
 
+  
+  const handleRestoreBackup = async (name: string) => {
+    const confirm = window.prompt("WARNING: Restoring will overwrite all current database data. Type 'RESTORE' to confirm.");
+    if (confirm !== 'RESTORE') return;
+    
+    addLog(`Restoring backup: ${name}...`);
+    try {
+      await storeService.restoreBackup(name);
+      addLog(`Restore complete! Please reload the app.`);
+      alert("Restore complete! The page will now reload.");
+      window.location.reload();
+    } catch (e: any) {
+      addLog(`Restore error: ${e.message}`);
+      alert("Restore failed: " + e.message);
+    }
+  };
+
   const handleDeleteBackup = async (name: string) => {
     if(!window.confirm("Delete this backup permanently?")) return;
     try {
@@ -396,6 +413,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ onBack }) => {
               </div>
               <div className="flex items-center gap-2">
                 <a href={storeService.downloadBackupUrl(b.name)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Download ZIP"><Download size={22}/></a>
+                <button onClick={() => handleRestoreBackup(b.name)} className="p-2 text-orange-400 hover:bg-orange-50 rounded-lg transition-colors" title="Restore Backup"><RefreshCw size={22}/></button>
                 <button onClick={() => handleDeleteBackup(b.name)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors" title="Delete Backup"><Trash2 size={22}/></button>
               </div>
             </div>

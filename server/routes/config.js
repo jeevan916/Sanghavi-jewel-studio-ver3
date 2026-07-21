@@ -76,7 +76,7 @@ export default function configRoutes(pool, CACHE) {
 
             CACHE.config.data = config;
             CACHE.config.lastFetch = now;
-            res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.json(config);
         } catch (e) { 
             res.status(500).json({ error: 'Internal server error' }); 

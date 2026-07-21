@@ -2,8 +2,7 @@ import fetch from 'node-fetch';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
-import FormData from 'form-data';
-import fs from 'fs';
+
 dotenv.config();
 
 async function run() {
@@ -18,20 +17,16 @@ async function run() {
     
     const token = jwt.sign({ id: rows[0].id, role: rows[0].role }, process.env.JWT_SECRET || 'default_dev_jwt_secret_change_in_production');
     
-    const formData = new FormData();
-    fs.writeFileSync('dummy.png', 'fake image data');
-    formData.append('logo', fs.createReadStream('dummy.png'));
-    
-    // /settings/logo base64 encode
-    const b64 = Buffer.from('/settings/logo').toString('base64').replace(/=/g, '');
-    const url = `http://localhost:3000/_proxy/${b64}`;
-    
-    const res = await fetch(url, {
+    const res = await fetch('http://localhost:3000/_proxy/YXBpL2NvbmZpZw', {
         method: 'POST',
         headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         },
-        body: formData
+        body: JSON.stringify({
+            suppliers: [{ id: "sup1", name: "Test Supplier", isPrivate: false }],
+            categories: [{ id: "cat1", name: "Test Cat", isPrivate: false, subCategories: ["Test Sub"] }]
+        })
     });
     
     console.log(res.status, await res.text());

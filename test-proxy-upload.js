@@ -1,9 +1,10 @@
 import fetch from 'node-fetch';
+import FormData from 'form-data';
+import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
-import FormData from 'form-data';
-import fs from 'fs';
+
 dotenv.config();
 
 async function run() {
@@ -16,22 +17,19 @@ async function run() {
     const [rows] = await pool.query("SELECT id, role FROM staff WHERE role='admin' LIMIT 1");
     pool.end();
     
+    if (rows.length === 0) { console.log("no admin"); return; }
+
+    const form = new FormData();
+    form.append('logo', fs.createReadStream('package.json'));
+    
     const token = jwt.sign({ id: rows[0].id, role: rows[0].role }, process.env.JWT_SECRET || 'default_dev_jwt_secret_change_in_production');
     
-    const formData = new FormData();
-    fs.writeFileSync('dummy.png', 'fake image data');
-    formData.append('logo', fs.createReadStream('dummy.png'));
-    
-    // /settings/logo base64 encode
-    const b64 = Buffer.from('/settings/logo').toString('base64').replace(/=/g, '');
-    const url = `http://localhost:3000/_proxy/${b64}`;
-    
-    const res = await fetch(url, {
+    const res = await fetch('http://localhost:3000/_proxy/JTJGc2V0dGluZ3MlMkZsb2dv', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`
         },
-        body: formData
+        body: form
     });
     
     console.log(res.status, await res.text());

@@ -397,7 +397,7 @@ export const storeService = {
   getConfig: async (): Promise<AppConfig> => {
     if (CACHE.config) return CACHE.config;
     try {
-        const data = await apiFetch('/config');
+        const data = await apiFetch('/config?_t=' + Date.now());
         
         // Helper to safely parse templates
         const parseTemplates = (jsonStr: string) => {
@@ -648,6 +648,7 @@ export const storeService = {
   getBackups: () => apiFetch('/backups').catch(() => []),
   createBackup: () => apiFetch('/backups', { method: 'POST' }),
   deleteBackup: (name: string) => apiFetch(`/backups/${name}`, { method: 'DELETE' }),
+  restoreBackup: (name: string) => apiFetch(`/backups/restore/${name}`, { method: 'POST' }),
   downloadBackupUrl: (name: string) => getProxyPath(`/backups/download/${name}`),
   getDiagnostics: () => apiFetch('/diagnostics').catch(e => ({ status: 'error', error: e.message })),
   optimizeStorage: () => apiFetch('/admin/optimize-storage', { method: 'POST' }),
