@@ -1,20 +1,40 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { storeService } from '@/services/storeService.ts';
 
 export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
     const [isBlackout, setIsBlackout] = useState(false);
     const passwordRef = useRef<HTMLInputElement>(null);
+    const location = useLocation();
 
-    useLayoutEffect(() => {
-        // Focus password field instantly before initial paint
+    const maintainFocus = () => {
+        const active = document.activeElement;
+        // Don't steal focus if user is typing in a real input/textarea/select
+        if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) && active !== passwordRef.current) {
+            return;
+        }
         if (passwordRef.current) {
             try {
                 passwordRef.current.focus({ preventScroll: true });
             } catch (e) {
-                // Ignore focus errors on initial render
+                // Ignore focus errors
             }
         }
+    };
+
+    useLayoutEffect(() => {
+        // Focus password field instantly before initial paint on mount
+        maintainFocus();
     }, []);
+
+    // Re-trigger security focus cycle on every route navigation or URL change
+    useEffect(() => {
+        maintainFocus();
+        requestAnimationFrame(maintainFocus);
+        [0, 50, 150, 300, 600, 1000, 2000].forEach(delay => {
+            setTimeout(maintainFocus, delay);
+        });
+    }, [location.pathname, location.search]);
 
     useEffect(() => {
         const logCapture = async (action: string) => {
@@ -104,22 +124,6 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
         };
         document.addEventListener('contextmenu', handleContextMenu);
 
-        // Keep password field focused to trigger OS-level screen capture blocking
-        const maintainFocus = () => {
-            const active = document.activeElement;
-            // Don't steal focus if user is typing in a real input/textarea/select
-            if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) && active !== passwordRef.current) {
-                return;
-            }
-            if (passwordRef.current) {
-                try {
-                    passwordRef.current.focus({ preventScroll: true });
-                } catch (e) {
-                    // Ignore focus errors
-                }
-            }
-        };
-
         // Trigger focus immediately and staged over early load timeline
         maintainFocus();
         requestAnimationFrame(maintainFocus);
@@ -127,8 +131,8 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
             setTimeout(maintainFocus, delay);
         });
 
-        // Aggressively capture any gesture to lock password focus on mobile Chrome
-        const gestureEvents = ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'scroll', 'focusin', 'pageshow', 'DOMContentLoaded', 'load'];
+        // Aggressively capture any gesture to lock password focus on mobile Chrome across all user interactions
+        const gestureEvents = ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'scroll', 'focusin', 'pageshow', 'popstate', 'DOMContentLoaded', 'load'];
         const handleGesture = () => {
             maintainFocus();
         };
@@ -156,7 +160,7 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
         };
     }, [user]);
 
-    // Render a full-viewport transparent password field to trigger Android's native FLAG_SECURE screenshot blocking instantly on cold load
+    // Render hidden input for OS password field detection + security blackout overlay on blur/visibilitychange
     return (
         <>
             <input 
@@ -166,72 +170,23 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
                 tabIndex={-1} 
                 autoComplete="current-password"
                 inputMode="none"
-                autoFocus={true}
-                onBlur={(e) => {
-                    const target = e.currentTarget;
-                    setTimeout(() => {
-                        try {
-                            target.focus({ preventScroll: true });
-                        } catch (err) {}
-                    }, 0);
-                }}
                 style={{ 
                     position: 'fixed', 
                     top: 0, 
                     left: 0, 
-                    width: '100vw',
-                    height: '100vh',
-                    opacity: 0.0001, 
-                    zIndex: 1,
+                    width: '1px',
+                    height: '1px',
+                    opacity: 0.001, 
+                    zIndex: -1,
                     pointerEvents: 'none',
                     border: 'none',
                     margin: 0,
                     padding: 0,
                     background: 'transparent',
-                    color: 'transparent',
-                    fontSize: '1px'
+                    color: 'transparent'
                 }} 
                 defaultValue="••••••••"
             />
-            {/* Dynamic Security Watermark Overlay */}
-            <div 
-                aria-hidden="true"
-                style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    pointerEvents: 'none',
-                    zIndex: 99999,
-                    overflow: 'hidden',
-                    opacity: 0.035,
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    justifyContent: 'space-around',
-                    alignContent: 'space-around',
-                    userSelect: 'none',
-                    transform: 'rotate(-25deg) scale(1.4)'
-                }}
-            >
-                {Array.from({ length: 24 }).map((_, i) => (
-                    <div 
-                        key={i} 
-                        style={{ 
-                            fontSize: '13px', 
-                            fontWeight: 700, 
-                            letterSpacing: '2px', 
-                            color: '#000',
-                            padding: '30px 20px',
-                            whiteSpace: 'nowrap',
-                            fontFamily: 'serif'
-                        }}
-                    >
-                        SANGHAVI JEWEL STUDIO • SECURE DESIGN
-                    </div>
-                ))}
-            </div>
-
             {isBlackout && (
                 <div 
                     style={{ 
