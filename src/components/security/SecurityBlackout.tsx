@@ -4,8 +4,19 @@ import { storeService } from '@/services/storeService.ts';
 
 export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
     const [isBlackout, setIsBlackout] = useState(false);
+    const [isBooting, setIsBooting] = useState(true);
     const passwordRef = useRef<HTMLInputElement>(null);
     const location = useLocation();
+
+    // Show blackout overlay for 2 seconds on initial app startup / page reload
+    useEffect(() => {
+        const bootTimer = setTimeout(() => {
+            setIsBooting(false);
+            maintainFocus();
+        }, 2000);
+
+        return () => clearTimeout(bootTimer);
+    }, []);
 
     const maintainFocus = () => {
         const active = document.activeElement;
@@ -187,7 +198,7 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
                 }} 
                 defaultValue="••••••••"
             />
-            {isBlackout && (
+            {(isBlackout || isBooting) && (
                 <div 
                     style={{ 
                         position: 'fixed', 
