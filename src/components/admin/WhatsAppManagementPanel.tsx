@@ -710,7 +710,7 @@ export function WhatsAppManagementPanel() {
                         {sub.phone}
                       </td>
                       <td className="px-6 py-4 text-stone-400 font-serif italic">
-                        {new Date(sub.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                        {new Date(sub.optInDate || sub.gold_rate_opt_in_at || sub.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

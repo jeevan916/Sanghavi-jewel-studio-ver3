@@ -393,6 +393,7 @@ const initDB = async () => {
     await addColumnIfMissing('analytics', 'meta', 'JSON');
     await addColumnIfMissing('customers', 'ai_analysis', 'JSON');
     await addColumnIfMissing('customers', 'gold_rate_subscribed', 'BOOLEAN DEFAULT FALSE');
+    await addColumnIfMissing('customers', 'gold_rate_opt_in_at', 'DATETIME');
 
     // WhatsApp Tables
     await pool.query(`CREATE TABLE IF NOT EXISTS whatsapp_templates (

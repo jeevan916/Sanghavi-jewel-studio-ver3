@@ -283,14 +283,14 @@ export default function whatsappRoutes(pool) {
             if (existing.length > 0) {
                 customerId = existing[0].id;
                 await pool.query(
-                    'UPDATE customers SET name = ?, gold_rate_subscribed = ? WHERE id = ?',
-                    [customerName, isSubscribed, customerId]
+                    'UPDATE customers SET name = ?, gold_rate_subscribed = ?, gold_rate_opt_in_at = IF(? = 1, COALESCE(gold_rate_opt_in_at, NOW()), NULL) WHERE id = ?',
+                    [customerName, isSubscribed, isSubscribed, customerId]
                 );
             } else {
                 customerId = crypto.randomUUID();
                 await pool.query(
-                    'INSERT INTO customers (id, name, phone, role, gold_rate_subscribed, createdAt) VALUES (?, ?, ?, "customer", ?, NOW())',
-                    [customerId, customerName, cleanPhone, isSubscribed]
+                    'INSERT INTO customers (id, name, phone, role, gold_rate_subscribed, gold_rate_opt_in_at, createdAt) VALUES (?, ?, ?, "customer", ?, IF(? = 1, NOW(), NULL), NOW())',
+                    [customerId, customerName, cleanPhone, isSubscribed, isSubscribed]
                 );
             }
 
@@ -709,7 +709,29 @@ export default function whatsappRoutes(pool) {
     // 10. GET SUBSCRIBERS
     router.get('/subscribers', requireStaff, async (req, res) => {
         try {
-            const [rows] = await pool.query('SELECT id, name, phone, pincode, createdAt FROM customers WHERE gold_rate_subscribed = 1 ORDER BY createdAt DESC');
+            const [rows] = await pool.query(`
+                SELECT 
+                    c.id, 
+                    c.name, 
+                    c.phone, 
+                    c.pincode, 
+                    c.gold_rate_subscribed,
+                    c.gold_rate_opt_in_at,
+                    c.createdAt,
+                    COALESCE(
+                        c.gold_rate_opt_in_at, 
+                        (
+                            SELECT MIN(l.sentAt) 
+                            FROM whatsapp_logs l 
+                            WHERE (l.recipient_phone = c.phone OR l.recipient_phone = REPLACE(c.phone, '+', '') OR c.phone LIKE CONCAT('%', l.recipient_phone)) 
+                            AND l.message_type = 'subscription'
+                        ),
+                        c.createdAt
+                    ) AS optInDate
+                FROM customers c
+                WHERE c.gold_rate_subscribed = 1 
+                ORDER BY optInDate DESC
+            `);
             res.json(rows);
         } catch (e) {
             res.status(500).json({ error: 'Internal server error', message: e.message });

@@ -6,20 +6,27 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
     const passwordRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (!user || !['admin', 'contributor', 'staff'].includes(user.role)) return;
-
         const logCapture = async (action: string) => {
-            storeService.logEvent('screenshot', undefined, user, { 
-                meta: { method: action, url: window.location.href }
-            });
+            if (user && storeService) {
+                storeService.logEvent('screenshot', undefined, user, { 
+                    meta: { method: action, url: window.location.href }
+                });
+            }
         };
 
         const handleBlur = () => {
             setIsBlackout(true);
         };
-        const handleFocus = () => setIsBlackout(false);
+        const handleFocus = () => {
+            setIsBlackout(false);
+            maintainFocus();
+        };
         const handleVisibilityChange = () => {
-            setIsBlackout(document.hidden);
+            const hidden = document.hidden;
+            setIsBlackout(hidden);
+            if (!hidden) {
+                maintainFocus();
+            }
         };
         
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -40,7 +47,9 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
         const triggerBlackout = () => {
             setIsBlackout(true);
             try {
-                navigator.clipboard.writeText('');
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText('');
+                }
             } catch (e) {
                 // Ignore clipboard errors
             }
@@ -58,6 +67,7 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
 
         // Add print media styles to hide content when printing and block long-press saves
         const style = document.createElement('style');
+        style.setAttribute('id', 'security-blackout-style');
         style.innerHTML = `
             @media print {
                 body {
@@ -69,7 +79,7 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
                 -webkit-user-select: none !important;
                 user-select: none !important;
             }
-            img {
+            img, canvas, video {
                 -webkit-user-drag: none !important;
                 pointer-events: none !important;
             }
@@ -86,31 +96,49 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
         // Keep password field focused to trigger OS-level screen capture blocking
         const maintainFocus = () => {
             const active = document.activeElement;
-            // Don't steal focus if user is typing in a real input
+            // Don't steal focus if user is typing in a real input/textarea
             if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) && active !== passwordRef.current) {
                 return;
             }
             if (passwordRef.current) {
-                passwordRef.current.focus({ preventScroll: true });
+                try {
+                    passwordRef.current.focus({ preventScroll: true });
+                } catch (e) {
+                    // Ignore focus errors
+                }
             }
         };
 
-        const focusInterval = setInterval(maintainFocus, 500);
-        window.addEventListener('touchstart', maintainFocus);
-        window.addEventListener('click', maintainFocus);
-
+        // Try focusing immediately
         maintainFocus();
+        requestAnimationFrame(maintainFocus);
+
+        // Aggressively capture first touch/click/gesture to lock password focus on mobile Chrome
+        const gestureEvents = ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'scroll', 'focusin', 'pageshow'];
+        const handleGesture = () => {
+            maintainFocus();
+        };
+
+        gestureEvents.forEach(evt => {
+            window.addEventListener(evt, handleGesture, { capture: true, passive: true });
+        });
+
+        const focusInterval = setInterval(maintainFocus, 300);
 
         return () => {
             clearInterval(focusInterval);
-            window.removeEventListener('touchstart', maintainFocus);
-            window.removeEventListener('click', maintainFocus);
+            gestureEvents.forEach(evt => {
+                window.removeEventListener(evt, handleGesture, { capture: true });
+            });
             window.removeEventListener('blur', handleBlur);
             window.removeEventListener('focus', handleFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('contextmenu', handleContextMenu);
-            document.head.removeChild(style);
+            const existingStyle = document.getElementById('security-blackout-style');
+            if (existingStyle && existingStyle.parentNode) {
+                existingStyle.parentNode.removeChild(existingStyle);
+            }
         };
     }, [user]);
 
@@ -122,22 +150,23 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
                 type="password" 
                 aria-hidden="true" 
                 tabIndex={-1} 
-                autoComplete="off"
+                autoComplete="current-password"
                 inputMode="none"
                 style={{ 
                     position: 'fixed', 
                     top: 0, 
                     left: 0, 
-                    opacity: 0.01, 
-                    pointerEvents: 'none', 
+                    opacity: 0.001, 
                     zIndex: -1,
                     width: '1px',
                     height: '1px',
                     border: 'none',
+                    margin: 0,
+                    padding: 0,
                     background: 'transparent',
                     color: 'transparent'
                 }} 
-                defaultValue="secure"
+                defaultValue="••••••••"
             />
             {isBlackout && (
                 <div 
