@@ -3,7 +3,7 @@ import { storeService } from '@/services/storeService.ts';
 import { 
   MessageCircle, RefreshCw, Send, Trash2, Plus, 
   CheckCircle2, AlertCircle, Loader2, Users, FileText, 
-  Settings, Check, Smartphone, Sparkles, Megaphone, Search
+  Settings, Check, Smartphone, Sparkles, Megaphone, Search, Clock
 } from 'lucide-react';
 
 export function WhatsAppManagementPanel() {
@@ -256,6 +256,15 @@ export function WhatsAppManagementPanel() {
         </div>
 
         <div className="flex flex-wrap gap-4 items-center w-full lg:w-auto">
+          {/* Automated Schedule Badge */}
+          <div className="bg-emerald-50 border border-emerald-200/60 px-4 py-3 rounded-2xl flex items-center gap-2.5">
+            <Clock size={16} className="text-emerald-600 shrink-0" />
+            <div>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-800 block">Auto-Schedule</span>
+              <span className="text-[11px] font-medium text-emerald-700">Twice Daily (10:00 AM & 5:00 PM IST)</span>
+            </div>
+          </div>
+
           {/* Subscriber Counter */}
           <div className="bg-stone-50 px-5 py-3.5 rounded-2xl border border-stone-100 min-w-[120px]">
             <span className="text-[9px] font-bold uppercase tracking-widest text-stone-400 flex items-center gap-1">

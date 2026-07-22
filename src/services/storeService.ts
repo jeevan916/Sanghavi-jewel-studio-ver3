@@ -50,8 +50,9 @@ const CACHE = {
 };
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}, retries = 2) {
-    // Reduce retries for GET requests to improve perceived speed
-    const maxRetries = options.method === 'POST' || options.method === 'PUT' ? retries : 0;
+    // Only retry GET requests (idempotent read operations). Never retry POST/PUT/DELETE mutations to prevent duplicate side effects!
+    const method = options.method ? options.method.toUpperCase() : 'GET';
+    const maxRetries = method === 'GET' ? retries : 0;
     let lastError;
     for (let i = 0; i <= maxRetries; i++) {
         try {
@@ -98,7 +99,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}, retr
             return data;
         } catch (err: any) {
             lastError = err;
-            if (i < retries) {
+            if (i < maxRetries) {
                 console.warn(`Fetch attempt ${i + 1} failed for ${endpoint}. Retrying...`);
                 await sleep(500 * (i + 1));
             }

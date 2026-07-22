@@ -1,6 +1,208 @@
 import express from 'express';
 import crypto from 'crypto';
+import cron from 'node-cron';
 import { requireStaff } from '../auth.js';
+
+let isBroadcastInProgress = false;
+let lastBroadcastTime = 0;
+
+export const initWhatsAppScheduler = (pool) => {
+    // Schedule automated WhatsApp Gold Rate broadcast twice daily:
+    // 1. Morning Broadcast: 10:00 AM IST (04:30 AM UTC)
+    // 2. Evening Broadcast: 05:00 PM IST (11:30 AM UTC)
+    cron.schedule('30 4,11 * * *', async () => {
+        console.log('[WhatsApp Scheduler] Triggering automated Gold Rate broadcast...');
+        try {
+            const res = await executeGoldRateBroadcast(pool);
+            console.log('[WhatsApp Scheduler] Automated broadcast completed:', res);
+        } catch (e) {
+            console.error('[WhatsApp Scheduler] Automated broadcast failed:', e);
+        }
+    });
+    console.log('[WhatsApp Scheduler] Programmed automated Gold Rate alerts 2x daily: 10:00 AM & 05:00 PM IST (04:30 & 11:30 UTC)');
+};
+
+export async function executeGoldRateBroadcast(pool) {
+    if (isBroadcastInProgress) {
+        console.log('[WhatsApp] Broadcast skipped: A broadcast session is already in progress.');
+        return { 
+            success: false, 
+            message: 'A broadcast session is currently in progress. Please wait for it to complete.',
+            sentCount: 0, 
+            subscriberCount: 0 
+        };
+    }
+
+    const nowMs = Date.now();
+    // Guard against duplicate triggers within 2 minutes (120,000 ms)
+    if (nowMs - lastBroadcastTime < 120000) {
+        console.log('[WhatsApp] Broadcast skipped: Cooldown active to prevent duplicate messages.');
+        return { 
+            success: true, 
+            sentCount: 0, 
+            subscriberCount: 0, 
+            message: 'Broadcast skipped: Cooldown active (last broadcast ran less than 2 minutes ago)' 
+        };
+    }
+
+    isBroadcastInProgress = true;
+    lastBroadcastTime = nowMs;
+
+    try {
+        // Get subscribers
+        const [subscribers] = await pool.query('SELECT name, phone FROM customers WHERE gold_rate_subscribed = 1');
+        if (!subscribers || subscribers.length === 0) {
+            return { success: true, sentCount: 0, subscriberCount: 0, message: 'No subscribers found' };
+        }
+
+        // Deduplicate subscribers by clean phone number to ensure each customer receives only one message
+        const broadcastQueue = [];
+        const seenPhones = new Set();
+
+        for (const sub of subscribers) {
+            if (!sub.phone) continue;
+            const cleanPhone = String(sub.phone).trim().replace(/\D/g, '');
+            if (!cleanPhone) continue;
+
+            if (!seenPhones.has(cleanPhone)) {
+                seenPhones.add(cleanPhone);
+                broadcastQueue.push({
+                    name: (sub.name || 'Valued Customer').trim(),
+                    phone: sub.phone,
+                    cleanPhone
+                });
+            }
+        }
+
+        if (broadcastQueue.length === 0) {
+            return { success: true, sentCount: 0, subscriberCount: 0, message: 'No valid subscriber phone numbers found' };
+        }
+
+        // Get gold rates from settings
+        const [rate22] = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = "goldRate22k"');
+        const [rate24] = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = "goldRate24k"');
+        const gold22 = rate22[0] ? rate22[0].setting_value : '6500';
+        const gold24 = rate24[0] ? rate24[0].setting_value : '7200';
+
+        const [rows] = await pool.query('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("whatsappNumber", "whatsappToken", "whatsappPhoneId", "whatsappTemplateName", "whatsappWishlistTemplateName", "whatsappWabaId", "whatsappGoldRateTemplateName", "whatsappWelcomeTemplateName")');
+        const config = {};
+        rows.forEach(r => config[r.setting_key] = r.setting_value);
+
+        let sentCount = 0;
+        
+        // Get language of the gold rate template
+        const tplName = config.whatsappGoldRateTemplateName || "gold_rate_alert_daily";
+        let templateLang = 'en'; // default to en
+        let templateBodyText = `Hello {{1}},\n\nToday's Gold Rates at Sanghavi Jewel Studio are:\n✨ 22K Gold: ₹{{2}}/g\n✨ 24K Gold: ₹{{3}}/g\n\nVisit our online catalog to explore our latest bespoke jewelry designs. Have a sparkling day!`;
+        const [tplRows] = await pool.query('SELECT language, body_text FROM whatsapp_templates WHERE name = ?', [tplName]);
+        if (tplRows.length > 0) {
+            if (tplRows[0].language) templateLang = tplRows[0].language;
+            if (tplRows[0].body_text) templateBodyText = tplRows[0].body_text;
+        }
+
+        let lastError = null;
+        const BATCH_SIZE = 50;
+        const BATCH_DELAY_MS = 300; // 300ms pause between batches of 50
+
+        // Process recipient queue in parallel batches of 50
+        for (let i = 0; i < broadcastQueue.length; i += BATCH_SIZE) {
+            const batch = broadcastQueue.slice(i, i + BATCH_SIZE);
+
+            const batchResults = await Promise.all(
+                batch.map(async (recipient) => {
+                    const recPhone = recipient.phone;
+                    const recName = recipient.name;
+
+                    // Format variables: {{1}} name, {{2}} rate22k, {{3}} rate24k
+                    let textBody = templateBodyText;
+                    const vars = [recName, String(gold22), String(gold24)];
+                    vars.forEach((v, idx) => {
+                        textBody = textBody.replace(new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'), v);
+                    });
+
+                    let status = 'sent';
+                    let errMsg = null;
+                    let sentSuccess = false;
+
+                    if (config.whatsappToken && config.whatsappPhoneId) {
+                        try {
+                            const response = await fetch(`https://graph.facebook.com/v17.0/${config.whatsappPhoneId}/messages`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${config.whatsappToken}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    messaging_product: "whatsapp",
+                                    to: recPhone,
+                                    type: "template",
+                                    template: {
+                                        name: config.whatsappGoldRateTemplateName || "gold_rate_alert_daily",
+                                        language: { code: templateLang },
+                                        components: [
+                                            {
+                                                type: "body",
+                                                parameters: [
+                                                    { type: "text", text: recName },
+                                                    { type: "text", text: String(gold22) },
+                                                    { type: "text", text: String(gold24) }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                })
+                            });
+
+                            if (!response.ok) {
+                                const txtErr = await response.text();
+                                status = 'failed';
+                                errMsg = txtErr;
+                            } else {
+                                sentSuccess = true;
+                            }
+                        } catch (apiErr) {
+                            status = 'failed';
+                            errMsg = apiErr.message;
+                        }
+                    } else {
+                        sentSuccess = true;
+                        textBody += " (SIMULATED - WhatsApp API credentials missing)";
+                    }
+
+                    // Log the send
+                    try {
+                        await pool.query(
+                            'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "gold_rate_alert", ?, ?, ?, ?, NOW())',
+                            [recPhone, recName, config.whatsappGoldRateTemplateName || "gold_rate_alert_daily", textBody, status, errMsg]
+                        );
+                    } catch (dbErr) {
+                        console.error('[WhatsApp Log Error]', dbErr);
+                    }
+
+                    return { sentSuccess, errMsg };
+                })
+            );
+
+            // Accumulate metrics for batch
+            for (const res of batchResults) {
+                if (res.sentSuccess) {
+                    sentCount++;
+                } else if (res.errMsg) {
+                    lastError = res.errMsg;
+                }
+            }
+
+            // Throttle delay between batches of 50
+            if (i + BATCH_SIZE < broadcastQueue.length) {
+                await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+            }
+        }
+
+        return { success: true, sentCount, subscriberCount: broadcastQueue.length, lastError };
+    } finally {
+        isBroadcastInProgress = false;
+    }
+}
 
 export default function whatsappRoutes(pool) {
     const router = express.Router();
@@ -620,107 +822,10 @@ export default function whatsappRoutes(pool) {
     // 12. TRIGGER DAILY/SCHEDULED GOLD RATE BROADCAST (MANUAL/AUTOMATED TRIGGER CONTROL)
     router.post('/trigger-gold-rate', requireStaff, async (req, res) => {
         try {
-            // Get subscribers
-            const [subscribers] = await pool.query('SELECT name, phone FROM customers WHERE gold_rate_subscribed = 1');
-            if (subscribers.length === 0) {
-                return res.json({ success: true, sentCount: 0, message: 'No subscribers found' });
-            }
-
-            // Get gold rates from settings
-            const [rate22] = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = "goldRate22k"');
-            const [rate24] = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = "goldRate24k"');
-            const gold22 = rate22[0] ? rate22[0].setting_value : '6500';
-            const gold24 = rate24[0] ? rate24[0].setting_value : '7200';
-
-            const config = await getWhatsAppConfig();
-            let sentCount = 0;
-            
-            // Get language of the gold rate template
-            const tplName = config.whatsappGoldRateTemplateName || "gold_rate_alert_daily";
-            let templateLang = 'en'; // default to en
-            let templateBodyText = `Hello {{1}},\n\nToday's Gold Rates at Sanghavi Jewel Studio are:\n✨ 22K Gold: ₹{{2}}/g\n✨ 24K Gold: ₹{{3}}/g\n\nVisit our online catalog to explore our latest bespoke jewelry designs. Have a sparkling day!`;
-            const [tplRows] = await pool.query('SELECT language, body_text FROM whatsapp_templates WHERE name = ?', [tplName]);
-            if (tplRows.length > 0) {
-                if (tplRows[0].language) templateLang = tplRows[0].language;
-                if (tplRows[0].body_text) templateBodyText = tplRows[0].body_text;
-            }
-
-            for (const sub of subscribers) {
-                const recPhone = sub.phone;
-                const recName = sub.name;
-
-                // Format variables: {{1}} name, {{2}} rate22k, {{3}} rate24k
-                let textBody = templateBodyText;
-                const vars = [recName, String(gold22), String(gold24)];
-                vars.forEach((v, idx) => {
-                    textBody = textBody.replace(new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'), v);
-                });
-
-                let status = 'sent';
-                let errMsg = null;
-
-                let lastError = null;
-
-                if (config.whatsappToken && config.whatsappPhoneId) {
-                    try {
-                        const response = await fetch(`https://graph.facebook.com/v17.0/${config.whatsappPhoneId}/messages`, {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${config.whatsappToken}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                messaging_product: "whatsapp",
-                                to: recPhone,
-                                type: "template",
-                                template: {
-                                    name: config.whatsappGoldRateTemplateName || "gold_rate_alert_daily",
-                                    language: { code: templateLang },
-                                    components: [
-                                        {
-                                            type: "body",
-                                            parameters: [
-                                                { type: "text", text: recName },
-                                                { type: "text", text: String(gold22) },
-                                                { type: "text", text: String(gold24) }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            })
-                        });
-
-                        if (!response.ok) {
-                            const txtErr = await response.text();
-                            status = 'failed';
-                            errMsg = txtErr;
-                            lastError = txtErr;
-                        } else {
-                            sentCount++;
-                        }
-                    } catch (apiErr) {
-                        status = 'failed';
-                        errMsg = apiErr.message;
-                        lastError = apiErr.message;
-                    }
-                } else {
-                    sentCount++;
-                    textBody += " (SIMULATED - WhatsApp API credentials missing)";
-                }
-
-                // Log the send
-                await pool.query(
-                    'INSERT INTO whatsapp_logs (recipient_phone, recipient_name, message_type, template_name, message_body, status, errorMessage, sentAt) VALUES (?, ?, "gold_rate_alert", ?, ?, ?, ?, NOW())',
-                    [recPhone, recName, config.whatsappGoldRateTemplateName || "gold_rate_alert_daily", textBody, status, errMsg]
-                );
-
-                // Throttling protection
-                await new Promise(r => setTimeout(r, 150));
-            }
-
-            res.json({ success: true, sentCount, subscriberCount: subscribers.length, lastError });
+            const result = await executeGoldRateBroadcast(pool);
+            res.json(result);
         } catch (e) {
-            console.error(e);
+            console.error('[WhatsApp Trigger Error]', e);
             res.status(500).json({ error: 'Internal server error', message: e.message });
         }
     });
