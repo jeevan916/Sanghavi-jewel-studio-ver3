@@ -106,28 +106,7 @@ const AuthGuard = ({ children, allowedRoles, user }: AuthGuardProps) => {
   return <>{children}</>;
 };
 
-const SecurityLayer = () => {
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                // Secondary privacy protection
-                document.body.style.filter = 'blur(10px) grayscale(100%)';
-            } else {
-                document.body.style.filter = 'none';
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            document.body.style.filter = 'none';
-        };
-    }, []);
-
-    return null;
-};
-
+import { SecurityLayer, SecurityProvider } from '@/components/security/SecurityLayer.tsx';
 import { SecurityBlackout } from '@/components/security/SecurityBlackout.tsx';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor.ts';
 
@@ -227,7 +206,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <UploadProvider>
-        <AppContent />
+        <SecurityProvider>
+          <AppContent />
+        </SecurityProvider>
       </UploadProvider>
     </ErrorBoundary>
   );

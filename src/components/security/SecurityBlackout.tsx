@@ -4,26 +4,8 @@ import { storeService } from '@/services/storeService.ts';
 
 export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
     const [isBlackout, setIsBlackout] = useState(false);
-    const [isBooting, setIsBooting] = useState(true);
     const passwordRef = useRef<HTMLInputElement>(null);
     const location = useLocation();
-
-    // Show blackout overlay for 2 seconds on initial app startup / page reload
-    useEffect(() => {
-        // Mock fire window blur event immediately on load/reload to trigger security blackout state
-        try {
-            window.dispatchEvent(new Event('blur'));
-        } catch (e) {
-            setIsBlackout(true);
-        }
-
-        const bootTimer = setTimeout(() => {
-            setIsBooting(false);
-            maintainFocus();
-        }, 2000);
-
-        return () => clearTimeout(bootTimer);
-    }, []);
 
     const maintainFocus = () => {
         const active = document.activeElement;
@@ -45,11 +27,8 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
         maintainFocus();
     }, []);
 
-    // Re-trigger security focus cycle and mock blur on every route navigation or URL change
+    // Maintain focus cycle on route changes
     useEffect(() => {
-        try {
-            window.dispatchEvent(new Event('blur'));
-        } catch (e) {}
         maintainFocus();
         requestAnimationFrame(maintainFocus);
         [0, 50, 150, 300, 600, 1000, 2000].forEach(delay => {
@@ -208,7 +187,7 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
                 }} 
                 defaultValue="••••••••"
             />
-            {(isBlackout || isBooting) && (
+            {isBlackout && (
                 <div 
                     style={{ 
                         position: 'fixed', 
