@@ -3,7 +3,8 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from '@/components/ProductCard.tsx';
 import { storeService, CuratedCollections } from '@/services/storeService.ts';
-import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight, X, Sparkles, MessageCircle } from 'lucide-react';
+import { localAIVisualEngine } from '@/services/localAIVisualEngine.ts';
+import { Search, LayoutGrid, RectangleVertical, Clock, Heart, Loader2, Lock, User, RefreshCw, TrendingUp, Gem, ChevronRight, X, Sparkles, MessageCircle, Camera, Upload } from 'lucide-react';
 import { Product, AppConfig } from '@/types.ts';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor.ts';
 
@@ -51,6 +52,127 @@ export const Gallery: React.FC = () => {
   const setSearch = (val: string) => {
       _setSearch(val);
       sessionStorage.setItem('gallery_search', val);
+  };
+  
+  // Image Search State
+  const [isImageSearchOpen, setIsImageSearchOpen] = useState(false);
+  const [searchImageBase64, setSearchImageBase64] = useState<string | null>(null);
+  const [isSearchingImage, setIsSearchingImage] = useState(false);
+  const [imageSearchResults, setImageSearchResults] = useState<any[] | null>(null);
+  const [imageSearchAnalysis, setImageSearchAnalysis] = useState<string | null>(null);
+  const [imageSearchError, setImageSearchError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [searchMode, setSearchMode] = useState<'cloud' | 'local'>('cloud');
+  const [trainingProgress, setTrainingProgress] = useState<number | null>(null);
+  const [localStatus, setLocalStatus] = useState({ isTrained: false, indexSize: 0 });
+
+  // Update local engine status when modal opens or shifts
+  useEffect(() => {
+    if (isImageSearchOpen) {
+      setLocalStatus(localAIVisualEngine.getStatus());
+    }
+  }, [isImageSearchOpen]);
+
+  const handleTrainLocalEngine = async () => {
+    try {
+      setTrainingProgress(0);
+      setImageSearchError(null);
+      // Fetch entire catalog (up to 1000 items) for indexing
+      const allCatalogRes = await storeService.getProducts(1, 1000, { publicOnly: !isAdmin });
+      const allCatalog = allCatalogRes.items || [];
+      await localAIVisualEngine.train(allCatalog, (pct) => setTrainingProgress(pct));
+      setLocalStatus(localAIVisualEngine.getStatus());
+    } catch (err: any) {
+      setImageSearchError("Training error: " + (err.message || err));
+    } finally {
+      setTrainingProgress(null);
+    }
+  };
+
+  const handleImageFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setImageSearchError('Please select a valid image file.');
+      return;
+    }
+    setImageSearchError(null);
+    setIsSearchingImage(true);
+    setImageSearchResults(null);
+    setImageSearchAnalysis(null);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string;
+      setSearchImageBase64(base64);
+      
+      try {
+        if (searchMode === 'cloud') {
+          const response = await fetch('/api/public-ai/search-by-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64Image: base64 })
+          });
+          const resData = await response.json();
+          if (resData.success) {
+            setImageSearchResults(resData.matches);
+            setImageSearchAnalysis(resData.analysis);
+          } else {
+            setImageSearchError(resData.error || 'Failed to search catalog.');
+          }
+        } else {
+          // Local Visual Search Engine
+          // 1. Fetch entire catalog to ensure full offline search index is populated
+          const allCatalogRes = await storeService.getProducts(1, 1000, { publicOnly: !isAdmin });
+          const allCatalog = allCatalogRes.items || [];
+          
+          // 2. Ensure model has been trained
+          const status = localAIVisualEngine.getStatus();
+          if (!status.isTrained) {
+            setTrainingProgress(0);
+            await localAIVisualEngine.train(allCatalog, (pct) => setTrainingProgress(pct));
+            setTrainingProgress(null);
+            setLocalStatus(localAIVisualEngine.getStatus());
+          }
+
+          // 3. Match offline using visual characteristics and aspect analysis
+          const localResults = await localAIVisualEngine.searchByImage(base64, allCatalog);
+          setImageSearchResults(localResults.matches);
+          setImageSearchAnalysis(localResults.analysis);
+        }
+      } catch (err: any) {
+        setImageSearchError(err.message || 'An unexpected error occurred during search.');
+      } finally {
+        setIsSearchingImage(false);
+        setTrainingProgress(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const resetImageSearch = () => {
+    setSearchImageBase64(null);
+    setImageSearchResults(null);
+    setImageSearchAnalysis(null);
+    setImageSearchError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
   
   // Pagination State
@@ -258,8 +380,15 @@ export const Gallery: React.FC = () => {
                       placeholder="Search the Vault..." 
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 bg-stone-50 border border-stone-100 rounded-2xl text-sm focus:ring-2 focus:ring-brand-gold/20 focus:bg-white outline-none transition-all font-sans placeholder:text-stone-300"
+                      className="w-full pl-12 pr-12 py-3 bg-stone-50 border border-stone-100 rounded-2xl text-sm focus:ring-2 focus:ring-brand-gold/20 focus:bg-white outline-none transition-all font-sans placeholder:text-stone-300"
                     />
+                    <button
+                      onClick={() => setIsImageSearchOpen(true)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-brand-gold active:scale-95 transition-all p-1"
+                      title="Search by Image (AI Match)"
+                    >
+                      <Camera size={22} />
+                    </button>
                 </div>
                 
                 {config?.goldRate22k ? (
@@ -540,6 +669,261 @@ export const Gallery: React.FC = () => {
         )}
 
       </main>
+
+      {/* Search by Image AI Modal */}
+      {isImageSearchOpen && (
+        <div className="fixed inset-0 bg-brand-dark/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in" id="image-search-modal">
+          <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-stone-100 flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center text-brand-gold">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h2 className="font-sans text-lg font-bold text-brand-dark uppercase tracking-wide">AI Image Search</h2>
+                  <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Match designs to the Sanghavi Catalogue</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  resetImageSearch();
+                  setIsImageSearchOpen(false);
+                }}
+                className="p-2 hover:bg-stone-50 rounded-xl text-stone-400 hover:text-brand-dark transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Model & Method Selector */}
+            <div className="px-6 py-3 bg-stone-50 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Search Intelligence:</span>
+                <div className="flex bg-stone-200/60 p-0.5 rounded-xl border border-stone-200/80">
+                  <button 
+                    onClick={() => {
+                      setSearchMode('cloud');
+                      resetImageSearch();
+                    }}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+                      searchMode === 'cloud' 
+                        ? 'bg-white text-brand-dark shadow-sm' 
+                        : 'text-stone-500 hover:text-brand-dark'
+                    }`}
+                  >
+                    Cloud Neural
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setSearchMode('local');
+                      resetImageSearch();
+                    }}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+                      searchMode === 'local' 
+                        ? 'bg-white text-brand-dark shadow-sm' 
+                        : 'text-stone-500 hover:text-brand-dark'
+                    }`}
+                  >
+                    Local Agent
+                  </button>
+                </div>
+              </div>
+
+              {searchMode === 'local' && (
+                <div className="flex items-center gap-2 text-[10px]">
+                  {localStatus.isTrained ? (
+                    <span className="text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                      ● Active ({localStatus.indexSize} designs learned)
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 font-bold bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 animate-pulse">
+                      ○ Learning Required
+                    </span>
+                  )}
+                  
+                  <button 
+                    onClick={handleTrainLocalEngine}
+                    disabled={trainingProgress !== null}
+                    className="px-2.5 py-1 bg-white hover:bg-stone-100 border border-stone-200 text-stone-600 font-bold uppercase rounded-lg active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {trainingProgress !== null ? 'Learning...' : 'Train Agent'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+              {trainingProgress !== null && (
+                <div className="bg-brand-gold/5 border border-brand-gold/20 p-6 rounded-2xl space-y-3 animate-fade-in">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-serif font-bold text-brand-dark">Local Agent is learning jewelry designs...</span>
+                    <span className="font-mono font-bold text-brand-gold">{trainingProgress}%</span>
+                  </div>
+                  <div className="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-brand-gold h-full transition-all duration-300 rounded-full"
+                      style={{ width: `${trainingProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-stone-400 font-sans leading-relaxed">
+                    Analyzing geometric boundaries, hue values, reflection maps, and texture densities of your entire catalogue. This builds a local mathematical design fingerprint to allow instant, offline style matching.
+                  </p>
+                </div>
+              )}
+              {!searchImageBase64 ? (
+                /* Upload Zone */
+                <div 
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all ${
+                    isDragging 
+                      ? 'border-brand-gold bg-brand-gold/5 scale-[0.99]' 
+                      : 'border-stone-200 hover:border-brand-gold/40 hover:bg-stone-50'
+                  }`}
+                >
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleImageFile(e.target.files[0]);
+                      }
+                    }}
+                    accept="image/*" 
+                    className="hidden" 
+                  />
+                  <div className="w-16 h-16 bg-stone-50 rounded-2xl flex items-center justify-center mx-auto text-stone-400 group-hover:text-brand-gold transition-colors mb-4">
+                    <Upload size={32} />
+                  </div>
+                  <p className="font-serif text-lg text-brand-dark">Drag and drop your jewelry image here</p>
+                  <p className="text-stone-400 text-xs mt-2 font-sans">or click to browse your files</p>
+                  <p className="text-[9px] text-stone-300 font-bold uppercase tracking-wider mt-6">Supports JPEG, PNG, WEBP</p>
+                </div>
+              ) : (
+                /* Search Actions & Results */
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row gap-4 bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                    {/* Image Preview */}
+                    <div className="w-full sm:w-1/3 aspect-square rounded-xl overflow-hidden border border-stone-200 shrink-0">
+                      <img 
+                        src={searchImageBase64} 
+                        alt="Uploaded query" 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="flex-1 flex flex-col justify-between py-1">
+                      <div>
+                        <h3 className="font-serif text-base text-brand-dark">Uploaded Specification</h3>
+                        <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                          Currently matching against all active rings, necklaces, bangles, and bespoke jewelry vault items.
+                        </p>
+                      </div>
+                      <button 
+                        onClick={resetImageSearch}
+                        className="text-stone-400 hover:text-brand-gold font-sans text-xs font-bold uppercase tracking-wider text-left mt-4 sm:mt-0"
+                      >
+                        Upload another image
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Loading State */}
+                  {isSearchingImage && (
+                    <div className="py-12 text-center space-y-4">
+                      <Loader2 className="animate-spin text-brand-gold mx-auto" size={36} />
+                      <div className="space-y-1">
+                        <p className="font-serif text-base text-brand-dark animate-pulse">Running Neural Feature Matching...</p>
+                        <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Scanning metal types, shapes, and gemstone cuts</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error State */}
+                  {imageSearchError && (
+                    <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm text-center font-sans border border-red-100">
+                      {imageSearchError}
+                    </div>
+                  )}
+
+                  {/* Analysis & Matches */}
+                  {!isSearchingImage && imageSearchResults && (
+                    <div className="space-y-6">
+                      {imageSearchAnalysis && (
+                        <div className="bg-brand-gold/5 border border-brand-gold/20 p-4 rounded-2xl">
+                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-gold mb-1 flex items-center gap-1">
+                            <Sparkles size={12} /> AI Visual Analysis
+                          </h4>
+                          <p className="text-xs text-brand-dark font-sans leading-relaxed">
+                            {imageSearchAnalysis}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Closest Catalogue Matches</h4>
+                        
+                        {imageSearchResults.length === 0 ? (
+                          <p className="text-stone-400 text-xs italic font-serif">No highly matching pieces found in the catalog.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {imageSearchResults.map((match: any) => (
+                              <div 
+                                key={match.id}
+                                onClick={() => {
+                                  setIsImageSearchOpen(false);
+                                  navigateToProduct(match.id);
+                                }}
+                                className="group flex gap-4 p-3 bg-white hover:bg-stone-50 border border-stone-100 hover:border-brand-gold/25 rounded-2xl cursor-pointer transition-all duration-300"
+                              >
+                                {/* Thumbnail */}
+                                <div className="w-16 h-16 rounded-xl bg-stone-50 border border-stone-100 overflow-hidden shrink-0">
+                                  {match.product?.thumbnails?.[0] ? (
+                                    <img 
+                                      src={match.product.thumbnails[0]} 
+                                      alt={match.product.title} 
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-stone-300 bg-stone-50 font-serif italic text-[10px]">No Image</div>
+                                  )}
+                                </div>
+
+                                {/* Match details */}
+                                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div>
+                                      <h5 className="font-serif text-sm text-brand-dark truncate">{match.product?.title || 'Bespoke Design'}</h5>
+                                      <p className="text-[9px] text-stone-400 font-bold uppercase tracking-wider mt-0.5">
+                                        {match.product?.category} • {match.product?.subCategory}
+                                      </p>
+                                    </div>
+                                    <span className="shrink-0 px-2 py-1 bg-brand-gold/10 text-brand-gold text-[10px] font-bold rounded-lg border border-brand-gold/20 font-mono">
+                                      {match.score}% match
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-stone-500 line-clamp-1 mt-1 leading-relaxed italic">
+                                    {match.reason}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

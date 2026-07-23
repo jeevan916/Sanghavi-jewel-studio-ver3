@@ -2,6 +2,8 @@ import express from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
+import fs from 'fs';
+import path from 'path';
 
 export default function aiRoutes(pool) {
     const router = express.Router();
@@ -265,6 +267,140 @@ export default function aiRoutes(pool) {
         } catch (error) {
             console.error("AI Comment Analysis Error:", error);
             res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    router.post('/public-ai/search-by-image', async (req, res) => {
+        try {
+            const { base64Image, mimeType: providedMimeType } = req.body;
+            if (!base64Image) {
+                return res.status(400).json({ error: "Missing uploaded image" });
+            }
+
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
+            
+            // Extract mimetype and base64
+            const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
+            const mimeType = providedMimeType || (mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg');
+            const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+
+            // Fetch active products from DB or fallback
+            let rows = [];
+            try {
+                const [dbRows] = await pool.query(
+                    'SELECT id, title, category, subCategory, description, tags, thumbnails FROM products WHERE isHidden = 0'
+                );
+                rows = dbRows;
+            } catch (dbErr) {
+                console.error("Database query error in image search, checking fallback file:", dbErr);
+                const fallbackPath = path.resolve(process.cwd(), 'data', 'demo_products.json');
+                const fallbackPathAlt = path.resolve(process.cwd(), '..', 'sanghavi_persistence', 'demo_products.json');
+                let foundPath = null;
+                if (fs.existsSync(fallbackPath)) foundPath = fallbackPath;
+                else if (fs.existsSync(fallbackPathAlt)) foundPath = fallbackPathAlt;
+                
+                if (foundPath) {
+                    rows = JSON.parse(fs.readFileSync(foundPath, 'utf8'));
+                } else {
+                    throw dbErr;
+                }
+            }
+
+            // Map and reduce payload size to fit smoothly in Gemini's prompt
+            const catalog = rows.map(r => ({
+                id: r.id,
+                title: r.title,
+                category: r.category,
+                subCategory: r.subCategory,
+                description: r.description || '',
+                tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : []
+            }));
+
+            const prompt = `You are an expert gemologist and senior jewelry stylist for "Sanghavi Jewel Studio", a luxury high-end jewelry brand.
+            Analyze the uploaded image of a jewelry piece and identify the top matching items from our official jewelry catalog.
+            
+            Catalog List:
+            ${JSON.stringify(catalog)}
+            
+            Compare the uploaded design (shape, setting, metal, diamond cuts, visual aesthetic) with the items in our catalog.
+            Find and rank the top 10 best-matching items by relevance.
+            
+            Respond strictly in JSON format matching this schema:
+            {
+                "analysis": "A brief 2-3 sentence visual description of the uploaded jewelry (type, metal, style, stones).",
+                "matches": [
+                    {
+                        "id": "product-id-from-catalog",
+                        "score": 95, // Match score percentage out of 100
+                        "reason": "Explain clearly why this is a close match (e.g., similar floral diamond setting, matching yellow gold metal, or shared modern silhouette)."
+                    }
+                ]
+            }`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-3.6-flash',
+                contents: {
+                    parts: [
+                        { inlineData: { mimeType: mimeType, data: cleanBase64 } },
+                        { text: prompt }
+                    ]
+                },
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            analysis: { type: Type.STRING },
+                            matches: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        id: { type: Type.STRING },
+                                        score: { type: Type.NUMBER },
+                                        reason: { type: Type.STRING }
+                                    },
+                                    required: ["id", "score", "reason"]
+                                }
+                            }
+                        },
+                        required: ["analysis", "matches"]
+                    }
+                }
+            });
+
+            const text = response.text;
+            if (!text) throw new Error("AI returned an empty response");
+            
+            const result = JSON.parse(text);
+
+            // Enrich matches with actual database fields (like thumbnails)
+            const enrichedMatches = result.matches.map(m => {
+                const matchedProduct = rows.find(p => p.id === m.id);
+                if (matchedProduct) {
+                    return {
+                        ...m,
+                        product: {
+                            id: matchedProduct.id,
+                            title: matchedProduct.title,
+                            category: matchedProduct.category,
+                            subCategory: matchedProduct.subCategory,
+                            thumbnails: matchedProduct.thumbnails ? (typeof matchedProduct.thumbnails === 'string' ? JSON.parse(matchedProduct.thumbnails) : matchedProduct.thumbnails) : []
+                        }
+                    };
+                }
+                return null;
+            }).filter(Boolean);
+
+            res.json({
+                success: true,
+                analysis: result.analysis,
+                matches: enrichedMatches
+            });
+
+        } catch (e) {
+            console.error("Image Search API Error:", e);
+            res.status(500).json({ error: 'Internal server error', message: e.message });
         }
     });
 
