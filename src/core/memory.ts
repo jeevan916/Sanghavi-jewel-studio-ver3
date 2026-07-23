@@ -46,7 +46,7 @@ export interface AppMemory {
 }
 
 export const APP_MEMORY: AppMemory = {
-    version: "4.3.5",
+    version: "4.4.0",
     identity: "Sanghavi Jewel Studio - Enterprise Edition",
     
     // THE VISUAL IDENTITY
@@ -116,17 +116,17 @@ export const APP_MEMORY: AppMemory = {
         },
         {
             id: 'neural_template_engine',
-            name: 'Neural Template Engine',
+            name: 'Neural Template & Gemini AI Engine',
             status: 'stable',
             critical: true,
-            description: "Dynamic AI Prompt Templates for Analysis, Enhancement, and Design stored in SQL."
+            description: "Server-proxied @google/genai Flash integration via /api/ai/* endpoints ensuring GEMINI_API_KEY is isolated server-side with zero browser exposure."
         },
         {
             id: 'server_sharp_engine',
             name: 'Server-Side Image Engine',
             status: 'stable',
             critical: true,
-            description: "Node.js Sharp processing for AVIF/WebP generation with CDN optimization."
+            description: "Node.js Sharp processing for WebP generation. STRICT RULE: No image BLOBs/base64 binaries stored in DB (prevents memory bloat/degradation). Only file relative paths stored."
         },
         {
             id: 'whatsapp_otp',
@@ -155,11 +155,28 @@ export const APP_MEMORY: AppMemory = {
             status: 'stable',
             critical: true,
             description: "Uploads automatically generate both 1080p (Primary) and 300px (Thumbnail) WebP assets to ensure instant gallery loading."
+        },
+        {
+            id: 'security_blackout_engine',
+            name: 'Security Blackout & FLAG_SECURE Engine',
+            status: 'stable',
+            critical: true,
+            description: "Transparent OS password field layer triggering native FLAG_SECURE screenshot/screen recording blocking on mobile Chrome/Android with focus recovery hooks."
+        },
+        {
+            id: 'screenshot_prevention_overlay_engine',
+            name: 'Screenshot Prevention Overlay Engine',
+            status: 'stable',
+            critical: true,
+            description: "High z-index (999999) viewport-wide protection overlay with SVG canvas grid pattern and hotkey capture flash on sensitive UI states."
         }
     ],
 
     // HISTORY OF STABILIZATION
     fix_log: [
+        "Documented Architectural Constraint: Strictly prohibited image BLOB/base64 storage in DB to prevent memory overload & performance degradation.",
+        "Upgraded to v4.4.0: Integrated SecurityLayer and Screenshot Prevention Overlay Engine.",
+        "Added viewport-wide high z-index protection overlay with route-level sensitivity detection.",
         "Upgraded to v4.3.5: Staff Ops & Auth Upgrade.",
         "Implemented DELETE route for Staff in server.js.",
         "Overhauled Settings.tsx Staff Management to support Add, Edit, Delete, and Password Reset.",
