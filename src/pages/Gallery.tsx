@@ -519,17 +519,6 @@ export const Gallery: React.FC = () => {
         )}
         
         {/* Quick View Modal Removed as per user request */}
-        
-        {/* Floating AI Concierge Button */}
-        <button 
-            onClick={() => navigate('/admin/studio')} 
-            className="fixed bottom-28 right-8 w-16 h-16 bg-brand-dark text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40 group border border-white/10"
-        >
-            <Sparkles size={34} className="group-hover:rotate-12 transition-transform" />
-            <div className="absolute right-full mr-4 bg-white text-brand-dark px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-stone-100">
-                AI Concierge
-            </div>
-        </button>
 
         {/* Loading Indicators */}
         {isFetchingMore && !isLoading && (
