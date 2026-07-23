@@ -65,6 +65,7 @@ export const Gallery: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [searchMode, setSearchMode] = useState<'cloud' | 'local'>('cloud');
+  const [imageSearchCategory, setImageSearchCategory] = useState<string>('all');
   const [trainingProgress, setTrainingProgress] = useState<number | null>(null);
   const [localStatus, setLocalStatus] = useState({ isTrained: false, indexSize: 0 });
 
@@ -91,61 +92,73 @@ export const Gallery: React.FC = () => {
     }
   };
 
+  const performImageSearch = async (base64: string, mode: 'cloud' | 'local', category: string) => {
+    setIsSearchingImage(true);
+    setImageSearchResults(null);
+    setImageSearchAnalysis(null);
+    setImageSearchError(null);
+
+    try {
+      if (mode === 'cloud') {
+        const response = await fetch('/api/public-ai/search-by-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image: base64 })
+        });
+        const resData = await response.json();
+        if (resData.success) {
+          setImageSearchResults(resData.matches);
+          setImageSearchAnalysis(resData.analysis);
+        } else {
+          setImageSearchError(resData.error || 'Failed to search catalog.');
+        }
+      } else {
+        // Local Visual Search Engine
+        // 1. Fetch entire catalog to ensure full offline search index is populated
+        const allCatalogRes = await storeService.getProducts(1, 1000, { publicOnly: !isAdmin });
+        const allCatalog = allCatalogRes.items || [];
+        
+        // 2. Ensure model has been trained
+        const status = localAIVisualEngine.getStatus();
+        if (!status.isTrained) {
+          setTrainingProgress(0);
+          await localAIVisualEngine.train(allCatalog, (pct) => setTrainingProgress(pct));
+          setTrainingProgress(null);
+          setLocalStatus(localAIVisualEngine.getStatus());
+        }
+
+        // 3. Match offline using visual characteristics, aspect analysis, and target category lock
+        const localResults = await localAIVisualEngine.searchByImage(base64, allCatalog, category);
+        setImageSearchResults(localResults.matches);
+        setImageSearchAnalysis(localResults.analysis);
+      }
+    } catch (err: any) {
+      setImageSearchError(err.message || 'An unexpected error occurred during search.');
+    } finally {
+      setIsSearchingImage(false);
+      setTrainingProgress(null);
+    }
+  };
+
+  // Re-run search if user switches mode or changes the design category filter while an image is loaded
+  useEffect(() => {
+    if (searchImageBase64) {
+      performImageSearch(searchImageBase64, searchMode, imageSearchCategory);
+    }
+  }, [searchMode, imageSearchCategory]);
+
   const handleImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
       setImageSearchError('Please select a valid image file.');
       return;
     }
     setImageSearchError(null);
-    setIsSearchingImage(true);
-    setImageSearchResults(null);
-    setImageSearchAnalysis(null);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
       const base64 = e.target?.result as string;
       setSearchImageBase64(base64);
-      
-      try {
-        if (searchMode === 'cloud') {
-          const response = await fetch('/api/public-ai/search-by-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64Image: base64 })
-          });
-          const resData = await response.json();
-          if (resData.success) {
-            setImageSearchResults(resData.matches);
-            setImageSearchAnalysis(resData.analysis);
-          } else {
-            setImageSearchError(resData.error || 'Failed to search catalog.');
-          }
-        } else {
-          // Local Visual Search Engine
-          // 1. Fetch entire catalog to ensure full offline search index is populated
-          const allCatalogRes = await storeService.getProducts(1, 1000, { publicOnly: !isAdmin });
-          const allCatalog = allCatalogRes.items || [];
-          
-          // 2. Ensure model has been trained
-          const status = localAIVisualEngine.getStatus();
-          if (!status.isTrained) {
-            setTrainingProgress(0);
-            await localAIVisualEngine.train(allCatalog, (pct) => setTrainingProgress(pct));
-            setTrainingProgress(null);
-            setLocalStatus(localAIVisualEngine.getStatus());
-          }
-
-          // 3. Match offline using visual characteristics and aspect analysis
-          const localResults = await localAIVisualEngine.searchByImage(base64, allCatalog);
-          setImageSearchResults(localResults.matches);
-          setImageSearchAnalysis(localResults.analysis);
-        }
-      } catch (err: any) {
-        setImageSearchError(err.message || 'An unexpected error occurred during search.');
-      } finally {
-        setIsSearchingImage(false);
-        setTrainingProgress(null);
-      }
+      performImageSearch(base64, searchMode, imageSearchCategory);
     };
     reader.readAsDataURL(file);
   };
@@ -751,6 +764,32 @@ export const Gallery: React.FC = () => {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Category Lock Pills */}
+            <div className="px-6 py-2.5 bg-stone-50/50 border-b border-stone-100 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0" id="image-search-category-lock">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 whitespace-nowrap">Category Lock:</span>
+              <div className="flex gap-1.5">
+                {[
+                  { value: 'all', label: 'All Designs' },
+                  { value: 'ring', label: 'Rings' },
+                  { value: 'necklace', label: 'Necklaces' },
+                  { value: 'bangle', label: 'Bangles & Kadas' },
+                  { value: 'earring', label: 'Earrings' }
+                ].map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => setImageSearchCategory(cat.value)}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all whitespace-nowrap ${
+                      imageSearchCategory === cat.value
+                        ? 'bg-brand-gold text-white border-brand-gold shadow-sm font-semibold'
+                        : 'bg-white text-stone-600 border-stone-200 hover:text-brand-dark hover:border-stone-300'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Content */}

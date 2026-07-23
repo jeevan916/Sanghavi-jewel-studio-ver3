@@ -25,6 +25,7 @@ export interface VisualFingerprint {
 export interface MultimodalDescriptor {
   productId: string;
   visual: VisualFingerprint | null;
+  visuals?: VisualFingerprint[]; // Support for multiple image angles per product
   metaKeywords: number[]; // Presence/frequency of key design terms
 }
 
@@ -247,32 +248,43 @@ class LocalAIVisualEngine {
 
   /**
    * Scan and train the local engine on the entire store catalog
-   * Uses progress callback to update the UI
+   * Analyzes all available image angles/thumbnails for every product to build a multi-view visual descriptor
    */
   public async train(products: Product[], onProgress?: (percent: number) => void): Promise<number> {
-    console.log(`🧠 [Local AI] Starting visual learning on ${products.length} catalog items...`);
+    console.log(`🧠 [Local AI] Starting multi-angle visual learning on ${products.length} catalog items...`);
     let completed = 0;
 
     for (const product of products) {
       const metaKeywords = this.extractMetadataFingerprint(product);
-      let visual: VisualFingerprint | null = null;
+      const visuals: VisualFingerprint[] = [];
 
-      // Try extracting real visual descriptors from image thumbnail
-      if (product.thumbnails && product.thumbnails[0]) {
-        try {
-          const imgUrl = storeService.getImageUrl(product.thumbnails[0]);
-          visual = await this.extractVisualFingerprint(imgUrl);
-        } catch (e) {
-          // Fallback to high-fidelity synthetic descriptor if image can't be fetched (CORS or offline)
-          visual = this.createSyntheticFingerprint(product);
+      // Extract all available thumbnails and images for different angles of the product
+      const targetImages = product.thumbnails && product.thumbnails.length > 0
+        ? product.thumbnails
+        : (product.images && product.images.length > 0 ? product.images : []);
+
+      if (targetImages.length > 0) {
+        // Learn characteristics of every angle image
+        for (let idx = 0; idx < targetImages.length; idx++) {
+          try {
+            const imgUrl = storeService.getImageUrl(targetImages[idx]);
+            const fingerprint = await this.extractVisualFingerprint(imgUrl);
+            visuals.push(fingerprint);
+          } catch (e) {
+            console.warn(`Failed extracting fingerprint for product ${product.id} angle ${idx}`, e);
+          }
         }
-      } else {
-        visual = this.createSyntheticFingerprint(product);
+      }
+
+      // Fallback to high-fidelity synthetic descriptor if no real images could be parsed
+      if (visuals.length === 0) {
+        visuals.push(this.createSyntheticFingerprint(product));
       }
 
       this.index.set(product.id, {
         productId: product.id,
-        visual,
+        visual: visuals[0] || null, // Fallback for single image compat
+        visuals: visuals,           // Stores multiple learned angles
         metaKeywords
       });
 
@@ -284,34 +296,41 @@ class LocalAIVisualEngine {
 
     this.isTrained = true;
     this.saveIndexToCache();
-    console.log(`✨ [Local AI] Training completed! Fully indexed ${this.index.size} visual styles.`);
+    console.log(`✨ [Local AI] Training completed! Fully indexed ${this.index.size} visual styles with multi-angle support.`);
     return this.index.size;
   }
 
   /**
-   * Calculate Cosine Similarity between two numeric vectors
+   * Calculate Weighted Cosine Similarity between two numeric vectors using a spatial weight map
    */
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
+  private weightedCosineSimilarity(vecA: number[], vecB: number[], weights: number[]): number {
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;
+    
     for (let i = 0; i < vecA.length; i++) {
-      dotProduct += vecA[i] * vecB[i];
-      normA += vecA[i] * vecA[i];
-      normB += vecB[i] * vecB[i];
+      const w = weights[i] !== undefined ? weights[i] : 1.0;
+      const valA = vecA[i] * w;
+      const valB = vecB[i] * w;
+      
+      dotProduct += valA * valB;
+      normA += valA * valA;
+      normB += valB * valB;
     }
+    
     return normA && normB ? dotProduct / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
   }
 
   /**
    * Search catalog instantly using the trained Local Index
+   * Compares the query image to all learned angles of every product, selecting the best matching angle.
    */
   public async searchByImage(
     queryBase64: string, 
-    products: Product[]
+    products: Product[],
+    categoryFilter?: string // Optional target category filter to lock category matching
   ): Promise<{ matches: ImageSearchMatch[]; analysis: string }> {
     if (!this.isTrained || this.index.size === 0) {
-      // Auto-train on-the-fly with a fallback if not trained yet
       await this.train(products);
     }
 
@@ -321,48 +340,168 @@ class LocalAIVisualEngine {
     // 2. Predict visual characteristics to provide immediate analysis feedback
     const analysis = this.generateLocalAnalysis(queryFingerprint);
 
+    // 3. Generate Spatial Center Weighting Map (12x12 grid)
+    // Centered at (5.5, 5.5). Cells at the center get 5.0x weight, borders get down to 0.1x.
+    // This suppresses background "visible environment image" completely.
+    const weights: number[] = [];
+    const gridSize = 12;
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) {
+        const distToCenter = Math.sqrt(Math.pow(x - 5.5, 2) + Math.pow(y - 5.5, 2));
+        const weight = Math.max(0.1, 5.0 * Math.exp(-0.35 * distToCenter));
+        weights.push(weight);
+      }
+    }
+
+    // 4. Extract Query Metal and Gemstone Signatures from Foreground
+    let queryGoldCount = 0;
+    let queryWhiteCount = 0;
+    let queryColoredGemCount = 0;
+    let foregroundPixels = 0;
+
+    if (queryFingerprint) {
+      for (let i = 0; i < queryFingerprint.r.length; i++) {
+        // Focus heavily on the foreground center-weight area
+        if (weights[i] > 1.5) {
+          foregroundPixels++;
+          const r = queryFingerprint.r[i];
+          const g = queryFingerprint.g[i];
+          const b = queryFingerprint.b[i];
+
+          // Gold hue detection (rich yellow/warm golden pixels)
+          if (r > 0.45 && g > 0.35 && b < g * 0.82 && r > g) {
+            queryGoldCount++;
+          }
+          // White metal / brilliant diamond sparkle detection
+          else if (r > 0.72 && g > 0.72 && b > 0.72 && Math.abs(r - g) < 0.12 && Math.abs(g - b) < 0.12) {
+            queryWhiteCount++;
+          }
+          // Colored gemstones (Emerald, Ruby, Sapphire, etc.)
+          else if ((g > r * 1.25 && g > b * 1.25) || (r > g * 1.25 && r > b * 1.25) || (b > r * 1.25 && b > g * 1.25)) {
+            queryColoredGemCount++;
+          }
+        }
+      }
+    }
+
+    const queryHasGoldSignature = queryGoldCount / (foregroundPixels || 1) > 0.12;
+    const queryHasDiamondSignature = queryWhiteCount / (foregroundPixels || 1) > 0.15;
+    const queryHasGemstoneSignature = queryColoredGemCount / (foregroundPixels || 1) > 0.08;
+
+    // 5. Predict category offline based on the query fingerprint to allow smart auto-boosting
+    let predictedCategory = '';
+    if (queryFingerprint) {
+      const aspect = queryFingerprint.aspectRatio;
+      const avgEdge = queryFingerprint.edges.reduce((sum, v) => sum + v, 0) / queryFingerprint.edges.length;
+      
+      if (aspect > 1.25) {
+        predictedCategory = 'bangle';
+      } else if (aspect < 0.78) {
+        predictedCategory = 'necklace';
+      } else {
+        if (avgEdge > 0.28) {
+          predictedCategory = 'ring';
+        } else {
+          predictedCategory = 'earring';
+        }
+      }
+    }
+
     const matches: ImageSearchMatch[] = [];
 
-    // 3. Score every item in the index
+    // 6. Score every item in the index
     for (const [productId, desc] of this.index.entries()) {
       const product = products.find(p => p.id === productId);
       if (!product) continue;
 
-      let visualScore = 0;
-      let reasonDetails: string[] = [];
-
-      if (desc.visual && queryFingerprint) {
-        // Compute individual visual similarity features
-        const colorSimilarityR = this.cosineSimilarity(queryFingerprint.r, desc.visual.r);
-        const colorSimilarityG = this.cosineSimilarity(queryFingerprint.g, desc.visual.g);
-        const colorSimilarityB = this.cosineSimilarity(queryFingerprint.b, desc.visual.b);
-        const colorSimilarity = (colorSimilarityR + colorSimilarityG + colorSimilarityB) / 3;
-
-        const edgeSimilarity = this.cosineSimilarity(queryFingerprint.edges, desc.visual.edges);
-        const lumSimilarity = this.cosineSimilarity(queryFingerprint.l, desc.visual.l);
-        
-        // Aspect ratio match factor (ranges from 0 to 1)
-        const aspectDiff = Math.abs(queryFingerprint.aspectRatio - desc.visual.aspectRatio);
-        const aspectSimilarity = Math.max(0, 1 - aspectDiff);
-
-        // Weighted visual score: 40% Color palette, 30% Sparkle/Lum distribution, 20% Detail/Edges, 10% Silhouette/Aspect
-        visualScore = (colorSimilarity * 0.40) + (lumSimilarity * 0.30) + (edgeSimilarity * 0.20) + (aspectSimilarity * 0.10);
-
-        if (colorSimilarity > 0.92) reasonDetails.push("shares matching metal color tones");
-        if (lumSimilarity > 0.90) reasonDetails.push("corresponds to similar brilliant light reflections");
-        if (edgeSimilarity > 0.88) reasonDetails.push("possesses similar intricate style density");
+      // Force filter matching if category filter is selected
+      const prodCat = (product.category || '').toLowerCase();
+      if (categoryFilter && categoryFilter !== 'all') {
+        const filterCat = categoryFilter.toLowerCase();
+        if (!prodCat.includes(filterCat) && !filterCat.includes(prodCat)) {
+          // Skip if does not match selected filter category
+          continue;
+        }
       }
 
-      // 4. Compare visual attributes to synthesize a conceptual match reason
+      let visualScore = 0;
+      let maxScoreForProduct = 0;
+      let bestReasonDetails: string[] = [];
+
+      // Compare query against all learned image angles of this product
+      const fingerPrintsToMatch = desc.visuals && desc.visuals.length > 0
+        ? desc.visuals
+        : (desc.visual ? [desc.visual] : []);
+
+      if (fingerPrintsToMatch.length > 0 && queryFingerprint) {
+        for (const fp of fingerPrintsToMatch) {
+          const colorSimilarityR = this.weightedCosineSimilarity(queryFingerprint.r, fp.r, weights);
+          const colorSimilarityG = this.weightedCosineSimilarity(queryFingerprint.g, fp.g, weights);
+          const colorSimilarityB = this.weightedCosineSimilarity(queryFingerprint.b, fp.b, weights);
+          const colorSimilarity = (colorSimilarityR + colorSimilarityG + colorSimilarityB) / 3;
+
+          const edgeSimilarity = this.weightedCosineSimilarity(queryFingerprint.edges, fp.edges, weights);
+          const lumSimilarity = this.weightedCosineSimilarity(queryFingerprint.l, fp.l, weights);
+          
+          const aspectDiff = Math.abs(queryFingerprint.aspectRatio - fp.aspectRatio);
+          const aspectSimilarity = Math.max(0, 1 - aspectDiff * 1.5);
+
+          // Combined visual score for this specific angle
+          const scoreForAngle = (colorSimilarity * 0.40) + (lumSimilarity * 0.30) + (edgeSimilarity * 0.20) + (aspectSimilarity * 0.10);
+          
+          if (scoreForAngle > maxScoreForProduct) {
+            maxScoreForProduct = scoreForAngle;
+            
+            bestReasonDetails = [];
+            if (colorSimilarity > 0.88) bestReasonDetails.push("shares matching gold metal undertones");
+            if (lumSimilarity > 0.85) bestReasonDetails.push("corresponds to similar brilliant light facets");
+            if (edgeSimilarity > 0.85) bestReasonDetails.push("possesses similar design pattern density");
+          }
+        }
+
+        visualScore = maxScoreForProduct;
+
+        // Apply Gold Signature correlation bonus
+        const prodTags = ((product.tags || []).join(' ') + ' ' + (product.title || '') + ' ' + (product.category || '')).toLowerCase();
+        let signatureBonus = 1.0;
+
+        if (queryHasGoldSignature) {
+          if (prodTags.includes('gold') || prodTags.includes('yellow gold') || prodTags.includes('karat')) {
+            signatureBonus += 0.08;
+          } else {
+            signatureBonus -= 0.05;
+          }
+        }
+        if (queryHasDiamondSignature) {
+          if (prodTags.includes('diamond') || prodTags.includes('solitaire') || prodTags.includes('pave')) {
+            signatureBonus += 0.08;
+          }
+        }
+        if (queryHasGemstoneSignature) {
+          if (prodTags.includes('emerald') || prodTags.includes('ruby') || prodTags.includes('sapphire') || prodTags.includes('gemstone')) {
+            signatureBonus += 0.10;
+          }
+        }
+
+        // Apply automatic predicted category-matching boost if no explicit category lock is set
+        if (!categoryFilter || categoryFilter === 'all') {
+          if (predictedCategory && prodCat.includes(predictedCategory)) {
+            signatureBonus += 0.15; // 15% bonus for matching predicted category type!
+          }
+        }
+
+        visualScore = Math.min(1.0, visualScore * signatureBonus);
+      }
+
+      // 7. Compare visual attributes to synthesize a conceptual match reason
       let finalScore = Math.round(visualScore * 100);
       
-      // Safety bounds for percentages
-      if (finalScore > 98) finalScore = 98; // Leave absolute 100% for exact pixel identity
+      if (finalScore > 98) finalScore = 98;
       if (finalScore < 10) finalScore = 10;
 
       let matchedConcept = "aesthetic design matching";
-      if (reasonDetails.length > 0) {
-        matchedConcept = `highly similar match which ${reasonDetails.join(' and ')}`;
+      if (bestReasonDetails.length > 0) {
+        matchedConcept = `close match which ${bestReasonDetails.join(' and ')}`;
       } else {
         matchedConcept = "displays overlapping visual lines and silhouette composition";
       }
@@ -378,17 +517,13 @@ class LocalAIVisualEngine {
     // Sort by highest matching score
     const rankedMatches = matches
       .sort((a, b) => b.score - a.score)
-      .slice(0, 10); // Top 10 matches
+      .slice(0, 10);
 
     return {
       matches: rankedMatches,
       analysis
     };
   }
-
-  /**
-   * Synthesize descriptive insight from the visual fingerprint features alone
-   */
   private generateLocalAnalysis(fp: VisualFingerprint): string {
     // Determine metal color family from R, G, B bins
     const avgR = fp.r.reduce((sum, v) => sum + v, 0) / fp.r.length;
