@@ -53,6 +53,17 @@ export const SecurityLayer: React.FC = () => {
   const location = useLocation();
   const [isProtectedState, setIsProtectedState] = useState(false);
   const [isCapturingAttempted, setIsCapturingAttempted] = useState(false);
+  const [showReloadAlert, setShowReloadAlert] = useState(true);
+
+  // Trigger alert on every load/refresh
+  useEffect(() => {
+    try {
+      // Direct window.alert as requested
+      window.alert("!!! Screenshot are prohibited 🚫!!!");
+    } catch (e) {
+      console.warn("Native alert blocked by iframe sandbox, falling back to custom modal alert.", e);
+    }
+  }, []);
 
   // Monitor visibility, keyboard shortcuts, and screen capture signals
   useEffect(() => {
@@ -159,6 +170,43 @@ export const SecurityLayer: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Reload & Refresh Screenshot Prohibition Warning Alert Modal */}
+      {showReloadAlert && (
+        <div 
+          id="reload-screenshot-warning-modal"
+          className="fixed inset-0 bg-stone-950/85 backdrop-blur-xl z-[9999999] flex items-center justify-center p-4"
+        >
+          <div className="bg-stone-900 border border-brand-gold/30 p-8 rounded-3xl max-w-md w-full text-center space-y-6 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-brand-gold" />
+            
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/30">
+                <span className="text-3xl">🚫</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xl md:text-2xl font-serif font-bold text-brand-gold tracking-wide leading-tight uppercase">
+                Security Alert
+              </h3>
+              <p className="text-stone-100 font-medium font-sans text-base leading-relaxed tracking-wide">
+                !!! Screenshot are prohibited 🚫!!!
+              </p>
+              <p className="text-stone-400 font-sans text-xs leading-relaxed">
+                Sanghavi Jewel Studio is an enterprise luxury jewelry environment. Direct screenshot captures, screen recordings, and page dumps are strictly prohibited under proprietary design policies.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowReloadAlert(false)}
+              className="w-full py-3 bg-brand-gold hover:bg-brand-gold/90 text-stone-950 font-bold uppercase tracking-widest text-xs rounded-xl active:scale-95 transition-all shadow-lg hover:shadow-brand-gold/20"
+            >
+              Ok
+            </button>
+          </div>
         </div>
       )}
     </>

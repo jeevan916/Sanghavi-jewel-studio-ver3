@@ -34,15 +34,46 @@ export async function executeGoldRateBroadcast(pool) {
     }
 
     const nowMs = Date.now();
-    // Guard against duplicate triggers within 2 minutes (120,000 ms)
-    if (nowMs - lastBroadcastTime < 120000) {
+    // 1. Memory Guard: Prevent duplicate triggers within 5 minutes (300,000 ms) in the same process
+    if (nowMs - lastBroadcastTime < 300000) {
         console.log('[WhatsApp] Broadcast skipped: Cooldown active to prevent duplicate messages.');
         return { 
             success: true, 
             sentCount: 0, 
             subscriberCount: 0, 
-            message: 'Broadcast skipped: Cooldown active (last broadcast ran less than 2 minutes ago)' 
+            message: 'Broadcast skipped: Cooldown active (last broadcast ran less than 5 minutes ago)' 
         };
+    }
+
+    // 2. Database Atomic Lock Guard: Prevent concurrent triggers across multiple Node processes or containers
+    try {
+        const nowString = new Date().toISOString().slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS
+        
+        // Ensure system_settings has the key "lastGoldRateBroadcastAt"
+        await pool.query('INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ("lastGoldRateBroadcastAt", "1970-01-01 00:00:00")');
+        
+        // Try to update system_settings, enforcing that the previous broadcast timestamp was at least 5 minutes ago
+        const [updateResult] = await pool.query(
+            `UPDATE system_settings 
+             SET setting_value = ? 
+             WHERE setting_key = "lastGoldRateBroadcastAt" 
+               AND (setting_value IS NULL 
+                    OR setting_value = '1970-01-01 00:00:00' 
+                    OR STR_TO_DATE(setting_value, '%Y-%m-%d %H:%i:%s') < NOW() - INTERVAL 5 MINUTE)`,
+            [nowString]
+        );
+
+        if (updateResult && updateResult.affectedRows === 0) {
+            console.log('[WhatsApp] Broadcast skipped: Database-backed lock check indicates another server instance recently ran the broadcast.');
+            return { 
+                success: true, 
+                sentCount: 0, 
+                subscriberCount: 0, 
+                message: 'Broadcast skipped: Database-backed lock indicates broadcast already executed recently by another instance.' 
+            };
+        }
+    } catch (lockError) {
+        console.warn('[WhatsApp] Database-backed lock check failed/skipped. Falling back to memory lock.', lockError.message);
     }
 
     isBroadcastInProgress = true;
