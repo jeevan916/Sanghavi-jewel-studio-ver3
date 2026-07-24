@@ -53,21 +53,6 @@ export const SecurityLayer: React.FC = () => {
   const location = useLocation();
   const [isProtectedState, setIsProtectedState] = useState(false);
   const [isCapturingAttempted, setIsCapturingAttempted] = useState(false);
-  const [showReloadAlert, setShowReloadAlert] = useState(true);
-  const [isBlackoutActive, setIsBlackoutActive] = useState(true);
-
-  // Trigger alert on every load/refresh with a slight deferral to avoid blocking React mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        // Direct window.alert as requested
-        window.alert("!!! Screenshot are prohibited 🚫!!!");
-      } catch (e) {
-        console.warn("Native alert blocked by iframe sandbox, falling back to custom modal alert.", e);
-      }
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Monitor visibility, keyboard shortcuts, and screen capture signals
   useEffect(() => {
@@ -172,71 +157,6 @@ export const SecurityLayer: React.FC = () => {
               <div style={{ fontSize: '13px', color: '#a8a29e', marginTop: '6px' }}>
                 Direct screenshot capture is disabled for sensitive studio items.
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Opaque Security Policy Black Screen for initialization protection */}
-      {isBlackoutActive && (
-        <div 
-          id="reload-security-blackout-screen"
-          className={`fixed inset-0 bg-black z-[9999999] flex flex-col items-center justify-center p-4 transition-all duration-500 ${
-            showReloadAlert ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          {/* Subtle background placeholder elements on the black screen to make it feel premium */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center opacity-10 select-none pointer-events-none">
-            <span className="text-9xl mb-4">🔒</span>
-            <div className="text-xl font-serif tracking-widest text-brand-gold uppercase">SANGHAVI JEWEL STUDIO</div>
-            <div className="text-xs font-sans tracking-widest text-stone-400 mt-2">SECURE SHIELD BUFFER ACTIVE</div>
-          </div>
-
-          {/* Reload & Refresh Screenshot Prohibition Warning Alert Modal */}
-          {showReloadAlert && (
-            <div 
-              id="reload-screenshot-warning-modal"
-              className="bg-stone-900 border border-brand-gold/30 p-8 rounded-3xl max-w-md w-full text-center space-y-6 shadow-2xl relative overflow-hidden z-[10000000] transform transition-all duration-300 scale-100"
-            >
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-brand-gold" />
-              
-              <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/30">
-                  <span className="text-3xl">🚫</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-xl md:text-2xl font-serif font-bold text-brand-gold tracking-wide leading-tight uppercase">
-                  Security Alert
-                </h3>
-                <p className="text-stone-100 font-medium font-sans text-base leading-relaxed tracking-wide">
-                  !!! Screenshot are prohibited 🚫!!!
-                </p>
-                <p className="text-stone-400 font-sans text-xs leading-relaxed">
-                  Sanghavi Jewel Studio is an enterprise luxury jewelry environment. Direct screenshot captures, screen recordings, and page dumps are strictly prohibited under proprietary design policies.
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  if (document.body) {
-                    document.body.focus();
-                  }
-                  // 1. Close the alert popup first
-                  setShowReloadAlert(false);
-                  
-                  // 2. Disappear the black screen after a short delay (e.g., 400ms) to give a gorgeous progressive reveal
-                  setTimeout(() => {
-                    setIsBlackoutActive(false);
-                  }, 400);
-
-                  window.focus();
-                }}
-                className="w-full py-3 bg-brand-gold hover:bg-brand-gold/90 text-stone-950 font-bold uppercase tracking-widest text-xs rounded-xl active:scale-95 transition-all shadow-lg hover:shadow-brand-gold/20 relative z-[10000001]"
-              >
-                Ok
-              </button>
             </div>
           )}
         </div>

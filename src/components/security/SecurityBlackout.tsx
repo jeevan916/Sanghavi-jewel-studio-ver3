@@ -6,6 +6,7 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
     const [isBlackout, setIsBlackout] = useState(false);
     const passwordRef = useRef<HTMLInputElement>(null);
     const location = useLocation();
+    const isAlertingRef = useRef(false);
 
     const maintainFocus = () => {
         const active = document.activeElement;
@@ -45,38 +46,15 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
             }
         };
 
-        const handleBlur = () => {
+        const triggerAlertBlackout = (actionName?: string) => {
+            if (isAlertingRef.current) return;
+            isAlertingRef.current = true;
             setIsBlackout(true);
-        };
-        const handleFocus = () => {
-            setIsBlackout(false);
-            maintainFocus();
-        };
-        const handleVisibilityChange = () => {
-            const hidden = document.hidden;
-            setIsBlackout(hidden);
-            if (!hidden) {
-                maintainFocus();
+
+            if (actionName) {
+                logCapture(actionName);
             }
-        };
-        
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // Block PrintScreen key
-            if (e.key === 'PrintScreen') {
-                logCapture('print_screen_key');
-                triggerBlackout();
-            }
-            // Block Mac/Windows screen snip shortcuts (Cmd/Ctrl + Shift + 3,4,5,S)
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
-                if (['3', '4', '5', 's', 'S'].includes(e.key)) {
-                    logCapture('shortcut_key_' + e.key);
-                    triggerBlackout();
-                }
-            }
-        };
-        
-        const triggerBlackout = () => {
-            setIsBlackout(true);
+
             try {
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText('');
@@ -84,11 +62,43 @@ export const SecurityBlackout: React.FC<{ user: any }> = ({ user }) => {
             } catch (e) {
                 // Ignore clipboard errors
             }
+
             setTimeout(() => {
-                if (document.hasFocus()) {
+                try {
+                    window.alert("!!! Screenshot are prohibited 🚫!!!");
+                } catch (e) {
+                    console.warn("Native alert blocked by iframe sandbox.", e);
+                } finally {
                     setIsBlackout(false);
+                    setTimeout(() => {
+                        isAlertingRef.current = false;
+                        maintainFocus();
+                    }, 300);
                 }
-            }, 3000);
+            }, 50);
+        };
+
+        const handleBlur = () => {
+            triggerAlertBlackout('blur');
+        };
+        const handleFocus = () => {
+            triggerAlertBlackout('focus');
+        };
+        const handleVisibilityChange = () => {
+            triggerAlertBlackout('visibilitychange');
+        };
+        
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Block PrintScreen key
+            if (e.key === 'PrintScreen') {
+                triggerAlertBlackout('print_screen_key');
+            }
+            // Block Mac/Windows screen snip shortcuts (Cmd/Ctrl + Shift + 3,4,5,S)
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
+                if (['3', '4', '5', 's', 'S'].includes(e.key)) {
+                    triggerAlertBlackout('shortcut_key_' + e.key);
+                }
+            }
         };
 
         window.addEventListener('blur', handleBlur);
