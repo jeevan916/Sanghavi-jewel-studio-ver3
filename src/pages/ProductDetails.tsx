@@ -63,34 +63,7 @@ export const ProductDetails: React.FC = () => {
     };
   }, [product, isLoading]);
 
-  useEffect(() => {
-     if (!product) return; 
-
-     const handleKeyDown = (e: KeyboardEvent) => {
-       if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && ['3','4','5','s'].includes(e.key.toLowerCase()))) {
-          storeService.logEvent('screenshot', product, undefined, { meta: { method: 'keyboard' } });
-       }
-     };
-     
-     const handleCopy = () => {
-        storeService.logEvent('screenshot', product, undefined, { meta: { method: 'copy' } });
-     };
-
-      const handleVisibilityChange = () => {
-         // Hardware heuristic removed to prevent false positives when swiping on mobile browsers.
-     };
-
-     window.addEventListener('keydown', handleKeyDown);
-     document.addEventListener('copy', handleCopy);
-     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-     return () => {
-       window.removeEventListener('keydown', handleKeyDown);
-       document.removeEventListener('copy', handleCopy);
-       document.removeEventListener('visibilitychange', handleVisibilityChange);
-     }
-  }, [product]);
-
+  // Product analytics & tracking without intrusive screenshot key listeners
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});

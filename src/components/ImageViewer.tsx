@@ -146,38 +146,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     if (scale !== 1 || pan.x !== 0 || pan.y !== 0) resetView();
     setLoadError(false);
   }, [currentIndex]);
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-        // When a user takes a screenshot with hardware buttons on iOS/Android, 
-        // the OS often briefly interrupts the browser, triggering a hidden state.
-        if (document.visibilityState === 'hidden') {
-            try {
-                const user = JSON.parse(localStorage.getItem('sanghavi_user_session') || '{}');
-                if (user && user.role !== 'admin') {
-                    apiFetch('/analytics', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            type: 'screenshot',
-                            productTitle: title,
-                            userId: user.id || 'unknown',
-                            userName: user.name || 'Anonymous',
-                            userPhone: user.phone,
-                            meta: { method: 'hardware_button_heuristic' }
-                        })
-                    }).catch(() => {});
-                }
-            } catch (e) {}
-        }
-    };
-
-    // Listeners for when the OS overlays the browser
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [title]);
 
   const nextImage = () => {
     resetView(); // Reset immediately before state update to prevent flash

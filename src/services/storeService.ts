@@ -41,9 +41,17 @@ export interface HealthStatus {
 const productCacheMap = new Map<string, { data: any, timestamp: number }>();
 const singleProductCacheMap = new Map<string, { data: Product, timestamp: number }>();
 
+const loadCachedCurated = (): CuratedCollections | null => {
+  try {
+    const item = localStorage.getItem('sanghavi_curated_snapshot');
+    if (item) return JSON.parse(item);
+  } catch (e) {}
+  return null;
+};
+
 const CACHE = {
   products: null as Product[] | null,
-  curated: null as CuratedCollections | null,
+  curated: loadCachedCurated() as CuratedCollections | null,
   config: null as AppConfig | null,
   lastFetch: 0,
   goldRate: null as { k22: number, k24: number, lastFetch: number } | null
@@ -638,9 +646,14 @@ export const storeService = {
     window.open(`https://wa.me/${customer.phone}`, '_blank');
   },
   getCuratedProducts: async (): Promise<CuratedCollections> => {
-    if (CACHE.curated) return CACHE.curated;
+    if (CACHE.curated && CACHE.curated.latest && CACHE.curated.latest.length > 0) return CACHE.curated;
     const data = await apiFetch('/products/curated').catch(() => ({ latest: [], loved: [], trending: [], ideal: [] }));
-    CACHE.curated = data;
+    if (data && data.latest && data.latest.length > 0) {
+      CACHE.curated = data;
+      try {
+        localStorage.setItem('sanghavi_curated_snapshot', JSON.stringify(data));
+      } catch (e) {}
+    }
     return data;
   },
   getStaff: (): Promise<StaffAccount[]> => apiFetch('/staff').catch(() => []),

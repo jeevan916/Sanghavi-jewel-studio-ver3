@@ -13,6 +13,7 @@ import linksRoutes from './server/routes/links.js';
 import aiRoutes from './server/routes/ai.js';
 import whatsappRoutes, { initWhatsAppScheduler } from './server/routes/whatsapp.js';
 import { initBackupScheduler } from './server/backupService.js';
+import { initCuratedScheduler } from './server/curatedService.js';
 
 import fs, { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, appendFileSync, writeFileSync, readFileSync } from 'fs';
 import os from 'os';
@@ -699,6 +700,7 @@ async function startServer() {
       initDB().then(() => {
         initBackupScheduler();
         initWhatsAppScheduler(pool);
+        initCuratedScheduler(pool, sanitizeProduct, CACHE);
       }).catch(err => {
         console.error('❌ [Sanghavi Studio] Database Initialization Failed:', err);
       });

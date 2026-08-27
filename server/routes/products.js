@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { requireStaff } from '../auth.js';
+import { getCuratedOverview, calculateCuratedOverview } from '../curatedService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,80 +95,35 @@ router.get('/api/products', async (req, res) => {
 
 router.get('/api/products/curated', async (req, res) => {
     try {
-        const now = Date.now();
-        if (CACHE.curated.data && (now - CACHE.curated.lastFetch < CACHE_TTL)) {
-            return res.json(CACHE.curated.data);
+        // Fast-path: Return pre-calculated 03:00 AM server overview snapshot immediately
+        let data = getCuratedOverview(CACHE);
+        if (data) {
+            res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
+            return res.json(data);
         }
 
-        if (DEMO_MODE) {
-            const demoPath = path.join(DATA_ROOT, 'demo_products.json');
-            if (existsSync(demoPath)) {
-                const data = JSON.parse(readFileSync(demoPath, 'utf8'));
-                const demoCurated = {
-                    latest: data,
-                    loved: data,
-                    trending: data,
-                    ideal: data
-                };
-                CACHE.curated.data = demoCurated;
-                CACHE.curated.lastFetch = now;
-                return res.json(demoCurated);
-            }
+        // If not ready yet, calculate once and cache
+        data = await calculateCuratedOverview(pool, sanitizeProduct, CACHE);
+        if (data) {
+            res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
+            return res.json(data);
         }
-        
-        // 1. Latest Arrivals
-        const [latestRows] = await pool.query('SELECT * FROM products WHERE isHidden = 0 ORDER BY createdAt DESC LIMIT 8');
-        
-        // 2. Loved (Most Liked)
-        const [lovedRows] = await pool.query(`
-            SELECT p.*, 
-            (SELECT COUNT(*) FROM analytics a WHERE a.productId = p.id AND a.type = 'like') as likeCount 
-            FROM products p 
-            WHERE p.isHidden = 0 
-            ORDER BY likeCount DESC, p.createdAt DESC 
-            LIMIT 8
-        `);
 
-        // 3. Trending (Weighted score of activity in last 30 days)
-        const [trendingRows] = await pool.query(`
-            SELECT p.*, 
-            (SELECT COALESCE(SUM(
-                CASE 
-                    WHEN a.type = 'inquiry' THEN 5 
-                    WHEN a.type = 'screenshot' THEN 4
-                    WHEN a.type = 'like' THEN 3
-                    WHEN a.type = 'view' THEN 1
-                    ELSE 0 
-                END
-            ), 0) FROM analytics a WHERE a.productId = p.id AND a.timestamp > DATE_SUB(NOW(), INTERVAL 30 DAY)) as activityScore 
-            FROM products p 
-            WHERE p.isHidden = 0 
-            ORDER BY activityScore DESC, p.createdAt DESC 
-            LIMIT 8
-        `);
+        return res.json({ latest: [], loved: [], trending: [], ideal: [] });
+    } catch (e) {
+        console.error('[Products Route] Error serving curated products:', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
-        // 4. Ideal (Random selection to keep it fresh for the user, or fallback to oldest/classic pieces)
-        const [idealRows] = await pool.query(`
-            SELECT * FROM products 
-            WHERE isHidden = 0 
-            ORDER BY createdAt ASC 
-            LIMIT 20
-        `);
-        // Shuffle and pick 4 in memory (much faster than DB ORDER BY RAND())
-        const shuffledIdeal = idealRows.sort(() => 0.5 - Math.random()).slice(0, 4);
-
-        const curated = {
-            latest: latestRows.map(sanitizeProduct),
-            loved: lovedRows.map(sanitizeProduct),
-            trending: trendingRows.map(sanitizeProduct),
-            ideal: shuffledIdeal.map(sanitizeProduct)
-        };
-        
-        CACHE.curated.data = curated;
-        CACHE.curated.lastFetch = now;
-        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-        res.json(curated);
-    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
+router.post('/api/products/curated/recalculate', requireStaff, async (req, res) => {
+    try {
+        const data = await calculateCuratedOverview(pool, sanitizeProduct, CACHE);
+        res.json({ success: true, message: 'Curated overview recalculated and cached successfully', meta: data?.meta });
+    } catch (e) {
+        console.error('[Products Route] Error recalculating curated overview:', e);
+        res.status(500).json({ error: 'Recalculation failed' });
+    }
 });
 
 router.get('/api/products/:id', async (req, res) => {
